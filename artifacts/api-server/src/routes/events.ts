@@ -4,11 +4,13 @@ import {
   appendEvents,
   readEvents,
   saveEvents,
+  saveEventCard,
   saveEventDraft,
   updateEventStatus,
 } from "../lib/storage.js";
 import type { CrawledEvent, EventStatus } from "../lib/storage.js";
 import { generateSocialDraft } from "../lib/draft.js";
+import { generateCardImage } from "../lib/card.js";
 import crypto from "crypto";
 
 const router = Router();
@@ -90,6 +92,7 @@ router.post("/events/manual", async (req, res) => {
       sourceType: "manual",
       status: "draft",
       socialDraft: null,
+      cardImageUrl: null,
       crawledAt: new Date().toISOString(),
     };
 
@@ -153,6 +156,42 @@ router.post("/events/:id/draft", async (req, res) => {
     return res.json({ success: true, id, socialDraft });
   } catch (err) {
     req.log.error({ err }, "SNS 초안 생성 실패");
+    return res.status(500).json({ success: false, error: String(err) });
+  }
+});
+
+router.post("/events/:id/card", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const events = await readEvents();
+    const event = events.find((e) => e.id === id);
+
+    if (!event) {
+      return res.status(404).json({ success: false, error: "이벤트를 찾을 수 없습니다." });
+    }
+    if (event.status !== "approved") {
+      return res.status(400).json({
+        success: false,
+        error: "approved 상태의 이벤트만 카드를 생성할 수 있습니다.",
+      });
+    }
+    if (!event.socialDraft) {
+      return res.status(400).json({
+        success: false,
+        error: "SNS 초안이 먼저 생성되어야 합니다.",
+      });
+    }
+
+    const cardImageUrl = await generateCardImage(event);
+    const saved = await saveEventCard(id, cardImageUrl);
+    if (!saved) {
+      return res.status(500).json({ success: false, error: "카드 정보 저장 실패" });
+    }
+
+    req.log.info({ id, cardImageUrl }, "카드 이미지 생성 완료");
+    return res.json({ success: true, id, cardImageUrl });
+  } catch (err) {
+    req.log.error({ err }, "카드 이미지 생성 실패");
     return res.status(500).json({ success: false, error: String(err) });
   }
 });

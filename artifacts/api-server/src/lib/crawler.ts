@@ -165,6 +165,7 @@ function parseRssXml(xml: string, sourceName: string): CrawledEvent[] {
       sourceType: "rss" as SourceType,
       status: "draft",
       socialDraft: null,
+      cardImageUrl: null,
       crawledAt: new Date().toISOString(),
     });
   }
@@ -263,6 +264,7 @@ function parseHtml(
         sourceType: "html" as SourceType,
         status: "draft",
         socialDraft: null,
+        cardImageUrl: null,
         crawledAt: new Date().toISOString(),
       });
     });

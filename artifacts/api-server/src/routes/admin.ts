@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { readEvents } from "../lib/storage.js";
-import type { SourceType, EventStatus, SocialDraft } from "../lib/storage.js";
+import type { SourceType, EventStatus } from "../lib/storage.js";
 
 const router = Router();
 
@@ -39,17 +39,32 @@ function draftBtn(id: string, hasDraft: boolean): string {
   return `<button class="btn-action btn-sns" onclick="generateDraft('${id}',this)" title="SNS 초안 생성">✍️</button>`;
 }
 
-function actionButtons(id: string, status: EventStatus, hasDraft: boolean): string {
+function cardBtn(id: string, hasDraft: boolean, cardUrl: string | null): string {
+  if (!hasDraft) return "";
+  if (cardUrl) {
+    return `<button class="btn-action btn-card has-card" onclick="openCardModal('${id}')" title="카드 확인">🖼</button>`;
+  }
+  return `<button class="btn-action btn-card" onclick="generateCard('${id}',this)" title="카드뉴스 생성">🖼</button>`;
+}
+
+function actionButtons(
+  id: string,
+  status: EventStatus,
+  hasDraft: boolean,
+  cardUrl: string | null,
+): string {
   const approveDisabled = status === "approved" ? "disabled" : "";
   const rejectDisabled  = status === "rejected"  ? "disabled" : "";
   const draftDisabled   = status === "draft"     ? "disabled" : "";
-  const sns = status === "approved" ? draftBtn(id, hasDraft) : "";
+  const sns  = status === "approved" ? draftBtn(id, hasDraft) : "";
+  const card = status === "approved" ? cardBtn(id, hasDraft, cardUrl) : "";
   return `
     <div class="action-btns">
       <button class="btn-action btn-approve" onclick="setStatus('${id}','approved',this)" ${approveDisabled} title="발행 승인">✓</button>
       <button class="btn-action btn-reject"  onclick="setStatus('${id}','rejected',this)"  ${rejectDisabled}  title="제외">✕</button>
       <button class="btn-action btn-draft-s" onclick="setStatus('${id}','draft',this)"   ${draftDisabled}   title="수집됨으로 되돌리기">↩</button>
       ${sns}
+      ${card}
       <button class="btn-del" onclick="deleteEvent('${id}', this)" title="삭제">🗑</button>
     </div>`;
 }
@@ -60,6 +75,7 @@ function renderAdminPage(events: Awaited<ReturnType<typeof readEvents>>) {
   const draftCount    = events.filter((e) => e.status === "draft").length;
   const rejectedCount = events.filter((e) => e.status === "rejected").length;
   const draftReady    = events.filter((e) => e.socialDraft !== null).length;
+  const cardReady     = events.filter((e) => e.cardImageUrl !== null).length;
 
   const rows = events
     .slice()
@@ -70,18 +86,17 @@ function renderAdminPage(events: Awaited<ReturnType<typeof readEvents>>) {
         ? `<a href="${escHtml(e.link)}" target="_blank" rel="noopener">${escHtml(e.title)}</a>`
         : escHtml(e.title);
       const hasDraft  = e.socialDraft !== null;
-      const draftData = hasDraft
-        ? escHtml(JSON.stringify(e.socialDraft))
-        : "";
+      const draftData = hasDraft ? escHtml(JSON.stringify(e.socialDraft)) : "";
+      const cardUrl   = e.cardImageUrl ?? "";
       return `
-      <tr data-id="${escHtml(e.id)}" data-status="${escHtml(e.status)}" data-draft='${draftData}'>
+      <tr data-id="${escHtml(e.id)}" data-status="${escHtml(e.status)}" data-draft='${draftData}' data-card="${escHtml(cardUrl)}">
         <td class="td-title">${titleCell}</td>
         <td>${escHtml(e.source)}</td>
         <td>${sourceTypeBadge(e.sourceType)}</td>
         <td>${statusBadge(e.status)}</td>
         <td>${escHtml(dateStr)}</td>
         <td>${escHtml(new Date(e.crawledAt).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" }))}</td>
-        <td>${actionButtons(e.id, e.status, hasDraft)}</td>
+        <td>${actionButtons(e.id, e.status, hasDraft, e.cardImageUrl)}</td>
       </tr>`;
     })
     .join("");
@@ -124,7 +139,8 @@ function renderAdminPage(events: Awaited<ReturnType<typeof readEvents>>) {
     .stat-draft .num    { color: #b7791f; }
     .stat-approved .num { color: #276749; }
     .stat-rejected .num { color: #c53030; }
-    .stat-sns .num      { color: #553c9a; }
+    .stat-sns .num        { color: #553c9a; }
+    .stat-card-ready .num { color: #0694a2; }
 
     /* section */
     .section { background: #fff; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); margin-bottom: 20px; overflow: hidden; }
@@ -153,6 +169,10 @@ function renderAdminPage(events: Awaited<ReturnType<typeof readEvents>>) {
     .btn-sns:hover:not(:disabled)      { background: #e9d8fd; }
     .btn-sns.has-draft { background: #553c9a; color: #fff; border-color: #553c9a; }
     .btn-sns.has-draft:hover           { background: #44337a; }
+    .btn-card      { background: #e6fffa; color: #0694a2; border: 1px solid #b2f5ea; width: auto; padding: 0 8px; font-size: 0.7rem; }
+    .btn-card:hover:not(:disabled)     { background: #b2f5ea; }
+    .btn-card.has-card { background: #0694a2; color: #fff; border-color: #0694a2; }
+    .btn-card.has-card:hover           { background: #047481; }
     .btn-del { background: #f7fafc; color: #718096; border: 1px solid #e2e8f0; width: 26px; height: 26px; padding: 0; border-radius: 5px; font-size: 0.8rem; display: flex; align-items: center; justify-content: center; }
     .btn-del:hover { background: #fed7d7; color: #c53030; border-color: #fed7d7; }
 
@@ -218,6 +238,41 @@ function renderAdminPage(events: Awaited<ReturnType<typeof readEvents>>) {
     .summary-list .err { color: #c53030; }
     .summary-list .ok  { color: #276749; }
 
+    /* ── Card Modal ──────────────────────────────────────────────────────── */
+    .card-modal-backdrop {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.55); z-index: 1100;
+      align-items: center; justify-content: center;
+    }
+    .card-modal-backdrop.open { display: flex; }
+    .card-modal {
+      background: #fff; border-radius: 16px; width: 520px; max-width: calc(100vw - 32px);
+      max-height: 90vh; overflow-y: auto;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    .card-preview-wrap {
+      width: 100%; aspect-ratio: 1; overflow: hidden; border-radius: 0 0 0 0;
+      background: #0a2540; position: relative;
+    }
+    .card-preview-wrap img {
+      width: 100%; height: 100%; object-fit: cover;
+      display: block;
+    }
+    .card-preview-placeholder {
+      width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+      color: rgba(255,255,255,0.4); font-size: 3rem;
+    }
+    .card-modal-info { padding: 20px 22px; }
+    .card-modal-info h4 { font-size: 0.95rem; font-weight: 700; color: #1a202c; margin-bottom: 8px; }
+    .card-modal-info p  { font-size: 0.82rem; color: #718096; line-height: 1.5; }
+    .card-modal-footer { padding: 14px 22px; border-top: 1px solid #e2e8f0; display: flex; gap: 8px; justify-content: flex-end; }
+    #card-modal-loading { text-align: center; padding: 80px 20px; color: #718096; }
+    #card-generating-spinner { display: flex; flex-direction:column; align-items: center; gap: 16px; }
+    #card-generating-spinner .big-spinner {
+      width: 48px; height: 48px; border: 4px solid #e2e8f0; border-top-color: #0f3460;
+      border-radius: 50%; animation: spin 0.8s linear infinite;
+    }
+
     /* ── SNS Draft Modal ─────────────────────────────────────────────────── */
     .modal-backdrop {
       display: none; position: fixed; inset: 0;
@@ -254,6 +309,39 @@ function renderAdminPage(events: Awaited<ReturnType<typeof readEvents>>) {
   </style>
 </head>
 <body>
+
+  <!-- Card Modal -->
+  <div class="card-modal-backdrop" id="card-modal-backdrop" onclick="closeCardModalOnBackdrop(event)">
+    <div class="card-modal" id="card-modal">
+      <div class="modal-header" style="border-radius:16px 16px 0 0">
+        <h3>🖼 카드뉴스 미리보기</h3>
+        <button class="modal-close" onclick="closeCardModal()">✕</button>
+      </div>
+      <div id="card-modal-body">
+        <div class="card-preview-wrap">
+          <div class="card-preview-placeholder" id="card-preview-placeholder">🖼</div>
+          <img id="card-preview-img" src="" alt="카드 미리보기" style="display:none" />
+        </div>
+        <div class="card-modal-info">
+          <h4 id="card-modal-title">카드뉴스</h4>
+          <p id="card-modal-meta">1080 × 1080 PNG</p>
+        </div>
+      </div>
+      <div id="card-modal-loading" style="display:none">
+        <div id="card-generating-spinner">
+          <div class="big-spinner"></div>
+          <span>카드뉴스 생성 중...</span>
+        </div>
+      </div>
+      <div class="card-modal-footer">
+        <a id="btn-card-download" href="#" download style="display:none">
+          <button class="btn-primary">⬇ 다운로드</button>
+        </a>
+        <button class="btn-regen btn-primary" onclick="regenCard()" id="btn-card-regen" style="display:none">다시 생성</button>
+        <button class="btn-primary" onclick="closeCardModal()">닫기</button>
+      </div>
+    </div>
+  </div>
 
   <!-- SNS Draft Modal -->
   <div class="modal-backdrop" id="modal-backdrop" onclick="closeModalOnBackdrop(event)">
@@ -300,6 +388,10 @@ function renderAdminPage(events: Awaited<ReturnType<typeof readEvents>>) {
       <div class="stat-card stat-sns">
         <span class="num" id="stat-sns">${draftReady}</span>
         <span class="lbl">SNS 초안</span>
+      </div>
+      <div class="stat-card stat-card-ready">
+        <span class="num" id="stat-card">${cardReady}</span>
+        <span class="lbl">카드뉴스</span>
       </div>
     </div>
 
@@ -406,6 +498,113 @@ function renderAdminPage(events: Awaited<ReturnType<typeof readEvents>>) {
       approved: '<span class="status-badge status-approved">발행 승인</span>',
       rejected: '<span class="status-badge status-rejected">제외</span>',
     };
+
+    // ── Card Modal state ─────────────────────────────────────────────────────
+    let _cardCurrentId = null;
+
+    function openCardModal() {
+      document.getElementById('card-modal-backdrop').classList.add('open');
+    }
+    function closeCardModal() {
+      document.getElementById('card-modal-backdrop').classList.remove('open');
+      _cardCurrentId = null;
+    }
+    function closeCardModalOnBackdrop(e) {
+      if (e.target === document.getElementById('card-modal-backdrop')) closeCardModal();
+    }
+
+    function showCardPreview(url, title) {
+      const img   = document.getElementById('card-preview-img');
+      const ph    = document.getElementById('card-preview-placeholder');
+      const dl    = document.getElementById('btn-card-download');
+      const regen = document.getElementById('btn-card-regen');
+      const body  = document.getElementById('card-modal-body');
+      const loading = document.getElementById('card-modal-loading');
+
+      body.style.display    = '';
+      loading.style.display = 'none';
+
+      img.src = url + '?t=' + Date.now(); // cache-bust
+      img.style.display = 'block';
+      ph.style.display  = 'none';
+
+      document.getElementById('card-modal-title').textContent = title || '카드뉴스';
+      document.getElementById('card-modal-meta').textContent  = '1080 × 1080 PNG';
+
+      dl.href = url;
+      dl.download = (title || 'card') + '.png';
+      dl.style.display = '';
+      regen.style.display = '';
+    }
+
+    function showCardLoading() {
+      const body    = document.getElementById('card-modal-body');
+      const loading = document.getElementById('card-modal-loading');
+      const dl      = document.getElementById('btn-card-download');
+      const regen   = document.getElementById('btn-card-regen');
+      body.style.display    = 'none';
+      loading.style.display = '';
+      dl.style.display      = 'none';
+      regen.style.display   = 'none';
+    }
+
+    async function generateCard(id, triggerBtn) {
+      _cardCurrentId = id;
+      if (triggerBtn) triggerBtn.disabled = true;
+      showCardLoading();
+      openCardModal();
+
+      try {
+        const res  = await fetch('/api/events/' + id + '/card', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          const row   = document.querySelector('tr[data-id="' + id + '"]');
+          const title = row ? row.querySelector('.td-title')?.textContent?.trim() : '';
+          showCardPreview(data.cardImageUrl, title);
+          // update row data-card & button
+          if (row) {
+            row.dataset.card = data.cardImageUrl;
+            const cardBtn = row.querySelector('.btn-card');
+            if (cardBtn) {
+              cardBtn.classList.add('has-card');
+              cardBtn.title = '카드 확인';
+              cardBtn.onclick = () => openCardModal2(id);
+            }
+          }
+          // update stat
+          const s = document.getElementById('stat-card');
+          if (s) s.textContent = parseInt(s.textContent||'0') + 1;
+        } else {
+          document.getElementById('card-modal-loading').innerHTML =
+            '<div style="color:#c53030;padding:24px">' + (data.error||'생성 실패') + '</div>';
+        }
+      } catch(e) {
+        document.getElementById('card-modal-loading').innerHTML =
+          '<div style="color:#c53030;padding:24px">요청 실패: ' + e.message + '</div>';
+      } finally {
+        if (triggerBtn) triggerBtn.disabled = false;
+      }
+    }
+
+    function openCardModal2(id) {
+      _cardCurrentId = id;
+      const row  = document.querySelector('tr[data-id="' + id + '"]');
+      const url  = row?.dataset?.card;
+      const title = row?.querySelector('.td-title')?.textContent?.trim() || '';
+      if (url) {
+        openCardModal();
+        showCardPreview(url, title);
+      } else {
+        generateCard(id, null);
+      }
+    }
+
+    // Expose to onclick attributes
+    window.openCardModal = openCardModal2;
+
+    async function regenCard() {
+      if (_cardCurrentId) await generateCard(_cardCurrentId, null);
+    }
 
     // ── Modal state ─────────────────────────────────────────────────────────
     let _currentId   = null;
@@ -554,7 +753,8 @@ function renderAdminPage(events: Awaited<ReturnType<typeof readEvents>>) {
         if (db) db.disabled = (status === 'draft');
 
         // Show/hide SNS btn based on new status
-        const existingSns = row.querySelector('.btn-sns');
+        const existingSns  = row.querySelector('.btn-sns');
+        const existingCard = row.querySelector('.btn-card');
         if (status === 'approved' && !existingSns) {
           const actionDiv = row.querySelector('.action-btns');
           const delBtn    = row.querySelector('.btn-del');
@@ -566,6 +766,7 @@ function renderAdminPage(events: Awaited<ReturnType<typeof readEvents>>) {
           actionDiv.insertBefore(snsBtn, delBtn);
         } else if (status !== 'approved' && existingSns) {
           existingSns.remove();
+          if (existingCard) existingCard.remove();
         }
 
         recalcStats();

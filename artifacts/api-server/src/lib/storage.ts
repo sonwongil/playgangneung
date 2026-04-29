@@ -7,6 +7,13 @@ const EVENTS_FILE = path.join(DATA_DIR, "events.json");
 export type SourceType = "rss" | "html" | "manual";
 export type EventStatus = "draft" | "approved" | "rejected";
 
+export interface SocialDraft {
+  title: string;
+  caption: string;
+  hashtags: string[];
+  createdAt: string;
+}
+
 export interface CrawledEvent {
   id: string;
   title: string;
@@ -16,6 +23,7 @@ export interface CrawledEvent {
   source: string;
   sourceType: SourceType;
   status: EventStatus;
+  socialDraft: SocialDraft | null;
   crawledAt: string;
 }
 
@@ -36,6 +44,7 @@ export async function readEvents(): Promise<CrawledEvent[]> {
       ...e,
       sourceType: (e.sourceType as SourceType) ?? "html",
       status: (e.status as EventStatus) ?? "draft",
+      socialDraft: e.socialDraft ?? null,
     }));
   } catch {
     return [];
@@ -66,6 +75,18 @@ export async function updateEventStatus(
   const idx = events.findIndex((e) => e.id === id);
   if (idx === -1) return false;
   events[idx] = { ...events[idx], status };
+  await saveEvents(events);
+  return true;
+}
+
+export async function saveEventDraft(
+  id: string,
+  socialDraft: SocialDraft,
+): Promise<boolean> {
+  const events = await readEvents();
+  const idx = events.findIndex((e) => e.id === id);
+  if (idx === -1) return false;
+  events[idx] = { ...events[idx], socialDraft };
   await saveEvents(events);
   return true;
 }

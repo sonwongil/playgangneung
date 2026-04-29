@@ -4,9 +4,11 @@ import {
   appendEvents,
   readEvents,
   saveEvents,
+  saveEventDraft,
   updateEventStatus,
 } from "../lib/storage.js";
 import type { CrawledEvent, EventStatus } from "../lib/storage.js";
+import { generateSocialDraft } from "../lib/draft.js";
 import crypto from "crypto";
 
 const router = Router();
@@ -87,6 +89,7 @@ router.post("/events/manual", async (req, res) => {
       source: source || "수동 등록",
       sourceType: "manual",
       status: "draft",
+      socialDraft: null,
       crawledAt: new Date().toISOString(),
     };
 
@@ -121,6 +124,36 @@ router.patch("/events/:id/status", async (req, res) => {
   } catch (err) {
     req.log.error({ err }, "상태 변경 실패");
     return res.status(500).json({ success: false, error: "상태 변경 실패" });
+  }
+});
+
+router.post("/events/:id/draft", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const events = await readEvents();
+    const event = events.find((e) => e.id === id);
+
+    if (!event) {
+      return res.status(404).json({ success: false, error: "이벤트를 찾을 수 없습니다." });
+    }
+    if (event.status !== "approved") {
+      return res.status(400).json({
+        success: false,
+        error: "승인(approved) 상태의 이벤트만 SNS 초안을 생성할 수 있습니다.",
+      });
+    }
+
+    const socialDraft = generateSocialDraft(event);
+    const saved = await saveEventDraft(id, socialDraft);
+    if (!saved) {
+      return res.status(500).json({ success: false, error: "초안 저장 실패" });
+    }
+
+    req.log.info({ id }, "SNS 초안 생성 완료");
+    return res.json({ success: true, id, socialDraft });
+  } catch (err) {
+    req.log.error({ err }, "SNS 초안 생성 실패");
+    return res.status(500).json({ success: false, error: String(err) });
   }
 });
 

@@ -6,7 +6,8 @@
     "date": "2026-05-30",
     "link": "https://www.gangneung.go.kr",
     "source": "강릉시청",
-    "crawledAt": "2026-04-29T05:42:00.375Z"
+    "crawledAt": "2026-04-29T05:42:00.375Z",
+    "sourceType": "html"
   },
   {
     "id": "715c542ef915d22d10bdd3078536a42a",
@@ -15,6 +16,17 @@
     "date": "2026-06-01",
     "link": "https://www.ojukheon.or.kr",
     "source": "강릉관광",
-    "crawledAt": "2026-04-29T05:42:00.414Z"
+    "crawledAt": "2026-04-29T05:42:00.414Z",
+    "sourceType": "html"
+  },
+  {
+    "id": "7ee131617de681d7cbe02d2716302dab",
+    "title": "2026 강릉 커피축제",
+    "description": "",
+    "date": "2026-05-10",
+    "link": "https://www.gangneung.go.kr",
+    "source": "강릉시청",
+    "sourceType": "manual",
+    "crawledAt": "2026-04-29T05:47:16.641Z"
   }
 ]

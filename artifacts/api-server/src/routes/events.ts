@@ -29,22 +29,29 @@ router.post("/events/crawl", async (req, res) => {
         success: true,
         added,
         total,
-        summary: [{ source: url, collected: events.length }],
+        summary: [
+          {
+            source: url,
+            sourceType: events[0]?.sourceType ?? "html",
+            collected: events.length,
+          },
+        ],
       });
     }
 
-    req.log.info("전체 크롤링 시작");
+    req.log.info("전체 크롤링 시작 (RSS → HTML)");
     const results = await crawlAll();
     const allEvents = results.flatMap((r) => r.events);
     const { added, total } = await appendEvents(allEvents);
 
     const summary = results.map((r) => ({
       source: r.source,
+      sourceType: r.sourceType,
       collected: r.events.length,
       error: r.error,
     }));
 
-    req.log.info({ added, total }, "크롤링 완료");
+    req.log.info({ added, total }, "전체 크롤링 완료");
     return res.json({ success: true, added, total, summary });
   } catch (err) {
     req.log.error({ err }, "크롤링 실패");
@@ -73,6 +80,7 @@ router.post("/events/manual", async (req, res) => {
       date: date || "",
       link: link || "",
       source: source || "수동 등록",
+      sourceType: "manual",
       crawledAt: new Date().toISOString(),
     };
 

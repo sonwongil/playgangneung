@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { readEvents } from "../lib/storage.js";
+import type { SourceType } from "../lib/storage.js";
 
 const router = Router();
 
@@ -9,6 +10,16 @@ function escHtml(str: string): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+function sourceTypeBadge(t: SourceType): string {
+  const map: Record<SourceType, { label: string; cls: string }> = {
+    rss: { label: "RSS", cls: "badge-rss" },
+    html: { label: "HTML", cls: "badge-html" },
+    manual: { label: "수동", cls: "badge-manual" },
+  };
+  const { label, cls } = map[t] ?? { label: t, cls: "badge-html" };
+  return `<span class="src-badge ${cls}">${label}</span>`;
 }
 
 function renderAdminPage(events: Awaited<ReturnType<typeof readEvents>>) {
@@ -24,6 +35,7 @@ function renderAdminPage(events: Awaited<ReturnType<typeof readEvents>>) {
       <tr data-id="${escHtml(e.id)}">
         <td class="td-title">${titleCell}</td>
         <td>${escHtml(e.source)}</td>
+        <td>${sourceTypeBadge(e.sourceType)}</td>
         <td>${escHtml(dateStr)}</td>
         <td>${escHtml(new Date(e.crawledAt).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" }))}</td>
         <td><button class="btn-del" onclick="deleteEvent('${escHtml(e.id)}', this)">삭제</button></td>
@@ -33,7 +45,7 @@ function renderAdminPage(events: Awaited<ReturnType<typeof readEvents>>) {
 
   const emptyRow =
     events.length === 0
-      ? `<tr><td colspan="5" class="empty">수집된 데이터가 없습니다.<br>아래에서 크롤링을 실행하거나 수동으로 등록해 주세요.</td></tr>`
+      ? `<tr><td colspan="6" class="empty">수집된 데이터가 없습니다.<br>아래에서 크롤링을 실행하거나 수동으로 등록해 주세요.</td></tr>`
       : "";
 
   return `<!DOCTYPE html>
@@ -72,7 +84,6 @@ function renderAdminPage(events: Awaited<ReturnType<typeof readEvents>>) {
     }
     main { max-width: 1200px; margin: 0 auto; padding: 28px 16px 60px; }
 
-    /* Section cards */
     .section {
       background: #fff;
       border-radius: 12px;
@@ -90,7 +101,6 @@ function renderAdminPage(events: Awaited<ReturnType<typeof readEvents>>) {
     .section-header h2 { font-size: 0.9rem; font-weight: 700; color: #2d3748; flex: 1; }
     .section-body { padding: 16px 20px; }
 
-    /* Buttons */
     button, .btn {
       cursor: pointer;
       border: none;
@@ -108,21 +118,29 @@ function renderAdminPage(events: Awaited<ReturnType<typeof readEvents>>) {
     .btn-primary:hover:not(:disabled) { background: #1a4a8a; }
     .btn-danger { background: #fff; color: #c53030; border: 1px solid #fc8181; }
     .btn-danger:hover:not(:disabled) { background: #fff5f5; }
-    .btn-sm { padding: 4px 10px; font-size: 0.75rem; }
     .btn-del { background: #fff5f5; color: #c53030; border: 1px solid #fed7d7; padding: 3px 8px; font-size: 0.72rem; border-radius: 5px; cursor: pointer; }
     .btn-del:hover { background: #fed7d7; }
+
+    /* sourceType badge */
+    .src-badge {
+      display: inline-block;
+      font-size: 0.68rem;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 4px;
+      letter-spacing: 0.3px;
+      white-space: nowrap;
+    }
+    .badge-rss    { background: #ebf8ff; color: #2b6cb0; border: 1px solid #bee3f8; }
+    .badge-html   { background: #f0fff4; color: #276749; border: 1px solid #c6f6d5; }
+    .badge-manual { background: #faf5ff; color: #6b46c1; border: 1px solid #e9d8fd; }
 
     /* Crawl section */
     .crawl-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
     .crawl-row input[type="url"] {
-      flex: 1;
-      min-width: 200px;
-      border: 1px solid #cbd5e0;
-      border-radius: 7px;
-      padding: 8px 12px;
-      font-size: 0.85rem;
-      color: #2d3748;
-      outline: none;
+      flex: 1; min-width: 200px;
+      border: 1px solid #cbd5e0; border-radius: 7px;
+      padding: 8px 12px; font-size: 0.85rem; color: #2d3748; outline: none;
     }
     .crawl-row input[type="url"]:focus { border-color: #0f3460; box-shadow: 0 0 0 2px rgba(15,52,96,0.15); }
     .divider { border: none; border-top: 1px solid #e2e8f0; margin: 12px 0; }
@@ -133,51 +151,44 @@ function renderAdminPage(events: Awaited<ReturnType<typeof readEvents>>) {
     .form-group.full { grid-column: 1 / -1; }
     label { font-size: 0.75rem; font-weight: 600; color: #4a5568; }
     input[type="text"], input[type="date"], input[type="url"].form-input, textarea {
-      border: 1px solid #cbd5e0;
-      border-radius: 7px;
-      padding: 7px 11px;
-      font-size: 0.85rem;
-      color: #2d3748;
-      outline: none;
-      font-family: inherit;
+      border: 1px solid #cbd5e0; border-radius: 7px;
+      padding: 7px 11px; font-size: 0.85rem; color: #2d3748;
+      outline: none; font-family: inherit;
     }
     input:focus, textarea:focus { border-color: #0f3460; box-shadow: 0 0 0 2px rgba(15,52,96,0.15); }
     textarea { resize: vertical; min-height: 60px; }
     .form-actions { margin-top: 12px; display: flex; justify-content: flex-end; }
 
+    /* tier legend */
+    .tier-legend { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; font-size: 0.78rem; color: #718096; align-items: center; }
+    .tier-legend strong { color: #2d3748; }
+
     /* Table */
     .table-wrapper { overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; min-width: 600px; }
+    table { width: 100%; border-collapse: collapse; min-width: 700px; }
     thead th {
-      background: #f7fafc;
-      padding: 10px 14px;
-      text-align: left;
-      font-size: 0.72rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      color: #718096;
-      border-bottom: 1px solid #e2e8f0;
-      white-space: nowrap;
+      background: #f7fafc; padding: 10px 14px;
+      text-align: left; font-size: 0.72rem; font-weight: 700;
+      text-transform: uppercase; color: #718096;
+      border-bottom: 1px solid #e2e8f0; white-space: nowrap;
     }
     tbody tr { border-bottom: 1px solid #f0f4f8; }
     tbody tr:last-child { border-bottom: none; }
     tbody tr:hover { background: #f7fafc; }
     tbody td { padding: 10px 14px; font-size: 0.85rem; vertical-align: middle; color: #2d3748; }
-    tbody td.td-title { max-width: 380px; word-break: break-word; }
+    tbody td.td-title { max-width: 340px; word-break: break-word; }
     tbody td a { color: #2b6cb0; text-decoration: none; }
     tbody td a:hover { text-decoration: underline; }
     tbody td.empty { text-align: center; color: #a0aec0; padding: 48px 16px; line-height: 1.7; }
 
-    /* Status / count */
     .count-badge { background: #e2e8f0; color: #4a5568; font-size: 0.75rem; font-weight: 600; padding: 3px 10px; border-radius: 99px; }
     #status-bar { margin-top: 12px; font-size: 0.8rem; color: #718096; min-height: 18px; padding: 0 2px; }
     #status-bar.success { color: #276749; }
     #status-bar.error { color: #c53030; }
     .spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid #cbd5e0; border-top-color: #0f3460; border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; margin-right: 6px; }
     @keyframes spin { to { transform: rotate(360deg); } }
-
-    .summary-list { margin-top: 8px; font-size: 0.78rem; color: #718096; }
-    .summary-list span { display: block; }
+    .summary-list { margin-top: 8px; font-size: 0.78rem; }
+    .summary-list span { display: block; padding: 1px 0; }
     .summary-list .err { color: #c53030; }
     .summary-list .ok { color: #276749; }
   </style>
@@ -195,13 +206,21 @@ function renderAdminPage(events: Awaited<ReturnType<typeof readEvents>>) {
         <h2>크롤링</h2>
       </div>
       <div class="section-body">
+        <div class="tier-legend">
+          <strong>수집 우선순위:</strong>
+          <span class="src-badge badge-rss">RSS</span> 1순위 &rarr;
+          <span class="src-badge badge-html">HTML</span> 2순위 &rarr;
+          <span class="src-badge badge-manual">수동</span> 최종 폴백
+        </div>
         <div class="crawl-row">
-          <input type="url" id="custom-url" placeholder="크롤링할 URL 입력 (예: https://www.gangneung.go.kr/...)" />
+          <input type="url" id="custom-url" placeholder="크롤링할 URL 직접 입력 (RSS/HTML 자동 감지)" />
           <button class="btn-primary" id="btn-crawl-url" onclick="runCrawl(true)">URL 크롤링</button>
         </div>
         <hr class="divider" />
         <div class="crawl-row">
-          <span style="flex:1; font-size:0.82rem; color:#718096;">기본 소스 일괄 크롤링: 강릉시청 공지사항, 강릉시청 행사정보, 강원도 행사/축제</span>
+          <span style="flex:1; font-size:0.82rem; color:#718096;">
+            기본 소스 일괄 크롤링 (RSS 4개 → HTML 3개 순서로 시도)
+          </span>
           <button class="btn-primary" id="btn-crawl-all" onclick="runCrawl(false)">전체 크롤링</button>
           <button class="btn-danger" id="btn-reset" onclick="resetData()">전체 초기화</button>
         </div>
@@ -213,7 +232,7 @@ function renderAdminPage(events: Awaited<ReturnType<typeof readEvents>>) {
     <!-- Manual Register Section -->
     <div class="section">
       <div class="section-header">
-        <h2>수동 등록</h2>
+        <h2>수동 등록 <span class="src-badge badge-manual" style="margin-left:6px">수동</span></h2>
       </div>
       <div class="section-body">
         <form id="manual-form" onsubmit="submitManual(event)">
@@ -259,6 +278,7 @@ function renderAdminPage(events: Awaited<ReturnType<typeof readEvents>>) {
             <tr>
               <th>제목</th>
               <th>출처</th>
+              <th>수집유형</th>
               <th>행사일</th>
               <th>수집일시</th>
               <th></th>
@@ -275,6 +295,12 @@ function renderAdminPage(events: Awaited<ReturnType<typeof readEvents>>) {
   <script>
     const statusBar = document.getElementById('status-bar');
     const summaryList = document.getElementById('summary-list');
+
+    const BADGE = {
+      rss:    '<span class="src-badge badge-rss">RSS</span>',
+      html:   '<span class="src-badge badge-html">HTML</span>',
+      manual: '<span class="src-badge badge-manual">수동</span>',
+    };
 
     function setStatus(msg, type) {
       statusBar.textContent = msg;
@@ -299,7 +325,7 @@ function renderAdminPage(events: Awaited<ReturnType<typeof readEvents>>) {
       const btnUrl = document.getElementById('btn-crawl-url');
       btnAll.disabled = true;
       btnUrl.disabled = true;
-      setLoading(customOnly ? 'URL 크롤링 중...' : '전체 크롤링 중...');
+      setLoading(customOnly ? 'URL 크롤링 중...' : 'RSS → HTML 순서로 크롤링 중...');
 
       try {
         const body = customOnly ? { url: customUrl } : {};
@@ -312,13 +338,15 @@ function renderAdminPage(events: Awaited<ReturnType<typeof readEvents>>) {
         if (data.success) {
           setStatus('완료: 신규 ' + data.added + '건 추가, 총 ' + data.total + '건 수집됨.', 'success');
           if (data.summary) {
-            summaryList.innerHTML = data.summary.map(s =>
-              s.error
-                ? '<span class="err">✗ ' + s.source + ': ' + s.error + '</span>'
-                : '<span class="ok">✓ ' + s.source + ': ' + s.collected + '건 수집</span>'
-            ).join('');
+            summaryList.innerHTML = data.summary.map(s => {
+              const badge = BADGE[s.sourceType] || '';
+              if (s.error) {
+                return '<span class="err">✗ ' + badge + ' ' + s.source + ': ' + s.error + '</span>';
+              }
+              return '<span class="ok">✓ ' + badge + ' ' + s.source + ': ' + s.collected + '건 수집</span>';
+            }).join('');
           }
-          setTimeout(() => location.reload(), 1200);
+          setTimeout(() => location.reload(), 1500);
         } else {
           setStatus('오류: ' + (data.error || '알 수 없는 오류'), 'error');
         }
@@ -367,7 +395,7 @@ function renderAdminPage(events: Awaited<ReturnType<typeof readEvents>>) {
             badge.textContent = '총 ' + cur + '건';
             if (document.querySelectorAll('#event-tbody tr').length === 0) {
               document.getElementById('event-tbody').innerHTML =
-                '<tr><td colspan="5" class="empty">수집된 데이터가 없습니다.<br>아래에서 크롤링을 실행하거나 수동으로 등록해 주세요.</td></tr>';
+                '<tr><td colspan="6" class="empty">수집된 데이터가 없습니다.<br>크롤링을 실행하거나 수동으로 등록해 주세요.</td></tr>';
             }
           }, 200);
         }

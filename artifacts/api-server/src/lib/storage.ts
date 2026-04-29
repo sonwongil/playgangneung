@@ -5,6 +5,7 @@ const DATA_DIR = path.resolve(process.cwd(), "data");
 const EVENTS_FILE = path.join(DATA_DIR, "events.json");
 
 export type SourceType = "rss" | "html" | "manual";
+export type EventStatus = "draft" | "approved" | "rejected";
 
 export interface CrawledEvent {
   id: string;
@@ -14,6 +15,7 @@ export interface CrawledEvent {
   link: string;
   source: string;
   sourceType: SourceType;
+  status: EventStatus;
   crawledAt: string;
 }
 
@@ -33,6 +35,7 @@ export async function readEvents(): Promise<CrawledEvent[]> {
     return parsed.map((e) => ({
       ...e,
       sourceType: (e.sourceType as SourceType) ?? "html",
+      status: (e.status as EventStatus) ?? "draft",
     }));
   } catch {
     return [];
@@ -53,4 +56,16 @@ export async function appendEvents(
   const merged = [...existing, ...fresh];
   await saveEvents(merged);
   return { added: fresh.length, total: merged.length };
+}
+
+export async function updateEventStatus(
+  id: string,
+  status: EventStatus,
+): Promise<boolean> {
+  const events = await readEvents();
+  const idx = events.findIndex((e) => e.id === id);
+  if (idx === -1) return false;
+  events[idx] = { ...events[idx], status };
+  await saveEvents(events);
+  return true;
 }

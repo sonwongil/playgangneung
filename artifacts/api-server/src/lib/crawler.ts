@@ -4,6 +4,7 @@ import * as cheerio from "cheerio";
 import { XMLParser } from "fast-xml-parser";
 import crypto from "crypto";
 import type { CrawledEvent, SourceType } from "./storage.js";
+
 import { logger } from "./logger.js";
 
 const USER_AGENT =
@@ -162,6 +163,7 @@ function parseRssXml(xml: string, sourceName: string): CrawledEvent[] {
       link,
       source: sourceName,
       sourceType: "rss" as SourceType,
+      status: "draft",
       crawledAt: new Date().toISOString(),
     });
   }
@@ -258,6 +260,7 @@ function parseHtml(
         link,
         source: sourceName,
         sourceType: "html" as SourceType,
+        status: "draft",
         crawledAt: new Date().toISOString(),
       });
     });

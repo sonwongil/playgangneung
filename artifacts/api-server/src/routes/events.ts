@@ -1,7 +1,12 @@
 import { Router } from "express";
 import { crawlAll, crawlUrl } from "../lib/crawler.js";
-import { appendEvents, readEvents, saveEvents } from "../lib/storage.js";
-import type { CrawledEvent } from "../lib/storage.js";
+import {
+  appendEvents,
+  readEvents,
+  saveEvents,
+  updateEventStatus,
+} from "../lib/storage.js";
+import type { CrawledEvent, EventStatus } from "../lib/storage.js";
 import crypto from "crypto";
 
 const router = Router();
@@ -81,6 +86,7 @@ router.post("/events/manual", async (req, res) => {
       link: link || "",
       source: source || "수동 등록",
       sourceType: "manual",
+      status: "draft",
       crawledAt: new Date().toISOString(),
     };
 
@@ -89,6 +95,32 @@ router.post("/events/manual", async (req, res) => {
   } catch (err) {
     req.log.error({ err }, "수동 등록 실패");
     return res.status(500).json({ success: false, error: "수동 등록 실패" });
+  }
+});
+
+router.patch("/events/:id/status", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body as { status?: string };
+
+    const allowed: EventStatus[] = ["draft", "approved", "rejected"];
+    if (!status || !allowed.includes(status as EventStatus)) {
+      return res.status(400).json({
+        success: false,
+        error: "status는 draft | approved | rejected 중 하나여야 합니다.",
+      });
+    }
+
+    const updated = await updateEventStatus(id, status as EventStatus);
+    if (!updated) {
+      return res.status(404).json({ success: false, error: "이벤트를 찾을 수 없습니다." });
+    }
+
+    req.log.info({ id, status }, "이벤트 상태 변경");
+    return res.json({ success: true, id, status });
+  } catch (err) {
+    req.log.error({ err }, "상태 변경 실패");
+    return res.status(500).json({ success: false, error: "상태 변경 실패" });
   }
 });
 

@@ -1,9 +1,7 @@
 import fs from "fs/promises";
 import path from "path";
-import { fileURLToPath } from "url";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DATA_DIR = path.resolve(__dirname, "../../data");
+const DATA_DIR = path.resolve(process.cwd(), "data");
 const EVENTS_FILE = path.join(DATA_DIR, "events.json");
 
 export interface CrawledEvent {

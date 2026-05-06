@@ -43,6 +43,19 @@ const CATEGORY_THUMBNAILS: Record<string, string> = {
 
 const SITE_URL = process.env["SITE_URL"] ?? "https://play-gangneung-dashboard.replit.app";
 
+const PROXY_HOSTS = ["www.gn.go.kr", "gn.go.kr", "gn.moonhwain.net", "www.gncaf.or.kr", "gncaf.or.kr"];
+
+function proxyThumbnail(url: string | null | undefined): string | null {
+  if (!url) return null;
+  try {
+    const { hostname } = new URL(url);
+    if (PROXY_HOSTS.includes(hostname)) {
+      return `/api/proxy/image?url=${encodeURIComponent(url)}`;
+    }
+  } catch { /* noop */ }
+  return url;
+}
+
 function todayStr() { return new Date().toISOString().slice(0, 10); }
 function tomorrowStr() {
   const d = new Date(); d.setDate(d.getDate() + 1);
@@ -128,7 +141,7 @@ function eventToFeedItem(ev: CrawledEvent): FeedItem {
     link: `${SITE_URL}/content/${ev.id}`,
     source: ev.source,
     category,
-    thumbnail: ev.thumbnail ?? CATEGORY_THUMBNAILS[category] ?? null,
+    thumbnail: proxyThumbnail(ev.thumbnail) ?? CATEGORY_THUMBNAILS[category] ?? null,
     location: ev.location || "강릉",
     isAd: false,
   };

@@ -140,9 +140,9 @@ export default function Home() {
       </section>
 
       {/* Main Content */}
-      <main className="flex-1 max-w-6xl mx-auto px-4 py-10 w-full">
+      <main className="flex-1 max-w-6xl mx-auto px-4 py-4 w-full">
         {/* Category Tabs */}
-        <div className="mb-8">
+        <div className="mb-4">
           <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v as Category); setShowAll(false); }}>
             <TabsList className="bg-white border border-border shadow-sm h-auto p-1 gap-1">
               {(["전체", "행사", "맛집", "핫플", "지역소식"] as Category[]).map((cat) => (
@@ -164,7 +164,7 @@ export default function Home() {
             <p className="text-lg">해당 카테고리의 콘텐츠가 없습니다.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {display.map((event) => (
               <EventCard key={event.id} event={event} />
             ))}

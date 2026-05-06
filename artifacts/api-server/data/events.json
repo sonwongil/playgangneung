@@ -4,9 +4,14 @@
     "title": "2026 강릉 단오제",
     "description": "국가무형문화재 강릉단오제 개막",
     "date": "2026-05-30",
+    "startDate": "2026-05-30",
+    "endDate": "",
+    "scheduleStatus": "upcoming",
+    "location": "",
+    "category": "지역소식",
+    "thumbnail": null,
     "link": "https://www.gangneung.go.kr",
     "source": "강릉시청",
-    "crawledAt": "2026-04-29T05:42:00.375Z",
     "sourceType": "html",
     "status": "published",
     "socialDraft": {
@@ -22,45 +27,64 @@
       ],
       "createdAt": "2026-05-06T08:37:26.464Z"
     },
-    "cardImageUrl": "/api/cards/a13dc840d34f73a778b4a1d83e5d2966.png"
+    "cardImageUrl": "/api/cards/a13dc840d34f73a778b4a1d83e5d2966.png",
+    "crawledAt": "2026-04-29T05:42:00.375Z"
   },
   {
     "id": "715c542ef915d22d10bdd3078536a42a",
     "title": "강릉 오죽헌 야간개장",
     "description": "오죽헌 특별 야간 관람 프로그램 운영",
     "date": "2026-06-01",
+    "startDate": "2026-06-01",
+    "endDate": "",
+    "scheduleStatus": "upcoming",
+    "location": "",
+    "category": "지역소식",
+    "thumbnail": null,
     "link": "https://www.ojukheon.or.kr",
     "source": "강릉관광",
-    "crawledAt": "2026-04-29T05:42:00.414Z",
     "sourceType": "html",
     "status": "draft",
     "socialDraft": null,
-    "cardImageUrl": null
+    "cardImageUrl": null,
+    "crawledAt": "2026-04-29T05:42:00.414Z"
   },
   {
     "id": "7ee131617de681d7cbe02d2716302dab",
     "title": "2026 강릉 커피축제",
     "description": "",
     "date": "2026-05-10",
+    "startDate": "2026-05-10",
+    "endDate": "",
+    "scheduleStatus": "upcoming",
+    "location": "",
+    "category": "지역소식",
+    "thumbnail": null,
     "link": "https://www.gangneung.go.kr",
     "source": "강릉시청",
     "sourceType": "manual",
-    "crawledAt": "2026-04-29T05:47:16.641Z",
     "status": "draft",
     "socialDraft": null,
-    "cardImageUrl": null
+    "cardImageUrl": null,
+    "crawledAt": "2026-04-29T05:47:16.641Z"
   },
   {
     "id": "7fee27d36a75e6ccbba783f44c376b67",
     "title": "2026 강릉 바우길 트레킹",
     "description": "",
     "date": "2026-06-15",
+    "startDate": "2026-06-15",
+    "endDate": "",
+    "scheduleStatus": "upcoming",
+    "location": "",
+    "category": "지역소식",
+    "thumbnail": null,
     "link": "",
     "source": "강릉관광",
     "sourceType": "manual",
     "status": "draft",
-    "crawledAt": "2026-04-29T05:51:56.656Z",
     "socialDraft": null,
-    "cardImageUrl": null
+    "cardImageUrl": null,
+    "crawledAt": "2026-04-29T05:51:56.656Z"
   }
 ]

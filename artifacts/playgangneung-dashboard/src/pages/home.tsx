@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -15,8 +16,9 @@ interface EventItem {
   date: string;
   link: string;
   source: string;
-  category: Category;
-  thumbnail: string;
+  category?: string;
+  thumbnail?: string;
+  status?: string;
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -26,103 +28,34 @@ const CATEGORY_COLORS: Record<string, string> = {
   지역소식: "bg-green-100 text-green-700",
 };
 
-const EVENTS: EventItem[] = [
-  {
-    id: "1",
-    title: "2026 강릉 커피축제",
-    description: "세계적인 커피 도시 강릉에서 펼쳐지는 커피 축제. 다양한 커피 체험과 전시, 공연을 즐겨보세요.",
-    date: "2026-05-10",
-    link: "https://www.gangneung.go.kr",
-    source: "강릉시청",
-    category: "행사",
-    thumbnail: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=800&q=80",
-  },
-  {
-    id: "2",
-    title: "안목해변 카페거리 맛집 탐방",
-    description: "강릉 안목해변을 따라 즐비한 개성 넘치는 카페와 식당들을 소개합니다. 바다를 보며 즐기는 커피 한 잔.",
-    date: "2026-05-08",
-    link: "https://www.gangneung.go.kr",
-    source: "강릉관광공사",
-    category: "맛집",
-    thumbnail: "https://images.unsplash.com/photo-1559925393-8be0ec4767c8?w=800&q=80",
-  },
-  {
-    id: "3",
-    title: "경포해변 일출 명소",
-    description: "강릉 경포해변에서 바라보는 아름다운 일출. 한국의 대표적인 해돋이 명소를 소개합니다.",
-    date: "2026-05-06",
-    link: "https://www.gangneung.go.kr",
-    source: "PLAY강릉",
-    category: "핫플",
-    thumbnail: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&q=80",
-  },
-  {
-    id: "4",
-    title: "강릉 단오제 준비 위원회 출범",
-    description: "유네스코 무형문화유산에 등재된 강릉단오제의 2026년 행사 준비가 시작되었습니다.",
-    date: "2026-05-01",
-    link: "https://www.gangneung.go.kr",
-    source: "강릉시청",
-    category: "지역소식",
-    thumbnail: "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=800&q=80",
-  },
-  {
-    id: "5",
-    title: "강릉 초당 순두부 골목",
-    description: "강릉의 대표 향토음식, 초당 순두부. 동해 바닷물로 만든 부드럽고 담백한 순두부를 맛보세요.",
-    date: "2026-05-03",
-    link: "https://www.gangneung.go.kr",
-    source: "강릉관광공사",
-    category: "맛집",
-    thumbnail: "https://images.unsplash.com/photo-1541544537156-7627a7a4aa1c?w=800&q=80",
-  },
-  {
-    id: "6",
-    title: "오죽헌 문화재 야간 개방",
-    description: "신사임당과 율곡 이이의 생가, 오죽헌에서 진행되는 특별 야간 문화 행사. 역사와 함께하는 특별한 밤.",
-    date: "2026-05-15",
-    link: "https://www.gangneung.go.kr",
-    source: "강릉문화재단",
-    category: "행사",
-    thumbnail: "https://images.unsplash.com/photo-1528360983277-13d401cdc186?w=800&q=80",
-  },
-  {
-    id: "7",
-    title: "강릉 바우길 트레킹",
-    description: "동해 바다와 백두대간을 잇는 강릉 바우길. 봄 트레킹 코스를 소개합니다.",
-    date: "2026-05-12",
-    link: "https://www.gangneung.go.kr",
-    source: "강원도청",
-    category: "핫플",
-    thumbnail: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=800&q=80",
-  },
-  {
-    id: "8",
-    title: "강릉 아트 페스타 2026",
-    description: "강릉을 대표하는 예술 축제. 지역 예술가들의 작품 전시와 공연이 함께 펼쳐집니다.",
-    date: "2026-05-20",
-    link: "https://www.gangneung.go.kr",
-    source: "강릉문화재단",
-    category: "행사",
-    thumbnail: "https://images.unsplash.com/photo-1518998053901-5348d3961a04?w=800&q=80",
-  },
+const FALLBACK_EVENTS: EventItem[] = [
+  { id: "f-1", title: "2026 강릉 커피축제", description: "세계적인 커피 도시 강릉에서 펼쳐지는 커피 축제. 다양한 커피 체험과 전시, 공연을 즐겨보세요.", date: "2026-05-10", link: "https://www.gangneung.go.kr", source: "강릉시청", category: "행사", thumbnail: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=800&q=80" },
+  { id: "f-2", title: "안목해변 카페거리 맛집 탐방", description: "강릉 안목해변을 따라 즐비한 개성 넘치는 카페와 식당들을 소개합니다.", date: "2026-05-08", link: "https://www.gangneung.go.kr", source: "강릉관광공사", category: "맛집", thumbnail: "https://images.unsplash.com/photo-1559925393-8be0ec4767c8?w=800&q=80" },
+  { id: "f-3", title: "경포해변 일출 명소", description: "강릉 경포해변에서 바라보는 아름다운 일출. 한국의 대표적인 해돋이 명소를 소개합니다.", date: "2026-05-06", link: "https://www.gangneung.go.kr", source: "PLAY강릉", category: "핫플", thumbnail: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&q=80" },
+  { id: "f-4", title: "강릉 단오제 준비 위원회 출범", description: "유네스코 무형문화유산에 등재된 강릉단오제의 2026년 행사 준비가 시작되었습니다.", date: "2026-05-01", link: "https://www.gangneung.go.kr", source: "강릉시청", category: "지역소식", thumbnail: "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=800&q=80" },
+  { id: "f-5", title: "강릉 초당 순두부 골목", description: "강릉의 대표 향토음식, 초당 순두부. 동해 바닷물로 만든 부드럽고 담백한 순두부를 맛보세요.", date: "2026-05-03", link: "https://www.gangneung.go.kr", source: "강릉관광공사", category: "맛집", thumbnail: "https://images.unsplash.com/photo-1541544537156-7627a7a4aa1c?w=800&q=80" },
+  { id: "f-6", title: "오죽헌 문화재 야간 개방", description: "신사임당과 율곡 이이의 생가, 오죽헌에서 진행되는 특별 야간 문화 행사.", date: "2026-05-15", link: "https://www.gangneung.go.kr", source: "강릉문화재단", category: "행사", thumbnail: "https://images.unsplash.com/photo-1528360983277-13d401cdc186?w=800&q=80" },
+  { id: "f-7", title: "강릉 바우길 트레킹", description: "동해 바다와 백두대간을 잇는 강릉 바우길. 봄 트레킹 코스를 소개합니다.", date: "2026-05-12", link: "https://www.gangneung.go.kr", source: "강원도청", category: "핫플", thumbnail: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=800&q=80" },
+  { id: "f-8", title: "강릉 아트 페스타 2026", description: "강릉을 대표하는 예술 축제. 지역 예술가들의 작품 전시와 공연이 함께 펼쳐집니다.", date: "2026-05-20", link: "https://www.gangneung.go.kr", source: "강릉문화재단", category: "행사", thumbnail: "https://images.unsplash.com/photo-1518998053901-5348d3961a04?w=800&q=80" },
 ];
 
 function EventCard({ event }: { event: EventItem }) {
-  const colorClass = CATEGORY_COLORS[event.category] ?? "bg-gray-100 text-gray-700";
+  const category = event.category ?? "지역소식";
+  const colorClass = CATEGORY_COLORS[category] ?? "bg-gray-100 text-gray-700";
+  const thumbnail = event.thumbnail ?? `https://images.unsplash.com/photo-1528360983277-13d401cdc186?w=800&q=80`;
+
   return (
     <Card className="overflow-hidden hover:shadow-lg transition-shadow duration-300 group">
       <div className="relative overflow-hidden h-48">
         <img
-          src={event.thumbnail}
+          src={thumbnail}
           alt={event.title}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           loading="lazy"
         />
         <div className="absolute top-3 left-3">
           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorClass}`}>
-            {event.category}
+            {category}
           </span>
         </div>
       </div>
@@ -160,8 +93,20 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<Category>("전체");
   const [showAll, setShowAll] = useState(false);
 
+  const { data } = useQuery<{ events: EventItem[]; total: number }>({
+    queryKey: ["public-events"],
+    queryFn: async () => {
+      const res = await fetch(`${BASE}/api/events`);
+      if (!res.ok) throw new Error("이벤트 로드 실패");
+      return res.json();
+    },
+    staleTime: 60_000,
+  });
+
+  const allEvents = data?.events?.length ? data.events : FALLBACK_EVENTS;
+
   const filtered =
-    activeTab === "전체" ? EVENTS : EVENTS.filter((e) => e.category === activeTab);
+    activeTab === "전체" ? allEvents : allEvents.filter((e) => e.category === activeTab);
 
   const display = showAll ? filtered : filtered.slice(0, 6);
 
@@ -247,32 +192,14 @@ export default function Home() {
           <h2 className="text-xl font-bold mb-2">SNS에서 PLAY강릉 팔로우</h2>
           <p className="text-muted-foreground text-sm mb-6">최신 강릉 소식을 SNS에서 가장 먼저 만나보세요.</p>
           <div className="flex items-center justify-center gap-4 flex-wrap">
-            <a
-              href="https://www.instagram.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm font-medium hover:opacity-90 transition-opacity"
-            >
-              <Instagram className="w-4 h-4" />
-              인스타그램
+            <a href="https://www.instagram.com" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm font-medium hover:opacity-90 transition-opacity">
+              <Instagram className="w-4 h-4" />인스타그램
             </a>
-            <a
-              href="https://www.facebook.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-medium hover:opacity-90 transition-opacity"
-            >
-              <Facebook className="w-4 h-4" />
-              페이스북
+            <a href="https://www.facebook.com" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-medium hover:opacity-90 transition-opacity">
+              <Facebook className="w-4 h-4" />페이스북
             </a>
-            <a
-              href="https://www.youtube.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-red-600 text-white text-sm font-medium hover:opacity-90 transition-opacity"
-            >
-              <Youtube className="w-4 h-4" />
-              유튜브
+            <a href="https://www.youtube.com" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-red-600 text-white text-sm font-medium hover:opacity-90 transition-opacity">
+              <Youtube className="w-4 h-4" />유튜브
             </a>
           </div>
         </div>

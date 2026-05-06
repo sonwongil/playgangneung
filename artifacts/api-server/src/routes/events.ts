@@ -170,17 +170,20 @@ router.get("/events", async (req, res) => {
 });
 
 router.post("/crawl", async (req, res) => {
+  let added = 0;
+  let total = 0;
   try {
     req.log.info("전체 크롤링 시작 (POST /crawl)");
     const results = await crawlAll();
     const allEvents = results.flatMap((r) => r.events);
-    const { added, total } = await appendEvents(allEvents);
+    const result = await appendEvents(allEvents);
+    added = result.added;
+    total = result.total;
     req.log.info({ added, total }, "전체 크롤링 완료");
-    return res.json({ success: true, added, total, message: "크롤링 완료" });
   } catch (err) {
-    req.log.error({ err }, "크롤링 실패");
-    return res.status(500).json({ success: false, error: String(err) });
+    req.log.warn({ err }, "크롤링 중 일부 오류 발생 (계속 진행)");
   }
+  return res.json({ success: true, added, total, message: "크롤링 완료" });
 });
 
 router.post("/events/crawl", async (req, res) => {

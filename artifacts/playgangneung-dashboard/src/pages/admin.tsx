@@ -33,6 +33,13 @@ import { useToast } from "@/hooks/use-toast";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
+interface SocialDraft {
+  title: string;
+  caption: string;
+  hashtags: string[];
+  createdAt: string;
+}
+
 interface Event {
   id: string;
   title: string;
@@ -42,10 +49,11 @@ interface Event {
   source: string;
   sourceType: string;
   status: "draft" | "approved" | "rejected";
-  socialDraft: string | null;
+  socialDraft: SocialDraft | null;
   cardImageUrl: string | null;
   crawledAt: string;
   category?: string;
+  thumbnail?: string;
 }
 
 type NavItem = {
@@ -76,7 +84,7 @@ const MOCK_EVENTS: Event[] = [
     id: "2", title: "안목해변 카페거리 맛집 탐방", description: "강릉 안목해변을 따라 즐비한 개성 넘치는 카페와 식당들.", date: "2026-05-08", link: "https://www.gangneung.go.kr", source: "강릉관광공사", sourceType: "html", status: "draft", socialDraft: null, cardImageUrl: null, crawledAt: "2026-05-06T08:30:00.000Z", category: "맛집",
   },
   {
-    id: "3", title: "경포해변 일출 명소", description: "강릉 경포해변에서 바라보는 아름다운 일출.", date: "2026-05-06", link: "https://www.gangneung.go.kr", source: "PLAY강릉", sourceType: "manual", status: "approved", socialDraft: "강릉 경포해변에서 일출 명소를 소개합니다! 🌅", cardImageUrl: null, crawledAt: "2026-05-05T20:00:00.000Z", category: "핫플",
+    id: "3", title: "경포해변 일출 명소", description: "강릉 경포해변에서 바라보는 아름다운 일출.", date: "2026-05-06", link: "https://www.gangneung.go.kr", source: "PLAY강릉", sourceType: "manual", status: "approved", socialDraft: { title: "경포해변 일출 명소", caption: "강릉 경포해변에서 일출 명소를 소개합니다! 🌅", hashtags: ["강릉", "경포해변", "일출", "핫플"], createdAt: "2026-05-05T20:00:00.000Z" }, cardImageUrl: null, crawledAt: "2026-05-05T20:00:00.000Z", category: "핫플",
   },
   {
     id: "4", title: "강릉 단오제 준비 위원회 출범", description: "유네스코 무형문화유산에 등재된 강릉단오제의 2026년 행사 준비 시작.", date: "2026-05-01", link: "https://www.gangneung.go.kr", source: "강릉시청", sourceType: "rss", status: "rejected", socialDraft: null, cardImageUrl: null, crawledAt: "2026-05-01T10:00:00.000Z", category: "지역소식",

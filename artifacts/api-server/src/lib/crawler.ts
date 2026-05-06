@@ -1,7 +1,6 @@
 import axios from "axios";
 import https from "https";
 import * as cheerio from "cheerio";
-import { XMLParser } from "fast-xml-parser";
 import crypto from "crypto";
 import type { CrawledEvent, SourceType } from "./storage.js";
 import { parseDates, detectCategory } from "./dateParser.js";
@@ -12,32 +11,18 @@ const USER_AGENT =
 
 const httpsAgent = new https.Agent({ rejectUnauthorized: false });
 
-const xmlParser = new XMLParser({
-  ignoreAttributes: false,
-  attributeNamePrefix: "@_",
-  allowBooleanAttributes: true,
-});
-
 function makeId(ns: string, val: string): string {
   return crypto.createHash("md5").update(`${ns}:${val}`).digest("hex");
 }
 
-// ─── HTTP fetch ───────────────────────────────────────────────────────────────
-
-interface FetchResult {
-  body: Buffer;
-  contentType: string;
-  statusCode: number;
-}
-
-async function fetchRaw(url: string, timeoutMs = 12000): Promise<FetchResult> {
+async function fetchHtml(url: string, timeoutMs = 15000): Promise<string> {
   const resp = await axios.get(url, {
     headers: {
       "User-Agent": USER_AGENT,
-      Accept:
-        "application/rss+xml, application/atom+xml, application/xml, text/xml, text/html, */*",
+      Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
       "Accept-Language": "ko-KR,ko;q=0.9",
       "Accept-Encoding": "gzip, deflate",
+      Referer: new URL(url).origin + "/",
     },
     httpsAgent,
     timeout: timeoutMs,
@@ -45,18 +30,11 @@ async function fetchRaw(url: string, timeoutMs = 12000): Promise<FetchResult> {
     maxRedirects: 5,
   });
 
-  return {
-    body: Buffer.from(resp.data as ArrayBuffer),
-    contentType: (resp.headers["content-type"] as string) ?? "",
-    statusCode: resp.status,
-  };
-}
-
-async function decodeBuffer(buf: Buffer, contentType: string): Promise<string> {
+  const buf = Buffer.from(resp.data as ArrayBuffer);
   const rawLatin = buf.toString("latin1");
   const isEucKr =
     /charset=["']?(euc-kr|ks_c_5601[-_]1987|euc_kr)/i.test(rawLatin) ||
-    /euc-kr|ks_c_5601/i.test(contentType);
+    /euc-kr|ks_c_5601/i.test((resp.headers["content-type"] as string) ?? "");
 
   if (isEucKr) {
     const { default: iconv } = await import("iconv-lite");
@@ -64,37 +42,6 @@ async function decodeBuffer(buf: Buffer, contentType: string): Promise<string> {
   }
   return buf.toString("utf-8");
 }
-
-function isRssContentType(ct: string): boolean {
-  return /rss|atom|xml/i.test(ct);
-}
-
-// ─── Tier 1: RSS / Atom ───────────────────────────────────────────────────────
-
-interface RssSource {
-  name: string;
-  url: string;
-  defaultCategory?: string;
-}
-
-// 강릉 전용 RSS 소스
-const RSS_SOURCES: RssSource[] = [
-  {
-    name: "강릉시청 - 공지사항",
-    url: "https://www.gangneung.go.kr/rss.do?menu_id=00100200",
-    defaultCategory: "지역소식",
-  },
-  {
-    name: "강릉시청 - 행사정보",
-    url: "https://www.gangneung.go.kr/rss.do?menu_id=01030100",
-    defaultCategory: "행사",
-  },
-  {
-    name: "강릉문화재단",
-    url: "https://www.gcf.or.kr/rss.do",
-    defaultCategory: "행사",
-  },
-];
 
 function buildEvent(
   id: string,
@@ -104,10 +51,12 @@ function buildEvent(
   link: string,
   sourceName: string,
   sourceType: SourceType,
+  thumbnail: string | null,
+  locationHint?: string,
   defaultCategory?: string,
 ): CrawledEvent {
   const { startDate, endDate, scheduleStatus } = parseDates(dateRaw);
-  const category = detectCategory(title, desc) || defaultCategory || "지역소식";
+  const category = detectCategory(title, desc) || defaultCategory || "행사";
   return {
     id,
     title,
@@ -116,9 +65,9 @@ function buildEvent(
     startDate,
     endDate,
     scheduleStatus,
-    location: "강릉",
+    location: locationHint || "강릉",
     category,
-    thumbnail: null,
+    thumbnail,
     link,
     source: sourceName,
     sourceType,
@@ -129,198 +78,126 @@ function buildEvent(
   };
 }
 
-function parseRssXml(xml: string, sourceName: string, defaultCategory?: string): CrawledEvent[] {
-  const events: CrawledEvent[] = [];
-  let parsed: Record<string, unknown>;
+// ─── 강릉시 통합예약시스템 - 이달의 행사 ────────────────────────────────────
 
+const GN_YEYAK_BASE = "https://www.gn.go.kr";
+
+async function crawlGnYeyak(): Promise<{ events: CrawledEvent[]; error?: string }> {
+  const url = `${GN_YEYAK_BASE}/yeyak/selectUnityEventWebList.do?key=6420`;
   try {
-    parsed = xmlParser.parse(xml) as Record<string, unknown>;
-  } catch {
-    return events;
-  }
+    const html = await fetchHtml(url);
+    const $ = cheerio.load(html);
+    const events: CrawledEvent[] = [];
+    const seen = new Set<string>();
 
-  // RSS 2.0
-  const rssRoot = parsed["rss"] as Record<string, unknown> | undefined;
-  const channel = rssRoot?.["channel"] as Record<string, unknown> | undefined;
-  const rawItems = channel?.["item"] as unknown[] | undefined;
-  const items = Array.isArray(rawItems) ? rawItems : rawItems ? [rawItems] : [];
-
-  // Atom
-  const feedRoot = parsed["feed"] as Record<string, unknown> | undefined;
-  const atomEntries = feedRoot?.["entry"] as unknown[] | undefined;
-  const entries = Array.isArray(atomEntries)
-    ? atomEntries
-    : atomEntries
-    ? [atomEntries]
-    : [];
-
-  const allItems = [...items, ...entries];
-
-  for (const item of allItems) {
-    const it = item as Record<string, unknown>;
-    const title = String(
-      (it["title"] as Record<string, unknown>)?.["#text"] ?? it["title"] ?? "",
-    ).trim();
-    if (!title || title.length < 2) continue;
-
-    const linkVal = it["link"];
-    const link = String(
-      typeof linkVal === "object" && linkVal !== null
-        ? (linkVal as Record<string, unknown>)["@_href"] ?? ""
-        : linkVal ?? "",
-    ).trim();
-
-    const pubDate = String(
-      it["pubDate"] ?? it["published"] ?? it["updated"] ?? "",
-    ).trim();
-
-    const desc = String(
-      it["description"] ??
-        (it["content"] as Record<string, unknown>)?.["#text"] ??
-        it["summary"] ??
-        "",
-    )
-      .replace(/<[^>]+>/g, "")
-      .trim()
-      .slice(0, 200);
-
-    events.push(
-      buildEvent(
-        makeId(sourceName, link || title),
-        title,
-        desc,
-        pubDate,
-        link,
-        sourceName,
-        "rss",
-        defaultCategory,
-      ),
-    );
-  }
-
-  return events;
-}
-
-export async function crawlRss(
-  url: string,
-  sourceName: string,
-  defaultCategory?: string,
-): Promise<{ events: CrawledEvent[]; error?: string }> {
-  try {
-    const { body, contentType } = await fetchRaw(url);
-    const text = await decodeBuffer(body, contentType);
-    const events = parseRssXml(text, sourceName, defaultCategory);
-    return { events };
-  } catch (err) {
-    return { events: [], error: err instanceof Error ? err.message : String(err) };
-  }
-}
-
-// ─── Tier 2: HTML crawling ────────────────────────────────────────────────────
-
-interface HtmlSource {
-  name: string;
-  url: string;
-  selectors?: string[];
-  defaultCategory?: string;
-}
-
-// 강릉 전용 HTML 소스
-const HTML_SOURCES: HtmlSource[] = [
-  {
-    name: "강릉시청 - 문화관광 행사",
-    url: "https://www.gangneung.go.kr/open_content/index.do?menu_id=01030100",
-    defaultCategory: "행사",
-  },
-  {
-    name: "강릉문화재단 - 공연전시",
-    url: "https://www.gcf.or.kr/program/list.do",
-    defaultCategory: "행사",
-  },
-];
-
-const DEFAULT_SELECTORS = [
-  "table tbody tr",
-  ".board-list li",
-  ".list-wrap li",
-  ".bbs-list tr",
-  ".notice-list tr",
-  "ul.list li",
-  ".festival-list li",
-  ".event-list li",
-  ".program-list li",
-  "article",
-];
-
-function parseHtml(
-  html: string,
-  url: string,
-  sourceName: string,
-  selectors: string[] = DEFAULT_SELECTORS,
-  defaultCategory?: string,
-): CrawledEvent[] {
-  const $ = cheerio.load(html);
-  const events: CrawledEvent[] = [];
-  const origin = (() => {
-    try { return new URL(url).origin; } catch { return ""; }
-  })();
-
-  for (const selector of selectors) {
-    if ($(selector).length === 0) continue;
-
-    $(selector).each((_, el) => {
+    $("li").each((_, el) => {
       const $el = $(el);
-      const $a = $el.find("a").first();
-      const title = ($a.text().trim() || $el.find("td").eq(1).text().trim()).slice(0, 200);
+      const $btn = $el.find("button.category_link");
+      if ($btn.length === 0) return;
+
+      const title = $btn.find("em.text").text().trim();
       if (!title || title.length < 2) return;
 
-      const href = $a.attr("href") || "";
-      const link = href.startsWith("http")
-        ? href
-        : href
-        ? `${origin}${href.startsWith("/") ? "" : "/"}${href}`
-        : url;
+      const categoryLabel = $btn.find("em.category").text().trim();
 
-      const dateRaw = $el.text().match(/\d{4}[-./]\d{1,2}[-./]\d{1,2}/)?.[0] ?? "";
-      const desc = $el.find(".desc, .summary, p").first().text().trim().slice(0, 200);
+      const $popup = $el.find(".popup_inner");
+      const infoText = $popup.find("ul li").map((_, li) => $(li).text().trim()).get();
 
-      events.push(
-        buildEvent(
-          makeId(sourceName, link || title),
-          title,
-          desc,
-          dateRaw,
-          link,
-          sourceName,
-          "html",
-          defaultCategory,
-        ),
-      );
+      const dateRaw = infoText.find(t => t.startsWith("기간"))?.replace("기간 : ", "").trim() ?? "";
+      const location = infoText.find(t => t.startsWith("장소"))?.replace("장소 : ", "").trim() || "강릉";
+
+      const $detailLink = $popup.find("a.more_link");
+      const href = $detailLink.attr("href") || "";
+      const link = href.startsWith("http") ? href : href ? `${GN_YEYAK_BASE}/yeyak/${href.replace(/^\.\//, "")}` : url;
+
+      const imgStyle = $el.find(".img_wrap").attr("style") || "";
+      const imgMatch = imgStyle.match(/url\(([^)]+)\)/);
+      const thumbnail = imgMatch
+        ? (imgMatch[1].startsWith("http") ? imgMatch[1] : `${GN_YEYAK_BASE}${imgMatch[1]}`)
+        : null;
+
+      const key = title + dateRaw;
+      if (seen.has(key)) return;
+      seen.add(key);
+
+      const defaultCategory = categoryLabel === "공연" ? "행사"
+        : categoryLabel === "축제" ? "행사"
+        : categoryLabel === "전시" ? "행사"
+        : "행사";
+
+      events.push(buildEvent(
+        makeId("gn_yeyak", link || title),
+        title,
+        location,
+        dateRaw,
+        link,
+        "강릉시 이달의 행사",
+        "html",
+        thumbnail,
+        location,
+        defaultCategory,
+      ));
     });
 
-    if (events.length > 0) break;
-  }
-
-  return events;
-}
-
-export async function crawlHtml(
-  url: string,
-  sourceName: string,
-  selectors?: string[],
-  defaultCategory?: string,
-): Promise<{ events: CrawledEvent[]; error?: string }> {
-  try {
-    const { body, contentType } = await fetchRaw(url);
-    const text = await decodeBuffer(body, contentType);
-    const events = parseHtml(text, url, sourceName, selectors, defaultCategory);
     return { events };
   } catch (err) {
     return { events: [], error: err instanceof Error ? err.message : String(err) };
   }
 }
 
-// ─── Auto-detect: RSS vs HTML ─────────────────────────────────────────────────
+// ─── 강릉문화예술재단 ────────────────────────────────────────────────────────
+
+const GNCAF_BASE = "https://www.gncaf.or.kr";
+
+async function crawlGncaf(): Promise<{ events: CrawledEvent[]; error?: string }> {
+  const url = `${GNCAF_BASE}/ko/community/event`;
+  try {
+    const html = await fetchHtml(url);
+    const $ = cheerio.load(html);
+    const events: CrawledEvent[] = [];
+
+    $("div.grid-item").each((_, el) => {
+      const $el = $(el);
+      const $a = $el.find("a.card-hover-2");
+      if ($a.length === 0) return;
+
+      const href = $a.attr("href") || "";
+      const link = href.startsWith("http") ? href : `${GNCAF_BASE}${href}`;
+
+      const title = $a.find("h5.tags").text().trim();
+      if (!title || title.length < 2) return;
+
+      const metaText = $a.find("p.tags").text().trim();
+      const parts = metaText.split("/");
+      const location = parts[0]?.trim() || "강릉";
+      const dateRaw = parts[1]?.trim() || "";
+
+      const imgSrc = $a.find("img.img-zoom").attr("src") || "";
+      const thumbnail = imgSrc
+        ? (imgSrc.startsWith("http") ? imgSrc : `${GNCAF_BASE}${imgSrc}`)
+        : null;
+
+      events.push(buildEvent(
+        makeId("gncaf", link || title),
+        title,
+        location,
+        dateRaw,
+        link,
+        "강릉문화예술재단",
+        "html",
+        thumbnail,
+        location,
+        "행사",
+      ));
+    });
+
+    return { events };
+  } catch (err) {
+    return { events: [], error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+// ─── crawlUrl (수동 URL 크롤링) ───────────────────────────────────────────────
 
 export async function crawlUrl(url: string): Promise<CrawledEvent[]> {
   const hostname = (() => {
@@ -328,24 +205,54 @@ export async function crawlUrl(url: string): Promise<CrawledEvent[]> {
   })();
 
   try {
-    const { body, contentType } = await fetchRaw(url);
-    const text = await decodeBuffer(body, contentType);
+    const html = await fetchHtml(url);
+    const $ = cheerio.load(html);
+    const events: CrawledEvent[] = [];
 
-    if (
-      isRssContentType(contentType) ||
-      /^<\?xml|<rss|<feed/i.test(text.trim())
-    ) {
-      const events = parseRssXml(text, hostname);
-      if (events.length > 0) return events;
+    const DEFAULT_SELECTORS = [
+      "table tbody tr",
+      ".board-list li",
+      ".list-wrap li",
+      "ul.list li",
+      "article",
+    ];
+
+    const origin = (() => {
+      try { return new URL(url).origin; } catch { return ""; }
+    })();
+
+    for (const selector of DEFAULT_SELECTORS) {
+      if ($(selector).length === 0) continue;
+      $(selector).each((_, el) => {
+        const $el = $(el);
+        const $a = $el.find("a").first();
+        const title = ($a.text().trim() || $el.find("td").eq(1).text().trim()).slice(0, 200);
+        if (!title || title.length < 2) return;
+        const href = $a.attr("href") || "";
+        const link = href.startsWith("http") ? href : href ? `${origin}${href.startsWith("/") ? "" : "/"}${href}` : url;
+        const dateRaw = $el.text().match(/\d{4}[-./]\d{1,2}[-./]\d{1,2}/)?.[0] ?? "";
+        events.push(buildEvent(
+          makeId(hostname, link || title),
+          title,
+          "",
+          dateRaw,
+          link,
+          hostname,
+          "html",
+          null,
+          "강릉",
+          "지역소식",
+        ));
+      });
+      if (events.length > 0) break;
     }
-
-    return parseHtml(text, url, hostname);
+    return events;
   } catch {
     return [];
   }
 }
 
-// ─── Main: crawlAll (강릉 전용) ───────────────────────────────────────────────
+// ─── Main: crawlAll ───────────────────────────────────────────────────────────
 
 export interface CrawlResult {
   source: string;
@@ -358,21 +265,27 @@ export interface CrawlResult {
 export async function crawlAll(): Promise<CrawlResult[]> {
   const results: CrawlResult[] = [];
 
-  // Tier 1: RSS (강릉 전용)
-  for (const src of RSS_SOURCES) {
-    logger.info({ url: src.url }, `[RSS] 크롤링 시작: ${src.name}`);
-    const { events, error } = await crawlRss(src.url, src.name, src.defaultCategory);
-    logger.info({ count: events.length, error }, `[RSS] 완료: ${src.name}`);
-    results.push({ source: src.name, url: src.url, sourceType: "rss", events, error });
-  }
+  // 강릉시 이달의 행사
+  logger.info({ url: "https://www.gn.go.kr/yeyak/selectUnityEventWebList.do?key=6420" }, "[HTML] 크롤링 시작: 강릉시 이달의 행사");
+  const gnResult = await crawlGnYeyak();
+  logger.info({ count: gnResult.events.length, error: gnResult.error }, "[HTML] 완료: 강릉시 이달의 행사");
+  results.push({
+    source: "강릉시 이달의 행사",
+    url: `${GN_YEYAK_BASE}/yeyak/selectUnityEventWebList.do?key=6420`,
+    sourceType: "html",
+    ...gnResult,
+  });
 
-  // Tier 2: HTML (강릉 전용)
-  for (const src of HTML_SOURCES) {
-    logger.info({ url: src.url }, `[HTML] 크롤링 시작: ${src.name}`);
-    const { events, error } = await crawlHtml(src.url, src.name, src.selectors, src.defaultCategory);
-    logger.info({ count: events.length, error }, `[HTML] 완료: ${src.name}`);
-    results.push({ source: src.name, url: src.url, sourceType: "html", events, error });
-  }
+  // 강릉문화예술재단
+  logger.info({ url: "https://www.gncaf.or.kr/ko/community/event" }, "[HTML] 크롤링 시작: 강릉문화예술재단");
+  const gncafResult = await crawlGncaf();
+  logger.info({ count: gncafResult.events.length, error: gncafResult.error }, "[HTML] 완료: 강릉문화예술재단");
+  results.push({
+    source: "강릉문화예술재단",
+    url: `${GNCAF_BASE}/ko/community/event`,
+    sourceType: "html",
+    ...gncafResult,
+  });
 
   return results;
 }

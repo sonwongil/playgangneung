@@ -77,8 +77,28 @@ export async function saveEvents(events: CrawledEvent[]): Promise<void> {
   await fs.writeFile(EVENTS_FILE, JSON.stringify(events, null, 2), "utf-8");
 }
 
-function dupKey(e: CrawledEvent): string {
-  return e.title.trim().replace(/\s+/g, " ").toLowerCase().slice(0, 60);
+function normalizeTitle(s: string): string {
+  return s
+    .replace(/[＜＞《》「」『』【】<>()（）\[\]]/g, " ")
+    .replace(/[_\-·•\.]/g, " ")
+    .replace(/\s+/g, "")
+    .toLowerCase()
+    .slice(0, 60);
+}
+
+/** 한 이벤트에서 중복 감지용 키를 여러 개 추출 (괄호 안 내용도 별도 키) */
+function dupKeys(e: CrawledEvent): string[] {
+  const keys = new Set<string>();
+  keys.add(normalizeTitle(e.title));
+
+  // 괄호·꺾쇠 안 내용을 별도 키로 추가
+  const bracketRe = /[＜＜《「『【<(（\[](.*?)[＞＞》」』】>)）\]]/g;
+  let m: RegExpExecArray | null;
+  while ((m = bracketRe.exec(e.title)) !== null) {
+    const inner = normalizeTitle(m[1]);
+    if (inner.length >= 6) keys.add(inner);
+  }
+  return [...keys];
 }
 
 export async function appendEvents(
@@ -86,9 +106,9 @@ export async function appendEvents(
 ): Promise<{ added: number; total: number }> {
   const existing = await readEvents();
   const existingIds = new Set(existing.map((e) => e.id));
-  const existingKeys = new Set(existing.map(dupKey));
+  const existingKeys = new Set(existing.flatMap(dupKeys));
   const fresh = newEvents.filter(
-    (e) => !existingIds.has(e.id) && !existingKeys.has(dupKey(e)),
+    (e) => !existingIds.has(e.id) && !dupKeys(e).some((k) => existingKeys.has(k)),
   );
   const merged = [...existing, ...fresh];
   await saveEvents(merged);

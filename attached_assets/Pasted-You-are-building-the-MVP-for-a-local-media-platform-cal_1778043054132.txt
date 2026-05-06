@@ -1,0 +1,152 @@
+You are building the MVP for a local media platform called “PLAY 강릉”.
+
+Tech Stack:
+- Frontend: React + Vite
+- Backend: Express.js
+- Style: Modern clean mobile-first UI
+- Language: Korean
+- Theme color: #2563eb (blue)
+- Design style: clean, minimal, modern card UI
+
+Project Goal:
+Create a simple local tourism/media platform for Gangneung with:
+1. Public front page
+2. Admin dashboard
+3. Crawling-ready event storage structure
+
+-----------------------------------
+FEATURES
+-----------------------------------
+
+# PUBLIC PAGE (/)
+
+Create a responsive homepage with:
+
+HEADER
+- Logo text: PLAY 강릉
+- Subtitle:
+  "강릉의 모든 즐거움을 가장 빠르게"
+
+TOP CATEGORY TABS
+- 전체
+- 행사
+- 맛집
+- 핫플
+- 지역소식
+
+MAIN FEED
+Use card-style layout.
+
+Each card contains:
+- thumbnail image
+- category badge
+- title
+- date
+- short description
+- source
+- button: "자세히 보기"
+
+Add 6 mock data cards.
+
+BOTTOM SNS SECTION
+- Facebook button
+- Instagram button
+- Text:
+  "SNS에서 PLAY 강릉을 만나보세요"
+
+FOOTER
+- © PLAY 강릉
+
+-----------------------------------
+ADMIN DASHBOARD (/admin)
+-----------------------------------
+
+Create modern admin dashboard UI.
+
+TOP BAR
+- Title: PLAY 강릉 관리자
+- Buttons:
+  - 크롤링 실행
+  - 카드 생성
+  - SNS 문구 생성
+
+LEFT SIDEBAR
+Menu:
+- 대시보드
+- 행사관리
+- 콘텐츠관리
+- SNS관리
+- 설정
+
+MAIN CONTENT
+
+Create event table with columns:
+- 상태
+- 제목
+- 날짜
+- 출처
+- 카테고리
+- 액션
+
+Mock statuses:
+- 승인
+- 대기
+- 제외
+
+Action buttons:
+- 승인
+- 제외
+- 삭제
+
+Add 8 mock events.
+
+TOP STATS CARDS
+- 전체 콘텐츠 수
+- 승인 대기
+- 오늘 수집
+- SNS 발행 예정
+
+-----------------------------------
+BACKEND
+-----------------------------------
+
+Create Express backend.
+
+API ROUTES:
+
+GET /api/events
+- return mock event JSON array
+
+POST /api/crawl
+- return:
+{
+  success: true,
+  message: "크롤링 완료"
+}
+
+-----------------------------------
+DESIGN REQUIREMENTS
+-----------------------------------
+
+- Mobile-first responsive
+- Use clean spacing
+- Rounded cards
+- Soft shadows
+- Sticky top navigation
+- Korean font friendly
+- Modern dashboard style
+- Minimal but premium feel
+
+-----------------------------------
+IMPORTANT
+-----------------------------------
+
+Generate ALL files needed:
+- frontend
+- backend
+- routes
+- components
+- sample mock data
+- app structure
+
+The result must run immediately in Replit without extra explanation.

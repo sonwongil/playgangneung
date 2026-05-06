@@ -197,36 +197,34 @@ export default function Home() {
       {/* Main Content */}
       <main className="flex-1 max-w-6xl mx-auto px-4 py-4 w-full">
         {/* Category Tabs */}
-        <div className="mb-4">
-          <div className="flex items-center gap-3 flex-wrap">
+        <div className="my-2">
+          <div className="flex items-center gap-2">
             <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v as Category); setShowAll(false); }}>
-              <TabsList className="bg-white border border-border shadow-sm h-auto p-1 gap-1">
+              <TabsList className="bg-white border border-border shadow-sm h-8 p-0.5 gap-0.5">
                 {(["전체", "행사", "맛집", "핫플", "지역소식"] as Category[]).map((cat) => (
                   <TabsTrigger
                     key={cat}
                     value={cat}
-                    className="px-4 py-2 text-sm data-[state=active]:bg-primary data-[state=active]:text-white rounded-md"
+                    className="px-3 py-1 text-xs data-[state=active]:bg-primary data-[state=active]:text-white rounded"
                   >
                     {cat}
                   </TabsTrigger>
                 ))}
               </TabsList>
             </Tabs>
-            {adCount > 0 && (
-              <Badge variant="outline" className="text-xs text-amber-700 border-amber-300 bg-amber-50">
-                <Megaphone className="w-3 h-3 mr-1" />광고 {adCount}건 포함
-              </Badge>
-            )}
-          </div>
-          <div className="mt-2">
             <Button
               variant="outline"
               size="sm"
-              className="text-blue-600 border-blue-200 hover:bg-blue-50 font-semibold gap-1.5"
+              className="h-8 px-3 text-xs text-blue-600 border-blue-200 hover:bg-blue-50 font-semibold gap-1 shrink-0"
               onClick={() => { window.location.href = `${BASE}/ad-submit`; }}
             >
-              <Megaphone className="w-3.5 h-3.5" /> 광고접수
+              <Megaphone className="w-3 h-3" /> 광고접수
             </Button>
+            {adCount > 0 && (
+              <Badge variant="outline" className="text-xs text-amber-700 border-amber-300 bg-amber-50 shrink-0">
+                <Megaphone className="w-3 h-3 mr-1" />{adCount}건
+              </Badge>
+            )}
           </div>
         </div>
 

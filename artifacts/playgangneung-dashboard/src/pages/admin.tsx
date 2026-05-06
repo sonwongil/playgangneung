@@ -243,6 +243,30 @@ export default function Admin() {
   const todayCount = events.filter((e) => e.crawledAt?.startsWith(today)).length;
   const snsReadyCount = events.filter((e) => e.status === "approved" && e.socialDraft).length;
 
+  const regenerateDraftsMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`${BASE}/api/events/regenerate-drafts`, {
+        method: "POST",
+        credentials: "include",
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error ?? "재생성 실패");
+      return d as { total: number; regenerated: number };
+    },
+    onSuccess: (d) => {
+      if (d.regenerated === 0) {
+        toast({ title: "모두 최신 링크입니다", description: "재생성이 필요한 초안이 없습니다." });
+      } else {
+        toast({
+          title: `${d.regenerated}건 재생성 완료`,
+          description: `총 ${d.total}건 중 ${d.regenerated}건의 초안을 새 링크로 업데이트했습니다.`,
+        });
+      }
+      queryClient.invalidateQueries({ queryKey: ["admin-events"] });
+    },
+    onError: (err: Error) => toast({ title: "재생성 실패", description: err.message, variant: "destructive" }),
+  });
+
   const crawlMutation = useMutation({
     mutationFn: async () => {
       const res = await fetch(`${BASE}/api/crawl`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
@@ -678,7 +702,41 @@ export default function Admin() {
 
           {/* ── 설정 섹션 ── */}
           {activeNav === "settings" && (
-            <div className="max-w-lg">
+            <div className="max-w-lg space-y-4">
+              {/* SNS 초안 일괄 재생성 */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <RefreshCw className="w-4 h-4 text-blue-600" />
+                    SNS 초안 일괄 재생성
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    기존 SNS 초안 중 원본 출처 URL이 포함된 초안을 찾아
+                    <br />
+                    <span className="font-medium text-foreground">/content/:id</span> 상세 링크로 일괄 업데이트합니다.
+                  </p>
+                  {regenerateDraftsMutation.data && (
+                    <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 rounded-lg px-3 py-2 border border-green-200">
+                      <CheckCircle className="w-4 h-4 shrink-0" />
+                      {regenerateDraftsMutation.data.regenerated === 0
+                        ? "모든 초안이 이미 최신 링크입니다."
+                        : `${regenerateDraftsMutation.data.regenerated}건 업데이트 완료 (전체 ${regenerateDraftsMutation.data.total}건 검사)`}
+                    </div>
+                  )}
+                  <Button
+                    className="w-full gap-2 bg-blue-600 hover:bg-blue-700"
+                    onClick={() => regenerateDraftsMutation.mutate()}
+                    disabled={regenerateDraftsMutation.isPending}
+                  >
+                    <RefreshCw className={`w-4 h-4 ${regenerateDraftsMutation.isPending ? "animate-spin" : ""}`} />
+                    {regenerateDraftsMutation.isPending ? "재생성 중..." : "기존 SNS 초안 일괄 재생성"}
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* 비밀번호 변경 */}
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base flex items-center gap-2">

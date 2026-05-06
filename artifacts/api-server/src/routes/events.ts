@@ -357,6 +357,39 @@ router.post("/events/:id/card", async (req, res) => {
   }
 });
 
+router.post("/events/regenerate-drafts", async (req, res) => {
+  try {
+    const siteUrl = process.env["SITE_URL"] ?? "https://play-gangneung-dashboard.replit.app";
+    const contentPattern = `${siteUrl}/content/`;
+
+    const events = await readEvents();
+    const targets = events.filter(
+      (e) =>
+        e.socialDraft &&
+        (e.status === "approved" || e.status === "published") &&
+        !e.socialDraft.caption.includes(contentPattern),
+    );
+
+    let regenerated = 0;
+    for (const event of targets) {
+      try {
+        const approvedEvent = { ...event, status: "approved" as const };
+        const newDraft = generateSocialDraft(approvedEvent);
+        await saveEventDraft(event.id, newDraft);
+        regenerated++;
+      } catch (err) {
+        req.log.warn({ id: event.id, err }, "초안 재생성 건너뜀");
+      }
+    }
+
+    req.log.info({ total: targets.length, regenerated }, "SNS 초안 일괄 재생성 완료");
+    return res.json({ success: true, total: targets.length, regenerated });
+  } catch (err) {
+    req.log.error({ err }, "SNS 초안 일괄 재생성 실패");
+    return res.status(500).json({ success: false, error: String(err) });
+  }
+});
+
 router.delete("/events", async (req, res) => {
   try {
     await saveEvents([]);

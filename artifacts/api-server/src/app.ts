@@ -4,6 +4,7 @@ import pinoHttp from "pino-http";
 import path from "path";
 import session from "express-session";
 import router from "./routes/index.js";
+import contentRouter from "./routes/content.js";
 import { logger } from "./lib/logger.js";
 
 const app: Express = express();
@@ -58,5 +59,6 @@ app.get("/", (_req, res) => {
 });
 
 app.use("/api", router);
+app.use("/content", contentRouter);
 
 export default app;

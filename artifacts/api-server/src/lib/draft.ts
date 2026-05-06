@@ -100,9 +100,8 @@ export function generateSocialDraft(event: CrawledEvent): SocialDraft {
 
   caption += `${visitPhrase}\n`;
 
-  if (event.link) {
-    caption += `\n🔗 자세히 보기: ${event.link}`;
-  }
+  const siteUrl = process.env["SITE_URL"] ?? "https://play-gangneung-dashboard.replit.app";
+  caption += `\n👉 자세히 보기: ${siteUrl}/content/${event.id}`;
 
   // 해시태그 5~8개
   const catTags = detectCategories(event);

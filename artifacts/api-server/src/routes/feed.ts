@@ -10,7 +10,7 @@ const DATA_DIR = path.resolve(process.cwd(), "data");
 const ADS_FILE = path.join(DATA_DIR, "ads.json");
 const EVENTS_FILE = path.join(DATA_DIR, "events.json");
 
-const PLAN_DAYS: Record<string, number> = { basic: 3, main: 7, premium: 30 };
+const PLAN_DAYS: Record<string, number> = { basic: 1, main: 3, premium: 5 };
 const PLAN_WEIGHT: Record<string, number> = { basic: 1, main: 3, premium: 5 };
 
 export interface FeedItem {

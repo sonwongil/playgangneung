@@ -1,0 +1,14 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "F_vqWrp75_v1OxBinH0dF"
+uri = "file://artifacts/playgangneung-dashboard/public/qr_site.png"
+type = "image"
+title = "공개 홈페이지 QR코드"
+
+[[outputs]]
+id = "DP3QiRTLgRg-OYMK8VRG4"
+uri = "file://artifacts/playgangneung-dashboard/public/qr_admin.png"
+type = "image"
+title = "관리자 페이지 QR코드"

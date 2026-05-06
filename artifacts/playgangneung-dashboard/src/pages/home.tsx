@@ -382,8 +382,9 @@ export default function Home() {
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(255,255,255,0.1),_transparent_60%)]" />
         <div className="relative max-w-6xl mx-auto px-4 py-6 text-center">
           <p className="text-blue-200 text-sm font-medium tracking-widest uppercase mb-2">강릉의 모든 소식</p>
-          <h1 className="text-3xl md:text-4xl font-bold mb-3 leading-tight">
-            강릉을 더 즐겁게, PLAY강릉
+          <h1 className="text-3xl md:text-4xl font-bold mb-3 leading-tight text-center">
+            <span className="block">강릉을 더 즐겁게,</span>
+            <span className="block">PLAY강릉</span>
           </h1>
           <p className="text-blue-100 text-sm md:text-base max-w-xl mx-auto">
             강릉의 행사, 맛집, 핫플, 지역소식을 한눈에 만나보세요.

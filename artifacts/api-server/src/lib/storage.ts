@@ -78,7 +78,7 @@ export async function saveEvents(events: CrawledEvent[]): Promise<void> {
 }
 
 function dupKey(e: CrawledEvent): string {
-  return `${e.title.trim().slice(0, 40)}|${e.source}|${e.startDate || e.date}`;
+  return e.title.trim().replace(/\s+/g, " ").toLowerCase().slice(0, 60);
 }
 
 export async function appendEvents(

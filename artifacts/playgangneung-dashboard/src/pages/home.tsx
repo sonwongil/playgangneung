@@ -114,12 +114,12 @@ export default function Home() {
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Header */}
       <header className="sticky top-0 z-50 bg-white border-b border-border shadow-sm">
-        <div className="max-w-6xl mx-auto px-4 h-44 flex items-center justify-between">
-          <a href={`${BASE}/`} className="flex items-center gap-3">
+        <div className="max-w-6xl mx-auto px-4 flex items-center justify-between" style={{ height: 60 }}>
+          <a href={`${BASE}/`} className="flex items-center">
             <img
               src={`${BASE}/logo.png`}
               alt="PLAY강릉"
-              className="h-40 object-contain"
+              className="h-9 object-contain"
             />
           </a>
           <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-muted-foreground">

@@ -114,7 +114,7 @@ export default function Home() {
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Header */}
       <header className="sticky top-0 z-50 bg-white border-b border-border shadow-sm">
-        <div className="max-w-6xl mx-auto px-4 h-16 flex items-center">
+        <div className="max-w-6xl mx-auto px-4 h-10 flex items-center">
           <a href={`${BASE}/`} className="inline-flex items-center">
             <img
               src={`${BASE}/logo2.png`}

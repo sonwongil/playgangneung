@@ -100,8 +100,13 @@ router.patch("/ads/:id/status", async (req, res) => {
     const ads = await readAds();
     const idx = ads.findIndex((a) => a.id === id);
     if (idx === -1) return res.status(404).json({ error: "광고를 찾을 수 없습니다" });
-    ads[idx] = { ...ads[idx], status };
+    const extra: Record<string, string> = {};
+    if (status === "approved" && !(ads[idx] as Ad & { approvedAt?: string }).approvedAt) {
+      extra.approvedAt = new Date().toISOString();
+    }
+    ads[idx] = { ...ads[idx], status, ...extra } as Ad & { approvedAt?: string };
     await saveAds(ads);
+    req.log.info({ id, status }, "광고 상태 변경");
     return res.json({ success: true, ad: ads[idx] });
   } catch (err) {
     req.log.error({ err }, "광고 상태 변경 실패");

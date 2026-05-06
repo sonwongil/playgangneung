@@ -3,22 +3,27 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CalendarDays, ExternalLink, MapPin, Instagram, Facebook, Youtube } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { CalendarDays, ExternalLink, MapPin, Instagram, Facebook, Youtube, Megaphone, Star, Pin } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 type Category = "전체" | "행사" | "맛집" | "핫플" | "지역소식" | "광고접수";
 
-interface EventItem {
+interface FeedItem {
   id: string;
   title: string;
   description: string;
   date: string;
   link: string;
   source: string;
-  category?: string;
-  thumbnail?: string;
-  status?: string;
+  category: string;
+  thumbnail: string | null;
+  isAd: boolean;
+  adPlan?: "basic" | "main" | "premium";
+  adWeight?: number;
+  businessName?: string;
+  location?: string;
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -28,60 +33,106 @@ const CATEGORY_COLORS: Record<string, string> = {
   지역소식: "bg-green-100 text-green-700",
 };
 
-const FALLBACK_EVENTS: EventItem[] = [
-  { id: "f-1", title: "2026 강릉 커피축제", description: "세계적인 커피 도시 강릉에서 펼쳐지는 커피 축제. 다양한 커피 체험과 전시, 공연을 즐겨보세요.", date: "2026-05-10", link: "https://www.gangneung.go.kr", source: "강릉시청", category: "행사", thumbnail: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=800&q=80" },
-  { id: "f-2", title: "안목해변 카페거리 맛집 탐방", description: "강릉 안목해변을 따라 즐비한 개성 넘치는 카페와 식당들을 소개합니다.", date: "2026-05-08", link: "https://www.gangneung.go.kr", source: "강릉관광공사", category: "맛집", thumbnail: "https://images.unsplash.com/photo-1559925393-8be0ec4767c8?w=800&q=80" },
-  { id: "f-3", title: "경포해변 일출 명소", description: "강릉 경포해변에서 바라보는 아름다운 일출. 한국의 대표적인 해돋이 명소를 소개합니다.", date: "2026-05-06", link: "https://www.gangneung.go.kr", source: "PLAY강릉", category: "핫플", thumbnail: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&q=80" },
-  { id: "f-4", title: "강릉 단오제 준비 위원회 출범", description: "유네스코 무형문화유산에 등재된 강릉단오제의 2026년 행사 준비가 시작되었습니다.", date: "2026-05-01", link: "https://www.gangneung.go.kr", source: "강릉시청", category: "지역소식", thumbnail: "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=800&q=80" },
-  { id: "f-5", title: "강릉 초당 순두부 골목", description: "강릉의 대표 향토음식, 초당 순두부. 동해 바닷물로 만든 부드럽고 담백한 순두부를 맛보세요.", date: "2026-05-03", link: "https://www.gangneung.go.kr", source: "강릉관광공사", category: "맛집", thumbnail: "https://images.unsplash.com/photo-1541544537156-7627a7a4aa1c?w=800&q=80" },
-  { id: "f-6", title: "오죽헌 문화재 야간 개방", description: "신사임당과 율곡 이이의 생가, 오죽헌에서 진행되는 특별 야간 문화 행사.", date: "2026-05-15", link: "https://www.gangneung.go.kr", source: "강릉문화재단", category: "행사", thumbnail: "https://images.unsplash.com/photo-1528360983277-13d401cdc186?w=800&q=80" },
-  { id: "f-7", title: "강릉 바우길 트레킹", description: "동해 바다와 백두대간을 잇는 강릉 바우길. 봄 트레킹 코스를 소개합니다.", date: "2026-05-12", link: "https://www.gangneung.go.kr", source: "강원도청", category: "핫플", thumbnail: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=800&q=80" },
-  { id: "f-8", title: "강릉 아트 페스타 2026", description: "강릉을 대표하는 예술 축제. 지역 예술가들의 작품 전시와 공연이 함께 펼쳐집니다.", date: "2026-05-20", link: "https://www.gangneung.go.kr", source: "강릉문화재단", category: "행사", thumbnail: "https://images.unsplash.com/photo-1518998053901-5348d3961a04?w=800&q=80" },
+const AD_PLAN_CONFIG = {
+  premium: {
+    label: "프리미엄 광고",
+    icon: <Star className="w-3 h-3" />,
+    ring: "ring-2 ring-amber-400",
+    banner: "bg-gradient-to-r from-amber-500 to-orange-500 text-white",
+    badge: "bg-amber-100 text-amber-700",
+  },
+  main: {
+    label: "메인 광고",
+    icon: <Pin className="w-3 h-3" />,
+    ring: "ring-2 ring-blue-400",
+    banner: "bg-gradient-to-r from-blue-600 to-blue-500 text-white",
+    badge: "bg-blue-100 text-blue-700",
+  },
+  basic: {
+    label: "광고",
+    icon: <Megaphone className="w-3 h-3" />,
+    ring: "",
+    banner: "",
+    badge: "bg-gray-100 text-gray-600",
+  },
+};
+
+const FALLBACK_FEED: FeedItem[] = [
+  { id: "f-1", title: "2026 강릉 커피축제", description: "세계적인 커피 도시 강릉에서 펼쳐지는 커피 축제. 다양한 커피 체험과 전시, 공연을 즐겨보세요.", date: "2026-05-10", link: "https://www.gangneung.go.kr", source: "강릉시청", category: "행사", thumbnail: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=800&q=80", isAd: false },
+  { id: "f-2", title: "안목해변 카페거리 맛집 탐방", description: "강릉 안목해변을 따라 즐비한 개성 넘치는 카페와 식당들을 소개합니다.", date: "2026-05-08", link: "https://www.gangneung.go.kr", source: "강릉관광공사", category: "맛집", thumbnail: "https://images.unsplash.com/photo-1559925393-8be0ec4767c8?w=800&q=80", isAd: false },
+  { id: "f-3", title: "경포해변 일출 명소", description: "강릉 경포해변에서 바라보는 아름다운 일출. 한국의 대표적인 해돋이 명소를 소개합니다.", date: "2026-05-06", link: "https://www.gangneung.go.kr", source: "PLAY강릉", category: "핫플", thumbnail: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&q=80", isAd: false },
+  { id: "f-4", title: "강릉 단오제 준비 위원회 출범", description: "유네스코 무형문화유산에 등재된 강릉단오제의 2026년 행사 준비가 시작되었습니다.", date: "2026-05-01", link: "https://www.gangneung.go.kr", source: "강릉시청", category: "지역소식", thumbnail: "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=800&q=80", isAd: false },
+  { id: "f-5", title: "강릉 초당 순두부 골목", description: "강릉의 대표 향토음식, 초당 순두부. 동해 바닷물로 만든 부드럽고 담백한 순두부를 맛보세요.", date: "2026-05-03", link: "https://www.gangneung.go.kr", source: "강릉관광공사", category: "맛집", thumbnail: "https://images.unsplash.com/photo-1541544537156-7627a7a4aa1c?w=800&q=80", isAd: false },
+  { id: "f-6", title: "오죽헌 문화재 야간 개방", description: "신사임당과 율곡 이이의 생가, 오죽헌에서 진행되는 특별 야간 문화 행사.", date: "2026-05-15", link: "https://www.gangneung.go.kr", source: "강릉문화재단", category: "행사", thumbnail: "https://images.unsplash.com/photo-1528360983277-13d401cdc186?w=800&q=80", isAd: false },
+  { id: "f-7", title: "강릉 바우길 트레킹", description: "동해 바다와 백두대간을 잇는 강릉 바우길. 봄 트레킹 코스를 소개합니다.", date: "2026-05-12", link: "https://www.gangneung.go.kr", source: "강원도청", category: "핫플", thumbnail: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=800&q=80", isAd: false },
+  { id: "f-8", title: "강릉 아트 페스타 2026", description: "강릉을 대표하는 예술 축제. 지역 예술가들의 작품 전시와 공연이 함께 펼쳐집니다.", date: "2026-05-20", link: "https://www.gangneung.go.kr", source: "강릉문화재단", category: "행사", thumbnail: "https://images.unsplash.com/photo-1518998053901-5348d3961a04?w=800&q=80", isAd: false },
 ];
 
-function EventCard({ event }: { event: EventItem }) {
-  const category = event.category ?? "지역소식";
+function AdBadge({ plan }: { plan: "basic" | "main" | "premium" }) {
+  const cfg = AD_PLAN_CONFIG[plan];
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${cfg.badge}`}>
+      {cfg.icon}{cfg.label}
+    </span>
+  );
+}
+
+function FeedCard({ item }: { item: FeedItem }) {
+  const category = item.category ?? "지역소식";
   const colorClass = CATEGORY_COLORS[category] ?? "bg-gray-100 text-gray-700";
-  const thumbnail = event.thumbnail ?? `https://images.unsplash.com/photo-1528360983277-13d401cdc186?w=800&q=80`;
+  const thumbnail = item.thumbnail ?? `https://images.unsplash.com/photo-1528360983277-13d401cdc186?w=800&q=80`;
+  const adCfg = item.isAd && item.adPlan ? AD_PLAN_CONFIG[item.adPlan] : null;
 
   return (
-    <Card className="overflow-hidden hover:shadow-lg transition-shadow duration-300 group">
+    <Card className={`overflow-hidden hover:shadow-lg transition-shadow duration-300 group ${adCfg?.ring ?? ""}`}>
+      {/* 프리미엄/메인 상단 배너 */}
+      {adCfg && (item.adPlan === "premium" || item.adPlan === "main") && (
+        <div className={`${adCfg.banner} flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold`}>
+          {adCfg.icon}
+          <span>{adCfg.label}</span>
+          <span className="ml-auto opacity-80 text-[10px]">{item.businessName}</span>
+        </div>
+      )}
       <div className="relative overflow-hidden h-48">
         <img
           src={thumbnail}
-          alt={event.title}
+          alt={item.title}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           loading="lazy"
         />
-        <div className="absolute top-3 left-3">
-          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorClass}`}>
-            {category}
-          </span>
+        <div className="absolute top-3 left-3 flex flex-col gap-1">
+          {item.isAd && item.adPlan ? (
+            <AdBadge plan={item.adPlan} />
+          ) : (
+            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorClass}`}>
+              {category}
+            </span>
+          )}
         </div>
       </div>
       <CardContent className="p-4">
         <h3 className="font-semibold text-base leading-snug mb-1.5 line-clamp-2 group-hover:text-primary transition-colors">
-          {event.title}
+          {item.title}
         </h3>
-        <p className="text-sm text-muted-foreground line-clamp-2 mb-3">{event.description}</p>
+        <p className="text-sm text-muted-foreground line-clamp-2 mb-3">{item.description}</p>
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <div className="flex items-center gap-1">
             <CalendarDays className="w-3.5 h-3.5" />
-            <span>{event.date}</span>
+            <span>{item.date}</span>
           </div>
           <div className="flex items-center gap-1">
             <MapPin className="w-3.5 h-3.5" />
-            <span>{event.source}</span>
+            <span>{item.location || item.source}</span>
           </div>
         </div>
-        {event.link && (
+        {item.link && (
           <a
-            href={event.link}
+            href={item.link}
             target="_blank"
             rel="noopener noreferrer"
             className="mt-3 flex items-center gap-1.5 text-xs text-primary hover:underline font-medium"
           >
-            자세히 보기 <ExternalLink className="w-3 h-3" />
+            {item.isAd ? "업체 정보 보기" : "자세히 보기"} <ExternalLink className="w-3 h-3" />
           </a>
         )}
       </CardContent>
@@ -93,22 +144,26 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<Category>("전체");
   const [showAll, setShowAll] = useState(false);
 
-  const { data } = useQuery<{ events: EventItem[]; total: number }>({
-    queryKey: ["public-events"],
+  const { data } = useQuery<{ feed: FeedItem[]; total: number }>({
+    queryKey: ["public-feed"],
     queryFn: async () => {
-      const res = await fetch(`${BASE}/api/events`);
-      if (!res.ok) throw new Error("이벤트 로드 실패");
+      const res = await fetch(`${BASE}/api/feed`);
+      if (!res.ok) throw new Error("피드 로드 실패");
       return res.json();
     },
-    staleTime: 60_000,
+    staleTime: 30_000,
   });
 
-  const allEvents = data?.events?.length ? data.events : FALLBACK_EVENTS;
+  const allItems: FeedItem[] = data?.feed?.length ? data.feed : FALLBACK_FEED;
 
   const filtered =
-    activeTab === "전체" ? allEvents : allEvents.filter((e) => e.category === activeTab);
+    activeTab === "전체"
+      ? allItems
+      : allItems.filter((item) => item.category === activeTab);
 
   const display = showAll ? filtered : filtered.slice(0, 6);
+
+  const adCount = allItems.filter((i) => i.isAd).length;
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -142,7 +197,7 @@ export default function Home() {
       {/* Main Content */}
       <main className="flex-1 max-w-6xl mx-auto px-4 py-4 w-full">
         {/* Category Tabs */}
-        <div className="mb-4">
+        <div className="mb-4 flex items-center gap-3 flex-wrap">
           <Tabs value={activeTab} onValueChange={(v) => {
             if (v === "광고접수") { window.location.href = `${BASE}/ad-submit`; return; }
             setActiveTab(v as Category); setShowAll(false);
@@ -159,6 +214,11 @@ export default function Home() {
               ))}
             </TabsList>
           </Tabs>
+          {adCount > 0 && (
+            <Badge variant="outline" className="text-xs text-amber-700 border-amber-300 bg-amber-50">
+              <Megaphone className="w-3 h-3 mr-1" />광고 {adCount}건 포함
+            </Badge>
+          )}
         </div>
 
         {/* Cards Grid */}
@@ -168,8 +228,8 @@ export default function Home() {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {display.map((event) => (
-              <EventCard key={event.id} event={event} />
+            {display.map((item) => (
+              <FeedCard key={item.id} item={item} />
             ))}
           </div>
         )}

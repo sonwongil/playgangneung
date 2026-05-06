@@ -183,12 +183,12 @@ export default function Home() {
       {/* Hero */}
       <section className="relative bg-gradient-to-br from-blue-700 via-blue-600 to-blue-500 text-white overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(255,255,255,0.1),_transparent_60%)]" />
-        <div className="relative max-w-6xl mx-auto px-4 py-8 md:py-12 text-center">
-          <p className="text-blue-200 text-sm font-medium tracking-widest uppercase mb-3">강릉의 모든 소식</p>
-          <h1 className="text-3xl md:text-5xl font-bold mb-4 leading-tight">
-            강릉을 더 즐겁게,<br className="md:hidden" /> PLAY강릉
+        <div className="relative max-w-6xl mx-auto px-4 py-6 text-center">
+          <p className="text-blue-200 text-sm font-medium tracking-widest uppercase mb-2">강릉의 모든 소식</p>
+          <h1 className="text-3xl md:text-4xl font-bold mb-3 leading-tight">
+            강릉을 더 즐겁게, PLAY강릉
           </h1>
-          <p className="text-blue-100 text-base md:text-lg max-w-xl mx-auto">
+          <p className="text-blue-100 text-sm md:text-base max-w-xl mx-auto">
             강릉의 행사, 맛집, 핫플, 지역소식을 한눈에 만나보세요.
           </p>
         </div>
@@ -197,8 +197,8 @@ export default function Home() {
       {/* Main Content */}
       <main className="flex-1 max-w-6xl mx-auto px-4 py-4 w-full">
         {/* Category Tabs */}
-        <div className="my-2">
-          <div className="flex items-center gap-2">
+        <div className="mb-4">
+          <div className="flex items-center justify-between gap-2 w-full">
             <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v as Category); setShowAll(false); }}>
               <TabsList className="bg-white border border-border shadow-sm h-8 p-0.5 gap-0.5">
                 {(["전체", "행사", "맛집", "핫플", "지역소식"] as Category[]).map((cat) => (
@@ -212,19 +212,21 @@ export default function Home() {
                 ))}
               </TabsList>
             </Tabs>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 px-3 text-xs text-blue-600 border-blue-200 hover:bg-blue-50 font-semibold gap-1 shrink-0"
-              onClick={() => { window.location.href = `${BASE}/ad-submit`; }}
-            >
-              <Megaphone className="w-3 h-3" /> 광고접수
-            </Button>
-            {adCount > 0 && (
-              <Badge variant="outline" className="text-xs text-amber-700 border-amber-300 bg-amber-50 shrink-0">
-                <Megaphone className="w-3 h-3 mr-1" />{adCount}건
-              </Badge>
-            )}
+            <div className="flex items-center gap-2">
+              {adCount > 0 && (
+                <Badge variant="outline" className="text-xs text-amber-700 border-amber-300 bg-amber-50">
+                  <Megaphone className="w-3 h-3 mr-1" />{adCount}건
+                </Badge>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 px-3 text-xs text-blue-600 border-blue-200 hover:bg-blue-50 font-semibold gap-1"
+                onClick={() => { window.location.href = `${BASE}/ad-submit`; }}
+              >
+                <Megaphone className="w-3 h-3" /> 광고접수
+              </Button>
+            </div>
           </div>
         </div>
 

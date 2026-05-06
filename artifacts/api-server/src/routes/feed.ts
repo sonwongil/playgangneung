@@ -62,14 +62,6 @@ function tomorrowStr() {
   return d.toISOString().slice(0, 10);
 }
 
-const MOCK_FEED_EVENTS: FeedItem[] = [
-  { id: "mock-1", title: "2026 강릉 커피축제", description: "세계적인 커피 도시 강릉에서 펼쳐지는 커피 축제.", date: "2026-05-10", startDate: "2026-05-10", endDate: "2026-05-12", scheduleStatus: "upcoming", link: `${SITE_URL}/content/mock-1`, source: "강릉시청", category: "행사", thumbnail: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=800&q=80", location: "경포 일원", isAd: false },
-  { id: "mock-2", title: "안목해변 카페거리 맛집 탐방", description: "강릉 안목해변 개성 넘치는 카페와 식당들.", date: "2026-05-08", startDate: "2026-05-08", endDate: "", scheduleStatus: "upcoming", link: `${SITE_URL}/content/mock-2`, source: "강릉관광공사", category: "맛집", thumbnail: "https://images.unsplash.com/photo-1559925393-8be0ec4767c8?w=800&q=80", location: "안목해변로", isAd: false },
-  { id: "mock-3", title: "경포해변 일출 명소", description: "강릉 경포해변에서 바라보는 아름다운 일출.", date: "2026-05-06", startDate: "2026-05-06", endDate: "", scheduleStatus: "today", link: `${SITE_URL}/content/mock-3`, source: "PLAY강릉", category: "핫플", thumbnail: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&q=80", location: "경포해변", isAd: false },
-  { id: "mock-6", title: "오죽헌 문화재 야간 개방", description: "신사임당과 율곡 이이의 생가, 오죽헌 특별 야간 문화 행사.", date: "2026-05-15", startDate: "2026-05-15", endDate: "2026-05-17", scheduleStatus: "upcoming", link: `${SITE_URL}/content/mock-6`, source: "강릉문화재단", category: "행사", thumbnail: "https://images.unsplash.com/photo-1528360983277-13d401cdc186?w=800&q=80", location: "오죽헌시립박물관", isAd: false },
-  { id: "mock-7", title: "강릉 바우길 트레킹", description: "동해 바다와 백두대간을 잇는 강릉 바우길 봄 트레킹.", date: "2026-05-12", startDate: "2026-05-12", endDate: "", scheduleStatus: "upcoming", link: `${SITE_URL}/content/mock-7`, source: "강릉시청", category: "핫플", thumbnail: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=800&q=80", location: "바우길 1코스", isAd: false },
-  { id: "mock-8", title: "강릉 아트 페스타 2026", description: "강릉을 대표하는 예술 축제. 지역 예술가들의 작품 전시와 공연.", date: "2026-05-20", startDate: "2026-05-20", endDate: "2026-05-25", scheduleStatus: "upcoming", link: `${SITE_URL}/content/mock-8`, source: "강릉문화재단", category: "행사", thumbnail: "https://images.unsplash.com/photo-1518998053901-5348d3961a04?w=800&q=80", location: "강릉문화예술관", isAd: false },
-];
 
 async function readAds(): Promise<Ad[]> {
   try { return JSON.parse(await fs.readFile(ADS_FILE, "utf-8")) as Ad[]; }
@@ -170,7 +162,7 @@ router.get("/feed", async (req, res) => {
         return a.date.localeCompare(b.date);
       });
 
-    const events: FeedItem[] = approvedReal.length >= 3 ? approvedReal : MOCK_FEED_EVENTS;
+    const events: FeedItem[] = approvedReal;
 
     // basic 광고를 3개마다 하나씩 interleave
     const interleaved: FeedItem[] = [];

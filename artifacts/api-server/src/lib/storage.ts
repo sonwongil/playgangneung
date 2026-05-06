@@ -101,15 +101,30 @@ function dupKeys(e: CrawledEvent): string[] {
   return [...keys];
 }
 
+/** 두 정규화 키가 "같은 행사"로 볼 수 있는지 판단 (완전일치 or 한쪽이 다른 쪽의 접두어) */
+function keysOverlap(aKeys: string[], bKeys: string[]): boolean {
+  for (const a of aKeys) {
+    for (const b of bKeys) {
+      if (a === b) return true;
+      // 짧은 쪽이 긴 쪽의 시작 부분과 같으면 동일 행사 (e.g. "발렌티나리사이틀" vs "발렌티나리사이틀쇼팽")
+      const [shorter, longer] = a.length <= b.length ? [a, b] : [b, a];
+      if (shorter.length >= 12 && longer.startsWith(shorter)) return true;
+    }
+  }
+  return false;
+}
+
 export async function appendEvents(
   newEvents: CrawledEvent[],
 ): Promise<{ added: number; total: number }> {
   const existing = await readEvents();
   const existingIds = new Set(existing.map((e) => e.id));
-  const existingKeys = new Set(existing.flatMap(dupKeys));
-  const fresh = newEvents.filter(
-    (e) => !existingIds.has(e.id) && !dupKeys(e).some((k) => existingKeys.has(k)),
-  );
+  const existingKeysList = existing.map(dupKeys);
+  const fresh = newEvents.filter((e) => {
+    if (existingIds.has(e.id)) return false;
+    const newK = dupKeys(e);
+    return !existingKeysList.some((exK) => keysOverlap(newK, exK));
+  });
   const merged = [...existing, ...fresh];
   await saveEvents(merged);
   return { added: fresh.length, total: merged.length };

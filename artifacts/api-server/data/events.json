@@ -76,25 +76,6 @@
     "crawledAt": "2026-05-06T13:37:01.554Z"
   },
   {
-    "id": "4cb5b531abc40c187dca45d295c674ea",
-    "title": "해외초청작 ＜Please Right Back＞",
-    "description": "강릉아트센터 소공연장",
-    "date": "2026-04-30",
-    "startDate": "2026-04-30",
-    "endDate": "2026-05-03",
-    "scheduleStatus": "ended",
-    "location": "강릉아트센터 소공연장",
-    "category": "행사",
-    "thumbnail": "https://gn.moonhwain.net:451/upload/pfm/202602/pImg1341_1.jpg",
-    "link": "https://www.gn.go.kr/artscenter/selectMoonhwainView.do?pageUnit=999&pageIndex=1&searchCnd=all&key=5728&searchYear=2026&searchMonth=05&searchMoon_p_team=artCenter&searchSiteId=artscenter&searchMoon_p_idx=1341",
-    "source": "강릉아트센터",
-    "sourceType": "html",
-    "status": "draft",
-    "socialDraft": null,
-    "cardImageUrl": null,
-    "crawledAt": "2026-05-06T13:38:35.940Z"
-  },
-  {
     "id": "5a59a3fc0a4cc0da030634c0ac6257f7",
     "title": "제6회 강원예술고등학교 무용과 개인작품 발표회",
     "description": "강릉아트센터 소공연장",
@@ -171,25 +152,6 @@
     "crawledAt": "2026-05-06T13:37:01.569Z"
   },
   {
-    "id": "fc7ddf257df369ca458944d50d8b49db",
-    "title": "발렌티나 리시차 피아노 리사이틀 <쇼팽>",
-    "description": "강릉아트센터 사임당홀",
-    "date": "2026-05-17",
-    "startDate": "2026-05-17",
-    "endDate": "2026-05-17",
-    "scheduleStatus": "upcoming",
-    "location": "강릉아트센터 사임당홀",
-    "category": "행사",
-    "thumbnail": "https://www.gn.go.kr/DATA/event/main/P_4917CED9-D800-CE0A-5A72-23417948D9FF.jpg",
-    "link": "https://www.gn.go.kr/yeyak/unityEventWebView.do?key=6420&eventNo=901&searchYear=2026&searchMonth=05&searchEventCd=",
-    "source": "강릉시 이달의 행사",
-    "sourceType": "html",
-    "status": "approved",
-    "socialDraft": null,
-    "cardImageUrl": null,
-    "crawledAt": "2026-05-06T13:37:01.572Z"
-  },
-  {
     "id": "4a311bdb4a78543c76dc87da709f1563",
     "title": "발렌티나 리시차 피아노 리사이틀",
     "description": "강릉아트센터 사임당홀",
@@ -226,25 +188,6 @@
     "socialDraft": null,
     "cardImageUrl": null,
     "crawledAt": "2026-05-06T13:37:02.768Z"
-  },
-  {
-    "id": "1fec37419dd63ddbadf53e59f89bd1b2",
-    "title": "제4회 라온합창단 정기연주회_노래가 있는 삶 행복한 인생!",
-    "description": "강릉아트센터 소공연장",
-    "date": "2026-05-21",
-    "startDate": "2026-05-21",
-    "endDate": "",
-    "scheduleStatus": "upcoming",
-    "location": "강릉아트센터 소공연장",
-    "category": "행사",
-    "thumbnail": "https://gn.moonhwain.net:451/upload/pfm/202604/pImg1369_1.jpg",
-    "link": "https://www.gn.go.kr/artscenter/selectMoonhwainView.do?pageUnit=999&pageIndex=1&searchCnd=all&key=5728&searchYear=2026&searchMonth=05&searchMoon_p_team=artCenter&searchSiteId=artscenter&searchMoon_p_idx=1369",
-    "source": "강릉아트센터",
-    "sourceType": "html",
-    "status": "approved",
-    "socialDraft": null,
-    "cardImageUrl": null,
-    "crawledAt": "2026-05-06T13:38:35.939Z"
   },
   {
     "id": "e79f5173ddca4d85016ec9b3ff6703c8",
@@ -865,25 +808,6 @@
     "socialDraft": null,
     "cardImageUrl": null,
     "crawledAt": "2026-05-06T13:37:01.581Z"
-  },
-  {
-    "id": "796f29f089c724e59f995f810555991c",
-    "title": "「2026 강릉단오제」 대관령국사성황제· 산신제,구산·학산 서낭제, 봉안제",
-    "description": "대산령산신당·성황사, 구산·학산, 여성황사",
-    "date": "2026-05-31",
-    "startDate": "2026-05-31",
-    "endDate": "2026-05-31",
-    "scheduleStatus": "upcoming",
-    "location": "대산령산신당·성황사, 구산·학산, 여성황사",
-    "category": "행사",
-    "thumbnail": null,
-    "link": "https://www.gn.go.kr/yeyak/unityEventWebView.do?key=6420&eventNo=913&searchYear=2026&searchMonth=05&searchEventCd=",
-    "source": "강릉시 이달의 행사",
-    "sourceType": "html",
-    "status": "approved",
-    "socialDraft": null,
-    "cardImageUrl": null,
-    "crawledAt": "2026-05-06T13:37:01.582Z"
   },
   {
     "id": "715c542ef915d22d10bdd3078536a42a",

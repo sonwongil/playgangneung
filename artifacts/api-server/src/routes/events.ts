@@ -18,97 +18,6 @@ const router = Router();
 
 type EnrichedEvent = CrawledEvent;
 
-const MOCK_EVENTS: EnrichedEvent[] = [
-  {
-    id: "mock-1",
-    title: "2026 강릉 커피축제",
-    description: "세계적인 커피 도시 강릉에서 펼쳐지는 커피 축제. 다양한 커피 체험과 전시, 공연을 즐겨보세요.",
-    date: "2026-05-10", startDate: "2026-05-10", endDate: "2026-05-12", scheduleStatus: "upcoming",
-    location: "강릉시 경포로 일원", category: "행사",
-    thumbnail: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=800&q=80",
-    link: "https://www.gangneung.go.kr", source: "강릉시청", sourceType: "manual",
-    status: "approved", socialDraft: null, cardImageUrl: null, crawledAt: "2026-05-06T09:00:00.000Z",
-  },
-  {
-    id: "mock-2",
-    title: "안목해변 카페거리 맛집 탐방",
-    description: "강릉 안목해변을 따라 즐비한 개성 넘치는 카페와 식당들을 소개합니다. 바다를 보며 즐기는 커피 한 잔.",
-    date: "2026-05-08", startDate: "2026-05-08", endDate: "", scheduleStatus: "upcoming",
-    location: "강릉시 안목해변로", category: "맛집",
-    thumbnail: "https://images.unsplash.com/photo-1559925393-8be0ec4767c8?w=800&q=80",
-    link: "https://www.gangneung.go.kr", source: "강릉관광공사", sourceType: "manual",
-    status: "approved", socialDraft: null, cardImageUrl: null, crawledAt: "2026-05-06T08:30:00.000Z",
-  },
-  {
-    id: "mock-3",
-    title: "경포해변 일출 명소",
-    description: "강릉 경포해변에서 바라보는 아름다운 일출. 한국의 대표적인 해돋이 명소를 소개합니다.",
-    date: "2026-05-06", startDate: "2026-05-06", endDate: "", scheduleStatus: "today",
-    location: "경포해변", category: "핫플",
-    thumbnail: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&q=80",
-    link: "https://www.gangneung.go.kr", source: "PLAY강릉", sourceType: "manual",
-    status: "approved",
-    socialDraft: { title: "경포해변 일출 명소", caption: "경포해변 일출을 소개합니다! 🌅 강릉의 아름다운 해돋이를 함께해요.", hashtags: ["강릉", "경포해변", "일출", "핫플"], createdAt: "2026-05-05T20:00:00.000Z" },
-    cardImageUrl: null, crawledAt: "2026-05-05T20:00:00.000Z",
-  },
-  {
-    id: "mock-4",
-    title: "강릉 단오제 준비 위원회 출범",
-    description: "유네스코 무형문화유산에 등재된 강릉단오제의 2026년 행사 준비가 시작되었습니다.",
-    date: "2026-05-01", startDate: "2026-05-01", endDate: "", scheduleStatus: "ended",
-    location: "강릉시청", category: "지역소식",
-    thumbnail: "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=800&q=80",
-    link: "https://www.gangneung.go.kr", source: "강릉시청", sourceType: "manual",
-    status: "draft", socialDraft: null, cardImageUrl: null, crawledAt: "2026-05-01T10:00:00.000Z",
-  },
-  {
-    id: "mock-5",
-    title: "강릉 초당 순두부 골목",
-    description: "강릉의 대표 향토음식, 초당 순두부. 동해 바닷물로 만든 부드럽고 담백한 순두부를 맛보세요.",
-    date: "2026-05-03", startDate: "2026-05-03", endDate: "", scheduleStatus: "ended",
-    location: "강릉시 초당동", category: "맛집",
-    thumbnail: "https://images.unsplash.com/photo-1541544537156-7627a7a4aa1c?w=800&q=80",
-    link: "https://www.gangneung.go.kr", source: "강릉관광공사", sourceType: "manual",
-    status: "draft", socialDraft: null, cardImageUrl: null, crawledAt: "2026-05-03T11:00:00.000Z",
-  },
-  {
-    id: "mock-6",
-    title: "오죽헌 문화재 야간 개방",
-    description: "신사임당과 율곡 이이의 생가, 오죽헌에서 진행되는 특별 야간 문화 행사.",
-    date: "2026-05-15", startDate: "2026-05-15", endDate: "2026-05-17", scheduleStatus: "upcoming",
-    location: "오죽헌시립박물관", category: "행사",
-    thumbnail: "https://images.unsplash.com/photo-1528360983277-13d401cdc186?w=800&q=80",
-    link: "https://www.gangneung.go.kr", source: "강릉문화재단", sourceType: "manual",
-    status: "approved", socialDraft: null, cardImageUrl: null, crawledAt: "2026-05-04T09:00:00.000Z",
-  },
-  {
-    id: "mock-7",
-    title: "강릉 바우길 트레킹",
-    description: "동해 바다와 백두대간을 잇는 강릉 바우길. 봄 트레킹 코스를 소개합니다.",
-    date: "2026-05-12", startDate: "2026-05-12", endDate: "", scheduleStatus: "upcoming",
-    location: "강릉 바우길 1코스", category: "핫플",
-    thumbnail: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=800&q=80",
-    link: "https://www.gangneung.go.kr", source: "강릉시청", sourceType: "manual",
-    status: "draft", socialDraft: null, cardImageUrl: null, crawledAt: "2026-05-02T14:00:00.000Z",
-  },
-  {
-    id: "mock-8",
-    title: "강릉 아트 페스타 2026",
-    description: "강릉을 대표하는 예술 축제. 지역 예술가들의 작품 전시와 공연이 함께 펼쳐집니다.",
-    date: "2026-05-20", startDate: "2026-05-20", endDate: "2026-05-25", scheduleStatus: "upcoming",
-    location: "강릉문화예술관", category: "행사",
-    thumbnail: "https://images.unsplash.com/photo-1518998053901-5348d3961a04?w=800&q=80",
-    link: "https://www.gangneung.go.kr", source: "강릉문화재단", sourceType: "manual",
-    status: "draft", socialDraft: null, cardImageUrl: null, crawledAt: "2026-05-02T10:00:00.000Z",
-  },
-];
-
-const THUMBNAIL_MAP: Record<string, string> = {
-  행사: "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=800&q=80",
-  맛집: "https://images.unsplash.com/photo-1559925393-8be0ec4767c8?w=800&q=80",
-  핫플: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&q=80",
-  지역소식: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=800&q=80",
-};
 
 function enrichEvent(event: CrawledEvent): EnrichedEvent {
   const category = event.category || detectCategory(event.title, event.description) || "지역소식";
@@ -121,10 +30,7 @@ function enrichEvent(event: CrawledEvent): EnrichedEvent {
 router.get("/events", async (req, res) => {
   try {
     const stored = await readEvents();
-    const storedIds = new Set(stored.map((e) => e.id));
-    const enrichedStored = stored.map(enrichEvent);
-    const supplementMocks = MOCK_EVENTS.filter((m) => !storedIds.has(m.id));
-    const events = [...enrichedStored, ...supplementMocks];
+    const events = stored.map(enrichEvent);
     res.json({ success: true, total: events.length, events });
   } catch (err) {
     req.log.error({ err }, "이벤트 목록 조회 실패");

@@ -114,20 +114,18 @@ export default function Home() {
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Header */}
       <header className="sticky top-0 z-50 bg-white border-b border-border shadow-sm">
-        <div className="max-w-6xl mx-auto px-4 flex items-center justify-between" style={{ height: 60 }}>
+        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <a href={`${BASE}/`} className="flex items-center">
             <img
               src={`${BASE}/logo.png`}
               alt="PLAY강릉"
-              className="h-9 object-contain"
+              className="h-44 object-contain"
             />
           </a>
-          <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-muted-foreground">
+          <nav className="flex items-center gap-6 text-sm font-medium text-muted-foreground">
             <a href={`${BASE}/`} className="text-foreground font-semibold">홈</a>
             <a href="https://www.gangneung.go.kr" target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors">강릉시청</a>
-            <a href={`${BASE}/admin`} className="text-primary font-semibold hover:text-primary/80 transition-colors">관리자</a>
           </nav>
-          <a href={`${BASE}/admin`} className="md:hidden text-primary text-sm font-medium">관리자</a>
         </div>
       </header>
 

@@ -71,15 +71,19 @@ interface Event {
   title: string;
   description: string;
   date: string;
+  startDate?: string;
+  endDate?: string;
+  scheduleStatus?: "today" | "tomorrow" | "ongoing" | "upcoming" | "ended" | "dateUnknown";
   link: string;
   source: string;
   sourceType: string;
+  location?: string;
+  category?: string;
+  thumbnail?: string;
   status: "draft" | "approved" | "rejected" | "published";
   socialDraft: SocialDraft | null;
   cardImageUrl: string | null;
   crawledAt: string;
-  category?: string;
-  thumbnail?: string;
 }
 
 type NavItem = {
@@ -135,30 +139,15 @@ const STATUS_CONFIG: Record<string, { label: string; icon: React.ReactNode; clas
 };
 
 const MOCK_EVENTS: Event[] = [
-  {
-    id: "m-today-1", title: "2026 강릉 커피축제 개막식", description: "세계적인 커피 도시 강릉에서 펼쳐지는 커피 축제 개막. 다양한 커피 체험과 공연.", date: TODAY_STR, link: "https://www.gangneung.go.kr", source: "강릉시청", sourceType: "rss", status: "approved", socialDraft: null, cardImageUrl: null, crawledAt: new Date().toISOString(), category: "행사",
-  },
-  {
-    id: "m-today-2", title: "경포해변 일출 명소 특별 야간행사", description: "강릉 경포해변에서 바라보는 아름다운 일출과 야간 특별 행사.", date: TODAY_STR, link: "https://www.gangneung.go.kr", source: "PLAY강릉", sourceType: "manual", status: "draft", socialDraft: null, cardImageUrl: null, crawledAt: new Date().toISOString(), category: "행사",
-  },
-  {
-    id: "m-tomorrow-1", title: "경포해변 모래조각 페스티벌", description: "동해 바다를 배경으로 펼쳐지는 모래조각 예술 축제.", date: TOMORROW_STR, link: "https://www.gangneung.go.kr", source: "강릉관광공사", sourceType: "html", status: "draft", socialDraft: null, cardImageUrl: null, crawledAt: new Date().toISOString(), category: "행사",
-  },
-  {
-    id: "1", title: "2026 강릉 커피축제", description: "세계적인 커피 도시 강릉에서 펼쳐지는 커피 축제.", date: getRelDate(4), link: "https://www.gangneung.go.kr", source: "강릉시청", sourceType: "rss", status: "approved", socialDraft: null, cardImageUrl: null, crawledAt: new Date().toISOString(), category: "행사",
-  },
-  {
-    id: "2", title: "안목해변 카페거리 맛집 탐방", description: "강릉 안목해변을 따라 즐비한 개성 넘치는 카페와 식당들.", date: getRelDate(2), link: "https://www.gangneung.go.kr", source: "강릉관광공사", sourceType: "html", status: "draft", socialDraft: null, cardImageUrl: null, crawledAt: new Date().toISOString(), category: "맛집",
-  },
-  {
-    id: "3", title: "오죽헌 야간 문화행사", description: "신사임당과 율곡 이이의 생가, 오죽헌에서 진행되는 특별 야간 문화 행사.", date: getRelDate(9), link: "https://www.gangneung.go.kr", source: "강릉문화재단", sourceType: "manual", status: "approved", socialDraft: { title: "오죽헌 야간 문화행사", caption: "오죽헌 야간 문화행사! 🏛️ 강릉의 역사와 문화를 밤에 즐겨보세요.", hashtags: ["강릉", "오죽헌", "야간행사", "행사"], createdAt: new Date().toISOString() }, cardImageUrl: null, crawledAt: new Date().toISOString(), category: "행사",
-  },
-  {
-    id: "4", title: "강릉 단오제 준비 위원회 출범", description: "유네스코 무형문화유산에 등재된 강릉단오제의 2026년 행사 준비 시작.", date: getRelDate(-5), link: "https://www.gangneung.go.kr", source: "강릉시청", sourceType: "rss", status: "rejected", socialDraft: null, cardImageUrl: null, crawledAt: new Date().toISOString(), category: "지역소식",
-  },
-  {
-    id: "5", title: "강릉 초당 순두부 골목", description: "강릉의 대표 향토음식, 초당 순두부.", date: getRelDate(-3), link: "https://www.gangneung.go.kr", source: "강릉관광공사", sourceType: "html", status: "draft", socialDraft: null, cardImageUrl: null, crawledAt: new Date().toISOString(), category: "맛집",
-  },
+  { id: "m-today-1", title: "2026 강릉 커피축제 개막식", description: "세계적인 커피 도시 강릉에서 펼쳐지는 커피 축제 개막.", date: TODAY_STR, startDate: TODAY_STR, endDate: "", scheduleStatus: "today", location: "경포 일원", link: "https://www.gangneung.go.kr", source: "강릉시청", sourceType: "rss", status: "approved", socialDraft: null, cardImageUrl: null, crawledAt: new Date().toISOString(), category: "행사" },
+  { id: "m-today-2", title: "경포해변 일출 명소 특별 야간행사", description: "강릉 경포해변에서 바라보는 아름다운 일출과 야간 특별 행사.", date: TODAY_STR, startDate: TODAY_STR, endDate: "", scheduleStatus: "today", location: "경포해변", link: "https://www.gangneung.go.kr", source: "PLAY강릉", sourceType: "manual", status: "draft", socialDraft: null, cardImageUrl: null, crawledAt: new Date().toISOString(), category: "행사" },
+  { id: "m-tomorrow-1", title: "경포해변 모래조각 페스티벌", description: "동해 바다를 배경으로 펼쳐지는 모래조각 예술 축제.", date: TOMORROW_STR, startDate: TOMORROW_STR, endDate: "", scheduleStatus: "tomorrow", location: "경포해변", link: "https://www.gangneung.go.kr", source: "강릉관광공사", sourceType: "html", status: "draft", socialDraft: null, cardImageUrl: null, crawledAt: new Date().toISOString(), category: "행사" },
+  { id: "m-ongoing-1", title: "강릉 단오맞이 전통문화 체험", description: "단오 시즌을 맞아 강릉 전역에서 진행 중인 전통 문화 체험 행사.", date: getRelDate(-2), startDate: getRelDate(-2), endDate: getRelDate(3), scheduleStatus: "ongoing", location: "강릉 시내", link: "https://www.gangneung.go.kr", source: "강릉문화재단", sourceType: "html", status: "approved", socialDraft: null, cardImageUrl: null, crawledAt: new Date().toISOString(), category: "행사" },
+  { id: "1", title: "2026 강릉 커피축제", description: "세계적인 커피 도시 강릉에서 펼쳐지는 커피 축제.", date: getRelDate(4), startDate: getRelDate(4), endDate: getRelDate(6), scheduleStatus: "upcoming", location: "경포 일원", link: "https://www.gangneung.go.kr", source: "강릉시청", sourceType: "rss", status: "approved", socialDraft: null, cardImageUrl: null, crawledAt: new Date().toISOString(), category: "행사" },
+  { id: "2", title: "안목해변 카페거리 맛집 탐방", description: "강릉 안목해변을 따라 즐비한 개성 넘치는 카페와 식당들.", date: getRelDate(2), startDate: getRelDate(2), endDate: "", scheduleStatus: "upcoming", location: "안목해변로", link: "https://www.gangneung.go.kr", source: "강릉관광공사", sourceType: "html", status: "draft", socialDraft: null, cardImageUrl: null, crawledAt: new Date().toISOString(), category: "맛집" },
+  { id: "3", title: "오죽헌 야간 문화행사", description: "신사임당과 율곡 이이의 생가, 오죽헌에서 진행되는 특별 야간 문화 행사.", date: getRelDate(9), startDate: getRelDate(9), endDate: getRelDate(11), scheduleStatus: "upcoming", location: "오죽헌시립박물관", link: "https://www.gangneung.go.kr", source: "강릉문화재단", sourceType: "manual", status: "approved", socialDraft: { title: "오죽헌 야간 문화행사", caption: "오죽헌 야간 문화행사! 🏛️ 강릉의 역사와 문화를 밤에 즐겨보세요.", hashtags: ["강릉", "오죽헌", "야간행사", "행사"], createdAt: new Date().toISOString() }, cardImageUrl: null, crawledAt: new Date().toISOString(), category: "행사" },
+  { id: "4", title: "강릉 단오제 준비 위원회 출범", description: "유네스코 무형문화유산에 등재된 강릉단오제의 2026년 행사 준비 시작.", date: getRelDate(-5), startDate: getRelDate(-5), endDate: "", scheduleStatus: "ended", location: "강릉시청", link: "https://www.gangneung.go.kr", source: "강릉시청", sourceType: "rss", status: "rejected", socialDraft: null, cardImageUrl: null, crawledAt: new Date().toISOString(), category: "지역소식" },
+  { id: "5", title: "강릉 초당 순두부 골목 소개", description: "강릉의 대표 향토음식, 초당 순두부.", date: "", startDate: "", endDate: "", scheduleStatus: "dateUnknown", location: "강릉시 초당동", link: "https://www.gangneung.go.kr", source: "강릉관광공사", sourceType: "html", status: "draft", socialDraft: null, cardImageUrl: null, crawledAt: new Date().toISOString(), category: "맛집" },
 ];
 
 function StatCard({ label, value, sub, color }: { label: string; value: number | string; sub: string; color: string }) {
@@ -177,7 +166,7 @@ export default function Admin() {
   const [activeNav, setActiveNav] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [editingAd, setEditingAd] = useState<Ad | null>(null);
-  const [scheduleSubTab, setScheduleSubTab] = useState<"오늘" | "내일" | "이번 주">("오늘");
+  const [scheduleSubTab, setScheduleSubTab] = useState<"오늘" | "내일" | "이번 주" | "진행중" | "날짜 미확인">("오늘");
   const [selectedScheduleEvent, setSelectedScheduleEvent] = useState<Event | null>(null);
   const [pwForm, setPwForm] = useState({ current: "", next: "", confirm: "" });
   const [, navigate] = useLocation();
@@ -600,23 +589,56 @@ export default function Admin() {
               return d.toISOString().slice(0, 10);
             })();
 
-            const scheduleEvents = events.filter((e) => {
-              if (scheduleSubTab === "오늘") return e.date === TODAY_STR;
-              if (scheduleSubTab === "내일") return e.date === TOMORROW_STR;
-              return e.date >= weekStart && e.date <= weekEnd;
-            });
+            const getEffectiveStatus = (e: Event) => {
+              if (e.scheduleStatus) return e.scheduleStatus;
+              if (!e.date) return "dateUnknown";
+              if (e.date === TODAY_STR) return "today";
+              if (e.date === TOMORROW_STR) return "tomorrow";
+              if (e.date >= weekStart && e.date <= weekEnd) return "upcoming";
+              if (e.date < TODAY_STR) return "ended";
+              return "upcoming";
+            };
 
-            const subCounts = {
-              오늘: events.filter((e) => e.date === TODAY_STR).length,
-              내일: events.filter((e) => e.date === TOMORROW_STR).length,
-              "이번 주": events.filter((e) => e.date >= weekStart && e.date <= weekEnd).length,
+            const scheduleEvents = events.filter((e) => {
+              const st = getEffectiveStatus(e);
+              if (scheduleSubTab === "오늘") return st === "today";
+              if (scheduleSubTab === "내일") return st === "tomorrow";
+              if (scheduleSubTab === "진행중") return st === "ongoing";
+              if (scheduleSubTab === "날짜 미확인") return st === "dateUnknown";
+              // 이번 주: today + tomorrow + ongoing + upcoming (within week)
+              return ["today", "tomorrow", "ongoing"].includes(st) || (e.startDate ?? e.date) >= weekStart && (e.startDate ?? e.date) <= weekEnd;
+            }).sort((a, b) => (a.startDate ?? a.date).localeCompare(b.startDate ?? b.date));
+
+            const subCounts: Record<string, number> = {
+              오늘: events.filter((e) => getEffectiveStatus(e) === "today").length,
+              내일: events.filter((e) => getEffectiveStatus(e) === "tomorrow").length,
+              진행중: events.filter((e) => getEffectiveStatus(e) === "ongoing").length,
+              "이번 주": events.filter((e) => {
+                const st = getEffectiveStatus(e);
+                return ["today","tomorrow","ongoing"].includes(st) || ((e.startDate ?? e.date) >= weekStart && (e.startDate ?? e.date) <= weekEnd);
+              }).length,
+              "날짜 미확인": events.filter((e) => getEffectiveStatus(e) === "dateUnknown").length,
+            };
+
+            const SCHEDULE_TABS = ["오늘", "내일", "진행중", "이번 주", "날짜 미확인"] as const;
+            const SCHEDULE_BADGE_COLOR: Record<string, string> = {
+              today: "bg-blue-600 text-white",
+              tomorrow: "bg-indigo-500 text-white",
+              ongoing: "bg-emerald-500 text-white",
+              upcoming: "bg-gray-200 text-gray-600",
+              dateUnknown: "bg-gray-100 text-gray-500",
+              ended: "bg-gray-100 text-gray-400",
+            };
+            const SCHEDULE_LABEL: Record<string, string> = {
+              today: "오늘", tomorrow: "내일", ongoing: "진행중",
+              upcoming: "예정", dateUnknown: "날짜미확인", ended: "종료",
             };
 
             return (
               <div>
                 {/* Sub-tab pills */}
                 <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
-                  {(["오늘", "내일", "이번 주"] as const).map((tab) => (
+                  {SCHEDULE_TABS.map((tab) => (
                     <button
                       key={tab}
                       onClick={() => setScheduleSubTab(tab)}
@@ -635,7 +657,7 @@ export default function Admin() {
                     </button>
                   ))}
                   <span className="ml-auto text-xs text-muted-foreground shrink-0">
-                    {scheduleSubTab === "이번 주" ? `${weekStart} ~ ${weekEnd}` : scheduleSubTab === "오늘" ? TODAY_STR : TOMORROW_STR}
+                    {scheduleSubTab === "이번 주" ? `${weekStart} ~ ${weekEnd}` : TODAY_STR}
                   </span>
                 </div>
 
@@ -651,11 +673,15 @@ export default function Admin() {
                   <div className="space-y-2">
                     {scheduleEvents.map((event) => {
                       const sc = STATUS_CONFIG[event.status];
+                      const effStatus = getEffectiveStatus(event);
                       const stepDone = {
                         approve: event.status === "approved" || event.status === "rejected",
                         draft: !!event.socialDraft,
                         card: !!event.cardImageUrl,
                       };
+                      const dateRange = event.endDate
+                        ? `${event.startDate || event.date} ~ ${event.endDate}`
+                        : (event.startDate || event.date || "날짜 미확인");
                       return (
                         <button
                           key={event.id}
@@ -670,14 +696,22 @@ export default function Admin() {
                                     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs border font-medium ${sc.class}`}>
                                       {sc.icon}{sc.label}
                                     </span>
+                                    {effStatus && (
+                                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${SCHEDULE_BADGE_COLOR[effStatus] ?? "bg-gray-100 text-gray-500"}`}>
+                                        {SCHEDULE_LABEL[effStatus] ?? effStatus}
+                                      </span>
+                                    )}
                                     {event.category && (
                                       <Badge variant="outline" className="text-xs">{event.category}</Badge>
                                     )}
                                     <span className="text-xs text-muted-foreground flex items-center gap-1">
-                                      <CalendarDays className="w-3 h-3" />{event.date}
+                                      <CalendarDays className="w-3 h-3" />{dateRange}
                                     </span>
                                   </div>
                                   <p className="font-semibold text-sm leading-snug line-clamp-1 mb-1">{event.title}</p>
+                                  {event.location && (
+                                    <p className="text-xs text-muted-foreground mb-1">📍 {event.location}</p>
+                                  )}
                                   {/* Progress steps */}
                                   <div className="flex items-center gap-1.5 mt-1.5">
                                     <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${stepDone.approve ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-400"}`}>① 승인</span>

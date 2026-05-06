@@ -19,6 +19,9 @@ interface FeedItem {
   title: string;
   description: string;
   date: string;
+  startDate: string;
+  endDate: string;
+  scheduleStatus: string;
   link: string;
   source: string;
   category: string;
@@ -71,16 +74,16 @@ const TODAY_STR = getRelativeDate(0);
 const TOMORROW_STR = getRelativeDate(1);
 
 const FALLBACK_FEED: FeedItem[] = [
-  { id: "f-today-1", title: "2026 강릉 커피축제 개막식", description: "세계적인 커피 도시 강릉에서 펼쳐지는 커피 축제 개막. 다양한 커피 체험과 공연을 즐겨보세요.", date: TODAY_STR, link: "https://www.gangneung.go.kr", source: "강릉시청", category: "행사", thumbnail: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=800&q=80", isAd: false },
-  { id: "f-tomorrow-1", title: "경포해변 모래조각 페스티벌", description: "동해 바다를 배경으로 펼쳐지는 모래조각 예술 축제. 국내외 작가들의 작품을 만나보세요.", date: TOMORROW_STR, link: "https://www.gangneung.go.kr", source: "강릉관광공사", category: "행사", thumbnail: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&q=80", isAd: false },
-  { id: "f-1", title: "2026 강릉 커피축제", description: "세계적인 커피 도시 강릉에서 펼쳐지는 커피 축제. 다양한 커피 체험과 전시, 공연을 즐겨보세요.", date: getRelativeDate(4), link: "https://www.gangneung.go.kr", source: "강릉시청", category: "행사", thumbnail: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=800&q=80", isAd: false },
-  { id: "f-2", title: "안목해변 카페거리 맛집 탐방", description: "강릉 안목해변을 따라 즐비한 개성 넘치는 카페와 식당들을 소개합니다.", date: getRelativeDate(2), link: "https://www.gangneung.go.kr", source: "강릉관광공사", category: "맛집", thumbnail: "https://images.unsplash.com/photo-1559925393-8be0ec4767c8?w=800&q=80", isAd: false },
-  { id: "f-3", title: "경포해변 일출 명소", description: "강릉 경포해변에서 바라보는 아름다운 일출. 한국의 대표적인 해돋이 명소를 소개합니다.", date: getRelativeDate(-1), link: "https://www.gangneung.go.kr", source: "PLAY강릉", category: "핫플", thumbnail: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&q=80", isAd: false },
-  { id: "f-4", title: "강릉 단오제 준비 위원회 출범", description: "유네스코 무형문화유산에 등재된 강릉단오제의 2026년 행사 준비가 시작되었습니다.", date: getRelativeDate(-5), link: "https://www.gangneung.go.kr", source: "강릉시청", category: "지역소식", thumbnail: "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=800&q=80", isAd: false },
-  { id: "f-5", title: "강릉 초당 순두부 골목", description: "강릉의 대표 향토음식, 초당 순두부. 동해 바닷물로 만든 부드럽고 담백한 순두부를 맛보세요.", date: getRelativeDate(-3), link: "https://www.gangneung.go.kr", source: "강릉관광공사", category: "맛집", thumbnail: "https://images.unsplash.com/photo-1541544537156-7627a7a4aa1c?w=800&q=80", isAd: false },
-  { id: "f-6", title: "오죽헌 문화재 야간 개방", description: "신사임당과 율곡 이이의 생가, 오죽헌에서 진행되는 특별 야간 문화 행사.", date: getRelativeDate(9), link: "https://www.gangneung.go.kr", source: "강릉문화재단", category: "행사", thumbnail: "https://images.unsplash.com/photo-1528360983277-13d401cdc186?w=800&q=80", isAd: false },
-  { id: "f-7", title: "강릉 바우길 트레킹", description: "동해 바다와 백두대간을 잇는 강릉 바우길. 봄 트레킹 코스를 소개합니다.", date: getRelativeDate(6), link: "https://www.gangneung.go.kr", source: "강원도청", category: "핫플", thumbnail: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=800&q=80", isAd: false },
-  { id: "f-8", title: "강릉 아트 페스타 2026", description: "강릉을 대표하는 예술 축제. 지역 예술가들의 작품 전시와 공연이 함께 펼쳐집니다.", date: getRelativeDate(14), link: "https://www.gangneung.go.kr", source: "강릉문화재단", category: "행사", thumbnail: "https://images.unsplash.com/photo-1518998053901-5348d3961a04?w=800&q=80", isAd: false },
+  { id: "f-today-1", title: "2026 강릉 커피축제 개막식", description: "세계적인 커피 도시 강릉에서 펼쳐지는 커피 축제 개막.", date: TODAY_STR, startDate: TODAY_STR, endDate: "", scheduleStatus: "today", link: "https://www.gangneung.go.kr", source: "강릉시청", category: "행사", thumbnail: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=800&q=80", isAd: false },
+  { id: "f-tomorrow-1", title: "경포해변 모래조각 페스티벌", description: "동해 바다를 배경으로 펼쳐지는 모래조각 예술 축제.", date: TOMORROW_STR, startDate: TOMORROW_STR, endDate: "", scheduleStatus: "tomorrow", link: "https://www.gangneung.go.kr", source: "강릉관광공사", category: "행사", thumbnail: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&q=80", isAd: false },
+  { id: "f-1", title: "2026 강릉 커피축제", description: "세계적인 커피 도시 강릉에서 펼쳐지는 커피 축제. 다양한 커피 체험과 전시, 공연을 즐겨보세요.", date: getRelativeDate(4), startDate: getRelativeDate(4), endDate: getRelativeDate(6), scheduleStatus: "upcoming", link: "https://www.gangneung.go.kr", source: "강릉시청", category: "행사", thumbnail: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=800&q=80", isAd: false },
+  { id: "f-2", title: "안목해변 카페거리 맛집 탐방", description: "강릉 안목해변을 따라 즐비한 개성 넘치는 카페와 식당들을 소개합니다.", date: getRelativeDate(2), startDate: getRelativeDate(2), endDate: "", scheduleStatus: "upcoming", link: "https://www.gangneung.go.kr", source: "강릉관광공사", category: "맛집", thumbnail: "https://images.unsplash.com/photo-1559925393-8be0ec4767c8?w=800&q=80", isAd: false },
+  { id: "f-3", title: "경포해변 일출 명소", description: "강릉 경포해변에서 바라보는 아름다운 일출. 한국의 대표적인 해돋이 명소를 소개합니다.", date: getRelativeDate(-1), startDate: getRelativeDate(-1), endDate: "", scheduleStatus: "ended", link: "https://www.gangneung.go.kr", source: "PLAY강릉", category: "핫플", thumbnail: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&q=80", isAd: false },
+  { id: "f-4", title: "강릉 단오제 준비 위원회 출범", description: "유네스코 무형문화유산에 등재된 강릉단오제의 2026년 행사 준비가 시작되었습니다.", date: getRelativeDate(-5), startDate: getRelativeDate(-5), endDate: "", scheduleStatus: "ended", link: "https://www.gangneung.go.kr", source: "강릉시청", category: "지역소식", thumbnail: "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=800&q=80", isAd: false },
+  { id: "f-5", title: "강릉 초당 순두부 골목", description: "강릉의 대표 향토음식, 초당 순두부. 동해 바닷물로 만든 부드럽고 담백한 순두부를 맛보세요.", date: getRelativeDate(-3), startDate: getRelativeDate(-3), endDate: "", scheduleStatus: "ended", link: "https://www.gangneung.go.kr", source: "강릉관광공사", category: "맛집", thumbnail: "https://images.unsplash.com/photo-1541544537156-7627a7a4aa1c?w=800&q=80", isAd: false },
+  { id: "f-6", title: "오죽헌 문화재 야간 개방", description: "신사임당과 율곡 이이의 생가, 오죽헌에서 진행되는 특별 야간 문화 행사.", date: getRelativeDate(9), startDate: getRelativeDate(9), endDate: getRelativeDate(11), scheduleStatus: "upcoming", link: "https://www.gangneung.go.kr", source: "강릉문화재단", category: "행사", thumbnail: "https://images.unsplash.com/photo-1528360983277-13d401cdc186?w=800&q=80", isAd: false },
+  { id: "f-7", title: "강릉 바우길 트레킹", description: "동해 바다와 백두대간을 잇는 강릉 바우길. 봄 트레킹 코스를 소개합니다.", date: getRelativeDate(6), startDate: getRelativeDate(6), endDate: "", scheduleStatus: "upcoming", link: "https://www.gangneung.go.kr", source: "강릉시청", category: "핫플", thumbnail: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=800&q=80", isAd: false },
+  { id: "f-8", title: "강릉 아트 페스타 2026", description: "강릉을 대표하는 예술 축제. 지역 예술가들의 작품 전시와 공연이 함께 펼쳐집니다.", date: getRelativeDate(14), startDate: getRelativeDate(14), endDate: getRelativeDate(19), scheduleStatus: "upcoming", link: "https://www.gangneung.go.kr", source: "강릉문화재단", category: "행사", thumbnail: "https://images.unsplash.com/photo-1518998053901-5348d3961a04?w=800&q=80", isAd: false },
 ];
 
 function AdBadge({ plan }: { plan: "basic" | "main" | "premium" }) {

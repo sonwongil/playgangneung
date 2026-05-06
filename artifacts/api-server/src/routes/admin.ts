@@ -27,6 +27,7 @@ function statusBadge(s: EventStatus): string {
     draft: { label: "수집됨", cls: "status-draft" },
     approved: { label: "발행 승인", cls: "status-approved" },
     rejected: { label: "제외", cls: "status-rejected" },
+    published: { label: "발행완료", cls: "status-approved" },
   };
   const { label, cls } = map[s] ?? { label: s, cls: "status-draft" };
   return `<span class="status-badge ${cls}">${label}</span>`;

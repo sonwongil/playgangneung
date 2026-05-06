@@ -4,7 +4,7 @@ import * as cheerio from "cheerio";
 import { XMLParser } from "fast-xml-parser";
 import crypto from "crypto";
 import type { CrawledEvent, SourceType } from "./storage.js";
-
+import { parseDates, detectCategory } from "./dateParser.js";
 import { logger } from "./logger.js";
 
 const USER_AGENT =
@@ -30,7 +30,7 @@ interface FetchResult {
   statusCode: number;
 }
 
-async function fetchRaw(url: string): Promise<FetchResult> {
+async function fetchRaw(url: string, timeoutMs = 12000): Promise<FetchResult> {
   const resp = await axios.get(url, {
     headers: {
       "User-Agent": USER_AGENT,
@@ -40,7 +40,7 @@ async function fetchRaw(url: string): Promise<FetchResult> {
       "Accept-Encoding": "gzip, deflate",
     },
     httpsAgent,
-    timeout: 15000,
+    timeout: timeoutMs,
     responseType: "arraybuffer",
     maxRedirects: 5,
   });
@@ -69,33 +69,67 @@ function isRssContentType(ct: string): boolean {
   return /rss|atom|xml/i.test(ct);
 }
 
-// ─── Tier 1: RSS / Atom / JSON Feed ─────────────────────────────────────────
+// ─── Tier 1: RSS / Atom ───────────────────────────────────────────────────────
 
 interface RssSource {
   name: string;
   url: string;
+  defaultCategory?: string;
 }
 
+// 강릉 전용 RSS 소스
 const RSS_SOURCES: RssSource[] = [
   {
-    name: "강릉시청 공식 RSS - 공지사항",
+    name: "강릉시청 - 공지사항",
     url: "https://www.gangneung.go.kr/rss.do?menu_id=00100200",
+    defaultCategory: "지역소식",
   },
   {
-    name: "강릉시청 공식 RSS - 행사정보",
+    name: "강릉시청 - 행사정보",
     url: "https://www.gangneung.go.kr/rss.do?menu_id=01030100",
+    defaultCategory: "행사",
   },
   {
-    name: "강원특별자치도청 RSS - 공지",
-    url: "https://www.gw.go.kr/rss/rss.do?bbsId=BBS_0000002",
-  },
-  {
-    name: "강릉문화재단 RSS",
+    name: "강릉문화재단",
     url: "https://www.gcf.or.kr/rss.do",
+    defaultCategory: "행사",
   },
 ];
 
-function parseRssXml(xml: string, sourceName: string): CrawledEvent[] {
+function buildEvent(
+  id: string,
+  title: string,
+  desc: string,
+  dateRaw: string,
+  link: string,
+  sourceName: string,
+  sourceType: SourceType,
+  defaultCategory?: string,
+): CrawledEvent {
+  const { startDate, endDate, scheduleStatus } = parseDates(dateRaw);
+  const category = detectCategory(title, desc) || defaultCategory || "지역소식";
+  return {
+    id,
+    title,
+    description: desc,
+    date: startDate || dateRaw,
+    startDate,
+    endDate,
+    scheduleStatus,
+    location: "강릉",
+    category,
+    thumbnail: null,
+    link,
+    source: sourceName,
+    sourceType,
+    status: "draft",
+    socialDraft: null,
+    cardImageUrl: null,
+    crawledAt: new Date().toISOString(),
+  };
+}
+
+function parseRssXml(xml: string, sourceName: string, defaultCategory?: string): CrawledEvent[] {
   const events: CrawledEvent[] = [];
   let parsed: Record<string, unknown>;
 
@@ -124,26 +158,21 @@ function parseRssXml(xml: string, sourceName: string): CrawledEvent[] {
 
   for (const item of allItems) {
     const it = item as Record<string, unknown>;
-    const title =
-      String(
-        (it["title"] as Record<string, unknown>)?.["#text"] ?? it["title"] ?? "",
-      ).trim();
-    if (!title) continue;
+    const title = String(
+      (it["title"] as Record<string, unknown>)?.["#text"] ?? it["title"] ?? "",
+    ).trim();
+    if (!title || title.length < 2) continue;
 
     const linkVal = it["link"];
     const link = String(
-      linkVal ??
-        (typeof linkVal === "object" && linkVal !== null
-          ? (linkVal as Record<string, unknown>)["@_href"]
-          : undefined) ??
-        "",
+      typeof linkVal === "object" && linkVal !== null
+        ? (linkVal as Record<string, unknown>)["@_href"] ?? ""
+        : linkVal ?? "",
     ).trim();
 
     const pubDate = String(
       it["pubDate"] ?? it["published"] ?? it["updated"] ?? "",
     ).trim();
-    const dateMatch = pubDate.match(/\d{4}[-./]\d{2}[-./]\d{2}/);
-    const date = dateMatch ? dateMatch[0] : pubDate.slice(0, 10);
 
     const desc = String(
       it["description"] ??
@@ -155,19 +184,18 @@ function parseRssXml(xml: string, sourceName: string): CrawledEvent[] {
       .trim()
       .slice(0, 200);
 
-    events.push({
-      id: makeId(sourceName, link || title),
-      title,
-      description: desc,
-      date,
-      link,
-      source: sourceName,
-      sourceType: "rss" as SourceType,
-      status: "draft",
-      socialDraft: null,
-      cardImageUrl: null,
-      crawledAt: new Date().toISOString(),
-    });
+    events.push(
+      buildEvent(
+        makeId(sourceName, link || title),
+        title,
+        desc,
+        pubDate,
+        link,
+        sourceName,
+        "rss",
+        defaultCategory,
+      ),
+    );
   }
 
   return events;
@@ -176,11 +204,12 @@ function parseRssXml(xml: string, sourceName: string): CrawledEvent[] {
 export async function crawlRss(
   url: string,
   sourceName: string,
+  defaultCategory?: string,
 ): Promise<{ events: CrawledEvent[]; error?: string }> {
   try {
     const { body, contentType } = await fetchRaw(url);
     const text = await decodeBuffer(body, contentType);
-    const events = parseRssXml(text, sourceName);
+    const events = parseRssXml(text, sourceName, defaultCategory);
     return { events };
   } catch (err) {
     return { events: [], error: err instanceof Error ? err.message : String(err) };
@@ -193,20 +222,20 @@ interface HtmlSource {
   name: string;
   url: string;
   selectors?: string[];
+  defaultCategory?: string;
 }
 
+// 강릉 전용 HTML 소스
 const HTML_SOURCES: HtmlSource[] = [
   {
-    name: "강릉시청 - 공지사항",
-    url: "https://www.gangneung.go.kr/open_content/index.do?menu_id=00100200",
-  },
-  {
-    name: "강릉시청 - 행사정보",
+    name: "강릉시청 - 문화관광 행사",
     url: "https://www.gangneung.go.kr/open_content/index.do?menu_id=01030100",
+    defaultCategory: "행사",
   },
   {
-    name: "강원도 문화예술 - 행사",
-    url: "https://www.gwcf.or.kr/02_programs/01_list.asp",
+    name: "강릉문화재단 - 공연전시",
+    url: "https://www.gcf.or.kr/program/list.do",
+    defaultCategory: "행사",
   },
 ];
 
@@ -219,6 +248,7 @@ const DEFAULT_SELECTORS = [
   "ul.list li",
   ".festival-list li",
   ".event-list li",
+  ".program-list li",
   "article",
 ];
 
@@ -227,6 +257,7 @@ function parseHtml(
   url: string,
   sourceName: string,
   selectors: string[] = DEFAULT_SELECTORS,
+  defaultCategory?: string,
 ): CrawledEvent[] {
   const $ = cheerio.load(html);
   const events: CrawledEvent[] = [];
@@ -250,23 +281,21 @@ function parseHtml(
         ? `${origin}${href.startsWith("/") ? "" : "/"}${href}`
         : url;
 
-      const dateMatch = $el.text().match(/\d{4}[-./]\d{2}[-./]\d{2}/);
-      const date = dateMatch ? dateMatch[0] : "";
+      const dateRaw = $el.text().match(/\d{4}[-./]\d{1,2}[-./]\d{1,2}/)?.[0] ?? "";
       const desc = $el.find(".desc, .summary, p").first().text().trim().slice(0, 200);
 
-      events.push({
-        id: makeId(sourceName, link || title),
-        title,
-        description: desc,
-        date,
-        link,
-        source: sourceName,
-        sourceType: "html" as SourceType,
-        status: "draft",
-        socialDraft: null,
-        cardImageUrl: null,
-        crawledAt: new Date().toISOString(),
-      });
+      events.push(
+        buildEvent(
+          makeId(sourceName, link || title),
+          title,
+          desc,
+          dateRaw,
+          link,
+          sourceName,
+          "html",
+          defaultCategory,
+        ),
+      );
     });
 
     if (events.length > 0) break;
@@ -279,11 +308,12 @@ export async function crawlHtml(
   url: string,
   sourceName: string,
   selectors?: string[],
+  defaultCategory?: string,
 ): Promise<{ events: CrawledEvent[]; error?: string }> {
   try {
     const { body, contentType } = await fetchRaw(url);
     const text = await decodeBuffer(body, contentType);
-    const events = parseHtml(text, url, sourceName, selectors);
+    const events = parseHtml(text, url, sourceName, selectors, defaultCategory);
     return { events };
   } catch (err) {
     return { events: [], error: err instanceof Error ? err.message : String(err) };
@@ -315,7 +345,7 @@ export async function crawlUrl(url: string): Promise<CrawledEvent[]> {
   }
 }
 
-// ─── Main: crawlAll (Tier 1 → Tier 2) ────────────────────────────────────────
+// ─── Main: crawlAll (강릉 전용) ───────────────────────────────────────────────
 
 export interface CrawlResult {
   source: string;
@@ -328,25 +358,19 @@ export interface CrawlResult {
 export async function crawlAll(): Promise<CrawlResult[]> {
   const results: CrawlResult[] = [];
 
-  // Tier 1: RSS
+  // Tier 1: RSS (강릉 전용)
   for (const src of RSS_SOURCES) {
     logger.info({ url: src.url }, `[RSS] 크롤링 시작: ${src.name}`);
-    const { events, error } = await crawlRss(src.url, src.name);
-    logger.info(
-      { count: events.length, error },
-      `[RSS] 완료: ${src.name}`,
-    );
+    const { events, error } = await crawlRss(src.url, src.name, src.defaultCategory);
+    logger.info({ count: events.length, error }, `[RSS] 완료: ${src.name}`);
     results.push({ source: src.name, url: src.url, sourceType: "rss", events, error });
   }
 
-  // Tier 2: HTML
+  // Tier 2: HTML (강릉 전용)
   for (const src of HTML_SOURCES) {
     logger.info({ url: src.url }, `[HTML] 크롤링 시작: ${src.name}`);
-    const { events, error } = await crawlHtml(src.url, src.name, src.selectors);
-    logger.info(
-      { count: events.length, error },
-      `[HTML] 완료: ${src.name}`,
-    );
+    const { events, error } = await crawlHtml(src.url, src.name, src.selectors, src.defaultCategory);
+    logger.info({ count: events.length, error }, `[HTML] 완료: ${src.name}`);
     results.push({ source: src.name, url: src.url, sourceType: "html", events, error });
   }
 

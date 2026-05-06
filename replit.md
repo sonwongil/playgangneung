@@ -1,56 +1,68 @@
-# Workspace
+# PLAY강릉 SNS 백오피스
 
-## Overview
+PLAY강릉 공식 SNS 자동운영 백오피스. 강릉 행사/맛집/핫플/지역소식을 수집·관리하고 SNS 초안 및 카드뉴스를 생성하는 플랫폼.
 
-pnpm workspace monorepo using TypeScript. Each package manages its own dependencies.
+## Run & Operate
+
+- `pnpm --filter @workspace/api-server run dev` — API 서버 실행
+- `pnpm --filter @workspace/playgangneung-dashboard run dev` — 프론트엔드 실행
+- `pnpm run typecheck` — 전체 타입 검사
+- `pnpm run build` — 전체 빌드
 
 ## Stack
 
-- **Monorepo tool**: pnpm workspaces
-- **Node.js version**: 24
-- **Package manager**: pnpm
-- **TypeScript version**: 5.9
-- **API framework**: Express 5
-- **Database**: PostgreSQL + Drizzle ORM
-- **Validation**: Zod (`zod/v4`), `drizzle-zod`
-- **API codegen**: Orval (from OpenAPI spec)
-- **Build**: esbuild (CJS bundle)
+- **Monorepo**: pnpm workspaces, Node.js 24, TypeScript 5.9
+- **Backend**: Express 5, esbuild (CJS bundle)
+- **Frontend**: React 18 + Vite, Tailwind CSS v4, shadcn/ui, TanStack Query, wouter
+- **Data**: JSON 파일 저장소 (`artifacts/api-server/data/events.json`)
+- **Image gen**: @napi-rs/canvas (카드뉴스 1080×1080 PNG)
 
-## Project: PLAY강릉 SNS 백오피스
+## Where things live
 
-PLAY강릉 SNS 자동운영용 백오피스 대시보드. Node.js + Express 기반 서버에 HTML 관리자 화면 포함.
+```
+artifacts/
+  api-server/          # Express API 서버 (경로: /api)
+    src/lib/crawler.ts   — RSS/HTML/수동 크롤러
+    src/lib/storage.ts   — JSON 파일 저장소
+    src/lib/draft.ts     — SNS 초안 생성
+    src/lib/card.ts      — 카드이미지 생성 (@napi-rs/canvas)
+    src/routes/events.ts — 이벤트 API
+    src/routes/admin.ts  — 레거시 HTML 관리자 화면 (/api/admin)
+    public/cards/        — 생성된 카드이미지 PNG
+  playgangneung-dashboard/  # React+Vite 프론트엔드 (경로: /)
+    src/pages/home.tsx   — 공개 홈페이지 (/)
+    src/pages/admin.tsx  — 관리자 대시보드 (/admin)
+    public/logo.png      — PLAY강릉 공식 로고
+```
 
-### 기능
-1. 강릉 행사/공지 정보 크롤링 (axios + cheerio)
-2. 수집 데이터 JSON 파일 저장 (`artifacts/api-server/data/events.json`)
-3. HTML 관리자 화면에서 수집 목록 확인
+## Architecture decisions
 
-### 관리자 화면
-- URL: `/api/admin`
-- URL 크롤링: 직접 URL 입력하여 크롤링
-- 전체 크롤링: 기본 소스(강릉시청 공지사항/행사정보, 강원도 행사) 일괄 크롤링
-- 수동 등록: 제목/출처/날짜/링크/설명 직접 입력
-- 개별/전체 삭제
+- 공개 홈페이지(`/`)는 Unsplash 썸네일이 포함된 큐레이션 목업 데이터 표시 (API 이벤트에 thumbnail/category 없음)
+- 관리자 대시보드(`/admin`)는 실제 API 데이터(`GET /api/events`)를 폴백 포함해 표시
+- 레거시 HTML 어드민(`/api/admin`)은 크롤링 직접 실행용으로 유지
+- 사이드바 배경: `--sidebar` CSS 변수(다크 네이비), 테마 컬러 #2563eb(blue-600)
+- 이벤트 상태: draft → approved → SNS초안생성 → 카드이미지생성 순서
 
-### API Endpoints
+## Product
+
+- **공개 홈**: 카테고리 탭(전체/행사/맛집/핫플/지역소식), 카드형 콘텐츠 피드, SNS 링크 섹션
+- **관리자**: 통계 카드 4개, 이벤트 테이블(상태뱃지/승인반려/SNS초안/카드이미지), 전체 크롤링 버튼
+- **크롤러**: RSS→HTML→수동 3단계, 정부사이트 차단 시 수동 등록으로 대체
+- **콘텐츠 생성**: SNS 문구 초안, 1080×1080 카드이미지(PNG)
+
+## API Endpoints
+
 - `GET  /api/events` — 수집 목록 조회
-- `POST /api/events/crawl` — 크롤링 실행 (body: `{}` 전체, `{url: "..."}` 커스텀 URL)
+- `POST /api/events/crawl` — 크롤링 (body: `{}` 전체 / `{url}` 커스텀)
 - `POST /api/events/manual` — 수동 등록
-- `DELETE /api/events` — 전체 초기화
+- `PATCH /api/events/:id/status` — 상태 변경
+- `POST /api/events/:id/draft` — SNS 초안 생성
+- `POST /api/events/:id/card` — 카드이미지 생성
 - `DELETE /api/events/:id` — 개별 삭제
 
-### 파일 구조 (api-server)
-- `src/lib/crawler.ts` — cheerio 기반 크롤러
-- `src/lib/storage.ts` — JSON 파일 저장소
-- `src/routes/events.ts` — 이벤트 API 라우트
-- `src/routes/admin.ts` — HTML 관리자 페이지
+## Gotchas
 
-## Key Commands
-
-- `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- `pnpm --filter @workspace/api-server run dev` — run API server locally
-
-See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.
+- 한국 정부사이트 차단으로 크롤링 실패는 정상 — 수동 등록 사용
+- 카드이미지는 `approved` + `socialDraft` 있어야 생성 가능
+- `@assets` alias는 `attached_assets/` 폴더를 가리킴
+- Vite `dedupe: ["react", "react-dom"]` 설정으로 중복 React 방지

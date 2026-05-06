@@ -7,7 +7,7 @@ import { CalendarDays, ExternalLink, MapPin, Instagram, Facebook, Youtube } from
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-type Category = "전체" | "행사" | "맛집" | "핫플" | "지역소식";
+type Category = "전체" | "행사" | "맛집" | "핫플" | "지역소식" | "광고접수";
 
 interface EventItem {
   id: string;
@@ -143,15 +143,18 @@ export default function Home() {
       <main className="flex-1 max-w-6xl mx-auto px-4 py-4 w-full">
         {/* Category Tabs */}
         <div className="mb-4">
-          <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v as Category); setShowAll(false); }}>
-            <TabsList className="bg-white border border-border shadow-sm h-auto p-1 gap-1">
-              {(["전체", "행사", "맛집", "핫플", "지역소식"] as Category[]).map((cat) => (
+          <Tabs value={activeTab} onValueChange={(v) => {
+            if (v === "광고접수") { window.location.href = `${BASE}/ad-submit`; return; }
+            setActiveTab(v as Category); setShowAll(false);
+          }}>
+            <TabsList className="bg-white border border-border shadow-sm h-auto p-1 gap-1 flex-wrap">
+              {(["전체", "행사", "맛집", "핫플", "지역소식", "광고접수"] as Category[]).map((cat) => (
                 <TabsTrigger
                   key={cat}
                   value={cat}
-                  className="px-4 py-2 text-sm data-[state=active]:bg-primary data-[state=active]:text-white rounded-md"
+                  className={`px-4 py-2 text-sm data-[state=active]:bg-primary data-[state=active]:text-white rounded-md ${cat === "광고접수" ? "text-blue-600 font-semibold" : ""}`}
                 >
-                  {cat}
+                  {cat === "광고접수" ? "📢 광고접수" : cat}
                 </TabsTrigger>
               ))}
             </TabsList>

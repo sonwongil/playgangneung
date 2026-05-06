@@ -25,9 +25,9 @@ import {
   XCircle,
   Clock,
   Menu,
-  X,
   ExternalLink,
   ChevronRight,
+  Megaphone,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -65,10 +65,40 @@ type NavItem = {
 const NAV_ITEMS: NavItem[] = [
   { icon: <LayoutDashboard className="w-4 h-4" />, label: "대시보드", key: "dashboard" },
   { icon: <CalendarDays className="w-4 h-4" />, label: "행사 관리", key: "events" },
+  { icon: <Megaphone className="w-4 h-4" />, label: "광고접수", key: "ads" },
   { icon: <FileText className="w-4 h-4" />, label: "콘텐츠 관리", key: "content" },
   { icon: <Share2 className="w-4 h-4" />, label: "SNS 관리", key: "sns" },
   { icon: <Settings className="w-4 h-4" />, label: "설정", key: "settings" },
 ];
+
+interface Ad {
+  id: string;
+  businessName: string;
+  contactName: string;
+  phone: string;
+  email: string;
+  category: string;
+  title: string;
+  description: string;
+  date: string;
+  location: string;
+  url: string;
+  imageUrl: string | null;
+  plan: "basic" | "main" | "premium";
+  status: "pending" | "approved" | "scheduled" | "published" | "rejected";
+  createdAt: string;
+}
+
+const PLAN_LABEL: Record<string, string> = { basic: "기본", main: "메인", premium: "프리미엄" };
+const PLAN_COLOR: Record<string, string> = { basic: "bg-blue-100 text-blue-700", main: "bg-purple-100 text-purple-700", premium: "bg-orange-100 text-orange-700" };
+
+const AD_STATUS_CONFIG: Record<string, { label: string; class: string }> = {
+  pending:   { label: "접수대기", class: "bg-yellow-100 text-yellow-700 border-yellow-200" },
+  approved:  { label: "승인",     class: "bg-green-100 text-green-700 border-green-200" },
+  scheduled: { label: "발행예정", class: "bg-blue-100 text-blue-700 border-blue-200" },
+  published: { label: "발행완료", class: "bg-gray-100 text-gray-700 border-gray-200" },
+  rejected:  { label: "제외",     class: "bg-red-100 text-red-700 border-red-200" },
+};
 
 const STATUS_CONFIG = {
   draft: { label: "검토 중", icon: <Clock className="w-3 h-3" />, class: "bg-yellow-100 text-yellow-700 border-yellow-200" },
@@ -119,6 +149,16 @@ export default function Admin() {
       if (!res.ok) throw new Error("이벤트 로드 실패");
       return res.json();
     },
+  });
+
+  const { data: adsData, isLoading: adsLoading } = useQuery<{ ads: Ad[]; total: number }>({
+    queryKey: ["admin-ads"],
+    queryFn: async () => {
+      const res = await fetch(`${BASE}/api/ads`);
+      if (!res.ok) throw new Error("광고 로드 실패");
+      return res.json();
+    },
+    enabled: activeNav === "ads",
   });
 
   const events: Event[] = data?.events?.length ? data.events : MOCK_EVENTS;
@@ -197,6 +237,38 @@ export default function Admin() {
     },
     onError: () => toast({ title: "삭제 실패", variant: "destructive" }),
   });
+
+  const adStatusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      const res = await fetch(`${BASE}/api/ads/${id}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      if (!res.ok) throw new Error("상태 변경 실패");
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "상태 변경 완료" });
+      queryClient.invalidateQueries({ queryKey: ["admin-ads"] });
+    },
+    onError: () => toast({ title: "상태 변경 실패", variant: "destructive" }),
+  });
+
+  const adDeleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`${BASE}/api/ads/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("삭제 실패");
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "광고 삭제 완료" });
+      queryClient.invalidateQueries({ queryKey: ["admin-ads"] });
+    },
+    onError: () => toast({ title: "삭제 실패", variant: "destructive" }),
+  });
+
+  const ads: Ad[] = adsData?.ads ?? [];
 
   const Sidebar = ({ mobile = false }: { mobile?: boolean }) => (
     <div className={`flex flex-col h-full bg-sidebar text-sidebar-foreground ${mobile ? "w-64" : "w-56"}`}>
@@ -283,6 +355,110 @@ export default function Admin() {
 
         {/* Page Content */}
         <main className="flex-1 overflow-y-auto p-5">
+
+          {/* ── 광고접수 섹션 ── */}
+          {activeNav === "ads" && (
+            <Card>
+              <CardHeader className="pb-3 flex flex-row items-center justify-between">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Megaphone className="w-4 h-4 text-blue-600" />광고 접수 목록
+                </CardTitle>
+                <span className="text-xs text-muted-foreground">{ads.length}건</span>
+              </CardHeader>
+              <CardContent className="p-0">
+                {adsLoading ? (
+                  <div className="p-8 text-center text-muted-foreground text-sm">불러오는 중...</div>
+                ) : ads.length === 0 ? (
+                  <div className="p-10 text-center text-muted-foreground text-sm">
+                    <Megaphone className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                    접수된 광고가 없습니다.
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-gray-50 text-xs">
+                          <TableHead className="w-24">상태</TableHead>
+                          <TableHead className="w-20">상품</TableHead>
+                          <TableHead>제목 / 업체명</TableHead>
+                          <TableHead className="w-32 hidden md:table-cell">연락처</TableHead>
+                          <TableHead className="w-24 hidden lg:table-cell">등록일</TableHead>
+                          <TableHead className="w-48 text-right">액션</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {ads.map((ad) => {
+                          const sc = AD_STATUS_CONFIG[ad.status] ?? AD_STATUS_CONFIG.pending;
+                          return (
+                            <TableRow key={ad.id} className="text-sm hover:bg-gray-50/50">
+                              <TableCell>
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs border font-medium ${sc.class}`}>
+                                  {sc.label}
+                                </span>
+                              </TableCell>
+                              <TableCell>
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${PLAN_COLOR[ad.plan]}`}>
+                                  {PLAN_LABEL[ad.plan]}
+                                </span>
+                              </TableCell>
+                              <TableCell>
+                                <p className="font-medium line-clamp-1 max-w-[180px]">{ad.title}</p>
+                                <p className="text-xs text-muted-foreground">{ad.businessName} · {ad.category}</p>
+                              </TableCell>
+                              <TableCell className="hidden md:table-cell text-xs text-muted-foreground">{ad.phone}</TableCell>
+                              <TableCell className="hidden lg:table-cell text-xs text-muted-foreground">
+                                {ad.createdAt?.slice(0, 10)}
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-1 justify-end flex-wrap">
+                                  {ad.status === "pending" && (
+                                    <Button size="sm" variant="outline" className="h-7 px-2 text-xs text-green-700 border-green-200 hover:bg-green-50"
+                                      onClick={() => adStatusMutation.mutate({ id: ad.id, status: "approved" })}
+                                      disabled={adStatusMutation.isPending}>
+                                      <CheckCircle className="w-3 h-3" /> 승인
+                                    </Button>
+                                  )}
+                                  {ad.status === "approved" && (
+                                    <Button size="sm" variant="outline" className="h-7 px-2 text-xs text-blue-700 border-blue-200 hover:bg-blue-50"
+                                      onClick={() => adStatusMutation.mutate({ id: ad.id, status: "scheduled" })}
+                                      disabled={adStatusMutation.isPending}>
+                                      SNS발행예정
+                                    </Button>
+                                  )}
+                                  {ad.status === "scheduled" && (
+                                    <Button size="sm" variant="outline" className="h-7 px-2 text-xs text-gray-700 border-gray-200 hover:bg-gray-50"
+                                      onClick={() => adStatusMutation.mutate({ id: ad.id, status: "published" })}
+                                      disabled={adStatusMutation.isPending}>
+                                      발행완료
+                                    </Button>
+                                  )}
+                                  {ad.status !== "rejected" && ad.status !== "published" && (
+                                    <Button size="sm" variant="outline" className="h-7 px-2 text-xs text-red-700 border-red-200 hover:bg-red-50"
+                                      onClick={() => adStatusMutation.mutate({ id: ad.id, status: "rejected" })}
+                                      disabled={adStatusMutation.isPending}>
+                                      <XCircle className="w-3 h-3" /> 제외
+                                    </Button>
+                                  )}
+                                  <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-destructive hover:bg-destructive/10"
+                                    onClick={() => adDeleteMutation.mutate(ad.id)}
+                                    disabled={adDeleteMutation.isPending}>
+                                    <Trash2 className="w-3 h-3" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* ── 대시보드/기타 섹션 ── */}
+          {activeNav !== "ads" && <>
           {/* Stats Cards */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <StatCard label="전체 콘텐츠" value={totalCount} sub="수집된 항목 수" color="text-blue-600" />
@@ -408,6 +584,7 @@ export default function Admin() {
               )}
             </CardContent>
           </Card>
+          </>}
         </main>
       </div>
     </div>

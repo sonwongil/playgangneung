@@ -4,6 +4,16 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import {
   Table,
   TableBody,
   TableCell,
@@ -28,6 +38,7 @@ import {
   ExternalLink,
   ChevronRight,
   Megaphone,
+  Pencil,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -139,6 +150,7 @@ function StatCard({ label, value, sub, color }: { label: string; value: number |
 export default function Admin() {
   const [activeNav, setActiveNav] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [editingAd, setEditingAd] = useState<Ad | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -268,6 +280,24 @@ export default function Admin() {
     onError: () => toast({ title: "삭제 실패", variant: "destructive" }),
   });
 
+  const adEditMutation = useMutation({
+    mutationFn: async ({ id, patch }: { id: string; patch: Partial<Ad> }) => {
+      const res = await fetch(`${BASE}/api/ads/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+      });
+      if (!res.ok) throw new Error("수정 실패");
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "광고 수정 완료" });
+      queryClient.invalidateQueries({ queryKey: ["admin-ads"] });
+      setEditingAd(null);
+    },
+    onError: () => toast({ title: "수정 실패", variant: "destructive" }),
+  });
+
   const ads: Ad[] = adsData?.ads ?? [];
 
   const Sidebar = ({ mobile = false }: { mobile?: boolean }) => (
@@ -306,6 +336,7 @@ export default function Admin() {
   );
 
   return (
+    <>
     <div className="flex h-screen bg-background overflow-hidden">
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex flex-shrink-0">
@@ -439,6 +470,10 @@ export default function Admin() {
                                       <XCircle className="w-3 h-3" /> 제외
                                     </Button>
                                   )}
+                                  <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-blue-600 hover:bg-blue-50"
+                                    onClick={() => setEditingAd(ad)}>
+                                    <Pencil className="w-3 h-3" />
+                                  </Button>
                                   <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-destructive hover:bg-destructive/10"
                                     onClick={() => adDeleteMutation.mutate(ad.id)}
                                     disabled={adDeleteMutation.isPending}>
@@ -588,5 +623,103 @@ export default function Admin() {
         </main>
       </div>
     </div>
+
+    {/* 광고 수정 다이얼로그 */}
+    {editingAd && (
+      <Dialog open={!!editingAd} onOpenChange={(o) => { if (!o) setEditingAd(null); }}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="w-4 h-4 text-blue-600" /> 광고 수정
+            </DialogTitle>
+          </DialogHeader>
+          <form
+            className="space-y-4 py-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const fd = new FormData(e.currentTarget);
+              adEditMutation.mutate({
+                id: editingAd.id,
+                patch: {
+                  title: fd.get("title") as string,
+                  businessName: fd.get("businessName") as string,
+                  contactName: fd.get("contactName") as string,
+                  phone: fd.get("phone") as string,
+                  email: fd.get("email") as string,
+                  category: fd.get("category") as string,
+                  description: fd.get("description") as string,
+                  date: fd.get("date") as string,
+                  location: fd.get("location") as string,
+                  url: fd.get("url") as string,
+                  plan: fd.get("plan") as Ad["plan"],
+                },
+              });
+            }}
+          >
+            <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2 space-y-1">
+                <Label htmlFor="title">광고 제목</Label>
+                <Input id="title" name="title" defaultValue={editingAd.title} required />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="businessName">업체명</Label>
+                <Input id="businessName" name="businessName" defaultValue={editingAd.businessName} required />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="category">카테고리</Label>
+                <Input id="category" name="category" defaultValue={editingAd.category} />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="contactName">담당자명</Label>
+                <Input id="contactName" name="contactName" defaultValue={editingAd.contactName} />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="phone">연락처</Label>
+                <Input id="phone" name="phone" defaultValue={editingAd.phone} />
+              </div>
+              <div className="col-span-2 space-y-1">
+                <Label htmlFor="email">이메일</Label>
+                <Input id="email" name="email" type="email" defaultValue={editingAd.email} />
+              </div>
+              <div className="col-span-2 space-y-1">
+                <Label htmlFor="description">광고 내용</Label>
+                <Textarea id="description" name="description" rows={3} defaultValue={editingAd.description} />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="date">행사/노출 날짜</Label>
+                <Input id="date" name="date" type="date" defaultValue={editingAd.date} />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="location">위치</Label>
+                <Input id="location" name="location" defaultValue={editingAd.location} />
+              </div>
+              <div className="col-span-2 space-y-1">
+                <Label htmlFor="url">링크 URL</Label>
+                <Input id="url" name="url" defaultValue={editingAd.url} placeholder="https://" />
+              </div>
+              <div className="col-span-2 space-y-1">
+                <Label htmlFor="plan">광고 플랜</Label>
+                <select
+                  id="plan" name="plan"
+                  defaultValue={editingAd.plan}
+                  className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="basic">기본 (1일 노출)</option>
+                  <option value="main">메인 (3일 노출, 상단 고정)</option>
+                  <option value="premium">프리미엄 (5일 노출, 최상단)</option>
+                </select>
+              </div>
+            </div>
+            <DialogFooter className="pt-2">
+              <Button type="button" variant="outline" onClick={() => setEditingAd(null)}>취소</Button>
+              <Button type="submit" disabled={adEditMutation.isPending}>
+                {adEditMutation.isPending ? "저장 중..." : "저장"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    )}
+    </>
   );
 }

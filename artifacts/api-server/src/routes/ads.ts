@@ -114,6 +114,31 @@ router.patch("/ads/:id/status", async (req, res) => {
   }
 });
 
+router.patch("/ads/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const body = req.body as Partial<Ad>;
+    const ads = await readAds();
+    const idx = ads.findIndex((a) => a.id === id);
+    if (idx === -1) return res.status(404).json({ error: "광고를 찾을 수 없습니다" });
+    const allowed: (keyof Ad)[] = [
+      "title", "description", "businessName", "contactName", "phone",
+      "email", "category", "date", "location", "url", "imageUrl", "plan",
+    ];
+    const patch: Partial<Ad> = {};
+    for (const key of allowed) {
+      if (key in body) (patch as Record<string, unknown>)[key] = body[key as keyof typeof body];
+    }
+    ads[idx] = { ...ads[idx], ...patch };
+    await saveAds(ads);
+    req.log.info({ id }, "광고 수정 완료");
+    return res.json({ success: true, ad: ads[idx] });
+  } catch (err) {
+    req.log.error({ err }, "광고 수정 실패");
+    return res.status(500).json({ error: "수정 실패" });
+  }
+});
+
 router.delete("/ads/:id", async (req, res) => {
   try {
     const { id } = req.params;

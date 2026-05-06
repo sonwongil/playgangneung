@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -40,6 +41,8 @@ import {
   Megaphone,
   Pencil,
   CalendarRange,
+  LogOut,
+  KeyRound,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -172,8 +175,42 @@ export default function Admin() {
   const [editingAd, setEditingAd] = useState<Ad | null>(null);
   const [scheduleSubTab, setScheduleSubTab] = useState<"오늘" | "내일" | "이번 주">("오늘");
   const [selectedScheduleEvent, setSelectedScheduleEvent] = useState<Event | null>(null);
+  const [pwForm, setPwForm] = useState({ current: "", next: "", confirm: "" });
+  const [, navigate] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  const logoutMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`${BASE}/api/auth/logout`, { method: "POST", credentials: "include" });
+      if (!res.ok) throw new Error("로그아웃 실패");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.clear();
+      navigate("/login");
+    },
+    onError: () => toast({ title: "로그아웃 실패", variant: "destructive" }),
+  });
+
+  const changePwMutation = useMutation({
+    mutationFn: async ({ currentPassword, newPassword }: { currentPassword: string; newPassword: string }) => {
+      const res = await fetch(`${BASE}/api/auth/change-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error ?? "비밀번호 변경 실패");
+      return d;
+    },
+    onSuccess: () => {
+      toast({ title: "비밀번호가 변경되었습니다" });
+      setPwForm({ current: "", next: "", confirm: "" });
+    },
+    onError: (err: Error) => toast({ title: err.message, variant: "destructive" }),
+  });
 
   const { data, isLoading } = useQuery<{ events: Event[]; total: number }>({
     queryKey: ["admin-events"],
@@ -344,7 +381,7 @@ export default function Admin() {
           </button>
         ))}
       </nav>
-      <div className="p-4 border-t border-sidebar-border">
+      <div className="p-4 border-t border-sidebar-border space-y-2">
         <a
           href={`${BASE}/`}
           className="flex items-center gap-2 text-xs text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors"
@@ -352,6 +389,14 @@ export default function Admin() {
           <ExternalLink className="w-3 h-3" />
           공개 홈페이지 보기
         </a>
+        <button
+          onClick={() => logoutMutation.mutate()}
+          disabled={logoutMutation.isPending}
+          className="flex items-center gap-2 text-xs text-sidebar-foreground/50 hover:text-red-400 transition-colors w-full"
+        >
+          <LogOut className="w-3 h-3" />
+          {logoutMutation.isPending ? "로그아웃 중..." : "로그아웃"}
+        </button>
       </div>
     </div>
   );
@@ -627,8 +672,77 @@ export default function Admin() {
             );
           })()}
 
+          {/* ── 설정 섹션 ── */}
+          {activeNav === "settings" && (
+            <div className="max-w-lg">
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <KeyRound className="w-4 h-4 text-blue-600" />
+                    비밀번호 변경
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      if (pwForm.next !== pwForm.confirm) {
+                        toast({ title: "새 비밀번호가 일치하지 않습니다", variant: "destructive" });
+                        return;
+                      }
+                      if (pwForm.next.length < 4) {
+                        toast({ title: "비밀번호는 4자 이상이어야 합니다", variant: "destructive" });
+                        return;
+                      }
+                      changePwMutation.mutate({ currentPassword: pwForm.current, newPassword: pwForm.next });
+                    }}
+                    className="space-y-4"
+                  >
+                    <div className="space-y-1.5">
+                      <Label htmlFor="pw-current">현재 비밀번호</Label>
+                      <Input
+                        id="pw-current"
+                        type="password"
+                        value={pwForm.current}
+                        onChange={(e) => setPwForm((p) => ({ ...p, current: e.target.value }))}
+                        placeholder="현재 비밀번호"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="pw-next">새 비밀번호</Label>
+                      <Input
+                        id="pw-next"
+                        type="password"
+                        value={pwForm.next}
+                        onChange={(e) => setPwForm((p) => ({ ...p, next: e.target.value }))}
+                        placeholder="새 비밀번호 (4자 이상)"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="pw-confirm">새 비밀번호 확인</Label>
+                      <Input
+                        id="pw-confirm"
+                        type="password"
+                        value={pwForm.confirm}
+                        onChange={(e) => setPwForm((p) => ({ ...p, confirm: e.target.value }))}
+                        placeholder="새 비밀번호 재입력"
+                      />
+                    </div>
+                    <Button
+                      type="submit"
+                      className="w-full bg-blue-600 hover:bg-blue-700"
+                      disabled={changePwMutation.isPending || !pwForm.current || !pwForm.next || !pwForm.confirm}
+                    >
+                      {changePwMutation.isPending ? "변경 중..." : "비밀번호 변경"}
+                    </Button>
+                  </form>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
           {/* ── 대시보드/기타 섹션 ── */}
-          {activeNav !== "ads" && activeNav !== "schedule" && <>
+          {activeNav !== "ads" && activeNav !== "schedule" && activeNav !== "settings" && <>
           {/* Stats Cards */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <StatCard label="전체 콘텐츠" value={totalCount} sub="수집된 항목 수" color="text-blue-600" />

@@ -30,6 +30,8 @@ import {
   Settings,
   RefreshCw,
   Image,
+  ImageOff,
+  AlertTriangle,
   MessageSquare,
   Trash2,
   CheckCircle,
@@ -156,6 +158,8 @@ export default function Admin() {
   const [activeNav, setActiveNav] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [editingAd, setEditingAd] = useState<Ad | null>(null);
+  const [editingEvent, setEditingEvent] = useState<Event | null>(null);
+  const [editThumbnailUrl, setEditThumbnailUrl] = useState("");
   const [scheduleSubTab, setScheduleSubTab] = useState<"오늘" | "내일" | "이번 주" | "진행중" | "날짜 미확인">("오늘");
   const [selectedScheduleEvent, setSelectedScheduleEvent] = useState<Event | null>(null);
   const [pwForm, setPwForm] = useState({ current: "", next: "", confirm: "" });
@@ -343,6 +347,25 @@ export default function Admin() {
       queryClient.invalidateQueries({ queryKey: ["admin-ads"] });
     },
     onError: () => toast({ title: "삭제 실패", variant: "destructive" }),
+  });
+
+  const editEventMutation = useMutation({
+    mutationFn: async ({ id, patch }: { id: string; patch: Partial<Event> }) => {
+      const res = await fetch(`${BASE}/api/events/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(patch),
+      });
+      if (!res.ok) throw new Error("수정 실패");
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "이벤트 수정 완료" });
+      queryClient.invalidateQueries({ queryKey: ["admin-events"] });
+      setEditingEvent(null);
+    },
+    onError: () => toast({ title: "수정 실패", variant: "destructive" }),
   });
 
   const adEditMutation = useMutation({
@@ -871,7 +894,14 @@ export default function Admin() {
                               </span>
                             </TableCell>
                             <TableCell>
-                              <p className="font-medium line-clamp-1 max-w-[200px]">{event.title}</p>
+                              <div className="flex items-center gap-1.5">
+                                <p className="font-medium line-clamp-1 max-w-[180px]">{event.title}</p>
+                                {!event.thumbnail && (
+                                  <span title="대표 이미지 없음" className="shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-orange-100 text-orange-600 border border-orange-200">
+                                    <ImageOff className="w-2.5 h-2.5" />이미지없음
+                                  </span>
+                                )}
+                              </div>
                               <p className="text-xs text-muted-foreground line-clamp-1">{event.description}</p>
                             </TableCell>
                             <TableCell className="hidden sm:table-cell text-muted-foreground text-xs">{event.date}</TableCell>
@@ -934,6 +964,18 @@ export default function Admin() {
                                     </Button>
                                   </a>
                                 )}
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 px-2 text-xs text-blue-600 hover:bg-blue-50"
+                                  title="이벤트 수정"
+                                  onClick={() => {
+                                    setEditingEvent(event);
+                                    setEditThumbnailUrl(event.thumbnail ?? "");
+                                  }}
+                                >
+                                  <Pencil className="w-3 h-3" />
+                                </Button>
                                 <Button
                                   size="sm"
                                   variant="ghost"
@@ -1194,6 +1236,110 @@ export default function Admin() {
         </Dialog>
       );
     })()}
+
+    {/* 이벤트 수정 다이얼로그 */}
+    {editingEvent && (
+      <Dialog open={!!editingEvent} onOpenChange={(o) => { if (!o) setEditingEvent(null); }}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="w-4 h-4 text-blue-600" /> 이벤트 수정
+            </DialogTitle>
+          </DialogHeader>
+          <form
+            className="space-y-4 py-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const fd = new FormData(e.currentTarget);
+              editEventMutation.mutate({
+                id: editingEvent.id,
+                patch: {
+                  title: fd.get("title") as string,
+                  description: fd.get("description") as string,
+                  thumbnail: (fd.get("thumbnail") as string) || undefined,
+                  location: fd.get("location") as string,
+                  category: fd.get("category") as string,
+                  startDate: fd.get("startDate") as string,
+                  endDate: fd.get("endDate") as string,
+                },
+              });
+            }}
+          >
+            {/* 썸네일 경고 + 입력 */}
+            <div className="space-y-2">
+              <Label htmlFor="ev-thumbnail" className="flex items-center gap-1.5">
+                대표 이미지 URL
+                {!editThumbnailUrl && (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-orange-600 bg-orange-50 border border-orange-200 rounded px-1.5 py-0.5">
+                    <AlertTriangle className="w-3 h-3" />이미지 없음 — 공개 홈에서 기본 이미지로 표시됩니다
+                  </span>
+                )}
+              </Label>
+              <Input
+                id="ev-thumbnail"
+                name="thumbnail"
+                value={editThumbnailUrl}
+                onChange={(e) => setEditThumbnailUrl(e.target.value)}
+                placeholder="https://example.com/image.jpg"
+                className={!editThumbnailUrl ? "border-orange-300 focus-visible:ring-orange-400" : ""}
+              />
+              {editThumbnailUrl && (
+                <div className="rounded-lg overflow-hidden border border-border h-32 bg-gray-50">
+                  <img
+                    src={editThumbnailUrl}
+                    alt="미리보기"
+                    className="w-full h-full object-cover"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-1">
+              <Label htmlFor="ev-title">제목</Label>
+              <Input id="ev-title" name="title" defaultValue={editingEvent.title} required />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="ev-description">설명</Label>
+              <Textarea id="ev-description" name="description" rows={3} defaultValue={editingEvent.description} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="ev-location">장소</Label>
+                <Input id="ev-location" name="location" defaultValue={editingEvent.location ?? ""} />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="ev-category">카테고리</Label>
+                <select
+                  id="ev-category" name="category"
+                  defaultValue={editingEvent.category ?? "행사"}
+                  className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="행사">행사</option>
+                  <option value="맛집">맛집</option>
+                  <option value="핫플">핫플</option>
+                  <option value="지역소식">지역소식</option>
+                </select>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="ev-startDate">시작일</Label>
+                <Input id="ev-startDate" name="startDate" type="date" defaultValue={editingEvent.startDate ?? editingEvent.date} />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="ev-endDate">종료일</Label>
+                <Input id="ev-endDate" name="endDate" type="date" defaultValue={editingEvent.endDate ?? ""} />
+              </div>
+            </div>
+            <DialogFooter className="pt-2">
+              <Button type="button" variant="outline" onClick={() => setEditingEvent(null)}>취소</Button>
+              <Button type="submit" disabled={editEventMutation.isPending}>
+                {editEventMutation.isPending ? "저장 중..." : "저장"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    )}
 
     {/* 광고 수정 다이얼로그 */}
     {editingAd && (

@@ -112,11 +112,10 @@ const THUMBNAIL_MAP: Record<string, string> = {
 
 function enrichEvent(event: CrawledEvent): EnrichedEvent {
   const category = event.category || detectCategory(event.title, event.description) || "지역소식";
-  const thumbnail = event.thumbnail || THUMBNAIL_MAP[category] || THUMBNAIL_MAP["지역소식"];
   const { startDate, endDate, scheduleStatus } = event.startDate
     ? { startDate: event.startDate, endDate: event.endDate, scheduleStatus: event.scheduleStatus }
     : parseDates(event.date);
-  return { ...event, category, thumbnail, startDate, endDate, scheduleStatus };
+  return { ...event, category, startDate, endDate, scheduleStatus };
 }
 
 router.get("/events", async (req, res) => {
@@ -359,6 +358,36 @@ router.post("/events/regenerate-drafts", async (req, res) => {
   } catch (err) {
     req.log.error({ err }, "SNS 초안 일괄 재생성 실패");
     return res.status(500).json({ success: false, error: String(err) });
+  }
+});
+
+router.patch("/events/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, description, thumbnail, location, category, startDate, endDate } = req.body as {
+      title?: string;
+      description?: string;
+      thumbnail?: string | null;
+      location?: string;
+      category?: string;
+      startDate?: string;
+      endDate?: string;
+    };
+    const patch: Partial<import("../lib/storage.js").CrawledEvent> = {};
+    if (title !== undefined) patch.title = title;
+    if (description !== undefined) patch.description = description;
+    if (thumbnail !== undefined) patch.thumbnail = thumbnail || null;
+    if (location !== undefined) patch.location = location;
+    if (category !== undefined) patch.category = category;
+    if (startDate !== undefined) { patch.startDate = startDate; patch.date = startDate; }
+    if (endDate !== undefined) patch.endDate = endDate;
+    const updated = await import("../lib/storage.js").then((m) => m.updateEvent(id, patch));
+    if (!updated) return res.status(404).json({ success: false, error: "이벤트를 찾을 수 없습니다." });
+    req.log.info({ id }, "이벤트 수정");
+    return res.json({ success: true, id });
+  } catch (err) {
+    req.log.error({ err }, "이벤트 수정 실패");
+    return res.status(500).json({ success: false, error: "이벤트 수정 실패" });
   }
 });
 

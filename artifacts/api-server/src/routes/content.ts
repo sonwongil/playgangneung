@@ -10,6 +10,30 @@ const ADS_FILE = path.join(DATA_DIR, "ads.json");
 
 const SITE_URL = process.env["SITE_URL"] ?? "https://play-gangneung-dashboard.replit.app";
 
+const PROXY_HOSTS = ["www.gn.go.kr", "gn.go.kr", "gn.moonhwain.net", "www.gncaf.or.kr", "gncaf.or.kr"];
+
+/** 브라우저 직접 로딩용 — 상대 프록시 경로 반환 */
+function proxyUrl(url: string): string {
+  try {
+    const { hostname } = new URL(url);
+    if (PROXY_HOSTS.includes(hostname)) {
+      return `/api/proxy/image?url=${encodeURIComponent(url)}`;
+    }
+  } catch { /* noop */ }
+  return url;
+}
+
+/** OG 메타태그용 — 절대 경로 프록시 URL 반환 (크롤러 접근 가능) */
+function proxyUrlAbsolute(url: string): string {
+  try {
+    const { hostname } = new URL(url);
+    if (PROXY_HOSTS.includes(hostname)) {
+      return `${SITE_URL}/api/proxy/image?url=${encodeURIComponent(url)}`;
+    }
+  } catch { /* noop */ }
+  return url;
+}
+
 const THUMBNAIL_MAP: Record<string, string> = {
   행사: "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=1200&q=80",
   맛집: "https://images.unsplash.com/photo-1559925393-8be0ec4767c8?w=1200&q=80",
@@ -99,7 +123,8 @@ function renderHtml(item: ContentItem, contentUrl: string): string {
   const desc = escHtml(item.description || "강릉의 특색 있는 행사와 명소를 소개합니다.");
   const descShort = desc.length > 120 ? desc.slice(0, 117) + "..." : desc;
   const dateStr = formatDate(item.date);
-  const thumbnail = item.thumbnail;
+  const thumbnailHero = proxyUrl(item.thumbnail);
+  const thumbnailOg = proxyUrlAbsolute(item.thumbnail);
 
   const categoryColors: Record<string, string> = {
     행사: "#2563eb", 맛집: "#ea580c", 핫플: "#7c3aed", 지역소식: "#059669", 광고: "#0891b2",
@@ -126,14 +151,14 @@ function renderHtml(item: ContentItem, contentUrl: string): string {
 <meta property="og:site_name" content="PLAY강릉">
 <meta property="og:title" content="${title}">
 <meta property="og:description" content="${descShort}">
-<meta property="og:image" content="${escHtml(thumbnail)}">
+<meta property="og:image" content="${escHtml(thumbnailOg)}">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:url" content="${escHtml(contentUrl)}">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${title}">
 <meta name="twitter:description" content="${descShort}">
-<meta name="twitter:image" content="${escHtml(thumbnail)}">
+<meta name="twitter:image" content="${escHtml(thumbnailOg)}">
 <meta name="theme-color" content="#1d4ed8">
 <link rel="preconnect" href="https://images.unsplash.com">
 <style>
@@ -192,7 +217,7 @@ a{text-decoration:none;color:inherit}
 
 <!-- Hero -->
 <div class="hero">
-  <img src="${escHtml(thumbnail)}" alt="${title}" loading="eager" fetchpriority="high">
+  <img src="${escHtml(thumbnailHero)}" alt="${title}" loading="eager" fetchpriority="high">
   <div class="hero-overlay"></div>
   <div class="hero-meta">
     <div class="category-badge" style="background:${catColor}">${escHtml(item.category)}</div>

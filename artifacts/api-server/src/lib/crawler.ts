@@ -71,7 +71,7 @@ function buildEvent(
     link,
     source: sourceName,
     sourceType,
-    status: "draft",
+    status: "approved",
     socialDraft: null,
     cardImageUrl: null,
     crawledAt: new Date().toISOString(),

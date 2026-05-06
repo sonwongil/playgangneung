@@ -171,6 +171,7 @@ export default function Admin() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [editingAd, setEditingAd] = useState<Ad | null>(null);
   const [scheduleSubTab, setScheduleSubTab] = useState<"오늘" | "내일" | "이번 주">("오늘");
+  const [selectedScheduleEvent, setSelectedScheduleEvent] = useState<Event | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -574,84 +575,50 @@ export default function Admin() {
                     </CardContent>
                   </Card>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     {scheduleEvents.map((event) => {
                       const sc = STATUS_CONFIG[event.status];
+                      const stepDone = {
+                        approve: event.status === "approved" || event.status === "rejected",
+                        draft: !!event.socialDraft,
+                        card: !!event.cardImageUrl,
+                      };
                       return (
-                        <Card key={event.id} className="hover:shadow-md transition-shadow">
-                          <CardContent className="p-4">
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 flex-wrap mb-1">
-                                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs border font-medium ${sc.class}`}>
-                                    {sc.icon}{sc.label}
-                                  </span>
-                                  {event.category && (
-                                    <Badge variant="outline" className="text-xs">{event.category}</Badge>
-                                  )}
-                                  <span className="text-xs text-muted-foreground flex items-center gap-1">
-                                    <CalendarDays className="w-3 h-3" />{event.date}
-                                  </span>
-                                </div>
-                                <h3 className="font-semibold text-sm leading-snug mb-0.5 line-clamp-1">{event.title}</h3>
-                                <p className="text-xs text-muted-foreground line-clamp-2">{event.description}</p>
-                                {event.socialDraft && (
-                                  <div className="mt-2 p-2 bg-blue-50 rounded-lg border border-blue-100">
-                                    <p className="text-xs text-blue-700 font-medium mb-0.5">SNS 초안</p>
-                                    <p className="text-xs text-blue-600 line-clamp-2">{event.socialDraft.caption}</p>
-                                    <div className="flex gap-1 mt-1 flex-wrap">
-                                      {event.socialDraft.hashtags.map((h) => (
-                                        <span key={h} className="text-[10px] text-blue-500">#{h}</span>
-                                      ))}
-                                    </div>
+                        <button
+                          key={event.id}
+                          onClick={() => setSelectedScheduleEvent(event)}
+                          className="w-full text-left"
+                        >
+                          <Card className="hover:shadow-md hover:border-blue-200 transition-all cursor-pointer group">
+                            <CardContent className="p-4">
+                              <div className="flex items-center gap-3">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 flex-wrap mb-1">
+                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs border font-medium ${sc.class}`}>
+                                      {sc.icon}{sc.label}
+                                    </span>
+                                    {event.category && (
+                                      <Badge variant="outline" className="text-xs">{event.category}</Badge>
+                                    )}
+                                    <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                      <CalendarDays className="w-3 h-3" />{event.date}
+                                    </span>
                                   </div>
-                                )}
+                                  <p className="font-semibold text-sm leading-snug line-clamp-1 mb-1">{event.title}</p>
+                                  {/* Progress steps */}
+                                  <div className="flex items-center gap-1.5 mt-1.5">
+                                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${stepDone.approve ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-400"}`}>① 승인</span>
+                                    <span className="text-gray-300 text-xs">›</span>
+                                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${stepDone.draft ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-400"}`}>② SNS초안</span>
+                                    <span className="text-gray-300 text-xs">›</span>
+                                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${stepDone.card ? "bg-purple-100 text-purple-700" : "bg-gray-100 text-gray-400"}`}>③ 카드이미지</span>
+                                  </div>
+                                </div>
+                                <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-blue-500 transition-colors shrink-0" />
                               </div>
-                              <div className="flex flex-col gap-1.5 shrink-0">
-                                {event.status === "draft" && (
-                                  <>
-                                    <Button size="sm" variant="outline"
-                                      className="h-7 px-2.5 text-xs text-green-700 border-green-200 hover:bg-green-50"
-                                      onClick={() => statusMutation.mutate({ id: event.id, status: "approved" })}
-                                      disabled={statusMutation.isPending}>
-                                      <CheckCircle className="w-3 h-3 mr-1" />승인
-                                    </Button>
-                                    <Button size="sm" variant="outline"
-                                      className="h-7 px-2.5 text-xs text-red-700 border-red-200 hover:bg-red-50"
-                                      onClick={() => statusMutation.mutate({ id: event.id, status: "rejected" })}
-                                      disabled={statusMutation.isPending}>
-                                      <XCircle className="w-3 h-3 mr-1" />반려
-                                    </Button>
-                                  </>
-                                )}
-                                {event.status === "approved" && !event.socialDraft && (
-                                  <Button size="sm" variant="outline"
-                                    className="h-7 px-2.5 text-xs text-blue-700 border-blue-200 hover:bg-blue-50"
-                                    onClick={() => draftMutation.mutate(event.id)}
-                                    disabled={draftMutation.isPending}>
-                                    <MessageSquare className="w-3 h-3 mr-1" />SNS초안
-                                  </Button>
-                                )}
-                                {event.status === "approved" && event.socialDraft && !event.cardImageUrl && (
-                                  <Button size="sm" variant="outline"
-                                    className="h-7 px-2.5 text-xs text-purple-700 border-purple-200 hover:bg-purple-50"
-                                    onClick={() => cardMutation.mutate(event.id)}
-                                    disabled={cardMutation.isPending}>
-                                    <Image className="w-3 h-3 mr-1" />카드생성
-                                  </Button>
-                                )}
-                                {event.cardImageUrl && (
-                                  <a href={event.cardImageUrl} target="_blank" rel="noopener noreferrer">
-                                    <Button size="sm" variant="outline"
-                                      className="h-7 px-2.5 text-xs text-blue-700 border-blue-200 w-full">
-                                      <Image className="w-3 h-3 mr-1" />카드보기
-                                    </Button>
-                                  </a>
-                                )}
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
+                            </CardContent>
+                          </Card>
+                        </button>
                       );
                     })}
                   </div>
@@ -791,6 +758,164 @@ export default function Admin() {
         </main>
       </div>
     </div>
+
+    {/* 행사 상세 모달 */}
+    {selectedScheduleEvent && (() => {
+      const ev = selectedScheduleEvent;
+      const sc = STATUS_CONFIG[ev.status];
+      const stepDone = {
+        approve: ev.status === "approved" || ev.status === "rejected",
+        draft: !!ev.socialDraft,
+        card: !!ev.cardImageUrl,
+      };
+      return (
+        <Dialog open={!!selectedScheduleEvent} onOpenChange={(o) => { if (!o) setSelectedScheduleEvent(null); }}>
+          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-base pr-6">
+                <CalendarRange className="w-4 h-4 text-blue-600 shrink-0" />
+                <span className="line-clamp-2">{ev.title}</span>
+              </DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-4 py-1">
+              {/* 메타 정보 */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs border font-semibold ${sc.class}`}>
+                  {sc.icon}{sc.label}
+                </span>
+                {ev.category && <Badge variant="outline" className="text-xs">{ev.category}</Badge>}
+                <span className="text-xs text-muted-foreground flex items-center gap-1">
+                  <CalendarDays className="w-3 h-3" />{ev.date}
+                </span>
+                <span className="text-xs text-muted-foreground">· {ev.source}</span>
+              </div>
+
+              {/* 설명 */}
+              <p className="text-sm text-muted-foreground leading-relaxed bg-gray-50 rounded-lg p-3">{ev.description}</p>
+
+              {/* 워크플로우 단계 표시 */}
+              <div className="border border-border rounded-xl p-4">
+                <p className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wide">SNS 발행 워크플로우</p>
+                <div className="flex items-center gap-1">
+                  {[
+                    { label: "① 승인", done: stepDone.approve, rejected: ev.status === "rejected" },
+                    { label: "② SNS 초안", done: stepDone.draft, rejected: false },
+                    { label: "③ 카드이미지", done: stepDone.card, rejected: false },
+                  ].map((step, i) => (
+                    <div key={i} className="flex items-center gap-1 flex-1">
+                      <div className={`flex-1 text-center px-2 py-1.5 rounded-lg text-xs font-semibold
+                        ${step.rejected ? "bg-red-100 text-red-600" : step.done ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-400"}`}>
+                        {step.label}
+                      </div>
+                      {i < 2 && <span className="text-gray-300 text-sm">›</span>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* SNS 초안 미리보기 */}
+              {ev.socialDraft && (
+                <div className="border border-blue-200 bg-blue-50 rounded-xl p-4">
+                  <p className="text-xs font-semibold text-blue-700 mb-2 flex items-center gap-1">
+                    <MessageSquare className="w-3.5 h-3.5" />SNS 초안
+                  </p>
+                  <p className="text-sm text-blue-800 leading-relaxed mb-2">{ev.socialDraft.caption}</p>
+                  <div className="flex gap-1 flex-wrap">
+                    {ev.socialDraft.hashtags.map((h) => (
+                      <span key={h} className="text-xs text-blue-500 font-medium">#{h}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 카드 이미지 미리보기 */}
+              {ev.cardImageUrl && (
+                <div className="border border-purple-200 bg-purple-50 rounded-xl p-3 flex items-center justify-between">
+                  <span className="text-xs font-semibold text-purple-700 flex items-center gap-1">
+                    <Image className="w-3.5 h-3.5" />카드이미지 생성 완료
+                  </span>
+                  <a href={ev.cardImageUrl} target="_blank" rel="noopener noreferrer">
+                    <Button size="sm" variant="outline" className="h-7 px-2.5 text-xs text-purple-700 border-purple-300">
+                      보기
+                    </Button>
+                  </a>
+                </div>
+              )}
+
+              {/* 액션 버튼 */}
+              <div className="flex flex-col gap-2 pt-1">
+                {ev.status === "draft" && (
+                  <div className="flex gap-2">
+                    <Button
+                      className="flex-1 gap-1.5 bg-green-600 hover:bg-green-700"
+                      onClick={() => {
+                        statusMutation.mutate({ id: ev.id, status: "approved" });
+                        setSelectedScheduleEvent({ ...ev, status: "approved" });
+                      }}
+                      disabled={statusMutation.isPending}
+                    >
+                      <CheckCircle className="w-4 h-4" />승인
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="flex-1 gap-1.5 text-red-600 border-red-200 hover:bg-red-50"
+                      onClick={() => {
+                        statusMutation.mutate({ id: ev.id, status: "rejected" });
+                        setSelectedScheduleEvent(null);
+                      }}
+                      disabled={statusMutation.isPending}
+                    >
+                      <XCircle className="w-4 h-4" />반려
+                    </Button>
+                  </div>
+                )}
+
+                {ev.status === "approved" && !ev.socialDraft && (
+                  <Button
+                    className="w-full gap-1.5"
+                    onClick={() => {
+                      draftMutation.mutate(ev.id, {
+                        onSuccess: (d) => setSelectedScheduleEvent({ ...ev, socialDraft: d.socialDraft }),
+                      });
+                    }}
+                    disabled={draftMutation.isPending}
+                  >
+                    <MessageSquare className="w-4 h-4" />
+                    {draftMutation.isPending ? "SNS 초안 생성 중..." : "SNS 초안 생성"}
+                  </Button>
+                )}
+
+                {ev.status === "approved" && ev.socialDraft && !ev.cardImageUrl && (
+                  <Button
+                    className="w-full gap-1.5 bg-purple-600 hover:bg-purple-700"
+                    onClick={() => {
+                      cardMutation.mutate(ev.id, {
+                        onSuccess: (d) => setSelectedScheduleEvent({ ...ev, cardImageUrl: d.cardImageUrl }),
+                      });
+                    }}
+                    disabled={cardMutation.isPending}
+                  >
+                    <Image className="w-4 h-4" />
+                    {cardMutation.isPending ? "카드이미지 생성 중..." : "카드이미지 생성"}
+                  </Button>
+                )}
+
+                {ev.status === "approved" && ev.socialDraft && ev.cardImageUrl && (
+                  <div className="flex items-center justify-center gap-2 py-2 text-sm text-green-700 font-semibold">
+                    <CheckCircle className="w-4 h-4" /> SNS 발행 준비 완료
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setSelectedScheduleEvent(null)}>닫기</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      );
+    })()}
 
     {/* 광고 수정 다이얼로그 */}
     {editingAd && (

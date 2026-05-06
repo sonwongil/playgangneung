@@ -145,6 +145,63 @@ async function crawlGnYeyak(): Promise<{ events: CrawledEvent[]; error?: string 
   }
 }
 
+// ─── 강릉아트센터 공연일정 ────────────────────────────────────────────────────
+
+const GN_ARTSCENTER_BASE = "https://www.gn.go.kr";
+
+async function crawlGnArtscenter(): Promise<{ events: CrawledEvent[]; error?: string }> {
+  const url = `${GN_ARTSCENTER_BASE}/artscenter/selectMoonhwainList.do?key=5728&searchMoon_p_team=artCenter`;
+  try {
+    const html = await fetchHtml(url);
+    const $ = cheerio.load(html);
+    const events: CrawledEvent[] = [];
+
+    $("ul.performance_list li.performance_item").each((_, el) => {
+      const $el = $(el);
+      const $a = $el.find("a").first();
+      const href = $a.attr("href") || "";
+      const link = href.startsWith("http")
+        ? href
+        : href
+        ? `${GN_ARTSCENTER_BASE}/artscenter/${href.replace(/^\.\//, "")}`
+        : url;
+
+      const title = $el.find("span.performance_title").text().trim();
+      if (!title || title.length < 2) return;
+
+      // 날짜: 첫 번째 performance_date (기간), 두 번째는 시간 정보
+      const $dates = $el.find("span.performance_date");
+      const dateRaw = $dates.first().text().trim();
+
+      const location = $el.find("span.performance_place").text().trim() || "강릉아트센터";
+
+      // 썸네일: background:url('...') 또는 img src
+      const imgStyle = $el.find("span.image").attr("style") || "";
+      const imgMatch = imgStyle.match(/url\(['"]?([^'")\s]+)['"]?\)/);
+      const thumbnail = imgMatch
+        ? (imgMatch[1].startsWith("http") ? imgMatch[1] : `${GN_ARTSCENTER_BASE}${imgMatch[1]}`)
+        : null;
+
+      events.push(buildEvent(
+        makeId("gn_artscenter", link || title),
+        title,
+        location,
+        dateRaw,
+        link,
+        "강릉아트센터",
+        "html",
+        thumbnail,
+        location,
+        "행사",
+      ));
+    });
+
+    return { events };
+  } catch (err) {
+    return { events: [], error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
 // ─── 강릉문화예술재단 ────────────────────────────────────────────────────────
 
 const GNCAF_BASE = "https://www.gncaf.or.kr";
@@ -274,6 +331,17 @@ export async function crawlAll(): Promise<CrawlResult[]> {
     url: `${GN_YEYAK_BASE}/yeyak/selectUnityEventWebList.do?key=6420`,
     sourceType: "html",
     ...gnResult,
+  });
+
+  // 강릉아트센터 공연일정
+  logger.info({ url: `${GN_ARTSCENTER_BASE}/artscenter/selectMoonhwainList.do?key=5728&searchMoon_p_team=artCenter` }, "[HTML] 크롤링 시작: 강릉아트센터");
+  const artsResult = await crawlGnArtscenter();
+  logger.info({ count: artsResult.events.length, error: artsResult.error }, "[HTML] 완료: 강릉아트센터");
+  results.push({
+    source: "강릉아트센터",
+    url: `${GN_ARTSCENTER_BASE}/artscenter/selectMoonhwainList.do?key=5728&searchMoon_p_team=artCenter`,
+    sourceType: "html",
+    ...artsResult,
   });
 
   // 강릉문화예술재단

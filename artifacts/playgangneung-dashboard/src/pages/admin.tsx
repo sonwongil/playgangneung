@@ -117,12 +117,13 @@ export default function Admin() {
 
   const totalCount = events.length;
   const draftCount = events.filter((e) => e.status === "draft").length;
-  const approvedCount = events.filter((e) => e.status === "approved").length;
-  const withDraftCount = events.filter((e) => e.socialDraft).length;
+  const today = new Date().toISOString().slice(0, 10);
+  const todayCount = events.filter((e) => e.crawledAt?.startsWith(today)).length;
+  const snsReadyCount = events.filter((e) => e.status === "approved" && e.socialDraft).length;
 
   const crawlMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch(`${BASE}/api/events/crawl`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
+      const res = await fetch(`${BASE}/api/crawl`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
       if (!res.ok) throw new Error("크롤링 실패");
       return res.json();
     },
@@ -277,9 +278,9 @@ export default function Admin() {
           {/* Stats Cards */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <StatCard label="전체 콘텐츠" value={totalCount} sub="수집된 항목 수" color="text-blue-600" />
-            <StatCard label="승인 대기" value={draftCount} sub="검토가 필요한 항목" color="text-yellow-600" />
-            <StatCard label="승인 완료" value={approvedCount} sub="오늘 기준 누적" color="text-green-600" />
-            <StatCard label="SNS 초안 보유" value={withDraftCount} sub="발행 준비된 항목" color="text-purple-600" />
+            <StatCard label="승인대기" value={draftCount} sub="검토가 필요한 항목" color="text-yellow-600" />
+            <StatCard label="오늘수집" value={todayCount} sub="오늘 새로 수집된 항목" color="text-green-600" />
+            <StatCard label="SNS발행예정" value={snsReadyCount} sub="초안 완성·발행 대기" color="text-purple-600" />
           </div>
 
           {/* Event Table */}

@@ -15,13 +15,46 @@ import crypto from "crypto";
 
 const router = Router();
 
+const CATEGORY_THUMBNAILS: Record<string, string> = {
+  행사: "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=800&q=80",
+  맛집: "https://images.unsplash.com/photo-1559925393-8be0ec4767c8?w=800&q=80",
+  핫플: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&q=80",
+  지역소식: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=800&q=80",
+};
+const DEFAULT_THUMBNAIL = "https://images.unsplash.com/photo-1528360983277-13d401cdc186?w=800&q=80";
+const DEFAULT_CATEGORY = "지역소식";
+
+function enrichEvent(event: CrawledEvent & { category?: string; thumbnail?: string }) {
+  const category = event.category ?? DEFAULT_CATEGORY;
+  return {
+    ...event,
+    category,
+    thumbnail: event.thumbnail ?? CATEGORY_THUMBNAILS[category] ?? DEFAULT_THUMBNAIL,
+  };
+}
+
 router.get("/events", async (req, res) => {
   try {
     const events = await readEvents();
-    res.json({ success: true, total: events.length, events });
+    const enriched = events.map(enrichEvent);
+    res.json({ success: true, total: enriched.length, events: enriched });
   } catch (err) {
     req.log.error({ err }, "이벤트 목록 조회 실패");
     res.status(500).json({ success: false, error: "이벤트 목록 조회 실패" });
+  }
+});
+
+router.post("/crawl", async (req, res) => {
+  try {
+    req.log.info("전체 크롤링 시작 (POST /crawl)");
+    const results = await crawlAll();
+    const allEvents = results.flatMap((r) => r.events);
+    const { added, total } = await appendEvents(allEvents);
+    req.log.info({ added, total }, "전체 크롤링 완료");
+    return res.json({ success: true, added, total, message: "크롤링 완료" });
+  } catch (err) {
+    req.log.error({ err }, "크롤링 실패");
+    return res.status(500).json({ success: false, error: String(err) });
   }
 });
 

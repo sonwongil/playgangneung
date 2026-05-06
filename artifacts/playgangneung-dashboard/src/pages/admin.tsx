@@ -39,10 +39,19 @@ import {
   ChevronRight,
   Megaphone,
   Pencil,
+  CalendarRange,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+function getRelDate(offset: number) {
+  const d = new Date();
+  d.setDate(d.getDate() + offset);
+  return d.toISOString().slice(0, 10);
+}
+const TODAY_STR = getRelDate(0);
+const TOMORROW_STR = getRelDate(1);
 
 interface SocialDraft {
   title: string;
@@ -75,6 +84,7 @@ type NavItem = {
 
 const NAV_ITEMS: NavItem[] = [
   { icon: <LayoutDashboard className="w-4 h-4" />, label: "대시보드", key: "dashboard" },
+  { icon: <CalendarRange className="w-4 h-4" />, label: "행사 스케줄", key: "schedule" },
   { icon: <CalendarDays className="w-4 h-4" />, label: "행사 관리", key: "events" },
   { icon: <Megaphone className="w-4 h-4" />, label: "광고접수", key: "ads" },
   { icon: <FileText className="w-4 h-4" />, label: "콘텐츠 관리", key: "content" },
@@ -119,19 +129,28 @@ const STATUS_CONFIG = {
 
 const MOCK_EVENTS: Event[] = [
   {
-    id: "1", title: "2026 강릉 커피축제", description: "세계적인 커피 도시 강릉에서 펼쳐지는 커피 축제.", date: "2026-05-10", link: "https://www.gangneung.go.kr", source: "강릉시청", sourceType: "rss", status: "approved", socialDraft: null, cardImageUrl: null, crawledAt: "2026-05-06T09:00:00.000Z", category: "행사",
+    id: "m-today-1", title: "2026 강릉 커피축제 개막식", description: "세계적인 커피 도시 강릉에서 펼쳐지는 커피 축제 개막. 다양한 커피 체험과 공연.", date: TODAY_STR, link: "https://www.gangneung.go.kr", source: "강릉시청", sourceType: "rss", status: "approved", socialDraft: null, cardImageUrl: null, crawledAt: new Date().toISOString(), category: "행사",
   },
   {
-    id: "2", title: "안목해변 카페거리 맛집 탐방", description: "강릉 안목해변을 따라 즐비한 개성 넘치는 카페와 식당들.", date: "2026-05-08", link: "https://www.gangneung.go.kr", source: "강릉관광공사", sourceType: "html", status: "draft", socialDraft: null, cardImageUrl: null, crawledAt: "2026-05-06T08:30:00.000Z", category: "맛집",
+    id: "m-today-2", title: "경포해변 일출 명소 특별 야간행사", description: "강릉 경포해변에서 바라보는 아름다운 일출과 야간 특별 행사.", date: TODAY_STR, link: "https://www.gangneung.go.kr", source: "PLAY강릉", sourceType: "manual", status: "draft", socialDraft: null, cardImageUrl: null, crawledAt: new Date().toISOString(), category: "행사",
   },
   {
-    id: "3", title: "경포해변 일출 명소", description: "강릉 경포해변에서 바라보는 아름다운 일출.", date: "2026-05-06", link: "https://www.gangneung.go.kr", source: "PLAY강릉", sourceType: "manual", status: "approved", socialDraft: { title: "경포해변 일출 명소", caption: "강릉 경포해변에서 일출 명소를 소개합니다! 🌅", hashtags: ["강릉", "경포해변", "일출", "핫플"], createdAt: "2026-05-05T20:00:00.000Z" }, cardImageUrl: null, crawledAt: "2026-05-05T20:00:00.000Z", category: "핫플",
+    id: "m-tomorrow-1", title: "경포해변 모래조각 페스티벌", description: "동해 바다를 배경으로 펼쳐지는 모래조각 예술 축제.", date: TOMORROW_STR, link: "https://www.gangneung.go.kr", source: "강릉관광공사", sourceType: "html", status: "draft", socialDraft: null, cardImageUrl: null, crawledAt: new Date().toISOString(), category: "행사",
   },
   {
-    id: "4", title: "강릉 단오제 준비 위원회 출범", description: "유네스코 무형문화유산에 등재된 강릉단오제의 2026년 행사 준비 시작.", date: "2026-05-01", link: "https://www.gangneung.go.kr", source: "강릉시청", sourceType: "rss", status: "rejected", socialDraft: null, cardImageUrl: null, crawledAt: "2026-05-01T10:00:00.000Z", category: "지역소식",
+    id: "1", title: "2026 강릉 커피축제", description: "세계적인 커피 도시 강릉에서 펼쳐지는 커피 축제.", date: getRelDate(4), link: "https://www.gangneung.go.kr", source: "강릉시청", sourceType: "rss", status: "approved", socialDraft: null, cardImageUrl: null, crawledAt: new Date().toISOString(), category: "행사",
   },
   {
-    id: "5", title: "강릉 초당 순두부 골목", description: "강릉의 대표 향토음식, 초당 순두부.", date: "2026-05-03", link: "https://www.gangneung.go.kr", source: "강릉관광공사", sourceType: "html", status: "draft", socialDraft: null, cardImageUrl: null, crawledAt: "2026-05-03T11:00:00.000Z", category: "맛집",
+    id: "2", title: "안목해변 카페거리 맛집 탐방", description: "강릉 안목해변을 따라 즐비한 개성 넘치는 카페와 식당들.", date: getRelDate(2), link: "https://www.gangneung.go.kr", source: "강릉관광공사", sourceType: "html", status: "draft", socialDraft: null, cardImageUrl: null, crawledAt: new Date().toISOString(), category: "맛집",
+  },
+  {
+    id: "3", title: "오죽헌 야간 문화행사", description: "신사임당과 율곡 이이의 생가, 오죽헌에서 진행되는 특별 야간 문화 행사.", date: getRelDate(9), link: "https://www.gangneung.go.kr", source: "강릉문화재단", sourceType: "manual", status: "approved", socialDraft: { title: "오죽헌 야간 문화행사", caption: "오죽헌 야간 문화행사! 🏛️ 강릉의 역사와 문화를 밤에 즐겨보세요.", hashtags: ["강릉", "오죽헌", "야간행사", "행사"], createdAt: new Date().toISOString() }, cardImageUrl: null, crawledAt: new Date().toISOString(), category: "행사",
+  },
+  {
+    id: "4", title: "강릉 단오제 준비 위원회 출범", description: "유네스코 무형문화유산에 등재된 강릉단오제의 2026년 행사 준비 시작.", date: getRelDate(-5), link: "https://www.gangneung.go.kr", source: "강릉시청", sourceType: "rss", status: "rejected", socialDraft: null, cardImageUrl: null, crawledAt: new Date().toISOString(), category: "지역소식",
+  },
+  {
+    id: "5", title: "강릉 초당 순두부 골목", description: "강릉의 대표 향토음식, 초당 순두부.", date: getRelDate(-3), link: "https://www.gangneung.go.kr", source: "강릉관광공사", sourceType: "html", status: "draft", socialDraft: null, cardImageUrl: null, crawledAt: new Date().toISOString(), category: "맛집",
   },
 ];
 
@@ -151,6 +170,7 @@ export default function Admin() {
   const [activeNav, setActiveNav] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [editingAd, setEditingAd] = useState<Ad | null>(null);
+  const [scheduleSubTab, setScheduleSubTab] = useState<"오늘" | "내일" | "이번 주">("오늘");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -492,8 +512,156 @@ export default function Admin() {
             </Card>
           )}
 
+          {/* ── 행사 스케줄 섹션 ── */}
+          {activeNav === "schedule" && (() => {
+            const weekStart = (() => {
+              const d = new Date();
+              const dow = d.getDay();
+              d.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1));
+              return d.toISOString().slice(0, 10);
+            })();
+            const weekEnd = (() => {
+              const d = new Date(weekStart);
+              d.setDate(d.getDate() + 6);
+              return d.toISOString().slice(0, 10);
+            })();
+
+            const scheduleEvents = events.filter((e) => {
+              if (scheduleSubTab === "오늘") return e.date === TODAY_STR;
+              if (scheduleSubTab === "내일") return e.date === TOMORROW_STR;
+              return e.date >= weekStart && e.date <= weekEnd;
+            });
+
+            const subCounts = {
+              오늘: events.filter((e) => e.date === TODAY_STR).length,
+              내일: events.filter((e) => e.date === TOMORROW_STR).length,
+              "이번 주": events.filter((e) => e.date >= weekStart && e.date <= weekEnd).length,
+            };
+
+            return (
+              <div>
+                {/* Sub-tab pills */}
+                <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+                  {(["오늘", "내일", "이번 주"] as const).map((tab) => (
+                    <button
+                      key={tab}
+                      onClick={() => setScheduleSubTab(tab)}
+                      className={`shrink-0 flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-semibold transition-all border
+                        ${scheduleSubTab === tab
+                          ? "bg-blue-600 text-white border-blue-600 shadow"
+                          : "bg-white text-gray-600 border-gray-200 hover:border-blue-300 hover:text-blue-600"
+                        }`}
+                    >
+                      <CalendarRange className="w-3.5 h-3.5" />
+                      {tab}
+                      <span className={`text-xs px-1.5 py-0.5 rounded-full font-bold
+                        ${scheduleSubTab === tab ? "bg-white/20" : "bg-gray-100 text-gray-500"}`}>
+                        {subCounts[tab]}
+                      </span>
+                    </button>
+                  ))}
+                  <span className="ml-auto text-xs text-muted-foreground shrink-0">
+                    {scheduleSubTab === "이번 주" ? `${weekStart} ~ ${weekEnd}` : scheduleSubTab === "오늘" ? TODAY_STR : TOMORROW_STR}
+                  </span>
+                </div>
+
+                {scheduleEvents.length === 0 ? (
+                  <Card>
+                    <CardContent className="py-16 text-center">
+                      <CalendarRange className="w-10 h-10 mx-auto mb-3 text-muted-foreground opacity-30" />
+                      <p className="text-muted-foreground">해당 일정에 등록된 행사가 없습니다.</p>
+                      <p className="text-xs text-muted-foreground mt-1">크롤링 또는 수동 등록으로 행사를 추가하세요.</p>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <div className="space-y-3">
+                    {scheduleEvents.map((event) => {
+                      const sc = STATUS_CONFIG[event.status];
+                      return (
+                        <Card key={event.id} className="hover:shadow-md transition-shadow">
+                          <CardContent className="p-4">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap mb-1">
+                                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs border font-medium ${sc.class}`}>
+                                    {sc.icon}{sc.label}
+                                  </span>
+                                  {event.category && (
+                                    <Badge variant="outline" className="text-xs">{event.category}</Badge>
+                                  )}
+                                  <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                    <CalendarDays className="w-3 h-3" />{event.date}
+                                  </span>
+                                </div>
+                                <h3 className="font-semibold text-sm leading-snug mb-0.5 line-clamp-1">{event.title}</h3>
+                                <p className="text-xs text-muted-foreground line-clamp-2">{event.description}</p>
+                                {event.socialDraft && (
+                                  <div className="mt-2 p-2 bg-blue-50 rounded-lg border border-blue-100">
+                                    <p className="text-xs text-blue-700 font-medium mb-0.5">SNS 초안</p>
+                                    <p className="text-xs text-blue-600 line-clamp-2">{event.socialDraft.caption}</p>
+                                    <div className="flex gap-1 mt-1 flex-wrap">
+                                      {event.socialDraft.hashtags.map((h) => (
+                                        <span key={h} className="text-[10px] text-blue-500">#{h}</span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex flex-col gap-1.5 shrink-0">
+                                {event.status === "draft" && (
+                                  <>
+                                    <Button size="sm" variant="outline"
+                                      className="h-7 px-2.5 text-xs text-green-700 border-green-200 hover:bg-green-50"
+                                      onClick={() => statusMutation.mutate({ id: event.id, status: "approved" })}
+                                      disabled={statusMutation.isPending}>
+                                      <CheckCircle className="w-3 h-3 mr-1" />승인
+                                    </Button>
+                                    <Button size="sm" variant="outline"
+                                      className="h-7 px-2.5 text-xs text-red-700 border-red-200 hover:bg-red-50"
+                                      onClick={() => statusMutation.mutate({ id: event.id, status: "rejected" })}
+                                      disabled={statusMutation.isPending}>
+                                      <XCircle className="w-3 h-3 mr-1" />반려
+                                    </Button>
+                                  </>
+                                )}
+                                {event.status === "approved" && !event.socialDraft && (
+                                  <Button size="sm" variant="outline"
+                                    className="h-7 px-2.5 text-xs text-blue-700 border-blue-200 hover:bg-blue-50"
+                                    onClick={() => draftMutation.mutate(event.id)}
+                                    disabled={draftMutation.isPending}>
+                                    <MessageSquare className="w-3 h-3 mr-1" />SNS초안
+                                  </Button>
+                                )}
+                                {event.status === "approved" && event.socialDraft && !event.cardImageUrl && (
+                                  <Button size="sm" variant="outline"
+                                    className="h-7 px-2.5 text-xs text-purple-700 border-purple-200 hover:bg-purple-50"
+                                    onClick={() => cardMutation.mutate(event.id)}
+                                    disabled={cardMutation.isPending}>
+                                    <Image className="w-3 h-3 mr-1" />카드생성
+                                  </Button>
+                                )}
+                                {event.cardImageUrl && (
+                                  <a href={event.cardImageUrl} target="_blank" rel="noopener noreferrer">
+                                    <Button size="sm" variant="outline"
+                                      className="h-7 px-2.5 text-xs text-blue-700 border-blue-200 w-full">
+                                      <Image className="w-3 h-3 mr-1" />카드보기
+                                    </Button>
+                                  </a>
+                                )}
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
           {/* ── 대시보드/기타 섹션 ── */}
-          {activeNav !== "ads" && <>
+          {activeNav !== "ads" && activeNav !== "schedule" && <>
           {/* Stats Cards */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <StatCard label="전체 콘텐츠" value={totalCount} sub="수집된 항목 수" color="text-blue-600" />

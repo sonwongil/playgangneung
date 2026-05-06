@@ -1,14 +1,18 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { CalendarDays, ExternalLink, MapPin, Instagram, Facebook, Youtube, Megaphone, Star, Pin } from "lucide-react";
+import {
+  CalendarDays, ExternalLink, MapPin, Instagram, Facebook, Youtube,
+  Megaphone, Star, Pin, ChevronLeft, ChevronRight,
+} from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 type Category = "전체" | "행사" | "맛집" | "핫플" | "지역소식";
+type EventSubTab = "전체" | "달력" | "오늘" | "내일" | "이번 주";
 
 interface FeedItem {
   id: string;
@@ -57,15 +61,26 @@ const AD_PLAN_CONFIG = {
   },
 };
 
+function getRelativeDate(offsetDays: number) {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  return d.toISOString().slice(0, 10);
+}
+
+const TODAY_STR = getRelativeDate(0);
+const TOMORROW_STR = getRelativeDate(1);
+
 const FALLBACK_FEED: FeedItem[] = [
-  { id: "f-1", title: "2026 강릉 커피축제", description: "세계적인 커피 도시 강릉에서 펼쳐지는 커피 축제. 다양한 커피 체험과 전시, 공연을 즐겨보세요.", date: "2026-05-10", link: "https://www.gangneung.go.kr", source: "강릉시청", category: "행사", thumbnail: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=800&q=80", isAd: false },
-  { id: "f-2", title: "안목해변 카페거리 맛집 탐방", description: "강릉 안목해변을 따라 즐비한 개성 넘치는 카페와 식당들을 소개합니다.", date: "2026-05-08", link: "https://www.gangneung.go.kr", source: "강릉관광공사", category: "맛집", thumbnail: "https://images.unsplash.com/photo-1559925393-8be0ec4767c8?w=800&q=80", isAd: false },
-  { id: "f-3", title: "경포해변 일출 명소", description: "강릉 경포해변에서 바라보는 아름다운 일출. 한국의 대표적인 해돋이 명소를 소개합니다.", date: "2026-05-06", link: "https://www.gangneung.go.kr", source: "PLAY강릉", category: "핫플", thumbnail: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&q=80", isAd: false },
-  { id: "f-4", title: "강릉 단오제 준비 위원회 출범", description: "유네스코 무형문화유산에 등재된 강릉단오제의 2026년 행사 준비가 시작되었습니다.", date: "2026-05-01", link: "https://www.gangneung.go.kr", source: "강릉시청", category: "지역소식", thumbnail: "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=800&q=80", isAd: false },
-  { id: "f-5", title: "강릉 초당 순두부 골목", description: "강릉의 대표 향토음식, 초당 순두부. 동해 바닷물로 만든 부드럽고 담백한 순두부를 맛보세요.", date: "2026-05-03", link: "https://www.gangneung.go.kr", source: "강릉관광공사", category: "맛집", thumbnail: "https://images.unsplash.com/photo-1541544537156-7627a7a4aa1c?w=800&q=80", isAd: false },
-  { id: "f-6", title: "오죽헌 문화재 야간 개방", description: "신사임당과 율곡 이이의 생가, 오죽헌에서 진행되는 특별 야간 문화 행사.", date: "2026-05-15", link: "https://www.gangneung.go.kr", source: "강릉문화재단", category: "행사", thumbnail: "https://images.unsplash.com/photo-1528360983277-13d401cdc186?w=800&q=80", isAd: false },
-  { id: "f-7", title: "강릉 바우길 트레킹", description: "동해 바다와 백두대간을 잇는 강릉 바우길. 봄 트레킹 코스를 소개합니다.", date: "2026-05-12", link: "https://www.gangneung.go.kr", source: "강원도청", category: "핫플", thumbnail: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=800&q=80", isAd: false },
-  { id: "f-8", title: "강릉 아트 페스타 2026", description: "강릉을 대표하는 예술 축제. 지역 예술가들의 작품 전시와 공연이 함께 펼쳐집니다.", date: "2026-05-20", link: "https://www.gangneung.go.kr", source: "강릉문화재단", category: "행사", thumbnail: "https://images.unsplash.com/photo-1518998053901-5348d3961a04?w=800&q=80", isAd: false },
+  { id: "f-today-1", title: "2026 강릉 커피축제 개막식", description: "세계적인 커피 도시 강릉에서 펼쳐지는 커피 축제 개막. 다양한 커피 체험과 공연을 즐겨보세요.", date: TODAY_STR, link: "https://www.gangneung.go.kr", source: "강릉시청", category: "행사", thumbnail: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=800&q=80", isAd: false },
+  { id: "f-tomorrow-1", title: "경포해변 모래조각 페스티벌", description: "동해 바다를 배경으로 펼쳐지는 모래조각 예술 축제. 국내외 작가들의 작품을 만나보세요.", date: TOMORROW_STR, link: "https://www.gangneung.go.kr", source: "강릉관광공사", category: "행사", thumbnail: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&q=80", isAd: false },
+  { id: "f-1", title: "2026 강릉 커피축제", description: "세계적인 커피 도시 강릉에서 펼쳐지는 커피 축제. 다양한 커피 체험과 전시, 공연을 즐겨보세요.", date: getRelativeDate(4), link: "https://www.gangneung.go.kr", source: "강릉시청", category: "행사", thumbnail: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=800&q=80", isAd: false },
+  { id: "f-2", title: "안목해변 카페거리 맛집 탐방", description: "강릉 안목해변을 따라 즐비한 개성 넘치는 카페와 식당들을 소개합니다.", date: getRelativeDate(2), link: "https://www.gangneung.go.kr", source: "강릉관광공사", category: "맛집", thumbnail: "https://images.unsplash.com/photo-1559925393-8be0ec4767c8?w=800&q=80", isAd: false },
+  { id: "f-3", title: "경포해변 일출 명소", description: "강릉 경포해변에서 바라보는 아름다운 일출. 한국의 대표적인 해돋이 명소를 소개합니다.", date: getRelativeDate(-1), link: "https://www.gangneung.go.kr", source: "PLAY강릉", category: "핫플", thumbnail: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&q=80", isAd: false },
+  { id: "f-4", title: "강릉 단오제 준비 위원회 출범", description: "유네스코 무형문화유산에 등재된 강릉단오제의 2026년 행사 준비가 시작되었습니다.", date: getRelativeDate(-5), link: "https://www.gangneung.go.kr", source: "강릉시청", category: "지역소식", thumbnail: "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=800&q=80", isAd: false },
+  { id: "f-5", title: "강릉 초당 순두부 골목", description: "강릉의 대표 향토음식, 초당 순두부. 동해 바닷물로 만든 부드럽고 담백한 순두부를 맛보세요.", date: getRelativeDate(-3), link: "https://www.gangneung.go.kr", source: "강릉관광공사", category: "맛집", thumbnail: "https://images.unsplash.com/photo-1541544537156-7627a7a4aa1c?w=800&q=80", isAd: false },
+  { id: "f-6", title: "오죽헌 문화재 야간 개방", description: "신사임당과 율곡 이이의 생가, 오죽헌에서 진행되는 특별 야간 문화 행사.", date: getRelativeDate(9), link: "https://www.gangneung.go.kr", source: "강릉문화재단", category: "행사", thumbnail: "https://images.unsplash.com/photo-1528360983277-13d401cdc186?w=800&q=80", isAd: false },
+  { id: "f-7", title: "강릉 바우길 트레킹", description: "동해 바다와 백두대간을 잇는 강릉 바우길. 봄 트레킹 코스를 소개합니다.", date: getRelativeDate(6), link: "https://www.gangneung.go.kr", source: "강원도청", category: "핫플", thumbnail: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=800&q=80", isAd: false },
+  { id: "f-8", title: "강릉 아트 페스타 2026", description: "강릉을 대표하는 예술 축제. 지역 예술가들의 작품 전시와 공연이 함께 펼쳐집니다.", date: getRelativeDate(14), link: "https://www.gangneung.go.kr", source: "강릉문화재단", category: "행사", thumbnail: "https://images.unsplash.com/photo-1518998053901-5348d3961a04?w=800&q=80", isAd: false },
 ];
 
 function AdBadge({ plan }: { plan: "basic" | "main" | "premium" }) {
@@ -82,10 +97,11 @@ function FeedCard({ item }: { item: FeedItem }) {
   const colorClass = CATEGORY_COLORS[category] ?? "bg-gray-100 text-gray-700";
   const thumbnail = item.thumbnail ?? `https://images.unsplash.com/photo-1528360983277-13d401cdc186?w=800&q=80`;
   const adCfg = item.isAd && item.adPlan ? AD_PLAN_CONFIG[item.adPlan] : null;
+  const isToday = item.date === TODAY_STR;
+  const isTomorrow = item.date === TOMORROW_STR;
 
   return (
     <Card className={`overflow-hidden hover:shadow-lg transition-shadow duration-300 group ${adCfg?.ring ?? ""}`}>
-      {/* 프리미엄/메인 상단 배너 */}
       {adCfg && (item.adPlan === "premium" || item.adPlan === "main") && (
         <div className={`${adCfg.banner} flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold`}>
           {adCfg.icon}
@@ -106,6 +122,16 @@ function FeedCard({ item }: { item: FeedItem }) {
           ) : (
             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorClass}`}>
               {category}
+            </span>
+          )}
+          {isToday && !item.isAd && (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-600 text-white">
+              오늘
+            </span>
+          )}
+          {isTomorrow && !item.isAd && (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-500 text-white">
+              내일
             </span>
           )}
         </div>
@@ -140,8 +166,137 @@ function FeedCard({ item }: { item: FeedItem }) {
   );
 }
 
+function EventCalendar({
+  events,
+  selectedDate,
+  onSelectDate,
+}: {
+  events: FeedItem[];
+  selectedDate: string | null;
+  onSelectDate: (date: string | null) => void;
+}) {
+  const todayDate = new Date();
+  const [viewDate, setViewDate] = useState(() => new Date());
+
+  const year = viewDate.getFullYear();
+  const month = viewDate.getMonth();
+
+  const eventDates = useMemo(
+    () => new Set(events.map((e) => e.date)),
+    [events]
+  );
+
+  const firstDayOfMonth = new Date(year, month, 1);
+  const startDow = firstDayOfMonth.getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  const cells: (number | null)[] = [];
+  for (let i = 0; i < startDow; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+
+  const dayNames = ["일", "월", "화", "수", "목", "금", "토"];
+
+  const todayStr = todayDate.toISOString().slice(0, 10);
+
+  function toDateStr(day: number) {
+    return `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  }
+
+  const eventsForSelected = selectedDate
+    ? events.filter((e) => e.date === selectedDate)
+    : [];
+
+  return (
+    <div className="mb-4">
+      <div className="bg-white rounded-xl border border-border p-4">
+        <div className="flex items-center justify-between mb-3">
+          <button
+            onClick={() => setViewDate(new Date(year, month - 1, 1))}
+            className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <span className="text-sm font-bold">{year}년 {month + 1}월</span>
+          <button
+            onClick={() => setViewDate(new Date(year, month + 1, 1))}
+            className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-7 mb-1">
+          {dayNames.map((d, i) => (
+            <div
+              key={d}
+              className={`text-center text-[10px] font-semibold py-1 ${i === 0 ? "text-red-500" : i === 6 ? "text-blue-500" : "text-muted-foreground"}`}
+            >
+              {d}
+            </div>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-7 gap-y-0.5">
+          {cells.map((day, i) => {
+            if (!day) return <div key={`empty-${i}`} />;
+            const dateStr = toDateStr(day);
+            const isToday = dateStr === todayStr;
+            const hasEvent = eventDates.has(dateStr);
+            const isSelected = dateStr === selectedDate;
+            const dow = (startDow + day - 1) % 7;
+
+            return (
+              <button
+                key={dateStr}
+                onClick={() => onSelectDate(isSelected ? null : dateStr)}
+                className={`relative flex flex-col items-center justify-center w-full py-1.5 rounded-lg text-xs transition-all
+                  ${isSelected
+                    ? "bg-blue-600 text-white font-bold shadow"
+                    : isToday
+                    ? "bg-blue-50 text-blue-700 font-bold ring-1 ring-blue-300"
+                    : dow === 0
+                    ? "text-red-500 hover:bg-red-50"
+                    : dow === 6
+                    ? "text-blue-500 hover:bg-blue-50"
+                    : "text-gray-700 hover:bg-gray-50"
+                  }`}
+              >
+                {day}
+                {hasEvent && (
+                  <span
+                    className={`mt-0.5 w-1.5 h-1.5 rounded-full ${isSelected ? "bg-white" : "bg-blue-500"}`}
+                  />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {selectedDate && (
+        <div className="mt-2">
+          <p className="text-xs text-muted-foreground px-1 mb-2 font-medium">
+            {selectedDate} 행사 {eventsForSelected.length}건
+          </p>
+          {eventsForSelected.length === 0 ? (
+            <p className="text-center text-sm text-muted-foreground py-6">이 날 예정된 행사가 없습니다.</p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {eventsForSelected.map((item) => (
+                <FeedCard key={item.id} item={item} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Home() {
   const [activeTab, setActiveTab] = useState<Category>("전체");
+  const [eventSubTab, setEventSubTab] = useState<EventSubTab>("전체");
+  const [calendarDate, setCalendarDate] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
 
   const { data } = useQuery<{ feed: FeedItem[]; total: number }>({
@@ -156,14 +311,60 @@ export default function Home() {
 
   const allItems: FeedItem[] = data?.feed?.length ? data.feed : FALLBACK_FEED;
 
-  const filtered =
-    activeTab === "전체"
-      ? allItems
-      : allItems.filter((item) => item.category === activeTab);
+  const weekRange = useMemo(() => {
+    const d = new Date();
+    const dow = d.getDay();
+    const mon = new Date(d);
+    mon.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1));
+    const sun = new Date(mon);
+    sun.setDate(mon.getDate() + 6);
+    return { start: mon.toISOString().slice(0, 10), end: sun.toISOString().slice(0, 10) };
+  }, []);
 
-  const display = showAll ? filtered : filtered.slice(0, 6);
+  const categoryFiltered = useMemo(
+    () =>
+      activeTab === "전체"
+        ? allItems
+        : allItems.filter((item) => item.category === activeTab),
+    [allItems, activeTab]
+  );
 
+  const eventItems = useMemo(
+    () => allItems.filter((i) => i.category === "행사"),
+    [allItems]
+  );
+
+  const subFiltered = useMemo(() => {
+    if (activeTab !== "행사" || eventSubTab === "달력") return categoryFiltered;
+    switch (eventSubTab) {
+      case "오늘": return categoryFiltered.filter((i) => i.date === TODAY_STR);
+      case "내일": return categoryFiltered.filter((i) => i.date === TOMORROW_STR);
+      case "이번 주": return categoryFiltered.filter((i) => i.date >= weekRange.start && i.date <= weekRange.end);
+      default: return categoryFiltered;
+    }
+  }, [categoryFiltered, activeTab, eventSubTab, weekRange]);
+
+  const display = showAll ? subFiltered : subFiltered.slice(0, 6);
   const adCount = allItems.filter((i) => i.isAd).length;
+
+  const todayEventCount = eventItems.filter((i) => i.date === TODAY_STR).length;
+  const tomorrowEventCount = eventItems.filter((i) => i.date === TOMORROW_STR).length;
+  const weekEventCount = eventItems.filter(
+    (i) => i.date >= weekRange.start && i.date <= weekRange.end
+  ).length;
+
+  function handleMainTabChange(v: string) {
+    setActiveTab(v as Category);
+    setEventSubTab("전체");
+    setCalendarDate(null);
+    setShowAll(false);
+  }
+
+  function handleSubTabChange(sub: EventSubTab) {
+    setEventSubTab(sub);
+    if (sub !== "달력") setCalendarDate(null);
+    setShowAll(false);
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -171,11 +372,7 @@ export default function Home() {
       <header className="sticky top-0 z-50 bg-white border-b border-border shadow-sm">
         <div className="max-w-6xl mx-auto px-4 flex items-center" style={{ height: 50 }}>
           <a href={`${BASE}/`} className="inline-flex items-center">
-            <img
-              src={`${BASE}/logo2.png`}
-              alt="PLAY강릉"
-              style={{ height: 50, width: "auto" }}
-            />
+            <img src={`${BASE}/logo2.png`} alt="PLAY강릉" style={{ height: 50, width: "auto" }} />
           </a>
         </div>
       </header>
@@ -197,9 +394,9 @@ export default function Home() {
       {/* Main Content */}
       <main className="flex-1 max-w-6xl mx-auto px-4 py-4 w-full">
         {/* Category Tabs */}
-        <div className="mb-4">
+        <div className="mb-3">
           <div className="flex items-center justify-between gap-2 w-full">
-            <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v as Category); setShowAll(false); }}>
+            <Tabs value={activeTab} onValueChange={handleMainTabChange}>
               <TabsList className="bg-white border border-border shadow-sm h-8 p-0.5 gap-0.5">
                 {(["전체", "행사", "맛집", "핫플", "지역소식"] as Category[]).map((cat) => (
                   <TabsTrigger
@@ -230,25 +427,71 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Cards Grid */}
-        {filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-24 text-muted-foreground">
-            <p className="text-lg">해당 카테고리의 콘텐츠가 없습니다.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {display.map((item) => (
-              <FeedCard key={item.id} item={item} />
+        {/* Event Sub-Tabs — Instagram filter pill style */}
+        {activeTab === "행사" && (
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 mb-4" style={{ scrollbarWidth: "none" }}>
+            {([
+              { key: "전체" as EventSubTab, label: "전체", count: eventItems.length },
+              { key: "달력" as EventSubTab, label: "📅 행사달력", count: null },
+              { key: "오늘" as EventSubTab, label: "오늘", count: todayEventCount },
+              { key: "내일" as EventSubTab, label: "내일", count: tomorrowEventCount },
+              { key: "이번 주" as EventSubTab, label: "이번 주", count: weekEventCount },
+            ]).map(({ key, label, count }) => (
+              <button
+                key={key}
+                onClick={() => handleSubTabChange(key)}
+                className={`shrink-0 flex items-center gap-1 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all border
+                  ${eventSubTab === key
+                    ? "bg-blue-600 text-white border-blue-600 shadow-sm scale-105"
+                    : "bg-white text-gray-600 border-gray-200 hover:border-blue-300 hover:text-blue-600"
+                  }`}
+              >
+                {label}
+                {count !== null && (
+                  <span className={`ml-0.5 text-[10px] font-bold px-1 py-0.5 rounded-full
+                    ${eventSubTab === key ? "bg-white/20" : "bg-gray-100 text-gray-500"}`}>
+                    {count}
+                  </span>
+                )}
+              </button>
             ))}
           </div>
         )}
 
-        {!showAll && filtered.length > 6 && (
-          <div className="mt-8 text-center">
-            <Button variant="outline" size="lg" onClick={() => setShowAll(true)}>
-              더 보기 ({filtered.length - 6}건)
-            </Button>
-          </div>
+        {/* Calendar View */}
+        {activeTab === "행사" && eventSubTab === "달력" && (
+          <EventCalendar
+            events={eventItems}
+            selectedDate={calendarDate}
+            onSelectDate={setCalendarDate}
+          />
+        )}
+
+        {/* Cards Grid */}
+        {!(activeTab === "행사" && eventSubTab === "달력") && (
+          <>
+            {subFiltered.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-24 text-muted-foreground">
+                <CalendarDays className="w-12 h-12 mb-3 opacity-20" />
+                <p className="text-lg font-medium">해당 날짜의 행사가 없습니다.</p>
+                <p className="text-sm mt-1">다른 날짜를 선택하거나 전체 탭을 확인해보세요.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {display.map((item) => (
+                  <FeedCard key={item.id} item={item} />
+                ))}
+              </div>
+            )}
+
+            {!showAll && subFiltered.length > 6 && (
+              <div className="mt-8 text-center">
+                <Button variant="outline" size="lg" onClick={() => setShowAll(true)}>
+                  더 보기 ({subFiltered.length - 6}건)
+                </Button>
+              </div>
+            )}
+          </>
         )}
       </main>
 

@@ -5,7 +5,7 @@ const DATA_DIR = path.resolve(process.cwd(), "data");
 const EVENTS_FILE = path.join(DATA_DIR, "events.json");
 
 export type SourceType = "rss" | "html" | "manual";
-export type EventStatus = "draft" | "approved" | "rejected";
+export type EventStatus = "draft" | "approved" | "rejected" | "published";
 
 export interface SocialDraft {
   title: string;

@@ -270,11 +270,11 @@ router.patch("/events/:id/status", async (req, res) => {
     const { id } = req.params;
     const { status } = req.body as { status?: string };
 
-    const allowed: EventStatus[] = ["draft", "approved", "rejected"];
+    const allowed: EventStatus[] = ["draft", "approved", "rejected", "published"];
     if (!status || !allowed.includes(status as EventStatus)) {
       return res.status(400).json({
         success: false,
-        error: "status는 draft | approved | rejected 중 하나여야 합니다.",
+        error: "status는 draft | approved | rejected | published 중 하나여야 합니다.",
       });
     }
 

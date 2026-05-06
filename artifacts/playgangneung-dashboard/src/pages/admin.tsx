@@ -43,6 +43,9 @@ import {
   CalendarRange,
   LogOut,
   KeyRound,
+  Copy,
+  Download,
+  Send,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -71,7 +74,7 @@ interface Event {
   link: string;
   source: string;
   sourceType: string;
-  status: "draft" | "approved" | "rejected";
+  status: "draft" | "approved" | "rejected" | "published";
   socialDraft: SocialDraft | null;
   cardImageUrl: string | null;
   crawledAt: string;
@@ -124,10 +127,11 @@ const AD_STATUS_CONFIG: Record<string, { label: string; class: string }> = {
   rejected:  { label: "제외",     class: "bg-red-100 text-red-700 border-red-200" },
 };
 
-const STATUS_CONFIG = {
+const STATUS_CONFIG: Record<string, { label: string; icon: React.ReactNode; class: string }> = {
   draft: { label: "검토 중", icon: <Clock className="w-3 h-3" />, class: "bg-yellow-100 text-yellow-700 border-yellow-200" },
   approved: { label: "승인", icon: <CheckCircle className="w-3 h-3" />, class: "bg-green-100 text-green-700 border-green-200" },
   rejected: { label: "반려", icon: <XCircle className="w-3 h-3" />, class: "bg-red-100 text-red-700 border-red-200" },
+  published: { label: "발행완료", icon: <Send className="w-3 h-3" />, class: "bg-blue-100 text-blue-700 border-blue-200" },
 };
 
 const MOCK_EVENTS: Event[] = [
@@ -878,9 +882,10 @@ export default function Admin() {
       const ev = selectedScheduleEvent;
       const sc = STATUS_CONFIG[ev.status];
       const stepDone = {
-        approve: ev.status === "approved" || ev.status === "rejected",
+        approve: ev.status === "approved" || ev.status === "rejected" || ev.status === "published",
         draft: !!ev.socialDraft,
         card: !!ev.cardImageUrl,
+        publish: ev.status === "published",
       };
       return (
         <Dialog open={!!selectedScheduleEvent} onOpenChange={(o) => { if (!o) setSelectedScheduleEvent(null); }}>
@@ -916,13 +921,14 @@ export default function Admin() {
                     { label: "① 승인", done: stepDone.approve, rejected: ev.status === "rejected" },
                     { label: "② SNS 초안", done: stepDone.draft, rejected: false },
                     { label: "③ 카드이미지", done: stepDone.card, rejected: false },
+                    { label: "④ 발행완료", done: stepDone.publish, rejected: false },
                   ].map((step, i) => (
                     <div key={i} className="flex items-center gap-1 flex-1">
-                      <div className={`flex-1 text-center px-2 py-1.5 rounded-lg text-xs font-semibold
+                      <div className={`flex-1 text-center px-1.5 py-1.5 rounded-lg text-xs font-semibold
                         ${step.rejected ? "bg-red-100 text-red-600" : step.done ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-400"}`}>
                         {step.label}
                       </div>
-                      {i < 2 && <span className="text-gray-300 text-sm">›</span>}
+                      {i < 3 && <span className="text-gray-300 text-sm">›</span>}
                     </div>
                   ))}
                 </div>
@@ -931,9 +937,24 @@ export default function Admin() {
               {/* SNS 초안 미리보기 */}
               {ev.socialDraft && (
                 <div className="border border-blue-200 bg-blue-50 rounded-xl p-4">
-                  <p className="text-xs font-semibold text-blue-700 mb-2 flex items-center gap-1">
-                    <MessageSquare className="w-3.5 h-3.5" />SNS 초안
-                  </p>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs font-semibold text-blue-700 flex items-center gap-1">
+                      <MessageSquare className="w-3.5 h-3.5" />SNS 초안
+                    </p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 px-2.5 text-xs text-blue-700 border-blue-300 hover:bg-blue-100"
+                      onClick={() => {
+                        const text = `${ev.socialDraft!.caption}\n\n${ev.socialDraft!.hashtags.map((h) => `#${h}`).join(" ")}`;
+                        navigator.clipboard.writeText(text).then(() => {
+                          toast({ title: "복사 완료", description: "SNS 문구가 클립보드에 복사되었습니다." });
+                        });
+                      }}
+                    >
+                      <Copy className="w-3 h-3 mr-1" />문구 복사
+                    </Button>
+                  </div>
                   <p className="text-sm text-blue-800 leading-relaxed mb-2">{ev.socialDraft.caption}</p>
                   <div className="flex gap-1 flex-wrap">
                     {ev.socialDraft.hashtags.map((h) => (
@@ -945,15 +966,29 @@ export default function Admin() {
 
               {/* 카드 이미지 미리보기 */}
               {ev.cardImageUrl && (
-                <div className="border border-purple-200 bg-purple-50 rounded-xl p-3 flex items-center justify-between">
-                  <span className="text-xs font-semibold text-purple-700 flex items-center gap-1">
-                    <Image className="w-3.5 h-3.5" />카드이미지 생성 완료
-                  </span>
-                  <a href={ev.cardImageUrl} target="_blank" rel="noopener noreferrer">
-                    <Button size="sm" variant="outline" className="h-7 px-2.5 text-xs text-purple-700 border-purple-300">
-                      보기
-                    </Button>
-                  </a>
+                <div className="border border-purple-200 bg-purple-50 rounded-xl p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-semibold text-purple-700 flex items-center gap-1">
+                      <Image className="w-3.5 h-3.5" />카드이미지 생성 완료
+                    </span>
+                    <div className="flex gap-1.5">
+                      <a href={ev.cardImageUrl} target="_blank" rel="noopener noreferrer">
+                        <Button size="sm" variant="outline" className="h-7 px-2.5 text-xs text-purple-700 border-purple-300">
+                          <ExternalLink className="w-3 h-3 mr-1" />보기
+                        </Button>
+                      </a>
+                      <a href={ev.cardImageUrl} download={`${ev.title}.png`}>
+                        <Button size="sm" variant="outline" className="h-7 px-2.5 text-xs text-purple-700 border-purple-300 hover:bg-purple-100">
+                          <Download className="w-3 h-3 mr-1" />다운로드
+                        </Button>
+                      </a>
+                    </div>
+                  </div>
+                  <img
+                    src={ev.cardImageUrl}
+                    alt="카드이미지"
+                    className="w-full rounded-lg border border-purple-200"
+                  />
                 </div>
               )}
 
@@ -1016,8 +1051,55 @@ export default function Admin() {
                 )}
 
                 {ev.status === "approved" && ev.socialDraft && ev.cardImageUrl && (
-                  <div className="flex items-center justify-center gap-2 py-2 text-sm text-green-700 font-semibold">
-                    <CheckCircle className="w-4 h-4" /> SNS 발행 준비 완료
+                  <div className="flex flex-col gap-2">
+                    <div className="flex gap-2">
+                      <a
+                        href="https://www.facebook.com/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1"
+                      >
+                        <Button
+                          variant="outline"
+                          className="w-full gap-1.5 text-[#1877F2] border-[#1877F2]/30 hover:bg-[#1877F2]/10"
+                        >
+                          <ExternalLink className="w-4 h-4" />페이스북 열기
+                        </Button>
+                      </a>
+                      <a
+                        href="https://www.instagram.com/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1"
+                      >
+                        <Button
+                          variant="outline"
+                          className="w-full gap-1.5 text-[#E1306C] border-[#E1306C]/30 hover:bg-[#E1306C]/10"
+                        >
+                          <ExternalLink className="w-4 h-4" />인스타 열기
+                        </Button>
+                      </a>
+                    </div>
+                    <Button
+                      className="w-full gap-1.5 bg-blue-600 hover:bg-blue-700"
+                      onClick={() => {
+                        statusMutation.mutate({ id: ev.id, status: "published" }, {
+                          onSuccess: () => {
+                            setSelectedScheduleEvent({ ...ev, status: "published" });
+                            toast({ title: "발행완료", description: "SNS 발행완료로 처리되었습니다." });
+                          },
+                        });
+                      }}
+                      disabled={statusMutation.isPending}
+                    >
+                      <Send className="w-4 h-4" />발행완료 처리
+                    </Button>
+                  </div>
+                )}
+
+                {ev.status === "published" && (
+                  <div className="flex items-center justify-center gap-2 py-2 text-sm text-blue-700 font-semibold bg-blue-50 rounded-xl">
+                    <Send className="w-4 h-4" /> SNS 발행완료
                   </div>
                 )}
               </div>

@@ -63,7 +63,7 @@ export default function AdminEventDetail() {
   function initEdit(ev: Event) {
     if (!draftInited && ev.socialDraft) {
       setCaption(ev.socialDraft.caption);
-      setHashtagsStr(ev.socialDraft.hashtags.map((h) => `#${h}`).join(" "));
+      setHashtagsStr(ev.socialDraft.hashtags.map((h) => h.startsWith("#") ? h : `#${h}`).join(" "));
       setDraftInited(true);
     }
   }
@@ -158,8 +158,10 @@ export default function AdminEventDetail() {
   const fullText = draftInited
     ? `${caption}\n\n${hashtagsStr}`
     : event.socialDraft
-      ? `${event.socialDraft.caption}\n\n${event.socialDraft.hashtags.map((h) => `#${h}`).join(" ")}`
+      ? `${event.socialDraft.caption}\n\n${event.socialDraft.hashtags.map((h) => h.startsWith("#") ? h : `#${h}`).join(" ")}`
       : "";
+
+  const contentUrl = `${window.location.origin}/content/${eventId}`;
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -318,7 +320,7 @@ export default function AdminEventDetail() {
                   onClick={async () => {
                     await navigator.clipboard.writeText(fullText);
                     saveDraftMutation.mutate();
-                    window.open("https://www.facebook.com/", "_blank");
+                    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(contentUrl)}`, "_blank");
                   }}
                 >
                   페이스북

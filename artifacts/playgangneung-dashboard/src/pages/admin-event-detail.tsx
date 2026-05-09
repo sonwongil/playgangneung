@@ -161,7 +161,16 @@ export default function AdminEventDetail() {
       ? `${event.socialDraft.caption}\n\n${event.socialDraft.hashtags.map((h) => h.startsWith("#") ? h : `#${h}`).join(" ")}`
       : "";
 
-  const contentUrl = `${window.location.origin}/content/${eventId}`;
+  const { data: configData } = useQuery<{ siteUrl: string }>({
+    queryKey: ["config"],
+    queryFn: async () => {
+      const r = await fetch(`${BASE}/api/config`);
+      return r.json();
+    },
+    staleTime: Infinity,
+  });
+  const siteUrl = configData?.siteUrl ?? "https://play-gangneung-dashboard.replit.app";
+  const contentUrl = `${siteUrl}/content/${eventId}`;
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (

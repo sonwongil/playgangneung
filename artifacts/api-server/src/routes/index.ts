@@ -9,6 +9,10 @@ import proxyRouter from "./proxy.js";
 
 const router: IRouter = Router();
 
+router.get("/config", (_req, res) => {
+  res.json({ siteUrl: process.env["SITE_URL"] ?? "https://play-gangneung-dashboard.replit.app" });
+});
+
 router.use(authRouter);
 router.use(healthRouter);
 router.use(eventsRouter);

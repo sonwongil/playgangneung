@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -15,21 +15,11 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
   LayoutDashboard,
-  CalendarDays,
   Settings,
   RefreshCw,
   Image,
   ImageOff,
-  AlertTriangle,
   MessageSquare,
   Trash2,
   CheckCircle,
@@ -40,24 +30,17 @@ import {
   ChevronRight,
   Megaphone,
   Pencil,
-  CalendarRange,
   LogOut,
   KeyRound,
   Copy,
   Download,
   Send,
+  Rss,
+  AlertTriangle,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
-
-function getRelDate(offset: number) {
-  const d = new Date();
-  d.setDate(d.getDate() + offset);
-  return d.toISOString().slice(0, 10);
-}
-const TODAY_STR = getRelDate(0);
-const TOMORROW_STR = getRelDate(1);
 
 interface SocialDraft {
   title: string;
@@ -73,7 +56,7 @@ interface Event {
   date: string;
   startDate?: string;
   endDate?: string;
-  scheduleStatus?: "today" | "tomorrow" | "ongoing" | "upcoming" | "ended" | "dateUnknown";
+  scheduleStatus?: string;
   link: string;
   source: string;
   sourceType: string;
@@ -85,18 +68,6 @@ interface Event {
   cardImageUrl: string | null;
   crawledAt: string;
 }
-
-type NavItem = {
-  icon: React.ReactNode;
-  label: string;
-  key: string;
-};
-
-const NAV_ITEMS: NavItem[] = [
-  { icon: <LayoutDashboard className="w-4 h-4" />, label: "대시보드", key: "dashboard" },
-  { icon: <Megaphone className="w-4 h-4" />, label: "광고접수", key: "ads" },
-  { icon: <Settings className="w-4 h-4" />, label: "설정", key: "settings" },
-];
 
 interface Ad {
   id: string;
@@ -116,278 +87,261 @@ interface Ad {
   createdAt: string;
 }
 
-const PLAN_LABEL: Record<string, string> = { basic: "기본", main: "메인", premium: "프리미엄" };
-const PLAN_COLOR: Record<string, string> = { basic: "bg-blue-100 text-blue-700", main: "bg-purple-100 text-purple-700", premium: "bg-orange-100 text-orange-700" };
+type NavKey = "dashboard" | "feed" | "publish" | "ads" | "settings";
 
-const AD_STATUS_CONFIG: Record<string, { label: string; class: string }> = {
-  pending:   { label: "접수대기", class: "bg-yellow-100 text-yellow-700 border-yellow-200" },
-  approved:  { label: "승인",     class: "bg-green-100 text-green-700 border-green-200" },
-  scheduled: { label: "발행예정", class: "bg-blue-100 text-blue-700 border-blue-200" },
-  published: { label: "발행완료", class: "bg-gray-100 text-gray-700 border-gray-200" },
-  rejected:  { label: "제외",     class: "bg-red-100 text-red-700 border-red-200" },
+const NAV_ITEMS: { icon: React.ReactNode; label: string; key: NavKey }[] = [
+  { icon: <LayoutDashboard className="w-4 h-4" />, label: "대시보드", key: "dashboard" },
+  { icon: <Rss className="w-4 h-4" />, label: "SNS 피드 만들기", key: "feed" },
+  { icon: <Send className="w-4 h-4" />, label: "발행하기", key: "publish" },
+  { icon: <Megaphone className="w-4 h-4" />, label: "광고접수", key: "ads" },
+  { icon: <Settings className="w-4 h-4" />, label: "설정", key: "settings" },
+];
+
+const STATUS_CONFIG: Record<string, { label: string; icon: React.ReactNode; cls: string }> = {
+  draft:     { label: "검토 중",   icon: <Clock className="w-3 h-3" />,       cls: "bg-yellow-100 text-yellow-700 border-yellow-200" },
+  approved:  { label: "승인",     icon: <CheckCircle className="w-3 h-3" />,  cls: "bg-green-100 text-green-700 border-green-200" },
+  rejected:  { label: "반려",     icon: <XCircle className="w-3 h-3" />,      cls: "bg-red-100 text-red-700 border-red-200" },
+  published: { label: "발행완료", icon: <Send className="w-3 h-3" />,         cls: "bg-blue-100 text-blue-700 border-blue-200" },
 };
 
-const STATUS_CONFIG: Record<string, { label: string; icon: React.ReactNode; class: string }> = {
-  draft: { label: "검토 중", icon: <Clock className="w-3 h-3" />, class: "bg-yellow-100 text-yellow-700 border-yellow-200" },
-  approved: { label: "승인", icon: <CheckCircle className="w-3 h-3" />, class: "bg-green-100 text-green-700 border-green-200" },
-  rejected: { label: "반려", icon: <XCircle className="w-3 h-3" />, class: "bg-red-100 text-red-700 border-red-200" },
-  published: { label: "발행완료", icon: <Send className="w-3 h-3" />, class: "bg-blue-100 text-blue-700 border-blue-200" },
+const AD_STATUS: Record<string, { label: string; cls: string }> = {
+  pending:   { label: "접수대기", cls: "bg-yellow-100 text-yellow-700 border-yellow-200" },
+  approved:  { label: "승인",     cls: "bg-green-100 text-green-700 border-green-200" },
+  scheduled: { label: "발행예정", cls: "bg-blue-100 text-blue-700 border-blue-200" },
+  published: { label: "발행완료", cls: "bg-gray-100 text-gray-700 border-gray-200" },
+  rejected:  { label: "제외",     cls: "bg-red-100 text-red-700 border-red-200" },
 };
-
-const MOCK_EVENTS: Event[] = [];
-
-function StatCard({ label, value, sub, color }: { label: string; value: number | string; sub: string; color: string }) {
-  return (
-    <Card>
-      <CardContent className="p-5">
-        <p className="text-sm text-muted-foreground mb-1">{label}</p>
-        <p className={`text-3xl font-bold ${color}`}>{value}</p>
-        <p className="text-xs text-muted-foreground mt-1">{sub}</p>
-      </CardContent>
-    </Card>
-  );
-}
 
 export default function Admin() {
-  const [activeNav, setActiveNav] = useState("dashboard");
-  const [dashboardView, setDashboardView] = useState<"list" | "schedule">("list");
+  const [activeNav, setActiveNav] = useState<NavKey>("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [editingAd, setEditingAd] = useState<Ad | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [editThumbnailUrl, setEditThumbnailUrl] = useState("");
-  const [scheduleSubTab, setScheduleSubTab] = useState<"오늘" | "내일" | "이번 주" | "진행중" | "날짜 미확인">("오늘");
-  const [selectedScheduleEvent, setSelectedScheduleEvent] = useState<Event | null>(null);
+  const [editingAd, setEditingAd] = useState<Ad | null>(null);
   const [pwForm, setPwForm] = useState({ current: "", next: "", confirm: "" });
+  // inline draft editing: map of eventId → { caption, hashtagsStr }
+  const [draftEdits, setDraftEdits] = useState<Record<string, { caption: string; hashtagsStr: string }>>({});
   const [, navigate] = useLocation();
   const { toast } = useToast();
-  const queryClient = useQueryClient();
+  const qc = useQueryClient();
 
-  const logoutMutation = useMutation({
-    mutationFn: async () => {
-      const res = await fetch(`${BASE}/api/auth/logout`, { method: "POST", credentials: "include" });
-      if (!res.ok) throw new Error("로그아웃 실패");
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.clear();
-      navigate("/login");
-    },
-    onError: () => toast({ title: "로그아웃 실패", variant: "destructive" }),
-  });
-
-  const changePwMutation = useMutation({
-    mutationFn: async ({ currentPassword, newPassword }: { currentPassword: string; newPassword: string }) => {
-      const res = await fetch(`${BASE}/api/auth/change-password`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ currentPassword, newPassword }),
-      });
-      const d = await res.json();
-      if (!res.ok) throw new Error(d.error ?? "비밀번호 변경 실패");
-      return d;
-    },
-    onSuccess: () => {
-      toast({ title: "비밀번호가 변경되었습니다" });
-      setPwForm({ current: "", next: "", confirm: "" });
-    },
-    onError: (err: Error) => toast({ title: err.message, variant: "destructive" }),
-  });
-
-  const { data, isLoading } = useQuery<{ events: Event[]; total: number }>({
+  // ── Queries ─────────────────────────────────────────────────────────────────
+  const { data, isLoading } = useQuery<{ events: Event[] }>({
     queryKey: ["admin-events"],
     queryFn: async () => {
-      const res = await fetch(`${BASE}/api/events`);
-      if (!res.ok) throw new Error("이벤트 로드 실패");
-      return res.json();
+      const r = await fetch(`${BASE}/api/events`, { credentials: "include" });
+      if (!r.ok) throw new Error("이벤트 로드 실패");
+      return r.json();
     },
   });
 
-  const { data: adsData, isLoading: adsLoading } = useQuery<{ ads: Ad[]; total: number }>({
+  const { data: adsData, isLoading: adsLoading } = useQuery<{ ads: Ad[] }>({
     queryKey: ["admin-ads"],
     queryFn: async () => {
-      const res = await fetch(`${BASE}/api/ads`);
-      if (!res.ok) throw new Error("광고 로드 실패");
-      return res.json();
+      const r = await fetch(`${BASE}/api/ads`, { credentials: "include" });
+      if (!r.ok) throw new Error("광고 로드 실패");
+      return r.json();
     },
     enabled: activeNav === "ads",
   });
 
-  const events: Event[] = data?.events?.length ? data.events : MOCK_EVENTS;
+  const events: Event[] = data?.events ?? [];
+  const ads: Ad[] = adsData?.ads ?? [];
 
-  const totalCount = events.length;
-  const draftCount = events.filter((e) => e.status === "draft").length;
-  const today = new Date().toISOString().slice(0, 10);
-  const todayCount = events.filter((e) => e.crawledAt?.startsWith(today)).length;
-  const snsReadyCount = events.filter((e) => e.status === "approved" && e.socialDraft).length;
+  // derived lists
+  const feedEvents = events.filter((e) => e.status === "approved");
+  const publishEvents = events.filter(
+    (e) => e.status === "approved" && e.socialDraft && e.cardImageUrl,
+  );
 
-  const regenerateDraftsMutation = useMutation({
-    mutationFn: async () => {
-      const res = await fetch(`${BASE}/api/events/regenerate-drafts`, {
-        method: "POST",
-        credentials: "include",
-      });
-      const d = await res.json();
-      if (!res.ok) throw new Error(d.error ?? "재생성 실패");
-      return d as { total: number; regenerated: number };
-    },
-    onSuccess: (d) => {
-      if (d.regenerated === 0) {
-        toast({ title: "모두 최신 링크입니다", description: "재생성이 필요한 초안이 없습니다." });
-      } else {
-        toast({
-          title: `${d.regenerated}건 재생성 완료`,
-          description: `총 ${d.total}건 중 ${d.regenerated}건의 초안을 새 링크로 업데이트했습니다.`,
-        });
-      }
-      queryClient.invalidateQueries({ queryKey: ["admin-events"] });
-    },
-    onError: (err: Error) => toast({ title: "재생성 실패", description: err.message, variant: "destructive" }),
-  });
-
+  // ── Mutations ────────────────────────────────────────────────────────────────
   const crawlMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch(`${BASE}/api/crawl`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
-      if (!res.ok) throw new Error("크롤링 실패");
-      return res.json();
+      const r = await fetch(`${BASE}/api/crawl`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
+      if (!r.ok) throw new Error("크롤링 실패");
+      return r.json();
     },
-    onSuccess: (d) => {
-      toast({ title: "크롤링 완료", description: `${d.added ?? 0}건 추가되었습니다.` });
-      queryClient.invalidateQueries({ queryKey: ["admin-events"] });
-    },
-    onError: () => toast({ title: "크롤링 실패", description: "잠시 후 다시 시도해주세요.", variant: "destructive" }),
+    onSuccess: (d) => { toast({ title: "크롤링 완료", description: `${d.added ?? 0}건 추가` }); qc.invalidateQueries({ queryKey: ["admin-events"] }); },
+    onError: () => toast({ title: "크롤링 실패", variant: "destructive" }),
   });
 
   const statusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      const res = await fetch(`${BASE}/api/events/${id}/status`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
-      });
-      if (!res.ok) throw new Error("상태 변경 실패");
-      return res.json();
+      const r = await fetch(`${BASE}/api/events/${id}/status`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
+      if (!r.ok) throw new Error("상태 변경 실패");
+      return r.json();
     },
-    onSuccess: () => {
-      toast({ title: "상태 변경 완료" });
-      queryClient.invalidateQueries({ queryKey: ["admin-events"] });
-    },
+    onSuccess: () => { toast({ title: "상태 변경 완료" }); qc.invalidateQueries({ queryKey: ["admin-events"] }); },
     onError: () => toast({ title: "상태 변경 실패", variant: "destructive" }),
   });
 
   const draftMutation = useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`${BASE}/api/events/${id}/draft`, { method: "POST" });
-      if (!res.ok) { const d = await res.json(); throw new Error(d.error ?? "초안 생성 실패"); }
-      return res.json();
+      const r = await fetch(`${BASE}/api/events/${id}/draft`, { method: "POST" });
+      if (!r.ok) { const d = await r.json(); throw new Error(d.error ?? "초안 생성 실패"); }
+      return r.json();
     },
-    onSuccess: () => {
+    onSuccess: (d) => {
       toast({ title: "SNS 초안 생성 완료" });
-      queryClient.invalidateQueries({ queryKey: ["admin-events"] });
+      qc.invalidateQueries({ queryKey: ["admin-events"] });
+      if (selectedEvent?.id === d.id) setSelectedEvent((e) => e ? { ...e, socialDraft: d.socialDraft } : e);
     },
     onError: (e: Error) => toast({ title: "초안 생성 실패", description: e.message, variant: "destructive" }),
   });
 
+  const saveDraftMutation = useMutation({
+    mutationFn: async ({ id, caption, hashtags }: { id: string; caption: string; hashtags: string[] }) => {
+      const r = await fetch(`${BASE}/api/events/${id}/draft`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ caption, hashtags }),
+      });
+      if (!r.ok) { const d = await r.json(); throw new Error(d.error ?? "저장 실패"); }
+      return r.json();
+    },
+    onSuccess: (d) => {
+      toast({ title: "초안 저장 완료" });
+      qc.invalidateQueries({ queryKey: ["admin-events"] });
+      if (selectedEvent?.id === d.id) setSelectedEvent((e) => e ? { ...e, socialDraft: d.socialDraft } : e);
+      setDraftEdits((prev) => { const n = { ...prev }; delete n[d.id]; return n; });
+    },
+    onError: (e: Error) => toast({ title: "저장 실패", description: e.message, variant: "destructive" }),
+  });
+
   const cardMutation = useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`${BASE}/api/events/${id}/card`, { method: "POST" });
-      if (!res.ok) { const d = await res.json(); throw new Error(d.error ?? "카드 생성 실패"); }
-      return res.json();
+      const r = await fetch(`${BASE}/api/events/${id}/card`, { method: "POST" });
+      if (!r.ok) { const d = await r.json(); throw new Error(d.error ?? "카드 생성 실패"); }
+      return r.json();
     },
-    onSuccess: () => {
+    onSuccess: (d) => {
       toast({ title: "카드이미지 생성 완료" });
-      queryClient.invalidateQueries({ queryKey: ["admin-events"] });
+      qc.invalidateQueries({ queryKey: ["admin-events"] });
+      if (selectedEvent?.id === d.id) setSelectedEvent((e) => e ? { ...e, cardImageUrl: d.cardImageUrl } : e);
     },
     onError: (e: Error) => toast({ title: "카드 생성 실패", description: e.message, variant: "destructive" }),
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`${BASE}/api/events/${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("삭제 실패");
-      return res.json();
+      const r = await fetch(`${BASE}/api/events/${id}`, { method: "DELETE" });
+      if (!r.ok) throw new Error("삭제 실패");
+      return r.json();
     },
-    onSuccess: () => {
-      toast({ title: "삭제 완료" });
-      queryClient.invalidateQueries({ queryKey: ["admin-events"] });
-    },
-    onError: () => toast({ title: "삭제 실패", variant: "destructive" }),
-  });
-
-  const adStatusMutation = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      const res = await fetch(`${BASE}/api/ads/${id}/status`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
-      });
-      if (!res.ok) throw new Error("상태 변경 실패");
-      return res.json();
-    },
-    onSuccess: () => {
-      toast({ title: "상태 변경 완료" });
-      queryClient.invalidateQueries({ queryKey: ["admin-ads"] });
-    },
-    onError: () => toast({ title: "상태 변경 실패", variant: "destructive" }),
-  });
-
-  const adDeleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const res = await fetch(`${BASE}/api/ads/${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("삭제 실패");
-      return res.json();
-    },
-    onSuccess: () => {
-      toast({ title: "광고 삭제 완료" });
-      queryClient.invalidateQueries({ queryKey: ["admin-ads"] });
-    },
+    onSuccess: () => { toast({ title: "삭제 완료" }); qc.invalidateQueries({ queryKey: ["admin-events"] }); setSelectedEvent(null); },
     onError: () => toast({ title: "삭제 실패", variant: "destructive" }),
   });
 
   const editEventMutation = useMutation({
     mutationFn: async ({ id, patch }: { id: string; patch: Partial<Event> }) => {
-      const res = await fetch(`${BASE}/api/events/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(patch),
-      });
-      if (!res.ok) throw new Error("수정 실패");
-      return res.json();
+      const r = await fetch(`${BASE}/api/events/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify(patch) });
+      if (!r.ok) throw new Error("수정 실패");
+      return r.json();
     },
-    onSuccess: () => {
-      toast({ title: "이벤트 수정 완료" });
-      queryClient.invalidateQueries({ queryKey: ["admin-events"] });
-      setEditingEvent(null);
-    },
+    onSuccess: () => { toast({ title: "수정 완료" }); qc.invalidateQueries({ queryKey: ["admin-events"] }); setEditingEvent(null); },
     onError: () => toast({ title: "수정 실패", variant: "destructive" }),
+  });
+
+  const logoutMutation = useMutation({
+    mutationFn: async () => { const r = await fetch(`${BASE}/api/auth/logout`, { method: "POST", credentials: "include" }); if (!r.ok) throw new Error(); return r.json(); },
+    onSuccess: () => { qc.clear(); navigate("/login"); },
+    onError: () => toast({ title: "로그아웃 실패", variant: "destructive" }),
+  });
+
+  const changePwMutation = useMutation({
+    mutationFn: async ({ currentPassword, newPassword }: { currentPassword: string; newPassword: string }) => {
+      const r = await fetch(`${BASE}/api/auth/change-password`, { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ currentPassword, newPassword }) });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error ?? "비밀번호 변경 실패");
+      return d;
+    },
+    onSuccess: () => { toast({ title: "비밀번호 변경 완료" }); setPwForm({ current: "", next: "", confirm: "" }); },
+    onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
+  });
+
+  const adStatusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      const r = await fetch(`${BASE}/api/ads/${id}/status`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
+      if (!r.ok) throw new Error(); return r.json();
+    },
+    onSuccess: () => { toast({ title: "상태 변경 완료" }); qc.invalidateQueries({ queryKey: ["admin-ads"] }); },
+    onError: () => toast({ title: "상태 변경 실패", variant: "destructive" }),
+  });
+
+  const adDeleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const r = await fetch(`${BASE}/api/ads/${id}`, { method: "DELETE" }); if (!r.ok) throw new Error(); return r.json();
+    },
+    onSuccess: () => { toast({ title: "삭제 완료" }); qc.invalidateQueries({ queryKey: ["admin-ads"] }); },
+    onError: () => toast({ title: "삭제 실패", variant: "destructive" }),
   });
 
   const adEditMutation = useMutation({
     mutationFn: async ({ id, patch }: { id: string; patch: Partial<Ad> }) => {
-      const res = await fetch(`${BASE}/api/ads/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(patch),
-      });
-      if (!res.ok) throw new Error("수정 실패");
-      return res.json();
+      const r = await fetch(`${BASE}/api/ads/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) });
+      if (!r.ok) throw new Error(); return r.json();
     },
-    onSuccess: () => {
-      toast({ title: "광고 수정 완료" });
-      queryClient.invalidateQueries({ queryKey: ["admin-ads"] });
-      setEditingAd(null);
-    },
+    onSuccess: () => { toast({ title: "수정 완료" }); qc.invalidateQueries({ queryKey: ["admin-ads"] }); setEditingAd(null); },
     onError: () => toast({ title: "수정 실패", variant: "destructive" }),
   });
 
-  const ads: Ad[] = adsData?.ads ?? [];
+  const regenerateDraftsMutation = useMutation({
+    mutationFn: async () => {
+      const r = await fetch(`${BASE}/api/events/regenerate-drafts`, { method: "POST", credentials: "include" });
+      const d = await r.json(); if (!r.ok) throw new Error(d.error ?? "실패"); return d as { total: number; regenerated: number };
+    },
+    onSuccess: (d) => {
+      toast({ title: d.regenerated === 0 ? "모두 최신 링크" : `${d.regenerated}건 재생성 완료` });
+      qc.invalidateQueries({ queryKey: ["admin-events"] });
+    },
+    onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
+  });
 
+  // ── Draft edit helpers ───────────────────────────────────────────────────────
+  function getDraftEdit(ev: Event) {
+    if (draftEdits[ev.id]) return draftEdits[ev.id];
+    return {
+      caption: ev.socialDraft?.caption ?? "",
+      hashtagsStr: ev.socialDraft?.hashtags.join(" ") ?? "",
+    };
+  }
+  function setDraftCaption(id: string, caption: string) {
+    setDraftEdits((p) => ({ ...p, [id]: { ...getDraftEditById(id), caption } }));
+  }
+  function setDraftHashtagsStr(id: string, hashtagsStr: string) {
+    setDraftEdits((p) => ({ ...p, [id]: { ...getDraftEditById(id), hashtagsStr } }));
+  }
+  function getDraftEditById(id: string) {
+    return draftEdits[id] ?? { caption: "", hashtagsStr: "" };
+  }
+  function initDraftEdit(ev: Event) {
+    if (!draftEdits[ev.id]) {
+      setDraftEdits((p) => ({
+        ...p,
+        [ev.id]: {
+          caption: ev.socialDraft?.caption ?? "",
+          hashtagsStr: ev.socialDraft?.hashtags.join(" ") ?? "",
+        },
+      }));
+    }
+  }
+  function parseHashtags(str: string): string[] {
+    return str.split(/[\s,]+/).map((h) => h.replace(/^#/, "").trim()).filter(Boolean);
+  }
+  function copyText(ev: Event) {
+    const text = ev.socialDraft
+      ? `${ev.socialDraft.caption}\n\n${ev.socialDraft.hashtags.map((h) => `#${h}`).join(" ")}`
+      : "";
+    navigator.clipboard.writeText(text).then(() => toast({ title: "복사 완료" }));
+  }
+
+  // ── Sidebar ──────────────────────────────────────────────────────────────────
   const Sidebar = ({ mobile = false }: { mobile?: boolean }) => (
     <div className={`flex flex-col h-full bg-sidebar text-sidebar-foreground ${mobile ? "w-64" : "w-56"}`}>
       <div className="p-5 border-b border-sidebar-border">
         <img src={`${BASE}/logo.png`} alt="PLAY강릉" className="h-8 object-contain brightness-0 invert" />
-        <p className="text-xs text-sidebar-foreground/50 mt-1">관리자 대시보드</p>
+        <p className="text-xs text-sidebar-foreground/50 mt-1">관리자</p>
       </div>
       <nav className="flex-1 py-4 px-2">
         {NAV_ITEMS.map((item) => (
@@ -407,462 +361,455 @@ export default function Admin() {
         ))}
       </nav>
       <div className="p-4 border-t border-sidebar-border space-y-2">
-        <a
-          href={`${BASE}/`}
-          className="flex items-center gap-2 text-xs text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors"
-        >
-          <ExternalLink className="w-3 h-3" />
-          공개 홈페이지 보기
+        <a href={`${BASE}/`} className="flex items-center gap-2 text-xs text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors">
+          <ExternalLink className="w-3 h-3" />공개 홈페이지
         </a>
         <button
           onClick={() => logoutMutation.mutate()}
           disabled={logoutMutation.isPending}
           className="flex items-center gap-2 text-xs text-sidebar-foreground/50 hover:text-red-400 transition-colors w-full"
         >
-          <LogOut className="w-3 h-3" />
-          {logoutMutation.isPending ? "로그아웃 중..." : "로그아웃"}
+          <LogOut className="w-3 h-3" />{logoutMutation.isPending ? "로그아웃 중..." : "로그아웃"}
         </button>
       </div>
     </div>
   );
 
+  // ── Render ───────────────────────────────────────────────────────────────────
   return (
     <>
     <div className="flex h-screen bg-background overflow-hidden">
-      {/* Desktop Sidebar */}
-      <aside className="hidden md:flex flex-shrink-0">
-        <Sidebar />
-      </aside>
+      <aside className="hidden md:flex flex-shrink-0"><Sidebar /></aside>
 
-      {/* Mobile Sidebar Overlay */}
       {sidebarOpen && (
         <div className="fixed inset-0 z-50 md:hidden">
           <div className="absolute inset-0 bg-black/50" onClick={() => setSidebarOpen(false)} />
-          <div className="absolute left-0 top-0 h-full">
-            <Sidebar mobile />
-          </div>
+          <div className="absolute left-0 top-0 h-full"><Sidebar mobile /></div>
         </div>
       )}
 
-      {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top Bar */}
         <header className="flex items-center justify-between px-5 py-3.5 border-b border-border bg-white flex-shrink-0">
           <div className="flex items-center gap-3">
-            <button
-              className="md:hidden p-1.5 rounded-md hover:bg-gray-100"
-              onClick={() => setSidebarOpen(true)}
-            >
+            <button className="md:hidden p-1.5 rounded-md hover:bg-gray-100" onClick={() => setSidebarOpen(true)}>
               <Menu className="w-5 h-5" />
             </button>
             <div>
-              <h1 className="font-semibold text-base">
-                {NAV_ITEMS.find((n) => n.key === activeNav)?.label ?? "대시보드"}
-              </h1>
+              <h1 className="font-semibold text-base">{NAV_ITEMS.find((n) => n.key === activeNav)?.label}</h1>
               <p className="text-xs text-muted-foreground">PLAY강릉 백오피스</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              onClick={() => crawlMutation.mutate()}
-              disabled={crawlMutation.isPending}
-              className="gap-1.5"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${crawlMutation.isPending ? "animate-spin" : ""}`} />
-              {crawlMutation.isPending ? "크롤링 중..." : "전체 크롤링"}
-            </Button>
-          </div>
+          <Button size="sm" onClick={() => crawlMutation.mutate()} disabled={crawlMutation.isPending} className="gap-1.5">
+            <RefreshCw className={`w-3.5 h-3.5 ${crawlMutation.isPending ? "animate-spin" : ""}`} />
+            {crawlMutation.isPending ? "크롤링 중..." : "전체 크롤링"}
+          </Button>
         </header>
 
-        {/* Page Content */}
         <main className="flex-1 overflow-y-auto p-5">
 
-          {/* ── 광고접수 섹션 ── */}
-          {activeNav === "ads" && (
-            <Card>
-              <CardHeader className="pb-3 flex flex-row items-center justify-between">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Megaphone className="w-4 h-4 text-blue-600" />광고 접수 목록
-                </CardTitle>
-                <span className="text-xs text-muted-foreground">{ads.length}건</span>
-              </CardHeader>
-              <CardContent className="p-0">
-                {adsLoading ? (
-                  <div className="p-8 text-center text-muted-foreground text-sm">불러오는 중...</div>
-                ) : ads.length === 0 ? (
-                  <div className="p-10 text-center text-muted-foreground text-sm">
-                    <Megaphone className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                    접수된 광고가 없습니다.
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="bg-gray-50 text-xs">
-                          <TableHead className="w-24">상태</TableHead>
-                          <TableHead className="w-20">상품</TableHead>
-                          <TableHead>제목 / 업체명</TableHead>
-                          <TableHead className="w-32 hidden md:table-cell">연락처</TableHead>
-                          <TableHead className="w-24 hidden lg:table-cell">등록일</TableHead>
-                          <TableHead className="w-48 text-right">액션</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {ads.map((ad) => {
-                          const sc = AD_STATUS_CONFIG[ad.status] ?? AD_STATUS_CONFIG.pending;
-                          return (
-                            <TableRow key={ad.id} className="text-sm hover:bg-gray-50/50">
-                              <TableCell>
-                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs border font-medium ${sc.class}`}>
-                                  {sc.label}
-                                </span>
-                              </TableCell>
-                              <TableCell>
-                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${PLAN_COLOR[ad.plan]}`}>
-                                  {PLAN_LABEL[ad.plan]}
-                                </span>
-                              </TableCell>
-                              <TableCell>
-                                <p className="font-medium line-clamp-1 max-w-[180px]">{ad.title}</p>
-                                <p className="text-xs text-muted-foreground">{ad.businessName} · {ad.category}</p>
-                              </TableCell>
-                              <TableCell className="hidden md:table-cell text-xs text-muted-foreground">{ad.phone}</TableCell>
-                              <TableCell className="hidden lg:table-cell text-xs text-muted-foreground">
-                                {ad.createdAt?.slice(0, 10)}
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex items-center gap-1 justify-end flex-wrap">
-                                  {ad.status === "pending" && (
-                                    <Button size="sm" variant="outline" className="h-7 px-2 text-xs text-green-700 border-green-200 hover:bg-green-50"
-                                      onClick={() => adStatusMutation.mutate({ id: ad.id, status: "approved" })}
-                                      disabled={adStatusMutation.isPending}>
-                                      <CheckCircle className="w-3 h-3" /> 승인
-                                    </Button>
-                                  )}
-                                  {ad.status === "approved" && (
-                                    <Button size="sm" variant="outline" className="h-7 px-2 text-xs text-blue-700 border-blue-200 hover:bg-blue-50"
-                                      onClick={() => adStatusMutation.mutate({ id: ad.id, status: "scheduled" })}
-                                      disabled={adStatusMutation.isPending}>
-                                      SNS발행예정
-                                    </Button>
-                                  )}
-                                  {ad.status === "scheduled" && (
-                                    <Button size="sm" variant="outline" className="h-7 px-2 text-xs text-gray-700 border-gray-200 hover:bg-gray-50"
-                                      onClick={() => adStatusMutation.mutate({ id: ad.id, status: "published" })}
-                                      disabled={adStatusMutation.isPending}>
-                                      발행완료
-                                    </Button>
-                                  )}
-                                  {ad.status !== "rejected" && ad.status !== "published" && (
-                                    <Button size="sm" variant="outline" className="h-7 px-2 text-xs text-red-700 border-red-200 hover:bg-red-50"
-                                      onClick={() => adStatusMutation.mutate({ id: ad.id, status: "rejected" })}
-                                      disabled={adStatusMutation.isPending}>
-                                      <XCircle className="w-3 h-3" /> 제외
-                                    </Button>
-                                  )}
-                                  <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-blue-600 hover:bg-blue-50"
-                                    onClick={() => setEditingAd(ad)}>
-                                    <Pencil className="w-3 h-3" />
-                                  </Button>
-                                  <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-destructive hover:bg-destructive/10"
-                                    onClick={() => adDeleteMutation.mutate(ad.id)}
-                                    disabled={adDeleteMutation.isPending}>
-                                    <Trash2 className="w-3 h-3" />
-                                  </Button>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* ── 대시보드 상단 탭 ── */}
+          {/* ══ 대시보드: 수집 목차 ══════════════════════════════════════════ */}
           {activeNav === "dashboard" && (
-            <div className="flex items-center gap-2 mb-5">
-              <button
-                onClick={() => setDashboardView("list")}
-                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-semibold border transition-all ${
-                  dashboardView === "list"
-                    ? "bg-blue-600 text-white border-blue-600 shadow"
-                    : "bg-white text-gray-600 border-gray-200 hover:border-blue-300 hover:text-blue-600"
-                }`}
-              >
-                <LayoutDashboard className="w-3.5 h-3.5" />전체 목록
-              </button>
-              <button
-                onClick={() => setDashboardView("schedule")}
-                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-semibold border transition-all ${
-                  dashboardView === "schedule"
-                    ? "bg-blue-600 text-white border-blue-600 shadow"
-                    : "bg-white text-gray-600 border-gray-200 hover:border-blue-300 hover:text-blue-600"
-                }`}
-              >
-                <CalendarRange className="w-3.5 h-3.5" />행사 스케줄
-              </button>
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground mb-3">
+                수집된 콘텐츠 <span className="font-semibold text-foreground">{events.length}건</span> — 항목을 클릭하면 상세 내용을 확인합니다.
+              </p>
+              {isLoading ? (
+                <div className="py-16 text-center text-muted-foreground text-sm">불러오는 중...</div>
+              ) : events.length === 0 ? (
+                <div className="py-16 text-center text-muted-foreground text-sm">
+                  <LayoutDashboard className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                  수집된 콘텐츠가 없습니다. 상단의 전체 크롤링 버튼을 눌러 수집하세요.
+                </div>
+              ) : (
+                events.map((ev) => {
+                  const sc = STATUS_CONFIG[ev.status];
+                  return (
+                    <button key={ev.id} className="w-full text-left" onClick={() => setSelectedEvent(ev)}>
+                      <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-border bg-white hover:border-blue-300 hover:shadow-sm transition-all group">
+                        {/* Thumbnail */}
+                        <div className="w-14 h-14 rounded-lg overflow-hidden bg-gray-100 shrink-0">
+                          {ev.thumbnail
+                            ? <img src={ev.thumbnail} alt="" className="w-full h-full object-cover" />
+                            : <div className="w-full h-full flex items-center justify-center"><ImageOff className="w-5 h-5 text-gray-300" /></div>
+                          }
+                        </div>
+                        {/* Info */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
+                            <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] border font-semibold ${sc.cls}`}>
+                              {sc.icon}{sc.label}
+                            </span>
+                            {ev.category && <Badge variant="outline" className="text-[10px] px-1.5 py-0">{ev.category}</Badge>}
+                            {ev.socialDraft && <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-600"><MessageSquare className="w-2.5 h-2.5" />초안</span>}
+                            {ev.cardImageUrl && <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-purple-100 text-purple-600"><Image className="w-2.5 h-2.5" />카드</span>}
+                          </div>
+                          <p className="font-medium text-sm leading-snug line-clamp-1 group-hover:text-blue-600 transition-colors">{ev.title}</p>
+                          <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{ev.description || "설명 없음"}</p>
+                        </div>
+                        {/* Date + Arrow */}
+                        <div className="shrink-0 text-right">
+                          <p className="text-xs text-muted-foreground">{ev.date}</p>
+                          <p className="text-[10px] text-muted-foreground/60">{ev.source}</p>
+                          <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-blue-500 ml-auto mt-1" />
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })
+              )}
             </div>
           )}
 
-          {/* ── 행사 스케줄 (대시보드 내 탭) ── */}
-          {activeNav === "dashboard" && dashboardView === "schedule" && (() => {
-            const weekStart = (() => {
-              const d = new Date();
-              const dow = d.getDay();
-              d.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1));
-              return d.toISOString().slice(0, 10);
-            })();
-            const weekEnd = (() => {
-              const d = new Date(weekStart);
-              d.setDate(d.getDate() + 6);
-              return d.toISOString().slice(0, 10);
-            })();
-
-            const getEffectiveStatus = (e: Event) => {
-              if (e.scheduleStatus) return e.scheduleStatus;
-              if (!e.date) return "dateUnknown";
-              if (e.date === TODAY_STR) return "today";
-              if (e.date === TOMORROW_STR) return "tomorrow";
-              if (e.date >= weekStart && e.date <= weekEnd) return "upcoming";
-              if (e.date < TODAY_STR) return "ended";
-              return "upcoming";
-            };
-
-            const scheduleEvents = events.filter((e) => {
-              const st = getEffectiveStatus(e);
-              if (scheduleSubTab === "오늘") return st === "today";
-              if (scheduleSubTab === "내일") return st === "tomorrow";
-              if (scheduleSubTab === "진행중") return st === "ongoing";
-              if (scheduleSubTab === "날짜 미확인") return st === "dateUnknown";
-              // 이번 주: today + tomorrow + ongoing + upcoming (within week)
-              return ["today", "tomorrow", "ongoing"].includes(st) || (e.startDate ?? e.date) >= weekStart && (e.startDate ?? e.date) <= weekEnd;
-            }).sort((a, b) => (a.startDate ?? a.date).localeCompare(b.startDate ?? b.date));
-
-            const subCounts: Record<string, number> = {
-              오늘: events.filter((e) => getEffectiveStatus(e) === "today").length,
-              내일: events.filter((e) => getEffectiveStatus(e) === "tomorrow").length,
-              진행중: events.filter((e) => getEffectiveStatus(e) === "ongoing").length,
-              "이번 주": events.filter((e) => {
-                const st = getEffectiveStatus(e);
-                return ["today","tomorrow","ongoing"].includes(st) || ((e.startDate ?? e.date) >= weekStart && (e.startDate ?? e.date) <= weekEnd);
-              }).length,
-              "날짜 미확인": events.filter((e) => getEffectiveStatus(e) === "dateUnknown").length,
-            };
-
-            const SCHEDULE_TABS = ["오늘", "내일", "진행중", "이번 주", "날짜 미확인"] as const;
-            const SCHEDULE_BADGE_COLOR: Record<string, string> = {
-              today: "bg-blue-600 text-white",
-              tomorrow: "bg-indigo-500 text-white",
-              ongoing: "bg-emerald-500 text-white",
-              upcoming: "bg-gray-200 text-gray-600",
-              dateUnknown: "bg-gray-100 text-gray-500",
-              ended: "bg-gray-100 text-gray-400",
-            };
-            const SCHEDULE_LABEL: Record<string, string> = {
-              today: "오늘", tomorrow: "내일", ongoing: "진행중",
-              upcoming: "예정", dateUnknown: "날짜미확인", ended: "종료",
-            };
-
-            return (
-              <div>
-                {/* Sub-tab pills */}
-                <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
-                  {SCHEDULE_TABS.map((tab) => (
-                    <button
-                      key={tab}
-                      onClick={() => setScheduleSubTab(tab)}
-                      className={`shrink-0 flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-semibold transition-all border
-                        ${scheduleSubTab === tab
-                          ? "bg-blue-600 text-white border-blue-600 shadow"
-                          : "bg-white text-gray-600 border-gray-200 hover:border-blue-300 hover:text-blue-600"
-                        }`}
-                    >
-                      <CalendarRange className="w-3.5 h-3.5" />
-                      {tab}
-                      <span className={`text-xs px-1.5 py-0.5 rounded-full font-bold
-                        ${scheduleSubTab === tab ? "bg-white/20" : "bg-gray-100 text-gray-500"}`}>
-                        {subCounts[tab]}
-                      </span>
-                    </button>
-                  ))}
-                  <span className="ml-auto text-xs text-muted-foreground shrink-0">
-                    {scheduleSubTab === "이번 주" ? `${weekStart} ~ ${weekEnd}` : TODAY_STR}
-                  </span>
+          {/* ══ SNS 피드 만들기 ═══════════════════════════════════════════════ */}
+          {activeNav === "feed" && (
+            <div className="space-y-4">
+              <p className="text-xs text-muted-foreground mb-1">
+                승인된 콘텐츠 <span className="font-semibold text-foreground">{feedEvents.length}건</span> — 초안을 작성하고 수정한 뒤 카드이미지를 생성하세요.
+              </p>
+              {feedEvents.length === 0 && (
+                <div className="py-16 text-center text-muted-foreground text-sm">
+                  <Rss className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                  승인된 콘텐츠가 없습니다. 대시보드에서 항목을 승인하세요.
                 </div>
+              )}
+              {feedEvents.map((ev) => {
+                const edit = getDraftEdit(ev);
+                const isDirty = !!draftEdits[ev.id];
+                return (
+                  <Card key={ev.id} className="overflow-hidden">
+                    <CardContent className="p-0">
+                      {/* Header row */}
+                      <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-gray-50/60">
+                        <div className="w-10 h-10 rounded-lg overflow-hidden bg-gray-100 shrink-0">
+                          {ev.thumbnail
+                            ? <img src={ev.thumbnail} alt="" className="w-full h-full object-cover" />
+                            : <div className="w-full h-full flex items-center justify-center"><ImageOff className="w-4 h-4 text-gray-300" /></div>
+                          }
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-sm line-clamp-1">{ev.title}</p>
+                          <p className="text-xs text-muted-foreground">{ev.date} · {ev.source}</p>
+                        </div>
+                        {ev.link && (
+                          <a href={ev.link} target="_blank" rel="noopener noreferrer" className="shrink-0">
+                            <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-blue-600">
+                              <ExternalLink className="w-3 h-3" />원문
+                            </Button>
+                          </a>
+                        )}
+                      </div>
 
-                {scheduleEvents.length === 0 ? (
-                  <Card>
-                    <CardContent className="py-16 text-center">
-                      <CalendarRange className="w-10 h-10 mx-auto mb-3 text-muted-foreground opacity-30" />
-                      <p className="text-muted-foreground">해당 일정에 등록된 행사가 없습니다.</p>
-                      <p className="text-xs text-muted-foreground mt-1">크롤링 또는 수동 등록으로 행사를 추가하세요.</p>
+                      {/* Body */}
+                      <div className="p-4 space-y-3">
+                        {!ev.socialDraft ? (
+                          <div className="flex items-center justify-between">
+                            <p className="text-sm text-muted-foreground">SNS 초안이 없습니다.</p>
+                            <Button
+                              size="sm"
+                              onClick={() => draftMutation.mutate(ev.id)}
+                              disabled={draftMutation.isPending}
+                              className="gap-1.5"
+                            >
+                              <MessageSquare className="w-3.5 h-3.5" />
+                              {draftMutation.isPending ? "생성 중..." : "초안 생성"}
+                            </Button>
+                          </div>
+                        ) : (
+                          <>
+                            {/* Editable caption */}
+                            <div>
+                              <Label className="text-xs font-semibold text-muted-foreground mb-1.5 block">SNS 문구</Label>
+                              <Textarea
+                                rows={5}
+                                value={edit.caption}
+                                className="text-sm resize-none"
+                                onClick={() => initDraftEdit(ev)}
+                                onChange={(e) => { initDraftEdit(ev); setDraftCaption(ev.id, e.target.value); }}
+                              />
+                            </div>
+                            {/* Editable hashtags */}
+                            <div>
+                              <Label className="text-xs font-semibold text-muted-foreground mb-1.5 block">해시태그 (공백 또는 쉼표로 구분)</Label>
+                              <Input
+                                value={edit.hashtagsStr}
+                                className="text-sm"
+                                placeholder="#강릉 #강릉여행 ..."
+                                onClick={() => initDraftEdit(ev)}
+                                onChange={(e) => { initDraftEdit(ev); setDraftHashtagsStr(ev.id, e.target.value); }}
+                              />
+                            </div>
+                            {/* Action buttons */}
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <Button
+                                size="sm"
+                                variant={isDirty ? "default" : "outline"}
+                                className={`gap-1.5 ${isDirty ? "bg-blue-600 hover:bg-blue-700" : ""}`}
+                                disabled={saveDraftMutation.isPending || !isDirty}
+                                onClick={() => saveDraftMutation.mutate({
+                                  id: ev.id,
+                                  caption: edit.caption,
+                                  hashtags: parseHashtags(edit.hashtagsStr),
+                                })}
+                              >
+                                {saveDraftMutation.isPending ? "저장 중..." : isDirty ? "변경사항 저장" : "저장됨"}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="gap-1.5"
+                                onClick={() => copyText(ev)}
+                              >
+                                <Copy className="w-3 h-3" />문구 복사
+                              </Button>
+                              {!ev.cardImageUrl ? (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="gap-1.5 text-purple-700 border-purple-200 hover:bg-purple-50"
+                                  disabled={cardMutation.isPending}
+                                  onClick={() => cardMutation.mutate(ev.id)}
+                                >
+                                  <Image className="w-3 h-3" />
+                                  {cardMutation.isPending ? "생성 중..." : "카드이미지 생성"}
+                                </Button>
+                              ) : (
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs text-purple-600 font-semibold flex items-center gap-1">
+                                    <Image className="w-3 h-3" />카드 완료
+                                  </span>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="gap-1.5 text-purple-700 border-purple-200 hover:bg-purple-50 h-7 px-2 text-xs"
+                                    disabled={cardMutation.isPending}
+                                    onClick={() => cardMutation.mutate(ev.id)}
+                                  >
+                                    <RefreshCw className="w-3 h-3" />재생성
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
+                            {/* Card preview if exists */}
+                            {ev.cardImageUrl && (
+                              <div className="flex items-center gap-3 pt-1 border-t border-border">
+                                <img src={ev.cardImageUrl} alt="card" className="w-20 h-20 object-cover rounded-lg border border-purple-200" />
+                                <div className="flex flex-col gap-1.5">
+                                  <a href={ev.cardImageUrl} target="_blank" rel="noopener noreferrer">
+                                    <Button size="sm" variant="outline" className="h-7 px-2.5 text-xs text-purple-700 border-purple-300 gap-1">
+                                      <ExternalLink className="w-3 h-3" />원본 보기
+                                    </Button>
+                                  </a>
+                                  <a href={ev.cardImageUrl} download={`${ev.title}.png`}>
+                                    <Button size="sm" variant="outline" className="h-7 px-2.5 text-xs text-purple-700 border-purple-300 gap-1">
+                                      <Download className="w-3 h-3" />다운로드
+                                    </Button>
+                                  </a>
+                                </div>
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
                     </CardContent>
                   </Card>
-                ) : (
-                  <div className="space-y-2">
-                    {scheduleEvents.map((event) => {
-                      const sc = STATUS_CONFIG[event.status];
-                      const effStatus = getEffectiveStatus(event);
-                      const stepDone = {
-                        approve: event.status === "approved" || event.status === "rejected",
-                        draft: !!event.socialDraft,
-                        card: !!event.cardImageUrl,
-                      };
-                      const dateRange = event.endDate
-                        ? `${event.startDate || event.date} ~ ${event.endDate}`
-                        : (event.startDate || event.date || "날짜 미확인");
-                      return (
-                        <button
-                          key={event.id}
-                          onClick={() => setSelectedScheduleEvent(event)}
-                          className="w-full text-left"
-                        >
-                          <Card className="hover:shadow-md hover:border-blue-200 transition-all cursor-pointer group">
-                            <CardContent className="p-4">
-                              <div className="flex items-center gap-3">
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2 flex-wrap mb-1">
-                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs border font-medium ${sc.class}`}>
-                                      {sc.icon}{sc.label}
-                                    </span>
-                                    {effStatus && (
-                                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${SCHEDULE_BADGE_COLOR[effStatus] ?? "bg-gray-100 text-gray-500"}`}>
-                                        {SCHEDULE_LABEL[effStatus] ?? effStatus}
-                                      </span>
-                                    )}
-                                    {event.category && (
-                                      <Badge variant="outline" className="text-xs">{event.category}</Badge>
-                                    )}
-                                    <span className="text-xs text-muted-foreground flex items-center gap-1">
-                                      <CalendarDays className="w-3 h-3" />{dateRange}
-                                    </span>
-                                  </div>
-                                  <p className="font-semibold text-sm leading-snug line-clamp-1 mb-1">{event.title}</p>
-                                  {event.location && (
-                                    <p className="text-xs text-muted-foreground mb-1">📍 {event.location}</p>
-                                  )}
-                                  {/* Progress steps */}
-                                  <div className="flex items-center gap-1.5 mt-1.5">
-                                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${stepDone.approve ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-400"}`}>① 승인</span>
-                                    <span className="text-gray-300 text-xs">›</span>
-                                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${stepDone.draft ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-400"}`}>② SNS초안</span>
-                                    <span className="text-gray-300 text-xs">›</span>
-                                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${stepDone.card ? "bg-purple-100 text-purple-700" : "bg-gray-100 text-gray-400"}`}>③ 카드이미지</span>
-                                  </div>
-                                </div>
-                                <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-blue-500 transition-colors shrink-0" />
-                              </div>
-                            </CardContent>
-                          </Card>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            );
-          })()}
+                );
+              })}
+            </div>
+          )}
 
-          {/* ── 설정 섹션 ── */}
+          {/* ══ 발행하기 ══════════════════════════════════════════════════════ */}
+          {activeNav === "publish" && (
+            <div className="space-y-4">
+              <p className="text-xs text-muted-foreground mb-1">
+                발행 준비 완료 <span className="font-semibold text-foreground">{publishEvents.length}건</span> — 초안과 카드이미지가 완성된 항목입니다.
+              </p>
+              {publishEvents.length === 0 && (
+                <div className="py-16 text-center text-muted-foreground text-sm">
+                  <Send className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                  <p>발행 준비된 콘텐츠가 없습니다.</p>
+                  <p className="text-xs mt-1">SNS 피드 만들기에서 초안 + 카드이미지를 완성하세요.</p>
+                </div>
+              )}
+              {publishEvents.map((ev) => {
+                const fullText = ev.socialDraft
+                  ? `${ev.socialDraft.caption}\n\n${ev.socialDraft.hashtags.map((h) => `#${h}`).join(" ")}`
+                  : "";
+                const isPublished = ev.status === "published";
+                return (
+                  <Card key={ev.id} className={isPublished ? "opacity-60" : ""}>
+                    <CardContent className="p-4">
+                      <div className="flex gap-4">
+                        {/* Card image preview */}
+                        {ev.cardImageUrl && (
+                          <div className="shrink-0">
+                            <img src={ev.cardImageUrl} alt="card" className="w-24 h-24 object-cover rounded-xl border border-border" />
+                          </div>
+                        )}
+                        {/* Content */}
+                        <div className="flex-1 min-w-0 space-y-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <p className="font-semibold text-sm">{ev.title}</p>
+                              <p className="text-xs text-muted-foreground">{ev.date} · {ev.source}</p>
+                            </div>
+                            {isPublished && (
+                              <span className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-700 font-semibold">
+                                <Send className="w-3 h-3" />발행완료
+                              </span>
+                            )}
+                          </div>
+                          {ev.socialDraft && (
+                            <p className="text-xs text-muted-foreground line-clamp-3 bg-gray-50 rounded-lg p-2.5 leading-relaxed">
+                              {ev.socialDraft.caption}
+                            </p>
+                          )}
+                          {!isPublished && (
+                            <div className="flex flex-wrap gap-2 pt-1">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 px-3 text-xs gap-1.5"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(fullText).then(() => toast({ title: "문구 복사 완료", description: "SNS 앱에서 붙여넣기 하세요." }));
+                                }}
+                              >
+                                <Copy className="w-3 h-3" />문구 복사
+                              </Button>
+                              <a
+                                href="https://www.facebook.com/"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={() => navigator.clipboard.writeText(fullText)}
+                              >
+                                <Button size="sm" variant="outline" className="h-8 px-3 text-xs gap-1.5 text-[#1877F2] border-[#1877F2]/30 hover:bg-[#1877F2]/10">
+                                  <ExternalLink className="w-3 h-3" />페이스북 열기
+                                </Button>
+                              </a>
+                              <a
+                                href="https://www.instagram.com/"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={() => navigator.clipboard.writeText(fullText)}
+                              >
+                                <Button size="sm" variant="outline" className="h-8 px-3 text-xs gap-1.5 text-[#E1306C] border-[#E1306C]/30 hover:bg-[#E1306C]/10">
+                                  <ExternalLink className="w-3 h-3" />인스타 열기
+                                </Button>
+                              </a>
+                              <Button
+                                size="sm"
+                                className="h-8 px-3 text-xs gap-1.5 bg-blue-600 hover:bg-blue-700"
+                                disabled={statusMutation.isPending}
+                                onClick={() => statusMutation.mutate({ id: ev.id, status: "published" }, {
+                                  onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-events"] }),
+                                })}
+                              >
+                                <Send className="w-3 h-3" />발행완료 처리
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+
+          {/* ══ 광고접수 ══════════════════════════════════════════════════════ */}
+          {activeNav === "ads" && (
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground mb-3">광고 접수 목록 <span className="font-semibold text-foreground">{ads.length}건</span></p>
+              {adsLoading ? <div className="py-16 text-center text-sm text-muted-foreground">불러오는 중...</div> : ads.length === 0 ? (
+                <div className="py-16 text-center text-sm text-muted-foreground"><Megaphone className="w-8 h-8 mx-auto mb-2 opacity-30" />접수된 광고가 없습니다.</div>
+              ) : ads.map((ad) => {
+                const sc = AD_STATUS[ad.status] ?? AD_STATUS.pending;
+                return (
+                  <Card key={ad.id}>
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs border font-medium ${sc.cls}`}>{sc.label}</span>
+                            <span className="text-xs font-medium text-muted-foreground">{ad.businessName}</span>
+                          </div>
+                          <p className="font-semibold text-sm">{ad.title}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{ad.phone} · {ad.createdAt?.slice(0, 10)}</p>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
+                          {ad.status === "pending" && (
+                            <Button size="sm" variant="outline" className="h-7 px-2 text-xs text-green-700 border-green-200 hover:bg-green-50"
+                              onClick={() => adStatusMutation.mutate({ id: ad.id, status: "approved" })} disabled={adStatusMutation.isPending}>
+                              <CheckCircle className="w-3 h-3" />승인
+                            </Button>
+                          )}
+                          {ad.status === "approved" && (
+                            <Button size="sm" variant="outline" className="h-7 px-2 text-xs text-blue-700 border-blue-200"
+                              onClick={() => adStatusMutation.mutate({ id: ad.id, status: "scheduled" })} disabled={adStatusMutation.isPending}>
+                              발행예정
+                            </Button>
+                          )}
+                          {ad.status === "scheduled" && (
+                            <Button size="sm" variant="outline" className="h-7 px-2 text-xs"
+                              onClick={() => adStatusMutation.mutate({ id: ad.id, status: "published" })} disabled={adStatusMutation.isPending}>
+                              발행완료
+                            </Button>
+                          )}
+                          {!["rejected","published"].includes(ad.status) && (
+                            <Button size="sm" variant="outline" className="h-7 px-2 text-xs text-red-700 border-red-200"
+                              onClick={() => adStatusMutation.mutate({ id: ad.id, status: "rejected" })} disabled={adStatusMutation.isPending}>
+                              <XCircle className="w-3 h-3" />제외
+                            </Button>
+                          )}
+                          <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => setEditingAd(ad)}>
+                            <Pencil className="w-3 h-3" />
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-7 px-2 text-destructive hover:bg-destructive/10"
+                            onClick={() => adDeleteMutation.mutate(ad.id)} disabled={adDeleteMutation.isPending}>
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+
+          {/* ══ 설정 ══════════════════════════════════════════════════════════ */}
           {activeNav === "settings" && (
             <div className="max-w-lg space-y-4">
-              {/* SNS 초안 일괄 재생성 */}
               <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <RefreshCw className="w-4 h-4 text-blue-600" />
-                    SNS 초안 일괄 재생성
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    기존 SNS 초안 중 원본 출처 URL이 포함된 초안을 찾아
-                    <br />
-                    <span className="font-medium text-foreground">/content/:id</span> 상세 링크로 일괄 업데이트합니다.
-                  </p>
+                <CardContent className="p-5 space-y-3">
+                  <p className="font-semibold text-sm flex items-center gap-2"><RefreshCw className="w-4 h-4 text-blue-600" />SNS 초안 링크 일괄 재생성</p>
+                  <p className="text-sm text-muted-foreground">기존 초안의 출처 URL을 /content/:id 상세 링크로 일괄 업데이트합니다.</p>
                   {regenerateDraftsMutation.data && (
                     <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 rounded-lg px-3 py-2 border border-green-200">
                       <CheckCircle className="w-4 h-4 shrink-0" />
-                      {regenerateDraftsMutation.data.regenerated === 0
-                        ? "모든 초안이 이미 최신 링크입니다."
-                        : `${regenerateDraftsMutation.data.regenerated}건 업데이트 완료 (전체 ${regenerateDraftsMutation.data.total}건 검사)`}
+                      {regenerateDraftsMutation.data.regenerated === 0 ? "모든 초안이 이미 최신입니다." : `${regenerateDraftsMutation.data.regenerated}건 업데이트 완료`}
                     </div>
                   )}
-                  <Button
-                    className="w-full gap-2 bg-blue-600 hover:bg-blue-700"
-                    onClick={() => regenerateDraftsMutation.mutate()}
-                    disabled={regenerateDraftsMutation.isPending}
-                  >
+                  <Button className="w-full gap-2 bg-blue-600 hover:bg-blue-700" onClick={() => regenerateDraftsMutation.mutate()} disabled={regenerateDraftsMutation.isPending}>
                     <RefreshCw className={`w-4 h-4 ${regenerateDraftsMutation.isPending ? "animate-spin" : ""}`} />
-                    {regenerateDraftsMutation.isPending ? "재생성 중..." : "기존 SNS 초안 일괄 재생성"}
+                    {regenerateDraftsMutation.isPending ? "재생성 중..." : "일괄 재생성"}
                   </Button>
                 </CardContent>
               </Card>
-
-              {/* 비밀번호 변경 */}
               <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <KeyRound className="w-4 h-4 text-blue-600" />
-                    비밀번호 변경
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      if (pwForm.next !== pwForm.confirm) {
-                        toast({ title: "새 비밀번호가 일치하지 않습니다", variant: "destructive" });
-                        return;
-                      }
-                      if (pwForm.next.length < 4) {
-                        toast({ title: "비밀번호는 4자 이상이어야 합니다", variant: "destructive" });
-                        return;
-                      }
-                      changePwMutation.mutate({ currentPassword: pwForm.current, newPassword: pwForm.next });
-                    }}
-                    className="space-y-4"
-                  >
-                    <div className="space-y-1.5">
-                      <Label htmlFor="pw-current">현재 비밀번호</Label>
-                      <Input
-                        id="pw-current"
-                        type="password"
-                        value={pwForm.current}
-                        onChange={(e) => setPwForm((p) => ({ ...p, current: e.target.value }))}
-                        placeholder="현재 비밀번호"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="pw-next">새 비밀번호</Label>
-                      <Input
-                        id="pw-next"
-                        type="password"
-                        value={pwForm.next}
-                        onChange={(e) => setPwForm((p) => ({ ...p, next: e.target.value }))}
-                        placeholder="새 비밀번호 (4자 이상)"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="pw-confirm">새 비밀번호 확인</Label>
-                      <Input
-                        id="pw-confirm"
-                        type="password"
-                        value={pwForm.confirm}
-                        onChange={(e) => setPwForm((p) => ({ ...p, confirm: e.target.value }))}
-                        placeholder="새 비밀번호 재입력"
-                      />
-                    </div>
-                    <Button
-                      type="submit"
-                      className="w-full bg-blue-600 hover:bg-blue-700"
-                      disabled={changePwMutation.isPending || !pwForm.current || !pwForm.next || !pwForm.confirm}
-                    >
+                <CardContent className="p-5">
+                  <p className="font-semibold text-sm flex items-center gap-2 mb-4"><KeyRound className="w-4 h-4 text-blue-600" />비밀번호 변경</p>
+                  <form className="space-y-4" onSubmit={(e) => {
+                    e.preventDefault();
+                    if (pwForm.next !== pwForm.confirm) { toast({ title: "새 비밀번호가 일치하지 않습니다", variant: "destructive" }); return; }
+                    if (pwForm.next.length < 4) { toast({ title: "4자 이상이어야 합니다", variant: "destructive" }); return; }
+                    changePwMutation.mutate({ currentPassword: pwForm.current, newPassword: pwForm.next });
+                  }}>
+                    <div className="space-y-1"><Label>현재 비밀번호</Label><Input type="password" value={pwForm.current} onChange={(e) => setPwForm((p) => ({ ...p, current: e.target.value }))} /></div>
+                    <div className="space-y-1"><Label>새 비밀번호</Label><Input type="password" value={pwForm.next} onChange={(e) => setPwForm((p) => ({ ...p, next: e.target.value }))} /></div>
+                    <div className="space-y-1"><Label>새 비밀번호 확인</Label><Input type="password" value={pwForm.confirm} onChange={(e) => setPwForm((p) => ({ ...p, confirm: e.target.value }))} /></div>
+                    <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={changePwMutation.isPending || !pwForm.current || !pwForm.next}>
                       {changePwMutation.isPending ? "변경 중..." : "비밀번호 변경"}
                     </Button>
                   </form>
@@ -870,608 +817,155 @@ export default function Admin() {
               </Card>
             </div>
           )}
-
-          {/* ── 대시보드 전체 목록 ── */}
-          {activeNav === "dashboard" && dashboardView === "list" && <>
-          {/* Stats Cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <StatCard label="전체 콘텐츠" value={totalCount} sub="수집된 항목 수" color="text-blue-600" />
-            <StatCard label="승인대기" value={draftCount} sub="검토가 필요한 항목" color="text-yellow-600" />
-            <StatCard label="오늘수집" value={todayCount} sub="오늘 새로 수집된 항목" color="text-green-600" />
-            <StatCard label="SNS발행예정" value={snsReadyCount} sub="초안 완성·발행 대기" color="text-purple-600" />
-          </div>
-
-          {/* Event Table */}
-          <Card>
-            <CardHeader className="pb-3 flex flex-row items-center justify-between">
-              <CardTitle className="text-base">수집 이벤트 목록</CardTitle>
-              <span className="text-xs text-muted-foreground">{totalCount}건</span>
-            </CardHeader>
-            <CardContent className="p-0">
-              {isLoading ? (
-                <div className="p-8 text-center text-muted-foreground text-sm">불러오는 중...</div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="bg-gray-50 text-xs">
-                        <TableHead className="w-24">상태</TableHead>
-                        <TableHead>제목</TableHead>
-                        <TableHead className="w-28 hidden sm:table-cell">날짜</TableHead>
-                        <TableHead className="w-28 hidden md:table-cell">출처</TableHead>
-                        <TableHead className="w-24 hidden lg:table-cell">카테고리</TableHead>
-                        <TableHead className="w-48 text-right">액션</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {events.map((event) => {
-                        const sc = STATUS_CONFIG[event.status];
-                        return (
-                          <TableRow key={event.id} className="text-sm hover:bg-gray-50/50">
-                            <TableCell>
-                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs border font-medium ${sc.class}`}>
-                                {sc.icon}
-                                {sc.label}
-                              </span>
-                            </TableCell>
-                            <TableCell
-                              className="cursor-pointer group/title"
-                              onClick={() => setSelectedScheduleEvent(event)}
-                            >
-                              <div className="flex items-center gap-1.5">
-                                <p className="font-medium line-clamp-1 max-w-[180px] group-hover/title:text-blue-600 transition-colors">{event.title}</p>
-                                {!event.thumbnail && (
-                                  <span title="대표 이미지 없음" className="shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-orange-100 text-orange-600 border border-orange-200">
-                                    <ImageOff className="w-2.5 h-2.5" />이미지없음
-                                  </span>
-                                )}
-                                {event.socialDraft && (
-                                  <span className="shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-600 border border-blue-200">
-                                    <MessageSquare className="w-2.5 h-2.5" />초안
-                                  </span>
-                                )}
-                                {event.cardImageUrl && (
-                                  <span className="shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-purple-100 text-purple-600 border border-purple-200">
-                                    <Image className="w-2.5 h-2.5" />카드
-                                  </span>
-                                )}
-                              </div>
-                              <p className="text-xs text-muted-foreground line-clamp-1">{event.description}</p>
-                            </TableCell>
-                            <TableCell className="hidden sm:table-cell text-muted-foreground text-xs">{event.date}</TableCell>
-                            <TableCell className="hidden md:table-cell text-muted-foreground text-xs">{event.source}</TableCell>
-                            <TableCell className="hidden lg:table-cell">
-                              {event.category && (
-                                <Badge variant="outline" className="text-xs">{event.category}</Badge>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-1 justify-end flex-wrap">
-                                {event.status === "draft" && (
-                                  <>
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      className="h-7 px-2 text-xs text-green-700 border-green-200 hover:bg-green-50"
-                                      onClick={() => statusMutation.mutate({ id: event.id, status: "approved" })}
-                                      disabled={statusMutation.isPending}
-                                    >
-                                      <CheckCircle className="w-3 h-3" /> 승인
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      className="h-7 px-2 text-xs text-red-700 border-red-200 hover:bg-red-50"
-                                      onClick={() => statusMutation.mutate({ id: event.id, status: "rejected" })}
-                                      disabled={statusMutation.isPending}
-                                    >
-                                      <XCircle className="w-3 h-3" /> 반려
-                                    </Button>
-                                  </>
-                                )}
-                                {event.status === "approved" && !event.socialDraft && (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="h-7 px-2 text-xs"
-                                    onClick={() => draftMutation.mutate(event.id, {
-                                      onSuccess: (d) => setSelectedScheduleEvent({ ...event, socialDraft: d.socialDraft }),
-                                    })}
-                                    disabled={draftMutation.isPending}
-                                  >
-                                    <MessageSquare className="w-3 h-3" /> SNS초안
-                                  </Button>
-                                )}
-                                {event.status === "approved" && event.socialDraft && !event.cardImageUrl && (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="h-7 px-2 text-xs"
-                                    onClick={() => cardMutation.mutate(event.id, {
-                                      onSuccess: (d) => setSelectedScheduleEvent({ ...event, cardImageUrl: d.cardImageUrl }),
-                                    })}
-                                    disabled={cardMutation.isPending}
-                                  >
-                                    <Image className="w-3 h-3" /> 카드생성
-                                  </Button>
-                                )}
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-7 px-2 text-xs text-blue-600 hover:bg-blue-50"
-                                  title="이벤트 수정"
-                                  onClick={() => {
-                                    setEditingEvent(event);
-                                    setEditThumbnailUrl(event.thumbnail ?? "");
-                                  }}
-                                >
-                                  <Pencil className="w-3 h-3" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-7 px-2 text-xs text-destructive hover:bg-destructive/10"
-                                  onClick={() => deleteMutation.mutate(event.id)}
-                                  disabled={deleteMutation.isPending}
-                                >
-                                  <Trash2 className="w-3 h-3" />
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-          </>}
         </main>
       </div>
     </div>
 
-    {/* 행사 상세 모달 */}
-    {selectedScheduleEvent && (() => {
-      const ev = selectedScheduleEvent;
-      const sc = STATUS_CONFIG[ev.status];
-      const stepDone = {
-        approve: ev.status === "approved" || ev.status === "rejected" || ev.status === "published",
-        draft: !!ev.socialDraft,
-        card: !!ev.cardImageUrl,
-        publish: ev.status === "published",
-      };
-      return (
-        <Dialog open={!!selectedScheduleEvent} onOpenChange={(o) => { if (!o) setSelectedScheduleEvent(null); }}>
-          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-base pr-6">
-                <CalendarRange className="w-4 h-4 text-blue-600 shrink-0" />
-                <span className="line-clamp-2">{ev.title}</span>
-              </DialogTitle>
-            </DialogHeader>
-
-            <div className="space-y-4 py-1">
-              {/* 섬네일 이미지 */}
-              {ev.thumbnail ? (
-                <img
-                  src={ev.thumbnail}
-                  alt={ev.title}
-                  className="w-full h-44 object-cover rounded-xl border border-border"
-                />
-              ) : (
-                <div className="w-full h-20 bg-gray-100 rounded-xl border border-dashed border-gray-300 flex items-center justify-center text-xs text-gray-400 gap-1.5">
-                  <ImageOff className="w-4 h-4" />대표 이미지 없음
-                </div>
-              )}
-
-              {/* 메타 정보 */}
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs border font-semibold ${sc.class}`}>
-                  {sc.icon}{sc.label}
-                </span>
-                {ev.category && <Badge variant="outline" className="text-xs">{ev.category}</Badge>}
-                <span className="text-xs text-muted-foreground flex items-center gap-1">
-                  <CalendarDays className="w-3 h-3" />{ev.date}
-                </span>
-                <span className="text-xs text-muted-foreground">· {ev.source}</span>
-                {ev.link && (
-                  <a href={ev.link} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-500 hover:underline flex items-center gap-0.5">
-                    <ExternalLink className="w-3 h-3" />원문 보기
-                  </a>
-                )}
-              </div>
-
-              {/* 설명 */}
-              <p className="text-sm text-muted-foreground leading-relaxed bg-gray-50 rounded-lg p-3 whitespace-pre-line">{ev.description}</p>
-
-              {/* 워크플로우 단계 표시 */}
-              <div className="border border-border rounded-xl p-4">
-                <p className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wide">SNS 발행 워크플로우</p>
-                <div className="flex items-center gap-1">
-                  {[
-                    { label: "① 승인", done: stepDone.approve, rejected: ev.status === "rejected" },
-                    { label: "② SNS 초안", done: stepDone.draft, rejected: false },
-                    { label: "③ 카드이미지", done: stepDone.card, rejected: false },
-                    { label: "④ 발행완료", done: stepDone.publish, rejected: false },
-                  ].map((step, i) => (
-                    <div key={i} className="flex items-center gap-1 flex-1">
-                      <div className={`flex-1 text-center px-1.5 py-1.5 rounded-lg text-xs font-semibold
-                        ${step.rejected ? "bg-red-100 text-red-600" : step.done ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-400"}`}>
-                        {step.label}
-                      </div>
-                      {i < 3 && <span className="text-gray-300 text-sm">›</span>}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* SNS 초안 미리보기 */}
-              {ev.socialDraft && (
-                <div className="border border-blue-200 bg-blue-50 rounded-xl p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-xs font-semibold text-blue-700 flex items-center gap-1">
-                      <MessageSquare className="w-3.5 h-3.5" />SNS 초안
-                    </p>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-7 px-2.5 text-xs text-blue-700 border-blue-300 hover:bg-blue-100"
-                      onClick={() => {
-                        const text = `${ev.socialDraft!.caption}\n\n${ev.socialDraft!.hashtags.map((h) => `#${h}`).join(" ")}`;
-                        navigator.clipboard.writeText(text).then(() => {
-                          toast({ title: "복사 완료", description: "SNS 문구가 클립보드에 복사되었습니다." });
-                        });
-                      }}
-                    >
-                      <Copy className="w-3 h-3 mr-1" />문구 복사
-                    </Button>
-                  </div>
-                  <p className="text-sm text-blue-800 leading-relaxed mb-2">{ev.socialDraft.caption}</p>
-                  <div className="flex gap-1 flex-wrap">
-                    {ev.socialDraft.hashtags.map((h) => (
-                      <span key={h} className="text-xs text-blue-500 font-medium">#{h}</span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* 카드 이미지 미리보기 */}
-              {ev.cardImageUrl && (
-                <div className="border border-purple-200 bg-purple-50 rounded-xl p-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-semibold text-purple-700 flex items-center gap-1">
-                      <Image className="w-3.5 h-3.5" />카드이미지 (1080×1080)
-                    </span>
-                    <div className="flex gap-1.5">
-                      <a href={ev.cardImageUrl} target="_blank" rel="noopener noreferrer">
-                        <Button size="sm" variant="outline" className="h-7 px-2.5 text-xs text-purple-700 border-purple-300">
-                          <ExternalLink className="w-3 h-3 mr-1" />원본
-                        </Button>
-                      </a>
-                      <a href={ev.cardImageUrl} download={`${ev.title}.png`}>
-                        <Button size="sm" variant="outline" className="h-7 px-2.5 text-xs text-purple-700 border-purple-300 hover:bg-purple-100">
-                          <Download className="w-3 h-3 mr-1" />다운로드
-                        </Button>
-                      </a>
-                    </div>
-                  </div>
-                  <div className="flex justify-center">
-                    <img
-                      src={ev.cardImageUrl}
-                      alt="카드이미지"
-                      className="w-64 h-64 object-cover rounded-lg border border-purple-200"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* 액션 버튼 */}
-              <div className="flex flex-col gap-2 pt-1">
-                {ev.status === "draft" && (
-                  <div className="flex gap-2">
-                    <Button
-                      className="flex-1 gap-1.5 bg-green-600 hover:bg-green-700"
-                      onClick={() => {
-                        statusMutation.mutate({ id: ev.id, status: "approved" });
-                        setSelectedScheduleEvent({ ...ev, status: "approved" });
-                      }}
-                      disabled={statusMutation.isPending}
-                    >
-                      <CheckCircle className="w-4 h-4" />승인
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="flex-1 gap-1.5 text-red-600 border-red-200 hover:bg-red-50"
-                      onClick={() => {
-                        statusMutation.mutate({ id: ev.id, status: "rejected" });
-                        setSelectedScheduleEvent(null);
-                      }}
-                      disabled={statusMutation.isPending}
-                    >
-                      <XCircle className="w-4 h-4" />반려
-                    </Button>
-                  </div>
-                )}
-
-                {ev.status === "approved" && !ev.socialDraft && (
-                  <Button
-                    className="w-full gap-1.5"
-                    onClick={() => {
-                      draftMutation.mutate(ev.id, {
-                        onSuccess: (d) => setSelectedScheduleEvent({ ...ev, socialDraft: d.socialDraft }),
-                      });
-                    }}
-                    disabled={draftMutation.isPending}
-                  >
-                    <MessageSquare className="w-4 h-4" />
-                    {draftMutation.isPending ? "SNS 초안 생성 중..." : "SNS 초안 생성"}
-                  </Button>
-                )}
-
-                {ev.status === "approved" && ev.socialDraft && !ev.cardImageUrl && (
-                  <Button
-                    className="w-full gap-1.5 bg-purple-600 hover:bg-purple-700"
-                    onClick={() => {
-                      cardMutation.mutate(ev.id, {
-                        onSuccess: (d) => setSelectedScheduleEvent({ ...ev, cardImageUrl: d.cardImageUrl }),
-                      });
-                    }}
-                    disabled={cardMutation.isPending}
-                  >
-                    <Image className="w-4 h-4" />
-                    {cardMutation.isPending ? "카드이미지 생성 중..." : "카드이미지 생성"}
-                  </Button>
-                )}
-
-                {ev.status === "approved" && ev.socialDraft && ev.cardImageUrl && (
-                  <div className="flex flex-col gap-2">
-                    <div className="flex gap-2">
-                      <a
-                        href="https://www.facebook.com/"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex-1"
-                      >
-                        <Button
-                          variant="outline"
-                          className="w-full gap-1.5 text-[#1877F2] border-[#1877F2]/30 hover:bg-[#1877F2]/10"
-                        >
-                          <ExternalLink className="w-4 h-4" />페이스북 열기
-                        </Button>
-                      </a>
-                      <a
-                        href="https://www.instagram.com/"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex-1"
-                      >
-                        <Button
-                          variant="outline"
-                          className="w-full gap-1.5 text-[#E1306C] border-[#E1306C]/30 hover:bg-[#E1306C]/10"
-                        >
-                          <ExternalLink className="w-4 h-4" />인스타 열기
-                        </Button>
-                      </a>
-                    </div>
-                    <Button
-                      className="w-full gap-1.5 bg-blue-600 hover:bg-blue-700"
-                      onClick={() => {
-                        statusMutation.mutate({ id: ev.id, status: "published" }, {
-                          onSuccess: () => {
-                            setSelectedScheduleEvent({ ...ev, status: "published" });
-                            toast({ title: "발행완료", description: "SNS 발행완료로 처리되었습니다." });
-                          },
-                        });
-                      }}
-                      disabled={statusMutation.isPending}
-                    >
-                      <Send className="w-4 h-4" />발행완료 처리
-                    </Button>
-                  </div>
-                )}
-
-                {ev.status === "published" && (
-                  <div className="flex items-center justify-center gap-2 py-2 text-sm text-blue-700 font-semibold bg-blue-50 rounded-xl">
-                    <Send className="w-4 h-4" /> SNS 발행완료
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setSelectedScheduleEvent(null)}>닫기</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      );
-    })()}
-
-    {/* 이벤트 수정 다이얼로그 */}
-    {editingEvent && (
-      <Dialog open={!!editingEvent} onOpenChange={(o) => { if (!o) setEditingEvent(null); }}>
+    {/* ══ 상세 모달 (대시보드 클릭) ════════════════════════════════════════ */}
+    {selectedEvent && (
+      <Dialog open onOpenChange={(o) => { if (!o) setSelectedEvent(null); }}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Pencil className="w-4 h-4 text-blue-600" /> 이벤트 수정
-            </DialogTitle>
+            <DialogTitle className="text-base pr-6 line-clamp-2">{selectedEvent.title}</DialogTitle>
           </DialogHeader>
-          <form
-            className="space-y-4 py-2"
-            onSubmit={(e) => {
-              e.preventDefault();
-              const fd = new FormData(e.currentTarget);
-              editEventMutation.mutate({
-                id: editingEvent.id,
-                patch: {
-                  title: fd.get("title") as string,
-                  description: fd.get("description") as string,
-                  thumbnail: (fd.get("thumbnail") as string) || undefined,
-                  location: fd.get("location") as string,
-                  category: fd.get("category") as string,
-                  startDate: fd.get("startDate") as string,
-                  endDate: fd.get("endDate") as string,
-                },
-              });
-            }}
-          >
-            {/* 썸네일 경고 + 입력 */}
-            <div className="space-y-2">
-              <Label htmlFor="ev-thumbnail" className="flex items-center gap-1.5">
-                대표 이미지 URL
-                {!editThumbnailUrl && (
-                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-orange-600 bg-orange-50 border border-orange-200 rounded px-1.5 py-0.5">
-                    <AlertTriangle className="w-3 h-3" />이미지 없음 — 공개 홈에서 기본 이미지로 표시됩니다
-                  </span>
-                )}
-              </Label>
-              <Input
-                id="ev-thumbnail"
-                name="thumbnail"
-                value={editThumbnailUrl}
-                onChange={(e) => setEditThumbnailUrl(e.target.value)}
-                placeholder="https://example.com/image.jpg"
-                className={!editThumbnailUrl ? "border-orange-300 focus-visible:ring-orange-400" : ""}
-              />
-              {editThumbnailUrl && (
-                <div className="rounded-lg overflow-hidden border border-border h-32 bg-gray-50">
-                  <img
-                    src={editThumbnailUrl}
-                    alt="미리보기"
-                    className="w-full h-full object-cover"
-                    onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                  />
+          <div className="space-y-4 py-1">
+            {/* Thumbnail */}
+            {selectedEvent.thumbnail ? (
+              <img src={selectedEvent.thumbnail} alt={selectedEvent.title} className="w-full h-48 object-cover rounded-xl border" />
+            ) : (
+              <div className="w-full h-16 bg-gray-100 rounded-xl border-dashed border flex items-center justify-center text-xs text-gray-400 gap-1.5">
+                <ImageOff className="w-4 h-4" />대표 이미지 없음
+              </div>
+            )}
+            {/* Meta */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs border font-semibold ${STATUS_CONFIG[selectedEvent.status].cls}`}>
+                {STATUS_CONFIG[selectedEvent.status].icon}{STATUS_CONFIG[selectedEvent.status].label}
+              </span>
+              {selectedEvent.category && <Badge variant="outline" className="text-xs">{selectedEvent.category}</Badge>}
+              <span className="text-xs text-muted-foreground">{selectedEvent.date}</span>
+              <span className="text-xs text-muted-foreground">· {selectedEvent.source}</span>
+              {selectedEvent.location && <span className="text-xs text-muted-foreground">📍 {selectedEvent.location}</span>}
+            </div>
+            {/* Original URL */}
+            {selectedEvent.link && (
+              <a href={selectedEvent.link} target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-2 text-sm text-blue-600 hover:underline bg-blue-50 border border-blue-200 rounded-lg px-3 py-2.5">
+                <ExternalLink className="w-4 h-4 shrink-0" />
+                <span className="truncate">{selectedEvent.link}</span>
+              </a>
+            )}
+            {/* Description */}
+            <div className="bg-gray-50 rounded-lg p-3">
+              <p className="text-xs font-semibold text-muted-foreground mb-1.5">행사 설명</p>
+              <p className="text-sm text-foreground leading-relaxed whitespace-pre-line">{selectedEvent.description || "설명이 없습니다."}</p>
+            </div>
+            {/* Quick actions */}
+            <div className="flex flex-col gap-2">
+              {selectedEvent.status === "draft" && (
+                <div className="flex gap-2">
+                  <Button className="flex-1 gap-1.5 bg-green-600 hover:bg-green-700" disabled={statusMutation.isPending}
+                    onClick={() => { statusMutation.mutate({ id: selectedEvent.id, status: "approved" }); setSelectedEvent({ ...selectedEvent, status: "approved" }); }}>
+                    <CheckCircle className="w-4 h-4" />승인
+                  </Button>
+                  <Button variant="outline" className="flex-1 gap-1.5 text-red-600 border-red-200 hover:bg-red-50" disabled={statusMutation.isPending}
+                    onClick={() => { statusMutation.mutate({ id: selectedEvent.id, status: "rejected" }); setSelectedEvent(null); }}>
+                    <XCircle className="w-4 h-4" />반려
+                  </Button>
                 </div>
               )}
-            </div>
-
-            <div className="space-y-1">
-              <Label htmlFor="ev-title">제목</Label>
-              <Input id="ev-title" name="title" defaultValue={editingEvent.title} required />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="ev-description">설명</Label>
-              <Textarea id="ev-description" name="description" rows={3} defaultValue={editingEvent.description} />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label htmlFor="ev-location">장소</Label>
-                <Input id="ev-location" name="location" defaultValue={editingEvent.location ?? ""} />
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1 gap-1.5 text-xs" onClick={() => { setEditingEvent(selectedEvent); setEditThumbnailUrl(selectedEvent.thumbnail ?? ""); setSelectedEvent(null); }}>
+                  <Pencil className="w-3.5 h-3.5" />정보 수정
+                </Button>
+                <Button variant="outline" className="gap-1.5 text-xs text-destructive border-destructive/30 hover:bg-destructive/10"
+                  disabled={deleteMutation.isPending} onClick={() => { if (confirm("삭제하시겠습니까?")) deleteMutation.mutate(selectedEvent.id); }}>
+                  <Trash2 className="w-3.5 h-3.5" />삭제
+                </Button>
               </div>
-              <div className="space-y-1">
-                <Label htmlFor="ev-category">카테고리</Label>
-                <select
-                  id="ev-category" name="category"
-                  defaultValue={editingEvent.category ?? "행사"}
-                  className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary"
-                >
-                  <option value="행사">행사</option>
-                  <option value="맛집">맛집</option>
-                  <option value="핫플">핫플</option>
-                  <option value="지역소식">지역소식</option>
+            </div>
+          </div>
+          <DialogFooter><Button variant="outline" onClick={() => setSelectedEvent(null)}>닫기</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+    )}
+
+    {/* ══ 이벤트 수정 다이얼로그 ════════════════════════════════════════════ */}
+    {editingEvent && (
+      <Dialog open onOpenChange={(o) => { if (!o) setEditingEvent(null); }}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle className="flex items-center gap-2"><Pencil className="w-4 h-4 text-blue-600" />이벤트 수정</DialogTitle></DialogHeader>
+          <form className="space-y-4 py-2" onSubmit={(e) => {
+            e.preventDefault();
+            const fd = new FormData(e.currentTarget);
+            editEventMutation.mutate({ id: editingEvent.id, patch: {
+              title: fd.get("title") as string,
+              description: fd.get("description") as string,
+              thumbnail: (fd.get("thumbnail") as string) || undefined,
+              location: fd.get("location") as string,
+              category: fd.get("category") as string,
+              startDate: fd.get("startDate") as string,
+              endDate: fd.get("endDate") as string,
+            }});
+          }}>
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1.5">대표 이미지 URL
+                {!editThumbnailUrl && <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-orange-600 bg-orange-50 border border-orange-200 rounded px-1.5 py-0.5"><AlertTriangle className="w-3 h-3" />이미지 없음</span>}
+              </Label>
+              <Input name="thumbnail" value={editThumbnailUrl} onChange={(e) => setEditThumbnailUrl(e.target.value)} placeholder="https://example.com/image.jpg" className={!editThumbnailUrl ? "border-orange-300" : ""} />
+              {editThumbnailUrl && <div className="rounded-lg overflow-hidden border h-32 bg-gray-50"><img src={editThumbnailUrl} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} /></div>}
+            </div>
+            <div className="space-y-1"><Label>제목</Label><Input name="title" defaultValue={editingEvent.title} required /></div>
+            <div className="space-y-1"><Label>설명</Label><Textarea name="description" rows={3} defaultValue={editingEvent.description} /></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1"><Label>장소</Label><Input name="location" defaultValue={editingEvent.location ?? ""} /></div>
+              <div className="space-y-1"><Label>카테고리</Label>
+                <select name="category" defaultValue={editingEvent.category ?? "행사"} className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary">
+                  <option value="행사">행사</option><option value="맛집">맛집</option><option value="핫플">핫플</option><option value="지역소식">지역소식</option>
                 </select>
               </div>
-              <div className="space-y-1">
-                <Label htmlFor="ev-startDate">시작일</Label>
-                <Input id="ev-startDate" name="startDate" type="date" defaultValue={editingEvent.startDate ?? editingEvent.date} />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="ev-endDate">종료일</Label>
-                <Input id="ev-endDate" name="endDate" type="date" defaultValue={editingEvent.endDate ?? ""} />
-              </div>
+              <div className="space-y-1"><Label>시작일</Label><Input name="startDate" type="date" defaultValue={editingEvent.startDate ?? editingEvent.date} /></div>
+              <div className="space-y-1"><Label>종료일</Label><Input name="endDate" type="date" defaultValue={editingEvent.endDate ?? ""} /></div>
             </div>
             <DialogFooter className="pt-2">
               <Button type="button" variant="outline" onClick={() => setEditingEvent(null)}>취소</Button>
-              <Button type="submit" disabled={editEventMutation.isPending}>
-                {editEventMutation.isPending ? "저장 중..." : "저장"}
-              </Button>
+              <Button type="submit" disabled={editEventMutation.isPending}>{editEventMutation.isPending ? "저장 중..." : "저장"}</Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
     )}
 
-    {/* 광고 수정 다이얼로그 */}
+    {/* ══ 광고 수정 다이얼로그 ══════════════════════════════════════════════ */}
     {editingAd && (
-      <Dialog open={!!editingAd} onOpenChange={(o) => { if (!o) setEditingAd(null); }}>
+      <Dialog open onOpenChange={(o) => { if (!o) setEditingAd(null); }}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Pencil className="w-4 h-4 text-blue-600" /> 광고 수정
-            </DialogTitle>
-          </DialogHeader>
-          <form
-            className="space-y-4 py-2"
-            onSubmit={(e) => {
-              e.preventDefault();
-              const fd = new FormData(e.currentTarget);
-              adEditMutation.mutate({
-                id: editingAd.id,
-                patch: {
-                  title: fd.get("title") as string,
-                  businessName: fd.get("businessName") as string,
-                  contactName: fd.get("contactName") as string,
-                  phone: fd.get("phone") as string,
-                  email: fd.get("email") as string,
-                  category: fd.get("category") as string,
-                  description: fd.get("description") as string,
-                  date: fd.get("date") as string,
-                  location: fd.get("location") as string,
-                  url: fd.get("url") as string,
-                  plan: fd.get("plan") as Ad["plan"],
-                },
-              });
-            }}
-          >
+          <DialogHeader><DialogTitle className="flex items-center gap-2"><Pencil className="w-4 h-4 text-blue-600" />광고 수정</DialogTitle></DialogHeader>
+          <form className="space-y-4 py-2" onSubmit={(e) => {
+            e.preventDefault();
+            const fd = new FormData(e.currentTarget);
+            adEditMutation.mutate({ id: editingAd.id, patch: {
+              title: fd.get("title") as string, businessName: fd.get("businessName") as string,
+              contactName: fd.get("contactName") as string, phone: fd.get("phone") as string,
+              email: fd.get("email") as string, category: fd.get("category") as string,
+              description: fd.get("description") as string, date: fd.get("date") as string,
+              location: fd.get("location") as string, url: fd.get("url") as string,
+              plan: fd.get("plan") as Ad["plan"],
+            }});
+          }}>
             <div className="grid grid-cols-2 gap-3">
-              <div className="col-span-2 space-y-1">
-                <Label htmlFor="title">광고 제목</Label>
-                <Input id="title" name="title" defaultValue={editingAd.title} required />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="businessName">업체명</Label>
-                <Input id="businessName" name="businessName" defaultValue={editingAd.businessName} required />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="category">카테고리</Label>
-                <Input id="category" name="category" defaultValue={editingAd.category} />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="contactName">담당자명</Label>
-                <Input id="contactName" name="contactName" defaultValue={editingAd.contactName} />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="phone">연락처</Label>
-                <Input id="phone" name="phone" defaultValue={editingAd.phone} />
-              </div>
-              <div className="col-span-2 space-y-1">
-                <Label htmlFor="email">이메일</Label>
-                <Input id="email" name="email" type="email" defaultValue={editingAd.email} />
-              </div>
-              <div className="col-span-2 space-y-1">
-                <Label htmlFor="description">광고 내용</Label>
-                <Textarea id="description" name="description" rows={3} defaultValue={editingAd.description} />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="date">행사/노출 날짜</Label>
-                <Input id="date" name="date" type="date" defaultValue={editingAd.date} />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="location">위치</Label>
-                <Input id="location" name="location" defaultValue={editingAd.location} />
-              </div>
-              <div className="col-span-2 space-y-1">
-                <Label htmlFor="url">링크 URL</Label>
-                <Input id="url" name="url" defaultValue={editingAd.url} placeholder="https://" />
-              </div>
-              <div className="col-span-2 space-y-1">
-                <Label htmlFor="plan">광고 플랜</Label>
-                <select
-                  id="plan" name="plan"
-                  defaultValue={editingAd.plan}
-                  className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary"
-                >
+              <div className="col-span-2 space-y-1"><Label>광고 제목</Label><Input name="title" defaultValue={editingAd.title} required /></div>
+              <div className="space-y-1"><Label>업체명</Label><Input name="businessName" defaultValue={editingAd.businessName} required /></div>
+              <div className="space-y-1"><Label>카테고리</Label><Input name="category" defaultValue={editingAd.category} /></div>
+              <div className="space-y-1"><Label>담당자</Label><Input name="contactName" defaultValue={editingAd.contactName} /></div>
+              <div className="space-y-1"><Label>연락처</Label><Input name="phone" defaultValue={editingAd.phone} /></div>
+              <div className="col-span-2 space-y-1"><Label>이메일</Label><Input name="email" type="email" defaultValue={editingAd.email} /></div>
+              <div className="col-span-2 space-y-1"><Label>광고 내용</Label><Textarea name="description" rows={3} defaultValue={editingAd.description} /></div>
+              <div className="space-y-1"><Label>날짜</Label><Input name="date" type="date" defaultValue={editingAd.date} /></div>
+              <div className="space-y-1"><Label>위치</Label><Input name="location" defaultValue={editingAd.location} /></div>
+              <div className="col-span-2 space-y-1"><Label>링크 URL</Label><Input name="url" defaultValue={editingAd.url} placeholder="https://" /></div>
+              <div className="col-span-2 space-y-1"><Label>광고 플랜</Label>
+                <select name="plan" defaultValue={editingAd.plan} className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary">
                   <option value="basic">기본 (1일 노출)</option>
                   <option value="main">메인 (3일 노출, 상단 고정)</option>
                   <option value="premium">프리미엄 (5일 노출, 최상단)</option>
@@ -1480,9 +974,7 @@ export default function Admin() {
             </div>
             <DialogFooter className="pt-2">
               <Button type="button" variant="outline" onClick={() => setEditingAd(null)}>취소</Button>
-              <Button type="submit" disabled={adEditMutation.isPending}>
-                {adEditMutation.isPending ? "저장 중..." : "저장"}
-              </Button>
+              <Button type="submit" disabled={adEditMutation.isPending}>{adEditMutation.isPending ? "저장 중..." : "저장"}</Button>
             </DialogFooter>
           </form>
         </DialogContent>

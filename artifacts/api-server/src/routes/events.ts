@@ -234,6 +234,28 @@ router.post("/events/:id/card", async (req, res) => {
   }
 });
 
+router.patch("/events/:id/draft", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { caption, hashtags } = req.body as { caption?: string; hashtags?: string[] };
+    if (typeof caption !== "string") {
+      return res.status(400).json({ success: false, error: "caption 필드가 필요합니다." });
+    }
+    const events = await readEvents();
+    const event = events.find((e) => e.id === id);
+    if (!event) return res.status(404).json({ success: false, error: "이벤트를 찾을 수 없습니다." });
+    if (!event.socialDraft) return res.status(400).json({ success: false, error: "초안이 없습니다. 먼저 초안을 생성하세요." });
+    const updated = { ...event.socialDraft, caption: caption.trim(), hashtags: hashtags ?? event.socialDraft.hashtags };
+    const saved = await saveEventDraft(id, updated);
+    if (!saved) return res.status(500).json({ success: false, error: "초안 저장 실패" });
+    req.log.info({ id }, "SNS 초안 수정");
+    return res.json({ success: true, id, socialDraft: updated });
+  } catch (err) {
+    req.log.error({ err }, "SNS 초안 수정 실패");
+    return res.status(500).json({ success: false, error: String(err) });
+  }
+});
+
 router.post("/events/regenerate-drafts", async (req, res) => {
   try {
     const siteUrl = process.env["SITE_URL"] ?? "https://play-gangneung-dashboard.replit.app";

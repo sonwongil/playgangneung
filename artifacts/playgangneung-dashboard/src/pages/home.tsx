@@ -125,14 +125,22 @@ function FeedCard({ item }: { item: FeedItem }) {
           <span className="ml-auto opacity-80 text-[10px]">{item.businessName}</span>
         </div>
       )}
-      <div className="relative">
+      <div className="relative h-52 overflow-hidden bg-gray-100">
+        {/* 흐린 배경 — 빈 공간 채우기 */}
+        <img
+          src={thumbnail}
+          alt=""
+          aria-hidden="true"
+          className="absolute inset-0 w-full h-full object-cover scale-110 blur-xl opacity-60"
+        />
+        {/* 원본 이미지 — 잘리지 않음 */}
         <img
           src={thumbnail}
           alt={item.title}
-          className="w-full group-hover:scale-105 transition-transform duration-500"
+          className="relative z-10 w-full h-full object-contain group-hover:scale-105 transition-transform duration-500"
           loading="lazy"
         />
-        <div className="absolute top-3 left-3 flex flex-col gap-1">
+        <div className="absolute top-3 left-3 z-20 flex flex-col gap-1">
           {item.isAd && item.adPlan ? (
             <AdBadge plan={item.adPlan} />
           ) : (

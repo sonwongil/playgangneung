@@ -115,7 +115,6 @@ const AD_STATUS: Record<string, { label: string; cls: string }> = {
 export default function Admin() {
   const [activeNav, setActiveNav] = useState<NavKey>("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [editThumbnailUrl, setEditThumbnailUrl] = useState("");
   const [editingAd, setEditingAd] = useState<Ad | null>(null);
@@ -182,10 +181,9 @@ export default function Admin() {
       if (!r.ok) { const d = await r.json(); throw new Error(d.error ?? "초안 생성 실패"); }
       return r.json();
     },
-    onSuccess: (d) => {
+    onSuccess: () => {
       toast({ title: "SNS 초안 생성 완료" });
       qc.invalidateQueries({ queryKey: ["admin-events"] });
-      if (selectedEvent?.id === d.id) setSelectedEvent((e) => e ? { ...e, socialDraft: d.socialDraft } : e);
     },
     onError: (e: Error) => toast({ title: "초안 생성 실패", description: e.message, variant: "destructive" }),
   });
@@ -203,7 +201,6 @@ export default function Admin() {
     onSuccess: (d) => {
       toast({ title: "초안 저장 완료" });
       qc.invalidateQueries({ queryKey: ["admin-events"] });
-      if (selectedEvent?.id === d.id) setSelectedEvent((e) => e ? { ...e, socialDraft: d.socialDraft } : e);
       setDraftEdits((prev) => { const n = { ...prev }; delete n[d.id]; return n; });
     },
     onError: (e: Error) => toast({ title: "저장 실패", description: e.message, variant: "destructive" }),
@@ -218,7 +215,6 @@ export default function Admin() {
     onSuccess: (d) => {
       toast({ title: "카드이미지 생성 완료" });
       qc.invalidateQueries({ queryKey: ["admin-events"] });
-      if (selectedEvent?.id === d.id) setSelectedEvent((e) => e ? { ...e, cardImageUrl: d.cardImageUrl } : e);
     },
     onError: (e: Error) => toast({ title: "카드 생성 실패", description: e.message, variant: "destructive" }),
   });
@@ -229,7 +225,7 @@ export default function Admin() {
       if (!r.ok) throw new Error("삭제 실패");
       return r.json();
     },
-    onSuccess: () => { toast({ title: "삭제 완료" }); qc.invalidateQueries({ queryKey: ["admin-events"] }); setSelectedEvent(null); },
+    onSuccess: () => { toast({ title: "삭제 완료" }); qc.invalidateQueries({ queryKey: ["admin-events"] }); },
     onError: () => toast({ title: "삭제 실패", variant: "destructive" }),
   });
 
@@ -425,7 +421,7 @@ export default function Admin() {
                 events.map((ev) => {
                   const sc = STATUS_CONFIG[ev.status];
                   return (
-                    <button key={ev.id} className="w-full text-left" onClick={() => setSelectedEvent(ev)}>
+                    <button key={ev.id} className="w-full text-left" onClick={() => navigate(`/admin/events/${ev.id}`)}>
                       <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-border bg-white hover:border-blue-300 hover:shadow-sm transition-all group">
                         {/* Thumbnail */}
                         <div className="w-14 h-14 rounded-lg overflow-hidden bg-gray-100 shrink-0">
@@ -820,75 +816,6 @@ export default function Admin() {
         </main>
       </div>
     </div>
-
-    {/* ══ 상세 모달 (대시보드 클릭) ════════════════════════════════════════ */}
-    {selectedEvent && (
-      <Dialog open onOpenChange={(o) => { if (!o) setSelectedEvent(null); }}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-base pr-6 line-clamp-2">{selectedEvent.title}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-1">
-            {/* Thumbnail */}
-            {selectedEvent.thumbnail ? (
-              <img src={selectedEvent.thumbnail} alt={selectedEvent.title} className="w-full h-48 object-cover rounded-xl border" />
-            ) : (
-              <div className="w-full h-16 bg-gray-100 rounded-xl border-dashed border flex items-center justify-center text-xs text-gray-400 gap-1.5">
-                <ImageOff className="w-4 h-4" />대표 이미지 없음
-              </div>
-            )}
-            {/* Meta */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs border font-semibold ${STATUS_CONFIG[selectedEvent.status].cls}`}>
-                {STATUS_CONFIG[selectedEvent.status].icon}{STATUS_CONFIG[selectedEvent.status].label}
-              </span>
-              {selectedEvent.category && <Badge variant="outline" className="text-xs">{selectedEvent.category}</Badge>}
-              <span className="text-xs text-muted-foreground">{selectedEvent.date}</span>
-              <span className="text-xs text-muted-foreground">· {selectedEvent.source}</span>
-              {selectedEvent.location && <span className="text-xs text-muted-foreground">📍 {selectedEvent.location}</span>}
-            </div>
-            {/* Original URL */}
-            {selectedEvent.link && (
-              <a href={selectedEvent.link} target="_blank" rel="noopener noreferrer"
-                className="flex items-center gap-2 text-sm text-blue-600 hover:underline bg-blue-50 border border-blue-200 rounded-lg px-3 py-2.5">
-                <ExternalLink className="w-4 h-4 shrink-0" />
-                <span className="truncate">{selectedEvent.link}</span>
-              </a>
-            )}
-            {/* Description */}
-            <div className="bg-gray-50 rounded-lg p-3">
-              <p className="text-xs font-semibold text-muted-foreground mb-1.5">행사 설명</p>
-              <p className="text-sm text-foreground leading-relaxed whitespace-pre-line">{selectedEvent.description || "설명이 없습니다."}</p>
-            </div>
-            {/* Quick actions */}
-            <div className="flex flex-col gap-2">
-              {selectedEvent.status === "draft" && (
-                <div className="flex gap-2">
-                  <Button className="flex-1 gap-1.5 bg-green-600 hover:bg-green-700" disabled={statusMutation.isPending}
-                    onClick={() => { statusMutation.mutate({ id: selectedEvent.id, status: "approved" }); setSelectedEvent({ ...selectedEvent, status: "approved" }); }}>
-                    <CheckCircle className="w-4 h-4" />승인
-                  </Button>
-                  <Button variant="outline" className="flex-1 gap-1.5 text-red-600 border-red-200 hover:bg-red-50" disabled={statusMutation.isPending}
-                    onClick={() => { statusMutation.mutate({ id: selectedEvent.id, status: "rejected" }); setSelectedEvent(null); }}>
-                    <XCircle className="w-4 h-4" />반려
-                  </Button>
-                </div>
-              )}
-              <div className="flex gap-2">
-                <Button variant="outline" className="flex-1 gap-1.5 text-xs" onClick={() => { setEditingEvent(selectedEvent); setEditThumbnailUrl(selectedEvent.thumbnail ?? ""); setSelectedEvent(null); }}>
-                  <Pencil className="w-3.5 h-3.5" />정보 수정
-                </Button>
-                <Button variant="outline" className="gap-1.5 text-xs text-destructive border-destructive/30 hover:bg-destructive/10"
-                  disabled={deleteMutation.isPending} onClick={() => { if (confirm("삭제하시겠습니까?")) deleteMutation.mutate(selectedEvent.id); }}>
-                  <Trash2 className="w-3.5 h-3.5" />삭제
-                </Button>
-              </div>
-            </div>
-          </div>
-          <DialogFooter><Button variant="outline" onClick={() => setSelectedEvent(null)}>닫기</Button></DialogFooter>
-        </DialogContent>
-      </Dialog>
-    )}
 
     {/* ══ 이벤트 수정 다이얼로그 ════════════════════════════════════════════ */}
     {editingEvent && (

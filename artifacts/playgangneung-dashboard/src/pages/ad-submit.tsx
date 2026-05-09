@@ -166,7 +166,6 @@ function ImageSlot({
         <>
           <p className={`font-medium text-gray-600 ${isMain ? "text-sm mb-0.5" : "text-xs"}`}>{label}</p>
           {isMain && <p className="text-xs text-muted-foreground">클릭하거나 드래그해서 업로드</p>}
-          <p className="text-[10px] text-muted-foreground mt-0.5">선택사항 · 자동 최적화</p>
         </>
       )}
     </div>
@@ -385,7 +384,7 @@ export default function AdSubmit() {
             <div className="flex items-center justify-between mb-1">
               <h2 className="font-semibold text-base">이미지</h2>
               <span className="text-[11px] text-muted-foreground">
-                {[images[0], images[1], images[2]].filter(Boolean).length} / 3장 · 자동 최적화
+                {[images[0], images[1], images[2]].filter(Boolean).length} / 3장
               </span>
             </div>
 

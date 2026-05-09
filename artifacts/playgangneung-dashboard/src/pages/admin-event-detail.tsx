@@ -58,6 +58,15 @@ export default function AdminEventDetail() {
     },
   });
 
+  const { data: configData } = useQuery<{ siteUrl: string }>({
+    queryKey: ["config"],
+    queryFn: async () => {
+      const r = await fetch(`${BASE}/api/config`);
+      return r.json();
+    },
+    staleTime: Infinity,
+  });
+
   const event = data?.events.find((e) => e.id === eventId) ?? null;
 
   function initEdit(ev: Event) {
@@ -161,14 +170,6 @@ export default function AdminEventDetail() {
       ? `${event.socialDraft.caption}\n\n${event.socialDraft.hashtags.map((h) => h.startsWith("#") ? h : `#${h}`).join(" ")}`
       : "";
 
-  const { data: configData } = useQuery<{ siteUrl: string }>({
-    queryKey: ["config"],
-    queryFn: async () => {
-      const r = await fetch(`${BASE}/api/config`);
-      return r.json();
-    },
-    staleTime: Infinity,
-  });
   const siteUrl = configData?.siteUrl ?? "https://play-gangneung-dashboard.replit.app";
   const contentUrl = `${siteUrl}/content/${eventId}`;
 

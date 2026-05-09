@@ -130,7 +130,7 @@ function FeedCard({ item }: { item: FeedItem }) {
   return (
     <a
       href={href}
-      {...(item.isAd ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+      target="_blank" rel="noopener noreferrer"
       className="block"
     >
       <Card className={`overflow-hidden hover:shadow-lg transition-shadow duration-300 group cursor-pointer ${adCfg?.ring ?? ""}`}>

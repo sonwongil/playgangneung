@@ -46,6 +46,7 @@ export default function AdminEventDetail() {
   const [hashtagsStr, setHashtagsStr] = useState("");
   const [draftInited, setDraftInited] = useState(false);
   const [contact, setContact] = useState<string | null>(null);
+  const [editingContact, setEditingContact] = useState(false);
 
   // ── Data ─────────────────────────────────────────────────────────────────
   const { data, isLoading } = useQuery<{ events: Event[] }>({
@@ -204,25 +205,49 @@ export default function AdminEventDetail() {
         </div>
 
         {/* 문의처 */}
-        <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 space-y-2">
-          <p className="text-xs font-bold text-blue-700">📞 문의처</p>
-          <div className="flex gap-2">
-            <Input
-              className="bg-white text-sm h-9"
-              placeholder="예: 강릉시청 문화예술과 033-000-0000"
-              value={contact ?? (event.contact || "")}
-              onChange={(e) => setContact(e.target.value)}
-            />
-            <Button
-              size="sm"
-              className="h-9 px-4 shrink-0 bg-blue-600 hover:bg-blue-700 text-white"
-              disabled={saveContactMutation.isPending}
-              onClick={() => saveContactMutation.mutate(contact ?? (event.contact || ""))}
-            >
-              저장
-            </Button>
-          </div>
-        </div>
+        {(() => {
+          const currentContact = contact ?? (event.contact || "");
+          const hasContact = !!currentContact;
+          if (!editingContact && hasContact) {
+            return (
+              <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-bold text-blue-700 mb-0.5">📞 문의처</p>
+                  <p className="text-base font-bold text-blue-900">{currentContact}</p>
+                </div>
+                <Button size="sm" variant="outline" className="shrink-0 h-8 text-xs border-blue-300 text-blue-700" onClick={() => setEditingContact(true)}>수정</Button>
+              </div>
+            );
+          }
+          return (
+            <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 space-y-2">
+              <p className="text-xs font-bold text-blue-700">📞 문의처</p>
+              <div className="flex gap-2">
+                <Input
+                  className="bg-white text-sm h-9"
+                  placeholder="예: 강릉시청 문화예술과 033-000-0000"
+                  value={currentContact}
+                  onChange={(e) => setContact(e.target.value)}
+                  autoFocus
+                />
+                <Button
+                  size="sm"
+                  className="h-9 px-4 shrink-0 bg-blue-600 hover:bg-blue-700 text-white"
+                  disabled={saveContactMutation.isPending}
+                  onClick={() => {
+                    saveContactMutation.mutate(currentContact);
+                    setEditingContact(false);
+                  }}
+                >
+                  저장
+                </Button>
+                {hasContact && (
+                  <Button size="sm" variant="ghost" className="h-9 px-3 shrink-0" onClick={() => { setContact(null); setEditingContact(false); }}>취소</Button>
+                )}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Original URL */}
         {event.link && (

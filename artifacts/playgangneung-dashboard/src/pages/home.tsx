@@ -1,12 +1,13 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useSearch, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import {
   CalendarDays, ExternalLink, MapPin, Instagram, Facebook, Youtube,
-  Megaphone, Star, Pin, ChevronLeft, ChevronRight,
+  Megaphone, Star, Pin, ChevronLeft, ChevronRight, RefreshCw,
 } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -285,11 +286,34 @@ function EventCalendar({
   );
 }
 
+const VALID_CATEGORIES: Category[] = ["전체", "행사", "맛집", "핫플", "지역소식"];
+
+function parseCategoryParam(search: string): Category {
+  const params = new URLSearchParams(search);
+  const cat = params.get("category");
+  if (cat && VALID_CATEGORIES.includes(cat as Category)) return cat as Category;
+  return "전체";
+}
+
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<Category>("전체");
+  const search = useSearch();
+  const [, navigate] = useLocation();
+
+  const initialCategory = useMemo(() => parseCategoryParam(search), []);
+  const [activeTab, setActiveTab] = useState<Category>(initialCategory);
   const [eventSubTab, setEventSubTab] = useState<EventSubTab>("전체");
   const [calendarDate, setCalendarDate] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
+
+  useEffect(() => {
+    const cat = parseCategoryParam(search);
+    if (cat !== activeTab) {
+      setActiveTab(cat);
+      setEventSubTab("전체");
+      setCalendarDate(null);
+      setShowAll(false);
+    }
+  }, [search]);
 
   const { data } = useQuery<{ feed: FeedItem[]; total: number }>({
     queryKey: ["public-feed"],
@@ -345,11 +369,25 @@ export default function Home() {
     (i) => i.date >= weekRange.start && i.date <= weekRange.end
   ).length;
 
+  const categoryCounts = useMemo(() => {
+    const counts: Record<Category, number> = { 전체: allItems.length, 행사: 0, 맛집: 0, 핫플: 0, 지역소식: 0 };
+    for (const item of allItems) {
+      if (item.category in counts) counts[item.category as Category]++;
+    }
+    return counts;
+  }, [allItems]);
+
   function handleMainTabChange(v: string) {
-    setActiveTab(v as Category);
+    const cat = v as Category;
+    setActiveTab(cat);
     setEventSubTab("전체");
     setCalendarDate(null);
     setShowAll(false);
+    if (cat === "전체") {
+      navigate("/");
+    } else {
+      navigate(`/?category=${encodeURIComponent(cat)}`);
+    }
   }
 
   function handleSubTabChange(sub: EventSubTab) {
@@ -395,9 +433,18 @@ export default function Home() {
                   <TabsTrigger
                     key={cat}
                     value={cat}
-                    className="px-3 py-1 text-xs data-[state=active]:bg-primary data-[state=active]:text-white rounded"
+                    className="px-3 py-1 text-xs data-[state=active]:bg-primary data-[state=active]:text-white rounded flex items-center gap-1"
                   >
                     {cat}
+                    {categoryCounts[cat] > 0 && (
+                      <span className={`text-[10px] font-bold px-1 py-0.5 rounded-full leading-none
+                        ${activeTab === cat
+                          ? "bg-white/25 text-white"
+                          : "bg-gray-100 text-gray-500"
+                        }`}>
+                        {categoryCounts[cat]}
+                      </span>
+                    )}
                   </TabsTrigger>
                 ))}
               </TabsList>
@@ -464,11 +511,27 @@ export default function Home() {
         {!(activeTab === "행사" && eventSubTab === "달력") && (
           <>
             {subFiltered.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-24 text-muted-foreground">
-                <CalendarDays className="w-12 h-12 mb-3 opacity-20" />
-                <p className="text-lg font-medium">해당 날짜의 행사가 없습니다.</p>
-                <p className="text-sm mt-1">다른 날짜를 선택하거나 전체 탭을 확인해보세요.</p>
-              </div>
+              activeTab !== "전체" && categoryCounts[activeTab] === 0 ? (
+                <div className="flex flex-col items-center justify-center py-24 text-muted-foreground">
+                  <RefreshCw className="w-12 h-12 mb-3 opacity-20" />
+                  <p className="text-lg font-semibold text-gray-600">곧 업데이트됩니다</p>
+                  <p className="text-sm mt-1 text-gray-400">{activeTab} 카테고리 콘텐츠를 준비 중입니다.</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-4 text-xs"
+                    onClick={() => handleMainTabChange("전체")}
+                  >
+                    전체 콘텐츠 보기
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-24 text-muted-foreground">
+                  <CalendarDays className="w-12 h-12 mb-3 opacity-20" />
+                  <p className="text-lg font-medium">해당 날짜의 행사가 없습니다.</p>
+                  <p className="text-sm mt-1">다른 날짜를 선택하거나 전체 탭을 확인해보세요.</p>
+                </div>
+              )
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {display.map((item) => (

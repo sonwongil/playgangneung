@@ -98,10 +98,7 @@ export function generateSocialDraft(event: CrawledEvent): SocialDraft {
     caption += `강릉의 특색 있는 문화와 자연을 배경으로 열리는 이번 행사를 소개합니다.\n\n`;
   }
 
-  caption += `${visitPhrase}\n`;
-
-  const siteUrl = process.env["SITE_URL"] ?? "https://play-gangneung-dashboard.replit.app";
-  caption += `\n👉 자세히 보기: ${siteUrl}/content/${event.id}`;
+  caption += `${visitPhrase}`;
 
   // 해시태그 5~8개
   const catTags = detectCategories(event);

@@ -1,11 +1,11 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useDropzone } from "react-dropzone";
 import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle, Upload, X, ImageIcon, ChevronRight, Megaphone, Star, Zap } from "lucide-react";
+import { CheckCircle, Upload, X, ImageIcon, ChevronRight, Megaphone, Star, Zap, Plus } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -58,36 +58,159 @@ interface FormData {
   agreed: boolean;
 }
 
+/** 브라우저 Canvas로 이미지 자동 리사이즈 (최대 1200px, JPEG 85%) */
+async function resizeImage(file: File, maxPx = 1200, quality = 0.85): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    img.onload = () => {
+      const ratio = Math.min(1, maxPx / Math.max(img.width, img.height));
+      const w = Math.round(img.width * ratio);
+      const h = Math.round(img.height * ratio);
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(objectUrl);
+      resolve(canvas.toDataURL("image/jpeg", quality));
+    };
+    img.src = objectUrl;
+  });
+}
+
+/** 단일 이미지 슬롯 컴포넌트 */
+function ImageSlot({
+  label,
+  preview,
+  onFile,
+  onRemove,
+  isMain = false,
+}: {
+  label: string;
+  preview: string | null;
+  onFile: (file: File) => void;
+  onRemove: () => void;
+  isMain?: boolean;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) { onFile(file); e.target.value = ""; }
+  };
+
+  const onDrop = useCallback((accepted: File[]) => {
+    if (accepted[0]) onFile(accepted[0]);
+  }, [onFile]);
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: { "image/*": [] },
+    maxFiles: 1,
+    maxSize: 20 * 1024 * 1024,
+    noClick: true,
+  });
+
+  if (preview) {
+    return (
+      <div className="relative rounded-xl overflow-hidden group">
+        <img
+          src={preview}
+          alt={label}
+          className={`w-full object-cover ${isMain ? "h-48" : "h-32"}`}
+        />
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+        <div className="absolute top-2 left-2">
+          <span className="text-[10px] font-semibold bg-black/50 text-white px-2 py-0.5 rounded-full">{label}</span>
+        </div>
+        <button
+          type="button"
+          onClick={onRemove}
+          className="absolute top-2 right-2 bg-black/60 text-white rounded-full p-1 hover:bg-black/80 transition-colors"
+        >
+          <X className="w-3.5 h-3.5" />
+        </button>
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          className="absolute bottom-2 right-2 bg-black/60 text-white rounded-lg px-2 py-1 text-[10px] font-medium hover:bg-black/80 transition-colors"
+        >
+          교체
+        </button>
+        <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={handleChange} />
+      </div>
+    );
+  }
+
+  return (
+    <div
+      {...getRootProps()}
+      onClick={() => inputRef.current?.click()}
+      className={`border-2 border-dashed rounded-xl text-center cursor-pointer transition-colors select-none
+        ${isMain ? "p-8" : "p-4"}
+        ${isDragActive ? "border-primary bg-blue-50" : "border-border hover:border-primary/50 hover:bg-gray-50"}`}
+    >
+      <input {...getInputProps()} />
+      <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={handleChange} />
+      <div className={`bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-2 ${isMain ? "w-12 h-12" : "w-8 h-8"}`}>
+        {isDragActive
+          ? <Upload className={`text-primary ${isMain ? "w-6 h-6" : "w-4 h-4"}`} />
+          : isMain
+            ? <ImageIcon className="w-6 h-6 text-gray-400" />
+            : <Plus className="w-4 h-4 text-gray-400" />
+        }
+      </div>
+      {isDragActive ? (
+        <p className="text-primary font-medium text-xs">여기에 놓으세요!</p>
+      ) : (
+        <>
+          <p className={`font-medium text-gray-600 ${isMain ? "text-sm mb-0.5" : "text-xs"}`}>{label}</p>
+          {isMain && <p className="text-xs text-muted-foreground">클릭하거나 드래그해서 업로드</p>}
+          <p className="text-[10px] text-muted-foreground mt-0.5">선택사항 · 자동 최적화</p>
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function AdSubmit() {
   const { toast } = useToast();
   const [submitted, setSubmitted] = useState(false);
-  const [preview, setPreview] = useState<string | null>(null);
-  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [images, setImages] = useState<[string | null, string | null, string | null]>([null, null, null]);
   const [form, setForm] = useState<FormData>({
     businessName: "", contactName: "", phone: "", email: "",
     category: "행사", title: "", description: "", date: "",
     location: "", url: "", plan: "basic", agreed: false,
   });
 
-  const onDrop = useCallback((accepted: File[]) => {
-    const file = accepted[0];
-    if (!file) return;
-    setImageFile(file);
-    const reader = new FileReader();
-    reader.onload = (e) => setPreview(e.target?.result as string);
-    reader.readAsDataURL(file);
-  }, []);
+  const handleImageFile = async (index: 0 | 1 | 2, file: File) => {
+    try {
+      const resized = await resizeImage(file);
+      setImages((prev) => {
+        const next = [...prev] as [string | null, string | null, string | null];
+        next[index] = resized;
+        return next;
+      });
+    } catch {
+      toast({ title: "이미지 오류", description: "이미지를 불러올 수 없습니다.", variant: "destructive" });
+    }
+  };
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: { "image/*": [] },
-    maxFiles: 1,
-    maxSize: 10 * 1024 * 1024,
-  });
+  const removeImage = (index: 0 | 1 | 2) => {
+    setImages((prev) => {
+      const next = [...prev] as [string | null, string | null, string | null];
+      next[index] = null;
+      return next;
+    });
+  };
 
   const mutation = useMutation({
     mutationFn: async () => {
-      const body = { ...form, imageUrl: preview ? "uploaded" : null };
+      const body = {
+        ...form,
+        imageUrl: images[0] ?? null,
+        extraImages: [images[1], images[2]].filter(Boolean),
+      };
       const res = await fetch(`${BASE}/api/ads`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -257,42 +380,39 @@ export default function AdSubmit() {
             </div>
           </div>
 
-          {/* Image Upload */}
-          <div className="bg-white rounded-2xl border border-border shadow-sm p-5">
-            <h2 className="font-semibold text-base mb-3">대표 이미지</h2>
-            {preview ? (
-              <div className="relative rounded-xl overflow-hidden">
-                <img src={preview} alt="미리보기" className="w-full h-48 object-cover" />
-                <button
-                  type="button"
-                  onClick={() => { setPreview(null); setImageFile(null); }}
-                  className="absolute top-2 right-2 bg-black/60 text-white rounded-full p-1 hover:bg-black/80"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            ) : (
-              <div
-                {...getRootProps()}
-                className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${
-                  isDragActive ? "border-primary bg-blue-50" : "border-border hover:border-primary/50 hover:bg-gray-50"
-                }`}
-              >
-                <input {...getInputProps()} />
-                <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                  {isDragActive ? <Upload className="w-6 h-6 text-primary" /> : <ImageIcon className="w-6 h-6 text-gray-400" />}
-                </div>
-                {isDragActive ? (
-                  <p className="text-primary font-medium text-sm">여기에 놓으세요!</p>
-                ) : (
-                  <>
-                    <p className="text-sm font-medium mb-1">클릭하거나 이미지를 드래그하세요</p>
-                    <p className="text-xs text-muted-foreground">대표 이미지를 등록하면 노출 효과가 좋아집니다</p>
-                    <p className="text-xs text-muted-foreground mt-1">PNG, JPG, GIF (최대 10MB)</p>
-                  </>
-                )}
-              </div>
-            )}
+          {/* Image Upload — 3장 */}
+          <div className="bg-white rounded-2xl border border-border shadow-sm p-5 space-y-3">
+            <div className="flex items-center justify-between mb-1">
+              <h2 className="font-semibold text-base">이미지</h2>
+              <span className="text-[11px] text-muted-foreground">
+                {[images[0], images[1], images[2]].filter(Boolean).length} / 3장 · 자동 최적화
+              </span>
+            </div>
+
+            {/* 대표 이미지 */}
+            <ImageSlot
+              label="대표 이미지"
+              preview={images[0]}
+              onFile={(f) => handleImageFile(0, f)}
+              onRemove={() => removeImage(0)}
+              isMain
+            />
+
+            {/* 추가 이미지 2장 */}
+            <div className="grid grid-cols-2 gap-3">
+              <ImageSlot
+                label="추가 이미지 1"
+                preview={images[1]}
+                onFile={(f) => handleImageFile(1, f)}
+                onRemove={() => removeImage(1)}
+              />
+              <ImageSlot
+                label="추가 이미지 2"
+                preview={images[2]}
+                onFile={(f) => handleImageFile(2, f)}
+                onRemove={() => removeImage(2)}
+              />
+            </div>
           </div>
 
           {/* Agreement */}

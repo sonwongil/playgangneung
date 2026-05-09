@@ -213,7 +213,7 @@ export default function AdminEventDetail() {
               <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 flex items-center justify-between gap-3">
                 <div>
                   <p className="text-xs font-bold text-blue-700 mb-0.5">📞 문의처</p>
-                  <p className="text-base font-bold text-blue-900">{currentContact}</p>
+                  <p className="text-sm text-blue-900">{currentContact}</p>
                 </div>
                 <Button size="sm" variant="outline" className="shrink-0 h-8 text-xs border-blue-300 text-blue-700" onClick={() => setEditingContact(true)}>수정</Button>
               </div>

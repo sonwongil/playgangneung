@@ -113,6 +113,17 @@ async function fetchDetailInfo(url: string, timeoutMs = 8000): Promise<{ desc: s
       if (metaDesc.length > 10) desc = metaDesc.slice(0, 500);
     }
 
+    // 불량 설명 필터 (법적고지, 저작권 안내 등 정부사이트 공통 상투문)
+    const JUNK_PATTERNS = [
+      /이메일\s*주소가\s*자동\s*수집/,
+      /정보통신망법에\s*의해\s*처벌/,
+      /저작권\s*보호를\s*받는\s*저작물/,
+      /무단\s*전재.*재배포\s*금지/,
+      /copyright/i,
+      /all rights reserved/i,
+    ];
+    if (JUNK_PATTERNS.some((p) => p.test(desc))) desc = "";
+
     return { desc, contact };
   } catch {
     return { desc: "", contact: "" };

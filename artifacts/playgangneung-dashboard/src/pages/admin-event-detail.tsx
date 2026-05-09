@@ -189,9 +189,11 @@ export default function AdminEventDetail() {
         {event.thumbnail ? (
           <img src={event.thumbnail} alt={event.title} className="w-full rounded-2xl border border-border shadow-sm" />
         ) : (
-          <div className="w-full aspect-video bg-gray-100 rounded-2xl border-dashed border-2 border-gray-200 flex flex-col items-center justify-center gap-2 text-gray-400">
-            <ImageOff className="w-10 h-10" />
-            <span className="text-sm">대표 이미지 없음</span>
+          <div className="w-full rounded-2xl bg-gradient-to-br from-blue-600 to-blue-400 px-5 py-8 flex flex-col gap-2">
+            {event.category && <span className="text-xs font-bold text-white/70 uppercase">{event.category}</span>}
+            <p className="text-white font-bold text-lg leading-snug">{event.title}</p>
+            {event.description && <p className="text-white/80 text-sm line-clamp-3 leading-relaxed">{event.description}</p>}
+            <p className="text-white/60 text-xs mt-1">{event.source}{dateRange ? " · " + dateRange : ""}</p>
           </div>
         )}
 

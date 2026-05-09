@@ -3,9 +3,8 @@ import { useDropzone } from "react-dropzone";
 import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle, Upload, X, ImageIcon, ChevronRight, Megaphone, Star, Zap, Plus } from "lucide-react";
+import { CheckCircle, Upload, X, ImageIcon, ChevronRight, Megaphone, Star, Zap, Plus, Bold } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -76,6 +75,187 @@ async function resizeImage(file: File, maxPx = 1200, quality = 0.85): Promise<st
     };
     img.src = objectUrl;
   });
+}
+
+const SPECIAL_CHARS = [
+  "★", "☆", "✓", "✔", "▶", "◀", "■", "□", "●", "○",
+  "→", "←", "↑", "↓", "※", "◈", "•", "·", "—", "…",
+  "™", "®", "©", "♡", "♥", "🔥", "⭐", "🎉", "📍", "💯",
+];
+
+const MAX_DESC = 500;
+
+/** 미니 서식 에디터 (굵게·폰트크기·특수문자·500자 제한) */
+function RichTextEditor({ onChange }: { onChange: (html: string) => void }) {
+  const editorRef = useRef<HTMLDivElement>(null);
+  const [charCount, setCharCount] = useState(0);
+  const [showChars, setShowChars] = useState(false);
+  const charPickerRef = useRef<HTMLDivElement>(null);
+
+  // 특수문자 picker 외부 클릭 닫기
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (charPickerRef.current && !charPickerRef.current.contains(e.target as Node)) {
+        setShowChars(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const getTextLen = () =>
+    (editorRef.current?.innerText ?? "").replace(/\n$/, "").length;
+
+  const handleInput = () => {
+    const len = getTextLen();
+    setCharCount(len);
+    onChange(editorRef.current?.innerHTML ?? "");
+  };
+
+  const handleBeforeInput = (e: React.FormEvent) => {
+    const native = e.nativeEvent as InputEvent;
+    if (
+      getTextLen() >= MAX_DESC &&
+      native.inputType !== "deleteContentBackward" &&
+      native.inputType !== "deleteContentForward"
+    ) {
+      e.preventDefault();
+    }
+  };
+
+  const exec = (cmd: string, value?: string) => {
+    editorRef.current?.focus();
+    document.execCommand(cmd, false, value);
+    handleInput();
+  };
+
+  const insertChar = (ch: string) => {
+    editorRef.current?.focus();
+    if (getTextLen() < MAX_DESC) {
+      document.execCommand("insertText", false, ch);
+      handleInput();
+    }
+    setShowChars(false);
+  };
+
+  const setSize = (size: "small" | "normal" | "large") => {
+    const sizeMap = { small: "0.8em", normal: "1em", large: "1.3em" };
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return;
+    const range = sel.getRangeAt(0);
+    try {
+      const span = document.createElement("span");
+      span.style.fontSize = sizeMap[size];
+      range.surroundContents(span);
+      handleInput();
+    } catch { /* 복잡한 selection은 무시 */ }
+  };
+
+  const over = charCount >= MAX_DESC;
+
+  return (
+    <div className="border border-input rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-ring">
+      {/* 툴바 */}
+      <div className="flex items-center gap-0.5 px-2 py-1.5 bg-gray-50 border-b border-input">
+        {/* 굵게 */}
+        <button
+          type="button"
+          onMouseDown={(e) => { e.preventDefault(); exec("bold"); }}
+          title="굵게 (Ctrl+B)"
+          className="p-1.5 rounded hover:bg-gray-200 transition-colors"
+        >
+          <Bold className="w-3.5 h-3.5" />
+        </button>
+
+        <div className="w-px h-4 bg-gray-300 mx-1" />
+
+        {/* 폰트 크기 */}
+        <button
+          type="button"
+          onMouseDown={(e) => { e.preventDefault(); setSize("small"); }}
+          title="작게"
+          className="px-1.5 py-1 rounded hover:bg-gray-200 transition-colors text-[10px] font-semibold text-gray-600"
+        >
+          A
+        </button>
+        <button
+          type="button"
+          onMouseDown={(e) => { e.preventDefault(); setSize("normal"); }}
+          title="보통"
+          className="px-1.5 py-1 rounded hover:bg-gray-200 transition-colors text-[13px] font-semibold text-gray-600"
+        >
+          A
+        </button>
+        <button
+          type="button"
+          onMouseDown={(e) => { e.preventDefault(); setSize("large"); }}
+          title="크게"
+          className="px-1.5 py-1 rounded hover:bg-gray-200 transition-colors text-[17px] font-semibold text-gray-600"
+        >
+          A
+        </button>
+
+        <div className="w-px h-4 bg-gray-300 mx-1" />
+
+        {/* 특수문자 */}
+        <div className="relative" ref={charPickerRef}>
+          <button
+            type="button"
+            onMouseDown={(e) => { e.preventDefault(); setShowChars((v) => !v); }}
+            title="특수문자"
+            className="px-2 py-1 rounded hover:bg-gray-200 transition-colors text-xs text-gray-600 font-medium"
+          >
+            특수
+          </button>
+          {showChars && (
+            <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-border rounded-xl shadow-lg p-2 w-56">
+              <div className="grid grid-cols-10 gap-0.5">
+                {SPECIAL_CHARS.map((ch) => (
+                  <button
+                    key={ch}
+                    type="button"
+                    onMouseDown={(e) => { e.preventDefault(); insertChar(ch); }}
+                    className="w-5 h-5 flex items-center justify-center rounded hover:bg-blue-50 text-sm transition-colors"
+                  >
+                    {ch}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="ml-auto">
+          <span className={`text-[11px] font-mono ${over ? "text-red-500 font-semibold" : "text-muted-foreground"}`}>
+            {charCount}/{MAX_DESC}
+          </span>
+        </div>
+      </div>
+
+      {/* 편집 영역 */}
+      <div
+        ref={editorRef}
+        contentEditable
+        suppressContentEditableWarning
+        onInput={handleInput}
+        onBeforeInput={handleBeforeInput}
+        onKeyDown={(e) => {
+          if (e.ctrlKey && e.key === "b") { e.preventDefault(); exec("bold"); }
+        }}
+        className="min-h-[100px] max-h-[200px] overflow-y-auto px-3 py-2.5 text-sm focus:outline-none leading-relaxed"
+        data-placeholder="광고하고 싶은 내용을 자유롭게 작성해주세요."
+        style={{ wordBreak: "keep-all" }}
+      />
+
+      <style>{`
+        [contenteditable]:empty:before {
+          content: attr(data-placeholder);
+          color: #9ca3af;
+          pointer-events: none;
+        }
+      `}</style>
+    </div>
+  );
 }
 
 /** 단일 이미지 슬롯 컴포넌트 */
@@ -379,12 +559,7 @@ export default function AdSubmit() {
             </div>
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1.5 block">상세 설명</label>
-              <Textarea
-                placeholder="광고하고 싶은 내용을 자유롭게 작성해주세요."
-                rows={4}
-                value={form.description}
-                onChange={(e) => set("description", e.target.value)}
-              />
+              <RichTextEditor onChange={(html) => set("description", html)} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>

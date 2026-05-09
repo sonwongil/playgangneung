@@ -142,13 +142,25 @@ export default function Admin() {
     enabled: activeNav === "ads",
   });
 
-  const events: Event[] = data?.events ?? [];
+  const SCHEDULE_ORDER: Record<string, number> = {
+    today: 0, ongoing: 1, tomorrow: 2, upcoming: 3, dateUnknown: 4, ended: 5,
+  };
+  function sortBySchedule(arr: Event[]) {
+    return [...arr].sort((a, b) => {
+      const sa = SCHEDULE_ORDER[a.scheduleStatus ?? ""] ?? 4;
+      const sb = SCHEDULE_ORDER[b.scheduleStatus ?? ""] ?? 4;
+      if (sa !== sb) return sa - sb;
+      return (a.startDate ?? a.date ?? "").localeCompare(b.startDate ?? b.date ?? "");
+    });
+  }
+
+  const events: Event[] = sortBySchedule(data?.events ?? []);
   const ads: Ad[] = adsData?.ads ?? [];
 
-  // derived lists
-  const feedEvents = events.filter((e) => e.status === "approved");
+  // derived lists — 공개 피드와 동일하게 approved + published 포함
+  const feedEvents = events.filter((e) => e.status === "approved" || e.status === "published");
   const publishEvents = events.filter(
-    (e) => e.status === "approved" && e.socialDraft,
+    (e) => (e.status === "approved" || e.status === "published") && e.socialDraft,
   );
 
   // ── Mutations ────────────────────────────────────────────────────────────────

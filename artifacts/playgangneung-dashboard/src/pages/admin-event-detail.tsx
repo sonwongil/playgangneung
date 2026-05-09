@@ -262,14 +262,6 @@ export default function AdminEventDetail() {
           </a>
         )}
 
-        {/* Description */}
-        <div className="bg-white rounded-2xl border border-border p-5">
-          <p className="text-xs font-semibold text-muted-foreground mb-2">행사 설명</p>
-          <p className="text-sm leading-relaxed whitespace-pre-line text-foreground">
-            {event.description || "설명이 수집되지 않았습니다."}
-          </p>
-        </div>
-
         {/* SNS 초안 */}
         <div className="bg-white rounded-2xl border border-border p-5 space-y-4">
           <div className="flex items-center justify-between">

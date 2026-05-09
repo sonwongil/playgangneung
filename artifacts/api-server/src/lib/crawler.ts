@@ -45,20 +45,41 @@ async function fetchHtml(url: string, timeoutMs = 15000): Promise<string> {
 
 // ─── 상세페이지 설명 추출 헬퍼 ───────────────────────────────────────────────
 
+const PHONE_RE = /0\d{1,2}[-\s]?\d{3,4}[-\s]?\d{4}/;
+
 /**
- * 상세페이지 URL에서 본문 설명을 추출합니다.
- * 다양한 한국 정부/문화재단 사이트의 공통 셀렉터를 순서대로 시도합니다.
- * 실패 시 빈 문자열 반환.
+ * 상세페이지 URL에서 본문 설명과 문의처 전화번호를 추출합니다.
  */
-async function fetchDetailDesc(url: string, timeoutMs = 8000): Promise<string> {
+async function fetchDetailInfo(url: string, timeoutMs = 8000): Promise<{ desc: string; contact: string }> {
   try {
     const html = await fetchHtml(url, timeoutMs);
     const $ = cheerio.load(html);
 
-    // 공통 본문 컨테이너 셀렉터 (우선순위 순)
+    // ── 문의처 추출 ────────────────────────────────────────────────────────
+    let contact = "";
+
+    // 테이블 행에서 "문의" 라벨 옆 값 추출 (강릉문화예술재단, 강릉시청 계열)
+    $("table tr, dl, .info-list li").each((_, el) => {
+      const $el = $(el);
+      const label = $el.find("th, dt, .label, strong").first().text().trim();
+      if (/문의|연락|전화|tel/i.test(label)) {
+        const val = $el.find("td, dd, .value").first().text().trim();
+        const phone = val.match(PHONE_RE)?.[0] ?? val;
+        if (phone) { contact = phone; return false; }
+      }
+    });
+
+    // fallback: 페이지 전체에서 전화번호 패턴 탐색
+    if (!contact) {
+      const bodyText = $("body").text();
+      const match = bodyText.match(PHONE_RE);
+      if (match) contact = match[0];
+    }
+
+    // ── 설명 추출 ──────────────────────────────────────────────────────────
     const CONTENT_SELECTORS = [
-      ".fcontent",           // 강릉문화예술재단
-      ".view_cont",          // 강릉시청 계열
+      ".fcontent",
+      ".view_cont",
       ".board-view-content",
       ".board_view .cont",
       ".board_view .content",
@@ -74,36 +95,36 @@ async function fetchDetailDesc(url: string, timeoutMs = 8000): Promise<string> {
       ".main-content",
     ];
 
+    let desc = "";
     for (const sel of CONTENT_SELECTORS) {
       const el = $(sel);
       if (el.length === 0) continue;
-      // 불필요한 태그 제거
       el.find("script,style,iframe,nav,header,footer,.skip").remove();
       const text = el.text().replace(/\s+/g, " ").trim();
-      if (text.length > 20) {
-        return text.slice(0, 500);
-      }
+      if (text.length > 20) { desc = text.slice(0, 500); break; }
     }
 
-    // fallback: OG description 메타 태그
-    const ogDesc = $("meta[property='og:description']").attr("content") || "";
-    if (ogDesc.length > 10) return ogDesc.slice(0, 500);
+    if (!desc) {
+      const ogDesc = $("meta[property='og:description']").attr("content") || "";
+      if (ogDesc.length > 10) desc = ogDesc.slice(0, 500);
+    }
+    if (!desc) {
+      const metaDesc = $("meta[name='description']").attr("content") || "";
+      if (metaDesc.length > 10) desc = metaDesc.slice(0, 500);
+    }
 
-    const metaDesc = $("meta[name='description']").attr("content") || "";
-    if (metaDesc.length > 10) return metaDesc.slice(0, 500);
-
-    return "";
+    return { desc, contact };
   } catch {
-    return "";
+    return { desc: "", contact: "" };
   }
 }
 
 /** 병렬 상세 fetch (최대 concurrency 제한) */
-async function fetchDescriptions(
+async function fetchDetailInfos(
   items: { id: string; link: string }[],
   concurrency = 4,
-): Promise<Record<string, string>> {
-  const result: Record<string, string> = {};
+): Promise<Record<string, { desc: string; contact: string }>> {
+  const result: Record<string, { desc: string; contact: string }> = {};
   const queue = [...items];
 
   async function worker() {
@@ -111,7 +132,7 @@ async function fetchDescriptions(
       const item = queue.shift();
       if (!item) break;
       if (!item.link || item.link.length < 10) continue;
-      result[item.id] = await fetchDetailDesc(item.link);
+      result[item.id] = await fetchDetailInfo(item.link);
     }
   }
 
@@ -132,6 +153,7 @@ function buildEvent(
   thumbnail: string | null,
   locationHint?: string,
   defaultCategory?: string,
+  contact?: string,
 ): CrawledEvent {
   const { startDate, endDate, scheduleStatus } = parseDates(dateRaw);
   const category = detectCategory(title, desc) || defaultCategory || "행사";
@@ -148,6 +170,7 @@ function buildEvent(
     thumbnail,
     link,
     source: sourceName,
+    contact: contact || "",
     sourceType,
     status: "approved",
     socialDraft: null,
@@ -225,10 +248,11 @@ async function crawlGnYeyak(): Promise<{ events: CrawledEvent[]; error?: string 
     const detailLinks = rawItems
       .filter(it => it.link && it.link !== url)
       .map(it => ({ id: it.id, link: it.link }));
-    const descMap = await fetchDescriptions(detailLinks, 4);
+    const infoMap = await fetchDetailInfos(detailLinks, 4);
 
     const events: CrawledEvent[] = rawItems.map(it => {
-      const desc = descMap[it.id] || it.inlineDesc || it.location;
+      const info = infoMap[it.id];
+      const desc = info?.desc || it.inlineDesc || it.location;
       return buildEvent(
         it.id,
         it.title,
@@ -240,6 +264,7 @@ async function crawlGnYeyak(): Promise<{ events: CrawledEvent[]; error?: string 
         it.thumbnail,
         it.location,
         it.defaultCategory,
+        info?.contact,
       );
     });
 
@@ -313,10 +338,11 @@ async function crawlGnArtscenter(): Promise<{ events: CrawledEvent[]; error?: st
     const detailLinks = rawItems
       .filter(it => it.link && it.link !== url)
       .map(it => ({ id: it.id, link: it.link }));
-    const descMap = await fetchDescriptions(detailLinks, 4);
+    const infoMap = await fetchDetailInfos(detailLinks, 4);
 
     const events: CrawledEvent[] = rawItems.map(it => {
-      const desc = descMap[it.id] || it.inlineDesc || it.location;
+      const info = infoMap[it.id];
+      const desc = info?.desc || it.inlineDesc || it.location;
       return buildEvent(
         it.id,
         it.title,
@@ -328,6 +354,7 @@ async function crawlGnArtscenter(): Promise<{ events: CrawledEvent[]; error?: st
         it.thumbnail,
         it.location,
         "행사",
+        info?.contact,
       );
     });
 
@@ -385,10 +412,11 @@ async function crawlGncaf(): Promise<{ events: CrawledEvent[]; error?: string }>
     const detailLinks = rawItems
       .filter(it => it.link && it.link !== url)
       .map(it => ({ id: it.id, link: it.link }));
-    const descMap = await fetchDescriptions(detailLinks, 4);
+    const infoMap = await fetchDetailInfos(detailLinks, 4);
 
     const events: CrawledEvent[] = rawItems.map(it => {
-      const desc = descMap[it.id] || it.location;
+      const info = infoMap[it.id];
+      const desc = info?.desc || it.location;
       return buildEvent(
         it.id,
         it.title,
@@ -400,6 +428,7 @@ async function crawlGncaf(): Promise<{ events: CrawledEvent[]; error?: string }>
         it.thumbnail,
         it.location,
         "행사",
+        info?.contact,
       );
     });
 

@@ -16,7 +16,6 @@ import {
   ImageOff,
   Send,
   Clock,
-  Image,
   MessageSquare,
   AlertTriangle,
   X,
@@ -46,7 +45,6 @@ interface Event {
   thumbnail?: string;
   status: "draft" | "approved" | "rejected" | "published";
   socialDraft: SocialDraft | null;
-  cardImageUrl: string | null;
   crawledAt: string;
 }
 
@@ -212,11 +210,6 @@ export default function AdminEventDetail() {
                 <MessageSquare className="w-3 h-3" />초안 완료
               </span>
             )}
-            {event.cardImageUrl && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-purple-100 text-purple-600">
-                <Image className="w-3 h-3" />카드 완료
-              </span>
-            )}
           </div>
           <h1 className="text-xl font-bold leading-snug">{event.title}</h1>
         </div>
@@ -273,32 +266,6 @@ export default function AdminEventDetail() {
               {event.socialDraft.hashtags.map((h) => (
                 <span key={h} className="text-xs text-blue-500 font-medium">#{h}</span>
               ))}
-            </div>
-          </div>
-        )}
-
-        {/* Card image preview */}
-        {event.cardImageUrl && (
-          <div className="bg-purple-50 border border-purple-200 rounded-2xl p-5">
-            <p className="text-xs font-semibold text-purple-600 uppercase tracking-wide mb-3">카드이미지 (1080×1080)</p>
-            <div className="flex items-start gap-4">
-              <img
-                src={event.cardImageUrl}
-                alt="카드이미지"
-                className="w-32 h-32 object-cover rounded-xl border border-purple-200 shrink-0"
-              />
-              <div className="flex flex-col gap-2">
-                <a href={event.cardImageUrl} target="_blank" rel="noopener noreferrer">
-                  <Button size="sm" variant="outline" className="gap-1.5 text-purple-700 border-purple-300 hover:bg-purple-100">
-                    <ExternalLink className="w-3.5 h-3.5" />원본 보기
-                  </Button>
-                </a>
-                <a href={event.cardImageUrl} download={`${event.title}.png`}>
-                  <Button size="sm" variant="outline" className="gap-1.5 text-purple-700 border-purple-300 hover:bg-purple-100">
-                    다운로드
-                  </Button>
-                </a>
-              </div>
             </div>
           </div>
         )}

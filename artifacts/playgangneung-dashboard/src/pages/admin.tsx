@@ -18,7 +18,6 @@ import {
   LayoutDashboard,
   Settings,
   RefreshCw,
-  Image,
   ImageOff,
   MessageSquare,
   Trash2,
@@ -33,7 +32,6 @@ import {
   LogOut,
   KeyRound,
   Copy,
-  Download,
   Send,
   Rss,
   AlertTriangle,
@@ -65,7 +63,6 @@ interface Event {
   thumbnail?: string;
   status: "draft" | "approved" | "rejected" | "published";
   socialDraft: SocialDraft | null;
-  cardImageUrl: string | null;
   crawledAt: string;
 }
 
@@ -151,7 +148,7 @@ export default function Admin() {
   // derived lists
   const feedEvents = events.filter((e) => e.status === "approved");
   const publishEvents = events.filter(
-    (e) => e.status === "approved" && e.socialDraft && e.cardImageUrl,
+    (e) => e.status === "approved" && e.socialDraft,
   );
 
   // ── Mutations ────────────────────────────────────────────────────────────────
@@ -204,19 +201,6 @@ export default function Admin() {
       setDraftEdits((prev) => { const n = { ...prev }; delete n[d.id]; return n; });
     },
     onError: (e: Error) => toast({ title: "저장 실패", description: e.message, variant: "destructive" }),
-  });
-
-  const cardMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const r = await fetch(`${BASE}/api/events/${id}/card`, { method: "POST" });
-      if (!r.ok) { const d = await r.json(); throw new Error(d.error ?? "카드 생성 실패"); }
-      return r.json();
-    },
-    onSuccess: (d) => {
-      toast({ title: "카드이미지 생성 완료" });
-      qc.invalidateQueries({ queryKey: ["admin-events"] });
-    },
-    onError: (e: Error) => toast({ title: "카드 생성 실패", description: e.message, variant: "destructive" }),
   });
 
   const deleteMutation = useMutation({
@@ -438,7 +422,6 @@ export default function Admin() {
                             </span>
                             {ev.category && <Badge variant="outline" className="text-[10px] px-1.5 py-0">{ev.category}</Badge>}
                             {ev.socialDraft && <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-600"><MessageSquare className="w-2.5 h-2.5" />초안</span>}
-                            {ev.cardImageUrl && <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-purple-100 text-purple-600"><Image className="w-2.5 h-2.5" />카드</span>}
                           </div>
                           <p className="font-medium text-sm leading-snug line-clamp-1 group-hover:text-blue-600 transition-colors">{ev.title}</p>
                           <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{ev.description || "설명 없음"}</p>
@@ -558,52 +541,7 @@ export default function Admin() {
                               >
                                 <Copy className="w-3 h-3" />문구 복사
                               </Button>
-                              {!ev.cardImageUrl ? (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="gap-1.5 text-purple-700 border-purple-200 hover:bg-purple-50"
-                                  disabled={cardMutation.isPending}
-                                  onClick={() => cardMutation.mutate(ev.id)}
-                                >
-                                  <Image className="w-3 h-3" />
-                                  {cardMutation.isPending ? "생성 중..." : "카드이미지 생성"}
-                                </Button>
-                              ) : (
-                                <div className="flex items-center gap-2">
-                                  <span className="text-xs text-purple-600 font-semibold flex items-center gap-1">
-                                    <Image className="w-3 h-3" />카드 완료
-                                  </span>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="gap-1.5 text-purple-700 border-purple-200 hover:bg-purple-50 h-7 px-2 text-xs"
-                                    disabled={cardMutation.isPending}
-                                    onClick={() => cardMutation.mutate(ev.id)}
-                                  >
-                                    <RefreshCw className="w-3 h-3" />재생성
-                                  </Button>
-                                </div>
-                              )}
                             </div>
-                            {/* Card preview if exists */}
-                            {ev.cardImageUrl && (
-                              <div className="flex items-center gap-3 pt-1 border-t border-border">
-                                <img src={ev.cardImageUrl} alt="card" className="w-20 h-20 object-cover rounded-lg border border-purple-200" />
-                                <div className="flex flex-col gap-1.5">
-                                  <a href={ev.cardImageUrl} target="_blank" rel="noopener noreferrer">
-                                    <Button size="sm" variant="outline" className="h-7 px-2.5 text-xs text-purple-700 border-purple-300 gap-1">
-                                      <ExternalLink className="w-3 h-3" />원본 보기
-                                    </Button>
-                                  </a>
-                                  <a href={ev.cardImageUrl} download={`${ev.title}.png`}>
-                                    <Button size="sm" variant="outline" className="h-7 px-2.5 text-xs text-purple-700 border-purple-300 gap-1">
-                                      <Download className="w-3 h-3" />다운로드
-                                    </Button>
-                                  </a>
-                                </div>
-                              </div>
-                            )}
                           </>
                         )}
                       </div>
@@ -618,13 +556,13 @@ export default function Admin() {
           {activeNav === "publish" && (
             <div className="space-y-4">
               <p className="text-xs text-muted-foreground mb-1">
-                발행 준비 완료 <span className="font-semibold text-foreground">{publishEvents.length}건</span> — 초안과 카드이미지가 완성된 항목입니다.
+                발행 준비 완료 <span className="font-semibold text-foreground">{publishEvents.length}건</span> — SNS 초안이 완성된 항목입니다.
               </p>
               {publishEvents.length === 0 && (
                 <div className="py-16 text-center text-muted-foreground text-sm">
                   <Send className="w-8 h-8 mx-auto mb-2 opacity-30" />
                   <p>발행 준비된 콘텐츠가 없습니다.</p>
-                  <p className="text-xs mt-1">SNS 피드 만들기에서 초안 + 카드이미지를 완성하세요.</p>
+                  <p className="text-xs mt-1">SNS 피드 만들기에서 초안을 먼저 작성하세요.</p>
                 </div>
               )}
               {publishEvents.map((ev) => {
@@ -636,12 +574,6 @@ export default function Admin() {
                   <Card key={ev.id} className={isPublished ? "opacity-60" : ""}>
                     <CardContent className="p-4">
                       <div className="flex gap-4">
-                        {/* Card image preview */}
-                        {ev.cardImageUrl && (
-                          <div className="shrink-0">
-                            <img src={ev.cardImageUrl} alt="card" className="w-24 h-24 object-cover rounded-xl border border-border" />
-                          </div>
-                        )}
                         {/* Content */}
                         <div className="flex-1 min-w-0 space-y-2">
                           <div className="flex items-start justify-between gap-2">

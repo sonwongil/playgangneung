@@ -40,32 +40,21 @@ function draftBtn(id: string, hasDraft: boolean): string {
   return `<button class="btn-action btn-sns" onclick="generateDraft('${id}',this)" title="SNS 초안 생성">✍️</button>`;
 }
 
-function cardBtn(id: string, hasDraft: boolean, cardUrl: string | null): string {
-  if (!hasDraft) return "";
-  if (cardUrl) {
-    return `<button class="btn-action btn-card has-card" onclick="openCardModal('${id}')" title="카드 확인">🖼</button>`;
-  }
-  return `<button class="btn-action btn-card" onclick="generateCard('${id}',this)" title="카드뉴스 생성">🖼</button>`;
-}
-
 function actionButtons(
   id: string,
   status: EventStatus,
   hasDraft: boolean,
-  cardUrl: string | null,
 ): string {
   const approveDisabled = status === "approved" ? "disabled" : "";
   const rejectDisabled  = status === "rejected"  ? "disabled" : "";
   const draftDisabled   = status === "draft"     ? "disabled" : "";
   const sns  = status === "approved" ? draftBtn(id, hasDraft) : "";
-  const card = status === "approved" ? cardBtn(id, hasDraft, cardUrl) : "";
   return `
     <div class="action-btns">
       <button class="btn-action btn-approve" onclick="setStatus('${id}','approved',this)" ${approveDisabled} title="발행 승인">✓</button>
       <button class="btn-action btn-reject"  onclick="setStatus('${id}','rejected',this)"  ${rejectDisabled}  title="제외">✕</button>
       <button class="btn-action btn-draft-s" onclick="setStatus('${id}','draft',this)"   ${draftDisabled}   title="수집됨으로 되돌리기">↩</button>
       ${sns}
-      ${card}
       <button class="btn-del" onclick="deleteEvent('${id}', this)" title="삭제">🗑</button>
     </div>`;
 }
@@ -76,7 +65,7 @@ function renderAdminPage(events: Awaited<ReturnType<typeof readEvents>>) {
   const draftCount    = events.filter((e) => e.status === "draft").length;
   const rejectedCount = events.filter((e) => e.status === "rejected").length;
   const draftReady    = events.filter((e) => e.socialDraft !== null).length;
-  const cardReady     = events.filter((e) => e.cardImageUrl !== null).length;
+  const cardReady     = 0;
 
   const rows = events
     .slice()
@@ -88,16 +77,15 @@ function renderAdminPage(events: Awaited<ReturnType<typeof readEvents>>) {
         : escHtml(e.title);
       const hasDraft  = e.socialDraft !== null;
       const draftData = hasDraft ? escHtml(JSON.stringify(e.socialDraft)) : "";
-      const cardUrl   = e.cardImageUrl ?? "";
       return `
-      <tr data-id="${escHtml(e.id)}" data-status="${escHtml(e.status)}" data-draft='${draftData}' data-card="${escHtml(cardUrl)}">
+      <tr data-id="${escHtml(e.id)}" data-status="${escHtml(e.status)}" data-draft='${draftData}'>
         <td class="td-title">${titleCell}</td>
         <td>${escHtml(e.source)}</td>
         <td>${sourceTypeBadge(e.sourceType)}</td>
         <td>${statusBadge(e.status)}</td>
         <td>${escHtml(dateStr)}</td>
         <td>${escHtml(new Date(e.crawledAt).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" }))}</td>
-        <td>${actionButtons(e.id, e.status, hasDraft, e.cardImageUrl)}</td>
+        <td>${actionButtons(e.id, e.status, hasDraft)}</td>
       </tr>`;
     })
     .join("");

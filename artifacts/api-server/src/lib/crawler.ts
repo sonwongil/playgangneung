@@ -151,7 +151,6 @@ function buildEvent(
     sourceType,
     status: "approved",
     socialDraft: null,
-    cardImageUrl: null,
     crawledAt: new Date().toISOString(),
   };
 }

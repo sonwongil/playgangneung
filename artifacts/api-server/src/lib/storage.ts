@@ -31,7 +31,6 @@ export interface CrawledEvent {
   sourceType: SourceType;
   status: EventStatus;
   socialDraft: SocialDraft | null;
-  cardImageUrl: string | null;
   crawledAt: string;
 }
 
@@ -64,7 +63,6 @@ export async function readEvents(): Promise<CrawledEvent[]> {
       sourceType: (e.sourceType as SourceType) ?? "html",
       status: (e.status as EventStatus) ?? "draft",
       socialDraft: e.socialDraft ?? null,
-      cardImageUrl: e.cardImageUrl ?? null,
       crawledAt: e.crawledAt ?? new Date().toISOString(),
     }));
   } catch {
@@ -150,18 +148,6 @@ export async function saveEventDraft(
   const idx = events.findIndex((e) => e.id === id);
   if (idx === -1) return false;
   events[idx] = { ...events[idx], socialDraft };
-  await saveEvents(events);
-  return true;
-}
-
-export async function saveEventCard(
-  id: string,
-  cardImageUrl: string,
-): Promise<boolean> {
-  const events = await readEvents();
-  const idx = events.findIndex((e) => e.id === id);
-  if (idx === -1) return false;
-  events[idx] = { ...events[idx], cardImageUrl };
   await saveEvents(events);
   return true;
 }

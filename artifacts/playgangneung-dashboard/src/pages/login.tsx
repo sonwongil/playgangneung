@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ export default function Login() {
   const [, navigate] = useLocation();
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const queryClient = useQueryClient();
 
   const loginMutation = useMutation({
     mutationFn: async (pw: string) => {
@@ -29,6 +30,7 @@ export default function Login() {
       return res.json();
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["auth-me"] });
       navigate("/admin");
     },
     onError: (err: Error) => {

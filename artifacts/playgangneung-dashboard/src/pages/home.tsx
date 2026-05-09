@@ -109,12 +109,21 @@ function AdBadge({ plan }: { plan: "basic" | "main" | "premium" }) {
   );
 }
 
+const CATEGORY_GRADIENT: Record<string, string> = {
+  행사: "from-blue-700 to-blue-950",
+  맛집: "from-orange-500 to-red-800",
+  핫플: "from-purple-600 to-indigo-900",
+  지역소식: "from-emerald-600 to-teal-900",
+};
+
 function FeedCard({ item }: { item: FeedItem }) {
   const category = item.category ?? "지역소식";
   const colorClass = CATEGORY_COLORS[category] ?? "bg-gray-100 text-gray-700";
+  const hasThumbnail = !!item.thumbnail;
   const thumbnail = item.thumbnail ?? pickFallbackImage(item.id, category);
   const adCfg = item.isAd && item.adPlan ? AD_PLAN_CONFIG[item.adPlan] : null;
   const isToday = item.date === TODAY_STR;
+  const gradient = CATEGORY_GRADIENT[category] ?? "from-gray-700 to-gray-900";
 
   const href = item.isAd ? item.link : `/content/${item.id}`;
 
@@ -133,18 +142,27 @@ function FeedCard({ item }: { item: FeedItem }) {
           </div>
         )}
         <div className="relative h-52 overflow-hidden bg-gray-100">
-          <img
-            src={thumbnail}
-            alt=""
-            aria-hidden="true"
-            className="absolute inset-0 w-full h-full object-cover scale-110 blur-xl opacity-60"
-          />
-          <img
-            src={thumbnail}
-            alt={item.title}
-            className="relative z-10 w-full h-full object-contain group-hover:scale-105 transition-transform duration-500"
-            loading="lazy"
-          />
+          {hasThumbnail ? (
+            <>
+              <img
+                src={thumbnail}
+                alt=""
+                aria-hidden="true"
+                className="absolute inset-0 w-full h-full object-cover scale-110 blur-xl opacity-60"
+              />
+              <img
+                src={thumbnail}
+                alt={item.title}
+                className="relative z-10 w-full h-full object-contain group-hover:scale-105 transition-transform duration-500"
+                loading="lazy"
+              />
+            </>
+          ) : (
+            <div className={`w-full h-full bg-gradient-to-br ${gradient} flex flex-col justify-end p-4 group-hover:brightness-110 transition-all`}>
+              <p className="text-white font-bold text-lg leading-snug line-clamp-3 drop-shadow">{item.title}</p>
+              <p className="text-white/70 text-xs mt-2">{item.source} · {item.date}</p>
+            </div>
+          )}
           <div className="absolute top-3 left-3 z-20 flex flex-col gap-1">
             {item.isAd && item.adPlan ? (
               <AdBadge plan={item.adPlan} />

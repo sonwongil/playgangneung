@@ -53,6 +53,7 @@ interface ContentItem {
   link: string;
   category: string;
   thumbnail: string;
+  hasThumbnail: boolean;
   phone?: string;
   location?: string;
   businessName?: string;
@@ -65,11 +66,14 @@ async function findContent(id: string): Promise<ContentItem | null> {
     const ev = stored.find((e) => e.id === id);
     if (ev) {
       const category = (ev as any).category ?? "지역소식";
+      const rawThumb = (ev as any).thumbnail as string | null | undefined;
       return {
         id: ev.id, type: "event",
         title: ev.title, description: ev.description,
         date: ev.date, source: ev.source, link: ev.link,
-        category, thumbnail: (ev as any).thumbnail ?? THUMBNAIL_MAP[category] ?? THUMBNAIL_MAP["지역소식"],
+        category,
+        thumbnail: rawThumb ?? THUMBNAIL_MAP[category] ?? THUMBNAIL_MAP["지역소식"],
+        hasThumbnail: !!rawThumb,
       };
     }
   } catch {}
@@ -86,6 +90,7 @@ async function findContent(id: string): Promise<ContentItem | null> {
         date: ad.date, source: ad.businessName ?? "광고", link: ad.url ?? "",
         category: ad.category ?? "광고",
         thumbnail: ad.imageUrl ?? THUMBNAIL_MAP["광고"],
+        hasThumbnail: !!ad.imageUrl,
         phone: ad.phone, location: ad.location, businessName: ad.businessName,
       };
     }
@@ -165,6 +170,10 @@ a{text-decoration:none;color:inherit}
 .hero-meta{position:absolute;bottom:14px;left:16px;right:16px}
 .category-badge{display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;color:#fff;margin-bottom:8px}
 .hero-title{font-size:19px;font-weight:800;color:#fff;line-height:1.35;text-shadow:0 1px 4px rgba(0,0,0,.4)}
+/* Text hero (no image) */
+.hero-text{position:relative;width:100%;min-height:180px;display:flex;flex-direction:column;justify-content:flex-end;padding:20px 16px 16px}
+.hero-text-title{font-size:20px;font-weight:800;color:#fff;line-height:1.4;margin-bottom:6px;word-break:keep-all}
+.hero-text-meta{font-size:12px;color:rgba(255,255,255,.75)}
 /* Content */
 .content{padding:16px}
 .info-row{display:flex;align-items:center;gap:6px;font-size:13px;color:#64748b;margin-bottom:6px}
@@ -200,6 +209,7 @@ a{text-decoration:none;color:inherit}
 </header>
 
 <!-- Hero -->
+${item.hasThumbnail ? `
 <div class="hero">
   <img src="${escHtml(thumbnailHero)}" alt="${title}" loading="eager" fetchpriority="high">
   <div class="hero-overlay"></div>
@@ -207,7 +217,12 @@ a{text-decoration:none;color:inherit}
     <div class="category-badge" style="background:${catColor}">${escHtml(item.category)}</div>
     <h1 class="hero-title">${title}</h1>
   </div>
-</div>
+</div>` : `
+<div class="hero-text" style="background:linear-gradient(135deg,${catColor}dd,${catColor}99)">
+  <div class="category-badge" style="background:rgba(255,255,255,.2);display:inline-block;margin-bottom:10px">${escHtml(item.category)}</div>
+  <h1 class="hero-text-title">${title}</h1>
+  <p class="hero-text-meta">${escHtml(item.source)}${dateStr ? " · " + escHtml(dateStr) : ""}</p>
+</div>`}
 
 <!-- Info -->
 <div class="content">

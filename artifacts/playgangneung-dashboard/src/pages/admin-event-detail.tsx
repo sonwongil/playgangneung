@@ -173,6 +173,38 @@ export default function AdminEventDetail() {
   const siteUrl = configData?.siteUrl ?? "https://play-gangneung-dashboard.replit.app";
   const contentUrl = `${siteUrl}/content/${eventId}`;
 
+  async function copyImageToClipboard(): Promise<boolean> {
+    const urls = [
+      `${BASE}/api/cards/${eventId}.png`,
+      event?.thumbnail,
+    ].filter(Boolean) as string[];
+
+    for (const url of urls) {
+      try {
+        const res = await fetch(url);
+        if (!res.ok) continue;
+        const blob = await res.blob();
+        const pngBlob = await new Promise<Blob | null>((resolve) => {
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          img.onload = () => {
+            const canvas = document.createElement("canvas");
+            canvas.width = img.width;
+            canvas.height = img.height;
+            canvas.getContext("2d")!.drawImage(img, 0, 0);
+            canvas.toBlob((b) => resolve(b), "image/png");
+          };
+          img.onerror = () => resolve(null);
+          img.src = URL.createObjectURL(blob);
+        });
+        if (!pngBlob) continue;
+        await navigator.clipboard.write([new ClipboardItem({ "image/png": pngBlob })]);
+        return true;
+      } catch { continue; }
+    }
+    return false;
+  }
+
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-gray-50">
@@ -332,8 +364,10 @@ export default function AdminEventDetail() {
                 <Button
                   className="flex-1 gap-1.5 text-white bg-[#E1306C] hover:bg-[#C2185B]"
                   onClick={async () => {
+                    const copied = await copyImageToClipboard();
                     await navigator.clipboard.writeText(fullText);
                     saveDraftMutation.mutate();
+                    toast({ title: copied ? "이미지+텍스트 복사됨 — 인스타그램에 붙여넣기 하세요" : "텍스트 복사됨 (이미지는 직접 첨부)" });
                     window.open("https://www.instagram.com/", "_blank");
                   }}
                 >

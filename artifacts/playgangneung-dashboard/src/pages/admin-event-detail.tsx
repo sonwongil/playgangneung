@@ -239,29 +239,35 @@ export default function AdminEventDetail() {
                   onChange={(e) => setHashtagsStr(e.target.value)}
                 />
               </div>
+              <Button
+                variant="outline"
+                className="w-full gap-1.5"
+                disabled={saveDraftMutation.isPending}
+                onClick={() => saveDraftMutation.mutate()}
+              >
+                {saveDraftMutation.isPending ? "저장 중..." : "수정 저장"}
+              </Button>
               <div className="flex gap-2">
-                <a
-                  href="https://www.facebook.com/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-1"
-                  onClick={() => { navigator.clipboard.writeText(fullText); saveDraftMutation.mutate(); }}
+                <Button
+                  className="flex-1 gap-1.5 text-white bg-[#1877F2] hover:bg-[#1565C0]"
+                  onClick={async () => {
+                    await navigator.clipboard.writeText(fullText);
+                    saveDraftMutation.mutate();
+                    window.open("https://www.facebook.com/", "_blank");
+                  }}
                 >
-                  <Button className="w-full gap-1.5 text-white bg-[#1877F2] hover:bg-[#1565C0]">
-                    페이스북
-                  </Button>
-                </a>
-                <a
-                  href="https://www.instagram.com/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-1"
-                  onClick={() => { navigator.clipboard.writeText(fullText); saveDraftMutation.mutate(); }}
+                  페이스북
+                </Button>
+                <Button
+                  className="flex-1 gap-1.5 text-white bg-[#E1306C] hover:bg-[#C2185B]"
+                  onClick={async () => {
+                    await navigator.clipboard.writeText(fullText);
+                    saveDraftMutation.mutate();
+                    window.open("https://www.instagram.com/", "_blank");
+                  }}
                 >
-                  <Button className="w-full gap-1.5 text-white bg-[#E1306C] hover:bg-[#C2185B]">
-                    인스타그램
-                  </Button>
-                </a>
+                  인스타그램
+                </Button>
               </div>
             </>
           ) : (

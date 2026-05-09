@@ -157,10 +157,10 @@ export default function Admin() {
   const events: Event[] = sortBySchedule(data?.events ?? []);
   const ads: Ad[] = adsData?.ads ?? [];
 
-  // derived lists — 공개 피드와 동일하게 approved + published 포함
-  const feedEvents = events.filter((e) => e.status === "approved" || e.status === "published");
+  // derived lists
+  const feedEvents = events.filter((e) => e.status === "approved");
   const publishEvents = events.filter(
-    (e) => (e.status === "approved" || e.status === "published") && e.socialDraft,
+    (e) => e.status === "approved" && e.socialDraft,
   );
 
   // ── Mutations ────────────────────────────────────────────────────────────────

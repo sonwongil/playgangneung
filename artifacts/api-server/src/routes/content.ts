@@ -163,9 +163,9 @@ a{text-decoration:none;color:inherit}
 .header-back{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:50%;background:#f1f5f9;color:#475569;font-size:18px;flex-shrink:0}
 .header-title{font-size:14px;font-weight:600;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}
 /* Hero */
-.hero{position:relative;width:100%;aspect-ratio:16/9;overflow:hidden;background:#e2e8f0}
-.hero img{width:100%;height:100%;object-fit:cover}
-.hero-overlay{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.55) 0%,rgba(0,0,0,.0) 60%)}
+.hero{position:relative;width:100%;background:#000}
+.hero img{width:100%;height:auto;display:block;object-fit:contain}
+.hero-overlay{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.65) 0%,rgba(0,0,0,.0) 50%)}
 .hero-meta{position:absolute;bottom:14px;left:16px;right:16px}
 .category-badge{display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;color:#fff;margin-bottom:8px}
 .hero-title{font-size:19px;font-weight:800;color:#fff;line-height:1.35;text-shadow:0 1px 4px rgba(0,0,0,.4)}

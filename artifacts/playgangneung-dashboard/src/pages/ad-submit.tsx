@@ -162,8 +162,8 @@ export default function AdSubmit() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Plan Selection */}
-          <div className="bg-white rounded-2xl border border-border shadow-sm p-5">
+          {/* Plan Selection — 전체 무료 기간 중 숨김 */}
+          <div className="hidden bg-white rounded-2xl border border-border shadow-sm p-5">
             <h2 className="font-semibold text-base mb-4">광고 상품 선택</h2>
             <div className="grid grid-cols-3 gap-3">
               {PLANS.map((plan) => (

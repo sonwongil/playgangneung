@@ -50,6 +50,7 @@ interface ContentItem {
   description: string;
   date: string;
   source: string;
+  contact: string;
   link: string;
   category: string;
   thumbnail: string;
@@ -70,7 +71,7 @@ async function findContent(id: string): Promise<ContentItem | null> {
       return {
         id: ev.id, type: "event",
         title: ev.title, description: ev.description,
-        date: ev.date, source: ev.source, link: ev.link,
+        date: ev.date, source: ev.source, contact: (ev as any).contact ?? "", link: ev.link,
         category,
         thumbnail: rawThumb ?? THUMBNAIL_MAP[category] ?? THUMBNAIL_MAP["지역소식"],
         hasThumbnail: !!rawThumb,
@@ -87,7 +88,7 @@ async function findContent(id: string): Promise<ContentItem | null> {
       return {
         id: ad.id, type: "ad",
         title: ad.title, description: ad.description,
-        date: ad.date, source: ad.businessName ?? "광고", link: ad.url ?? "",
+        date: ad.date, source: ad.businessName ?? "광고", contact: ad.phone ?? "", link: ad.url ?? "",
         category: ad.category ?? "광고",
         thumbnail: ad.imageUrl ?? THUMBNAIL_MAP["광고"],
         hasThumbnail: !!ad.imageUrl,
@@ -183,6 +184,10 @@ a{text-decoration:none;color:inherit}
 /* Source */
 .source-tag{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#94a3b8;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:2px 8px}
 .source-link{display:inline-flex;align-items:center;gap:6px;font-size:14px;font-weight:700;color:#2563eb;padding:10px 0}
+/* Contact box */
+.contact-box{background:#f0f9ff;border:1px solid #bae6fd;border-radius:12px;padding:12px 14px}
+.contact-label{font-size:11px;font-weight:700;color:#0369a1;margin-bottom:4px}
+.contact-value{font-size:14px;font-weight:600;color:#0c4a6e}
 /* Bottom bar */
 .bottom-bar{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #e2e8f0;padding:10px 16px;display:flex;gap:8px;z-index:50;box-shadow:0 -2px 12px rgba(0,0,0,.08)}
 .btn{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:12px 8px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;border:none;transition:opacity .15s}
@@ -229,6 +234,12 @@ ${item.hasThumbnail ? `
   ${dateStr ? `<div class="info-row"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>${escHtml(dateStr)}</div>` : ""}
   ${item.location ? `<div class="info-row"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>${escHtml(item.location)}</div>` : ""}
   <div class="info-row"><span class="source-tag">출처: ${escHtml(item.source)}</span></div>
+
+  <div class="divider"></div>
+  <div class="contact-box">
+    <p class="contact-label">📞 문의처</p>
+    <p class="contact-value">${escHtml(item.contact || item.source)}</p>
+  </div>
 
   <div class="divider"></div>
   <p class="section-title">상세 내용</p>

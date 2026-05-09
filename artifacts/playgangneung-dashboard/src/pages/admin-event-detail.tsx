@@ -26,6 +26,7 @@ interface Event {
   endDate?: string;
   link: string;
   source: string;
+  contact?: string;
   location?: string;
   category?: string;
   thumbnail?: string;
@@ -182,6 +183,12 @@ export default function AdminEventDetail() {
           {event.source && <><span>·</span><span>{event.source}</span></>}
           {event.location && <><span>·</span><span>📍 {event.location}</span></>}
           {event.category && <><span>·</span><span>{event.category}</span></>}
+        </div>
+
+        {/* 문의처 */}
+        <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3">
+          <p className="text-xs font-bold text-blue-700 mb-1">📞 문의처</p>
+          <p className="text-sm font-semibold text-blue-900">{event.contact || event.source || "—"}</p>
         </div>
 
         {/* Original URL */}

@@ -765,6 +765,7 @@ export default function Admin() {
               category: fd.get("category") as string,
               startDate: fd.get("startDate") as string,
               endDate: fd.get("endDate") as string,
+              contact: fd.get("contact") as string,
             }});
           }}>
             <div className="space-y-2">
@@ -775,6 +776,7 @@ export default function Admin() {
               {editThumbnailUrl && <div className="rounded-lg overflow-hidden border h-32 bg-gray-50"><img src={editThumbnailUrl} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} /></div>}
             </div>
             <div className="space-y-1"><Label>제목</Label><Input name="title" defaultValue={editingEvent.title} required /></div>
+            <div className="space-y-1"><Label>문의처</Label><Input name="contact" defaultValue={(editingEvent as any).contact ?? ""} placeholder="예: 강릉시청 문화예술과 033-000-0000" /></div>
             <div className="space-y-1"><Label>설명</Label><Textarea name="description" rows={3} defaultValue={editingEvent.description} /></div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1"><Label>장소</Label><Input name="location" defaultValue={editingEvent.location ?? ""} /></div>

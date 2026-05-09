@@ -102,12 +102,13 @@ router.post("/events/crawl", async (req, res) => {
 
 router.post("/events/manual", async (req, res) => {
   try {
-    const { title, description, date, link, source } = req.body as {
+    const { title, description, date, link, source, contact } = req.body as {
       title?: string;
       description?: string;
       date?: string;
       link?: string;
       source?: string;
+      contact?: string;
     };
 
     if (!title) {
@@ -129,6 +130,7 @@ router.post("/events/manual", async (req, res) => {
       thumbnail: null,
       link: link || "",
       source: source || "수동 등록",
+      contact: contact || "",
       sourceType: "manual",
       status: "draft",
       socialDraft: null,
@@ -257,7 +259,7 @@ router.post("/events/regenerate-drafts", async (req, res) => {
 router.patch("/events/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, description, thumbnail, location, category, startDate, endDate } = req.body as {
+    const { title, description, thumbnail, location, category, startDate, endDate, contact } = req.body as {
       title?: string;
       description?: string;
       thumbnail?: string | null;
@@ -265,6 +267,7 @@ router.patch("/events/:id", async (req, res) => {
       category?: string;
       startDate?: string;
       endDate?: string;
+      contact?: string;
     };
     const patch: Partial<import("../lib/storage.js").CrawledEvent> = {};
     if (title !== undefined) patch.title = title;
@@ -274,6 +277,7 @@ router.patch("/events/:id", async (req, res) => {
     if (category !== undefined) patch.category = category;
     if (startDate !== undefined) { patch.startDate = startDate; patch.date = startDate; }
     if (endDate !== undefined) patch.endDate = endDate;
+    if (contact !== undefined) patch.contact = contact;
     const updated = await import("../lib/storage.js").then((m) => m.updateEvent(id, patch));
     if (!updated) return res.status(404).json({ success: false, error: "이벤트를 찾을 수 없습니다." });
     req.log.info({ id }, "이벤트 수정");

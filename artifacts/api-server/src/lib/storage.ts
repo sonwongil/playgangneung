@@ -28,6 +28,7 @@ export interface CrawledEvent {
   thumbnail: string | null;
   link: string;
   source: string;
+  contact: string;
   sourceType: SourceType;
   status: EventStatus;
   socialDraft: SocialDraft | null;
@@ -60,6 +61,7 @@ export async function readEvents(): Promise<CrawledEvent[]> {
       thumbnail: e.thumbnail ?? null,
       link: e.link ?? "",
       source: e.source ?? "",
+      contact: (e as any).contact ?? "",
       sourceType: (e.sourceType as SourceType) ?? "html",
       status: (e.status as EventStatus) ?? "draft",
       socialDraft: e.socialDraft ?? null,

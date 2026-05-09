@@ -1,9 +1,7 @@
-import { createCanvas, GlobalFonts } from "@napi-rs/canvas";
+import { createCanvas, GlobalFonts, loadImage } from "@napi-rs/canvas";
 import fs from "fs/promises";
 import path from "path";
 import type { CrawledEvent } from "./storage.js";
-
-// ─── Font registration ────────────────────────────────────────────────────────
 
 let fontsRegistered = false;
 
@@ -21,7 +19,6 @@ function ensureFonts() {
     path.join(fontDir, "noto-sans-kr-korean-700-normal.woff"),
     "NotoSansKR",
   );
-  // Latin supplement (numbers, punctuation, ASCII)
   GlobalFonts.registerFromPath(
     path.join(fontDir, "noto-sans-kr-0-400-normal.woff"),
     "NotoSansKR",
@@ -33,23 +30,8 @@ function ensureFonts() {
   fontsRegistered = true;
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
 const SIZE = 1080;
-const BRAND_COLOR    = "#0f3460";
-const ACCENT_COLOR   = "#e94560";
-const CARD_BLUE_DARK = "#0a2540";
-
-const VISIT_PHRASES = [
-  "강릉으로 떠나는 특별한 하루",
-  "강릉에서만 느낄 수 있는 경험",
-  "강릉의 매력을 직접 만나보세요",
-  "이번 주말, 강릉으로 오세요",
-];
-
-function pickPhrase(): string {
-  return VISIT_PHRASES[Math.floor(Math.random() * VISIT_PHRASES.length)];
-}
+const ACCENT_COLOR = "#e94560";
 
 function formatDate(dateStr: string): string {
   if (!dateStr) return "";
@@ -59,7 +41,6 @@ function formatDate(dateStr: string): string {
   return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일`;
 }
 
-/** Wrap text to lines that fit within maxWidth. */
 function wrapText(
   ctx: ReturnType<ReturnType<typeof createCanvas>["getContext"]>,
   text: string,
@@ -68,7 +49,6 @@ function wrapText(
   const words = text.split(" ");
   const lines: string[] = [];
   let current = "";
-
   for (const word of words) {
     const test = current ? `${current} ${word}` : word;
     if (ctx.measureText(test).width <= maxWidth) {
@@ -81,8 +61,6 @@ function wrapText(
   if (current) lines.push(current);
   return lines;
 }
-
-// ─── Public ───────────────────────────────────────────────────────────────────
 
 export const CARDS_DIR = path.resolve(process.cwd(), "public/cards");
 
@@ -97,128 +75,119 @@ export async function generateCardImage(event: CrawledEvent): Promise<string> {
   await fs.mkdir(CARDS_DIR, { recursive: true });
 
   const canvas = createCanvas(SIZE, SIZE);
-  const ctx    = canvas.getContext("2d");
+  const ctx = canvas.getContext("2d");
 
-  // ── Background ────────────────────────────────────────────────────────────
-  const grad = ctx.createLinearGradient(0, 0, 0, SIZE);
-  grad.addColorStop(0,   CARD_BLUE_DARK);
-  grad.addColorStop(0.6, BRAND_COLOR);
-  grad.addColorStop(1,   "#162d56");
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, SIZE, SIZE);
+  // ── 배경: 행사 썸네일 이미지 (cover-fit) ──────────────────────────────────
+  let usedThumbnail = false;
+  if (event.thumbnail) {
+    try {
+      const img = await loadImage(event.thumbnail);
+      const iw = img.width as number;
+      const ih = img.height as number;
+      const scale = Math.max(SIZE / iw, SIZE / ih);
+      const sw = iw * scale;
+      const sh = ih * scale;
+      const sx = (SIZE - sw) / 2;
+      const sy = (SIZE - sh) / 2;
+      ctx.drawImage(img as Parameters<typeof ctx.drawImage>[0], sx, sy, sw, sh);
+      usedThumbnail = true;
+    } catch {
+      // 이미지 로딩 실패 시 그라디언트 배경으로 대체
+    }
+  }
 
-  // ── Decorative circles (background) ──────────────────────────────────────
-  ctx.save();
-  ctx.globalAlpha = 0.06;
-  ctx.fillStyle = "#ffffff";
-  ctx.beginPath();
-  ctx.arc(SIZE - 80, 80, 280, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.arc(100, SIZE - 100, 220, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
+  if (!usedThumbnail) {
+    const grad = ctx.createLinearGradient(0, 0, 0, SIZE);
+    grad.addColorStop(0, "#0a2540");
+    grad.addColorStop(1, "#0f3460");
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, SIZE, SIZE);
+  }
 
-  // ── Accent stripe (left side) ─────────────────────────────────────────────
+  // ── 하단 그라디언트 오버레이 (텍스트 가독성) ──────────────────────────────
+  const overlayH = 480;
+  const overlay = ctx.createLinearGradient(0, SIZE - overlayH, 0, SIZE);
+  overlay.addColorStop(0, "rgba(0,0,0,0)");
+  overlay.addColorStop(0.35, "rgba(0,0,0,0.55)");
+  overlay.addColorStop(1, "rgba(0,0,0,0.88)");
+  ctx.fillStyle = overlay;
+  ctx.fillRect(0, SIZE - overlayH, SIZE, overlayH);
+
+  // ── 상단 좌측: PLAY강릉 배지 ──────────────────────────────────────────────
+  const PAD = 50;
+  const badgeH = 42;
+  const badgeW = 180;
+  const badgeR = 8;
+  const bx = PAD, by = PAD;
+
   ctx.fillStyle = ACCENT_COLOR;
-  ctx.fillRect(0, 0, 10, SIZE);
-
-  // ── Top branding area ─────────────────────────────────────────────────────
-  const topAreaH = 200;
-
-  // Small red badge
-  const badgeX = 54, badgeY = 52, badgeW = 170, badgeH = 38, badgeR = 8;
-  ctx.fillStyle = ACCENT_COLOR;
   ctx.beginPath();
-  ctx.moveTo(badgeX + badgeR, badgeY);
-  ctx.lineTo(badgeX + badgeW - badgeR, badgeY);
-  ctx.quadraticCurveTo(badgeX + badgeW, badgeY, badgeX + badgeW, badgeY + badgeR);
-  ctx.lineTo(badgeX + badgeW, badgeY + badgeH - badgeR);
-  ctx.quadraticCurveTo(badgeX + badgeW, badgeY + badgeH, badgeX + badgeW - badgeR, badgeY + badgeH);
-  ctx.lineTo(badgeX + badgeR, badgeY + badgeH);
-  ctx.quadraticCurveTo(badgeX, badgeY + badgeH, badgeX, badgeY + badgeH - badgeR);
-  ctx.lineTo(badgeX, badgeY + badgeR);
-  ctx.quadraticCurveTo(badgeX, badgeY, badgeX + badgeR, badgeY);
+  ctx.moveTo(bx + badgeR, by);
+  ctx.lineTo(bx + badgeW - badgeR, by);
+  ctx.quadraticCurveTo(bx + badgeW, by, bx + badgeW, by + badgeR);
+  ctx.lineTo(bx + badgeW, by + badgeH - badgeR);
+  ctx.quadraticCurveTo(bx + badgeW, by + badgeH, bx + badgeW - badgeR, by + badgeH);
+  ctx.lineTo(bx + badgeR, by + badgeH);
+  ctx.quadraticCurveTo(bx, by + badgeH, bx, by + badgeH - badgeR);
+  ctx.lineTo(bx, by + badgeR);
+  ctx.quadraticCurveTo(bx, by, bx + badgeR, by);
   ctx.closePath();
   ctx.fill();
 
   ctx.fillStyle = "#ffffff";
-  ctx.font = "bold 20px NotoSansKR";
+  ctx.font = "bold 22px NotoSansKR";
   ctx.textBaseline = "middle";
-  ctx.fillText("PLAY강릉", badgeX + 12, badgeY + badgeH / 2 + 1);
+  ctx.fillText("PLAY강릉", bx + 14, by + badgeH / 2 + 1);
 
-  // Brand title
-  ctx.fillStyle = "#ffffff";
+  // ── 행사 제목 ─────────────────────────────────────────────────────────────
+  const titleText = event.title.trim();
+  const maxTitleW = SIZE - PAD * 2;
   ctx.font = "bold 64px NotoSansKR";
-  ctx.textBaseline = "alphabetic";
-  ctx.fillText("PLAY강릉", 54, 172);
-
-  // Divider
-  ctx.strokeStyle = ACCENT_COLOR;
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.moveTo(54, topAreaH + 10);
-  ctx.lineTo(SIZE - 54, topAreaH + 10);
-  ctx.stroke();
-
-  // ── Event title (center) ──────────────────────────────────────────────────
-  const titleText = event.socialDraft.title.replace(/^[\p{Emoji}\s]+/u, "").trim();
-  const maxTitleW = SIZE - 108;
-
-  ctx.font = "bold 62px NotoSansKR";
   ctx.fillStyle = "#ffffff";
-  ctx.textBaseline = "top";
+  ctx.textBaseline = "bottom";
 
-  const titleLines = wrapText(ctx, titleText, maxTitleW);
-  const titleLineH = 76;
-  const totalTitleH = titleLines.length * titleLineH;
-  const titleStartY = topAreaH + 60 + (SIZE - topAreaH - 60 - 240 - totalTitleH) / 2;
+  const titleLines = wrapText(ctx, titleText, maxTitleW).slice(0, 3);
+  const titleLineH = 80;
+  const dateStr = formatDate(event.date);
+  const dateLineH = dateStr ? 48 : 0;
+  const sourceLineH = event.source ? 40 : 0;
+  const totalTextH =
+    titleLines.length * titleLineH + dateLineH + sourceLineH + 20;
+  let curY = SIZE - PAD - sourceLineH - dateLineH - 20;
 
-  titleLines.forEach((line, i) => {
-    ctx.fillText(line, 54, titleStartY + i * titleLineH);
+  titleLines.slice().reverse().forEach((line, ri) => {
+    const idx = titleLines.length - 1 - ri;
+    ctx.fillText(line, PAD, curY - idx * titleLineH);
   });
 
-  // ── Bottom info area ──────────────────────────────────────────────────────
-  const bottomY = SIZE - 240;
+  curY = SIZE - PAD;
 
-  // Separator
-  ctx.strokeStyle = "rgba(255,255,255,0.2)";
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(54, bottomY);
-  ctx.lineTo(SIZE - 54, bottomY);
-  ctx.stroke();
-
-  // Date
-  const dateStr = formatDate(event.date);
+  // ── 날짜 ──────────────────────────────────────────────────────────────────
   if (dateStr) {
-    ctx.font = "400 30px NotoSansKR";
-    ctx.fillStyle = "rgba(255,255,255,0.75)";
-    ctx.textBaseline = "top";
-    ctx.fillText(dateStr, 54, bottomY + 28);
+    ctx.font = "400 34px NotoSansKR";
+    ctx.fillStyle = "rgba(255,255,255,0.85)";
+    ctx.textBaseline = "bottom";
+    const dateY = SIZE - PAD - (event.source ? sourceLineH + 8 : 0);
+    ctx.fillText(dateStr, PAD, dateY);
   }
 
-  // Source
+  // ── 출처 ──────────────────────────────────────────────────────────────────
   if (event.source) {
-    ctx.font = "400 26px NotoSansKR";
-    ctx.fillStyle = "rgba(255,255,255,0.55)";
-    ctx.fillText(`출처: ${event.source}`, 54, bottomY + 76);
+    ctx.font = "400 28px NotoSansKR";
+    ctx.fillStyle = "rgba(255,255,255,0.6)";
+    ctx.textBaseline = "bottom";
+    ctx.fillText(event.source, PAD, SIZE - PAD);
   }
 
-  // Visit phrase
-  const phrase = pickPhrase();
-  ctx.font = "bold 32px NotoSansKR";
-  ctx.fillStyle = "#ffd700";
-  ctx.fillText(phrase, 54, bottomY + 130);
-
-  // ── Bottom-right: PLAY강릉 watermark ─────────────────────────────────────
+  // ── 우하단 워터마크 ───────────────────────────────────────────────────────
   ctx.font = "400 22px NotoSansKR";
-  ctx.fillStyle = "rgba(255,255,255,0.3)";
+  ctx.fillStyle = "rgba(255,255,255,0.35)";
   ctx.textAlign = "right";
-  ctx.fillText("playgangneung.kr", SIZE - 54, SIZE - 40);
+  ctx.textBaseline = "bottom";
+  ctx.fillText("playgangneung.kr", SIZE - PAD, SIZE - PAD);
   ctx.textAlign = "left";
 
-  // ── Export PNG ────────────────────────────────────────────────────────────
+  // ── PNG 저장 ──────────────────────────────────────────────────────────────
   const filename = `${event.id}.png`;
   const filePath = path.join(CARDS_DIR, filename);
   const png = await canvas.encode("png");

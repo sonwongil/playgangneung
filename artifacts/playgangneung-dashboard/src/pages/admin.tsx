@@ -1142,12 +1142,12 @@ export default function Admin() {
                 <div className="border border-purple-200 bg-purple-50 rounded-xl p-3">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-semibold text-purple-700 flex items-center gap-1">
-                      <Image className="w-3.5 h-3.5" />카드이미지 생성 완료
+                      <Image className="w-3.5 h-3.5" />카드이미지 (1080×1080)
                     </span>
                     <div className="flex gap-1.5">
                       <a href={ev.cardImageUrl} target="_blank" rel="noopener noreferrer">
                         <Button size="sm" variant="outline" className="h-7 px-2.5 text-xs text-purple-700 border-purple-300">
-                          <ExternalLink className="w-3 h-3 mr-1" />보기
+                          <ExternalLink className="w-3 h-3 mr-1" />원본
                         </Button>
                       </a>
                       <a href={ev.cardImageUrl} download={`${ev.title}.png`}>
@@ -1157,11 +1157,13 @@ export default function Admin() {
                       </a>
                     </div>
                   </div>
-                  <img
-                    src={ev.cardImageUrl}
-                    alt="카드이미지"
-                    className="w-full rounded-lg border border-purple-200"
-                  />
+                  <div className="flex justify-center">
+                    <img
+                      src={ev.cardImageUrl}
+                      alt="카드이미지"
+                      className="w-64 h-64 object-cover rounded-lg border border-purple-200"
+                    />
+                  </div>
                 </div>
               )}
 

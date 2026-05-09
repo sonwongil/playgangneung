@@ -224,12 +224,6 @@ a{text-decoration:none;color:inherit}
   <p class="description">${desc}</p>
 </div>
 
-<!-- Share URL box -->
-<div class="share-box">
-  <div class="share-label">📲 SNS에서 공유된 링크</div>
-  <div class="share-url">${escHtml(contentUrl)}</div>
-</div>
-
 <!-- Brand footer -->
 <div class="brand-footer">
   강릉의 모든 것 · PLAY강릉<br>

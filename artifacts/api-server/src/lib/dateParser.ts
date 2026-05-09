@@ -16,14 +16,18 @@ function toIso(raw: string): string {
   return raw.replace(/\./g, "-").replace(/\//g, "-").trim();
 }
 
+function kstDateStr(offsetDays = 0): string {
+  const now = new Date();
+  const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000 + offsetDays * 86400000);
+  return kst.toISOString().slice(0, 10);
+}
+
 function todayStr(): string {
-  return new Date().toISOString().slice(0, 10);
+  return kstDateStr(0);
 }
 
 function tomorrowStr(): string {
-  const d = new Date();
-  d.setDate(d.getDate() + 1);
-  return d.toISOString().slice(0, 10);
+  return kstDateStr(1);
 }
 
 function calcStatus(start: string, end: string): ScheduleStatus {

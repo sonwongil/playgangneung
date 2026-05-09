@@ -60,8 +60,9 @@ router.post("/events/crawl", async (req, res) => {
     if (url) {
       req.log.info({ url }, "커스텀 URL 크롤링 시작");
       const events = await crawlUrl(url);
-      const { added, total } = await appendEvents(events);
-      req.log.info({ added, total }, "커스텀 URL 크롤링 완료");
+      const fresh = events.filter((e) => e.scheduleStatus !== "ended");
+      const { added, total } = await appendEvents(fresh);
+      req.log.info({ added, total, skipped: events.length - fresh.length }, "커스텀 URL 크롤링 완료");
       return res.json({
         success: true,
         added,
@@ -70,7 +71,8 @@ router.post("/events/crawl", async (req, res) => {
           {
             source: url,
             sourceType: events[0]?.sourceType ?? "html",
-            collected: events.length,
+            collected: fresh.length,
+            skippedEnded: events.length - fresh.length,
           },
         ],
       });
@@ -79,7 +81,9 @@ router.post("/events/crawl", async (req, res) => {
     req.log.info("전체 크롤링 시작 (RSS → HTML)");
     const results = await crawlAll();
     const allEvents = results.flatMap((r) => r.events);
-    const { added, total } = await appendEvents(allEvents);
+    const fresh = allEvents.filter((e) => e.scheduleStatus !== "ended");
+    req.log.info({ collected: allEvents.length, skippedEnded: allEvents.length - fresh.length }, "종료된 행사 제외");
+    const { added, total } = await appendEvents(fresh);
 
     const summary = results.map((r) => ({
       source: r.source,

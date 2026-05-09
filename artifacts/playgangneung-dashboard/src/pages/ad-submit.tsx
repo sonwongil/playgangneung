@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useDropzone } from "react-dropzone";
 import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -181,6 +181,29 @@ export default function AdSubmit() {
     category: "행사", title: "", description: "", date: "",
     location: "", url: "", plan: "basic", agreed: false,
   });
+
+  // 전역 붙여넣기(Ctrl+V) — 빈 슬롯 순서대로 채움
+  useEffect(() => {
+    const handlePaste = async (e: ClipboardEvent) => {
+      const items = Array.from(e.clipboardData?.items ?? []);
+      const imageItem = items.find((item) => item.type.startsWith("image/"));
+      if (!imageItem) return;
+      const file = imageItem.getAsFile();
+      if (!file) return;
+      const emptyIndex = ([0, 1, 2] as const).find((i) => images[i] === null);
+      if (emptyIndex === undefined) return;
+      try {
+        const resized = await resizeImage(file);
+        setImages((prev) => {
+          const next = [...prev] as [string | null, string | null, string | null];
+          next[emptyIndex] = resized;
+          return next;
+        });
+      } catch { /* noop */ }
+    };
+    document.addEventListener("paste", handlePaste);
+    return () => document.removeEventListener("paste", handlePaste);
+  }, [images]);
 
   const handleImageFile = async (index: 0 | 1 | 2, file: File) => {
     try {

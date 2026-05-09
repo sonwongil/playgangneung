@@ -594,24 +594,14 @@ export default function Admin() {
                           )}
                           {!isPublished && (
                             <div className="flex flex-wrap gap-2 pt-1">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-8 px-3 text-xs gap-1.5"
-                                onClick={() => {
-                                  navigator.clipboard.writeText(fullText).then(() => toast({ title: "문구 복사 완료", description: "SNS 앱에서 붙여넣기 하세요." }));
-                                }}
-                              >
-                                <Copy className="w-3 h-3" />문구 복사
-                              </Button>
                               <a
                                 href="https://www.facebook.com/"
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 onClick={() => navigator.clipboard.writeText(fullText)}
                               >
-                                <Button size="sm" variant="outline" className="h-8 px-3 text-xs gap-1.5 text-[#1877F2] border-[#1877F2]/30 hover:bg-[#1877F2]/10">
-                                  <ExternalLink className="w-3 h-3" />페이스북 열기
+                                <Button size="sm" className="h-8 px-3 text-xs gap-1.5 text-white bg-[#1877F2] hover:bg-[#1565C0]">
+                                  페이스북
                                 </Button>
                               </a>
                               <a
@@ -620,19 +610,19 @@ export default function Admin() {
                                 rel="noopener noreferrer"
                                 onClick={() => navigator.clipboard.writeText(fullText)}
                               >
-                                <Button size="sm" variant="outline" className="h-8 px-3 text-xs gap-1.5 text-[#E1306C] border-[#E1306C]/30 hover:bg-[#E1306C]/10">
-                                  <ExternalLink className="w-3 h-3" />인스타 열기
+                                <Button size="sm" className="h-8 px-3 text-xs gap-1.5 text-white bg-[#E1306C] hover:bg-[#C2185B]">
+                                  인스타그램
                                 </Button>
                               </a>
                               <Button
                                 size="sm"
-                                className="h-8 px-3 text-xs gap-1.5 bg-blue-600 hover:bg-blue-700"
+                                className="h-8 px-3 text-xs gap-1.5 bg-gray-800 hover:bg-gray-900"
                                 disabled={statusMutation.isPending}
                                 onClick={() => statusMutation.mutate({ id: ev.id, status: "published" }, {
                                   onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-events"] }),
                                 })}
                               >
-                                <Send className="w-3 h-3" />발행완료 처리
+                                <Send className="w-3 h-3" />발행완료
                               </Button>
                             </div>
                           )}

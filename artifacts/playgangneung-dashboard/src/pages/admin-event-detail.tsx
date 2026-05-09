@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, ExternalLink, ImageOff, MessageSquare, Trash2, Copy, RefreshCw } from "lucide-react";
+import { ArrowLeft, ExternalLink, ImageOff, MessageSquare, Trash2, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -240,20 +240,28 @@ export default function AdminEventDetail() {
                 />
               </div>
               <div className="flex gap-2">
-                <Button
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 gap-1.5"
-                  disabled={saveDraftMutation.isPending}
-                  onClick={() => saveDraftMutation.mutate()}
+                <a
+                  href="https://www.facebook.com/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1"
+                  onClick={() => { navigator.clipboard.writeText(fullText); saveDraftMutation.mutate(); }}
                 >
-                  {saveDraftMutation.isPending ? "저장 중..." : "저장"}
-                </Button>
-                <Button
-                  variant="outline"
-                  className="gap-1.5"
-                  onClick={() => navigator.clipboard.writeText(fullText).then(() => toast({ title: "복사 완료" }))}
+                  <Button className="w-full gap-1.5 text-white bg-[#1877F2] hover:bg-[#1565C0]">
+                    페이스북
+                  </Button>
+                </a>
+                <a
+                  href="https://www.instagram.com/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1"
+                  onClick={() => { navigator.clipboard.writeText(fullText); saveDraftMutation.mutate(); }}
                 >
-                  <Copy className="w-3.5 h-3.5" />복사
-                </Button>
+                  <Button className="w-full gap-1.5 text-white bg-[#E1306C] hover:bg-[#C2185B]">
+                    인스타그램
+                  </Button>
+                </a>
               </div>
             </>
           ) : (

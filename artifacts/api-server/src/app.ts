@@ -3,9 +3,12 @@ import cors from "cors";
 import pinoHttp from "pino-http";
 import path from "path";
 import session from "express-session";
+import FileStore from "session-file-store";
 import router from "./routes/index.js";
 import contentRouter from "./routes/content.js";
 import { logger } from "./lib/logger.js";
+
+const FileStoreSession = FileStore(session);
 
 const app: Express = express();
 
@@ -39,6 +42,12 @@ app.use(
 );
 app.use(
   session({
+    store: new FileStoreSession({
+      path: path.resolve(process.cwd(), "data/sessions"),
+      ttl: 60 * 60 * 24 * 30,
+      retries: 1,
+      logFn: () => {},
+    }),
     secret: process.env["SESSION_SECRET"] ?? "playgangneung-secret",
     resave: false,
     saveUninitialized: false,
@@ -46,7 +55,7 @@ app.use(
       httpOnly: true,
       secure: false,
       sameSite: "lax",
-      maxAge: 1000 * 60 * 60 * 24 * 7,
+      maxAge: 1000 * 60 * 60 * 24 * 30,
     },
   }),
 );

@@ -9,15 +9,6 @@ import {
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-type QuickFilter = "오늘" | "이번 주" | "주말" | "무료" | "가족";
-
-const DATE_FILTERS = new Set<QuickFilter>(["오늘", "이번 주", "주말"]);
-
-const QUICK_FILTER_KEYWORDS: Partial<Record<QuickFilter, string[]>> = {
-  무료: ["무료"],
-  가족: ["가족"],
-};
-
 interface FeedItem {
   id: string;
   title: string;
@@ -75,7 +66,6 @@ function getRelativeDate(offsetDays: number) {
 }
 
 const TODAY_STR = getRelativeDate(0);
-
 const FALLBACK_FEED: FeedItem[] = [];
 
 const CATEGORY_FALLBACK_POOL: Record<string, string[]> = {
@@ -108,22 +98,6 @@ function pickFallbackImage(id: string, category: string): string {
   let hash = 0;
   for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
   return pool[hash % pool.length];
-}
-
-function isWeekend(dateStr: string): boolean {
-  const d = new Date(dateStr + "T00:00:00");
-  const dow = d.getDay();
-  return dow === 0 || dow === 6;
-}
-
-function getWeekRange() {
-  const d = new Date();
-  const dow = d.getDay();
-  const mon = new Date(d);
-  mon.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1));
-  const sun = new Date(mon);
-  sun.setDate(mon.getDate() + 6);
-  return { start: mon.toISOString().slice(0, 10), end: sun.toISOString().slice(0, 10) };
 }
 
 function AdBadge({ plan }: { plan: "basic" | "main" | "premium" }) {
@@ -203,21 +177,10 @@ function FeedCard({ item }: { item: FeedItem }) {
   );
 }
 
-const QUICK_FILTERS: { key: QuickFilter; label: string }[] = [
-  { key: "오늘", label: "🗓️ 오늘" },
-  { key: "이번 주", label: "📅 이번 주" },
-  { key: "주말", label: "🌅 주말" },
-  { key: "무료", label: "🎉 무료" },
-  { key: "가족", label: "👨‍👩‍👧 가족" },
-];
-
 export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeFilter, setActiveFilter] = useState<QuickFilter | null>(null);
   const [showAll, setShowAll] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  const weekRange = useMemo(() => getWeekRange(), []);
 
   const { data } = useQuery<{ feed: FeedItem[]; total: number }>({
     queryKey: ["public-feed"],
@@ -232,47 +195,19 @@ export default function Home() {
   const allItems: FeedItem[] = data?.feed?.length ? data.feed : FALLBACK_FEED;
 
   const filtered = useMemo(() => {
-    let items = [...allItems];
-
-    // Date-based quick filters (only non-ad items)
-    if (activeFilter === "오늘") {
-      items = items.filter((i) => i.isAd || i.date === TODAY_STR);
-    } else if (activeFilter === "이번 주") {
-      items = items.filter((i) => i.isAd || (i.date >= weekRange.start && i.date <= weekRange.end));
-    } else if (activeFilter === "주말") {
-      items = items.filter((i) => i.isAd || isWeekend(i.date));
-    }
-
-    // Keyword-based quick filter
-    const kwFilter = activeFilter && !DATE_FILTERS.has(activeFilter)
-      ? QUICK_FILTER_KEYWORDS[activeFilter] ?? []
-      : [];
-
-    // Text search
     const q = searchQuery.trim().toLowerCase();
+    if (!q) return allItems;
+    return allItems.filter((item) => {
+      if (item.isAd) return true;
+      const haystack = [item.title, item.description, item.location ?? "", item.category]
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [allItems, searchQuery]);
 
-    if (q || kwFilter.length > 0) {
-      items = items.filter((item) => {
-        if (item.isAd) return true;
-        const haystack = [item.title, item.description, item.location ?? "", item.category]
-          .join(" ")
-          .toLowerCase();
-        const textMatch = !q || haystack.includes(q);
-        const kwMatch = kwFilter.length === 0 || kwFilter.some((kw) => haystack.includes(kw));
-        return textMatch && kwMatch;
-      });
-    }
-
-    return items;
-  }, [allItems, searchQuery, activeFilter, weekRange]);
-
-  const isSearching = searchQuery.trim() !== "" || activeFilter !== null;
+  const isSearching = searchQuery.trim() !== "";
   const display = showAll ? filtered : filtered.slice(0, 9);
-
-  function handleFilterToggle(f: QuickFilter) {
-    setActiveFilter((prev) => (prev === f ? null : f));
-    setShowAll(false);
-  }
 
   function handleSearchChange(v: string) {
     setSearchQuery(v);
@@ -281,7 +216,6 @@ export default function Home() {
 
   function clearSearch() {
     setSearchQuery("");
-    setActiveFilter(null);
     setShowAll(false);
     inputRef.current?.focus();
   }
@@ -313,8 +247,6 @@ export default function Home() {
           <h1 className="text-2xl md:text-3xl font-bold mb-4 leading-tight">
             강릉에서 지금 뭐하지?
           </h1>
-
-          {/* Search bar */}
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
             <input
@@ -342,37 +274,12 @@ export default function Home() {
 
       {/* Main Content */}
       <main className="flex-1 max-w-6xl mx-auto px-4 pt-3 pb-4 w-full">
-        {/* Quick filter pills */}
-        <div className="flex flex-wrap justify-center items-center gap-1 mb-2">
-          {QUICK_FILTERS.map(({ key, label }) => (
-            <button
-              key={key}
-              onClick={() => handleFilterToggle(key)}
-              className={`px-3 py-1 rounded-full text-[0.8rem] font-medium transition-all border
-                ${activeFilter === key
-                  ? "bg-blue-600 text-white border-blue-600 shadow-sm"
-                  : "bg-white text-gray-600 border-gray-200 hover:border-blue-300 hover:text-blue-600"
-                }`}
-            >
-              {label}
-            </button>
-          ))}
-          {isSearching && (
-            <button
-              onClick={clearSearch}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[0.8rem] font-medium text-gray-400 border border-dashed border-gray-300 hover:border-gray-400 hover:text-gray-500 transition-all"
-            >
-              <X className="w-3 h-3" /> 초기화
-            </button>
-          )}
-        </div>
-
         {/* Result count */}
         {isSearching && (
           <p className="text-xs text-muted-foreground mb-3">
             {filtered.filter(i => !i.isAd).length}건의 결과
-            {activeFilter && <span className="ml-1 font-medium text-blue-600">· {activeFilter}</span>}
-            {searchQuery && <span className="ml-1 font-medium text-blue-600">· &ldquo;{searchQuery}&rdquo;</span>}
+            <span className="ml-1 font-medium text-blue-600">· &ldquo;{searchQuery}&rdquo;</span>
+            <button onClick={clearSearch} className="ml-2 underline text-gray-400 hover:text-gray-600">초기화</button>
           </p>
         )}
 

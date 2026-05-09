@@ -186,7 +186,7 @@ a{text-decoration:none;color:inherit}
   .hero{aspect-ratio:21/9}
   .hero-title{font-size:24px}
   .content{padding:20px 24px}
-  .share-box,.bottom-bar{max-width:640px;margin-left:auto;margin-right:auto;left:50%;transform:translateX(-50%);width:100%}
+  .bottom-bar{max-width:640px;margin-left:auto;margin-right:auto;left:50%;transform:translateX(-50%);width:100%}
   .bottom-bar{left:50%;transform:translateX(-50%)}
 }
 </style>

@@ -43,6 +43,84 @@ async function fetchHtml(url: string, timeoutMs = 15000): Promise<string> {
   return buf.toString("utf-8");
 }
 
+// ─── 상세페이지 설명 추출 헬퍼 ───────────────────────────────────────────────
+
+/**
+ * 상세페이지 URL에서 본문 설명을 추출합니다.
+ * 다양한 한국 정부/문화재단 사이트의 공통 셀렉터를 순서대로 시도합니다.
+ * 실패 시 빈 문자열 반환.
+ */
+async function fetchDetailDesc(url: string, timeoutMs = 8000): Promise<string> {
+  try {
+    const html = await fetchHtml(url, timeoutMs);
+    const $ = cheerio.load(html);
+
+    // 공통 본문 컨테이너 셀렉터 (우선순위 순)
+    const CONTENT_SELECTORS = [
+      ".fcontent",           // 강릉문화예술재단
+      ".view_cont",          // 강릉시청 계열
+      ".board-view-content",
+      ".board_view .cont",
+      ".board_view .content",
+      ".view-content",
+      ".view_content",
+      ".cont_area",
+      ".detail_content",
+      ".post-content",
+      ".entry-content",
+      ".content_body",
+      "article .content",
+      "#content .content",
+      ".main-content",
+    ];
+
+    for (const sel of CONTENT_SELECTORS) {
+      const el = $(sel);
+      if (el.length === 0) continue;
+      // 불필요한 태그 제거
+      el.find("script,style,iframe,nav,header,footer,.skip").remove();
+      const text = el.text().replace(/\s+/g, " ").trim();
+      if (text.length > 20) {
+        return text.slice(0, 500);
+      }
+    }
+
+    // fallback: OG description 메타 태그
+    const ogDesc = $("meta[property='og:description']").attr("content") || "";
+    if (ogDesc.length > 10) return ogDesc.slice(0, 500);
+
+    const metaDesc = $("meta[name='description']").attr("content") || "";
+    if (metaDesc.length > 10) return metaDesc.slice(0, 500);
+
+    return "";
+  } catch {
+    return "";
+  }
+}
+
+/** 병렬 상세 fetch (최대 concurrency 제한) */
+async function fetchDescriptions(
+  items: { id: string; link: string }[],
+  concurrency = 4,
+): Promise<Record<string, string>> {
+  const result: Record<string, string> = {};
+  const queue = [...items];
+
+  async function worker() {
+    while (queue.length > 0) {
+      const item = queue.shift();
+      if (!item) break;
+      if (!item.link || item.link.length < 10) continue;
+      result[item.id] = await fetchDetailDesc(item.link);
+    }
+  }
+
+  await Promise.allSettled(
+    Array.from({ length: Math.min(concurrency, items.length) }, () => worker()),
+  );
+  return result;
+}
+
 function buildEvent(
   id: string,
   title: string,
@@ -87,7 +165,17 @@ async function crawlGnYeyak(): Promise<{ events: CrawledEvent[]; error?: string 
   try {
     const html = await fetchHtml(url);
     const $ = cheerio.load(html);
-    const events: CrawledEvent[] = [];
+
+    const rawItems: {
+      id: string;
+      title: string;
+      dateRaw: string;
+      link: string;
+      location: string;
+      thumbnail: string | null;
+      inlineDesc: string;
+      defaultCategory: string;
+    }[] = [];
     const seen = new Set<string>();
 
     $("li").each((_, el) => {
@@ -101,10 +189,15 @@ async function crawlGnYeyak(): Promise<{ events: CrawledEvent[]; error?: string 
       const categoryLabel = $btn.find("em.category").text().trim();
 
       const $popup = $el.find(".popup_inner");
-      const infoText = $popup.find("ul li").map((_, li) => $(li).text().trim()).get();
+      const infoItems = $popup.find("ul li").map((_, li) => $(li).text().trim()).get();
 
-      const dateRaw = infoText.find(t => t.startsWith("기간"))?.replace("기간 : ", "").trim() ?? "";
-      const location = infoText.find(t => t.startsWith("장소"))?.replace("장소 : ", "").trim() || "강릉";
+      const dateRaw = infoItems.find(t => t.startsWith("기간"))?.replace(/^기간\s*:\s*/, "").trim() ?? "";
+      const location = infoItems.find(t => t.startsWith("장소"))?.replace(/^장소\s*:\s*/, "").trim() || "강릉";
+
+      // 기간/장소 외 나머지 항목을 설명으로 수집
+      const extraInfo = infoItems
+        .filter(t => !t.startsWith("기간") && !t.startsWith("장소") && t.length > 1)
+        .join(" | ");
 
       const $detailLink = $popup.find("a.more_link");
       const href = $detailLink.attr("href") || "";
@@ -125,18 +218,30 @@ async function crawlGnYeyak(): Promise<{ events: CrawledEvent[]; error?: string 
         : categoryLabel === "전시" ? "행사"
         : "행사";
 
-      events.push(buildEvent(
-        makeId("gn_yeyak", link || title),
-        title,
-        location,
-        dateRaw,
-        link,
+      const id = makeId("gn_yeyak", link || title);
+      rawItems.push({ id, title, dateRaw, link, location, thumbnail, inlineDesc: extraInfo, defaultCategory });
+    });
+
+    // 상세페이지 병렬 fetch
+    const detailLinks = rawItems
+      .filter(it => it.link && it.link !== url)
+      .map(it => ({ id: it.id, link: it.link }));
+    const descMap = await fetchDescriptions(detailLinks, 4);
+
+    const events: CrawledEvent[] = rawItems.map(it => {
+      const desc = descMap[it.id] || it.inlineDesc || it.location;
+      return buildEvent(
+        it.id,
+        it.title,
+        desc,
+        it.dateRaw,
+        it.link,
         "강릉시 이달의 행사",
         "html",
-        thumbnail,
-        location,
-        defaultCategory,
-      ));
+        it.thumbnail,
+        it.location,
+        it.defaultCategory,
+      );
     });
 
     return { events };
@@ -154,7 +259,16 @@ async function crawlGnArtscenter(): Promise<{ events: CrawledEvent[]; error?: st
   try {
     const html = await fetchHtml(url);
     const $ = cheerio.load(html);
-    const events: CrawledEvent[] = [];
+
+    const rawItems: {
+      id: string;
+      title: string;
+      dateRaw: string;
+      link: string;
+      location: string;
+      thumbnail: string | null;
+      inlineDesc: string;
+    }[] = [];
 
     $("ul.performance_list li.performance_item").each((_, el) => {
       const $el = $(el);
@@ -169,31 +283,53 @@ async function crawlGnArtscenter(): Promise<{ events: CrawledEvent[]; error?: st
       const title = $el.find("span.performance_title").text().trim();
       if (!title || title.length < 2) return;
 
-      // 날짜: 첫 번째 performance_date (기간), 두 번째는 시간 정보
       const $dates = $el.find("span.performance_date");
       const dateRaw = $dates.first().text().trim();
 
+      // 두 번째 performance_date span: 공연 시간/상세 일정 정보
+      const scheduleInfo = $dates.eq(1).text().trim();
+
       const location = $el.find("span.performance_place").text().trim() || "강릉아트센터";
 
-      // 썸네일: background:url('...') 또는 img src
+      // 예매상태, 공연등급 등 추가 정보
+      const statusText = $el.find("span.performance_status, span.performance_grade, em.performance_status").text().trim();
+      const extraText = $el.find("span.performance_cont, p.performance_desc, .performance_info").text().trim();
+
+      // 설명 조합: 시간정보 + 장소 + 추가정보
+      const inlineDesc = [scheduleInfo, location, statusText, extraText]
+        .filter(Boolean)
+        .join(" | ");
+
       const imgStyle = $el.find("span.image").attr("style") || "";
       const imgMatch = imgStyle.match(/url\(['"]?([^'")\s]+)['"]?\)/);
       const thumbnail = imgMatch
         ? (imgMatch[1].startsWith("http") ? imgMatch[1] : `${GN_ARTSCENTER_BASE}${imgMatch[1]}`)
         : null;
 
-      events.push(buildEvent(
-        makeId("gn_artscenter", link || title),
-        title,
-        location,
-        dateRaw,
-        link,
+      const id = makeId("gn_artscenter", link || title);
+      rawItems.push({ id, title, dateRaw, link, location, thumbnail, inlineDesc });
+    });
+
+    // 상세페이지 병렬 fetch (artscenter도 상세 정보 보강)
+    const detailLinks = rawItems
+      .filter(it => it.link && it.link !== url)
+      .map(it => ({ id: it.id, link: it.link }));
+    const descMap = await fetchDescriptions(detailLinks, 4);
+
+    const events: CrawledEvent[] = rawItems.map(it => {
+      const desc = descMap[it.id] || it.inlineDesc || it.location;
+      return buildEvent(
+        it.id,
+        it.title,
+        desc,
+        it.dateRaw,
+        it.link,
         "강릉아트센터",
         "html",
-        thumbnail,
-        location,
+        it.thumbnail,
+        it.location,
         "행사",
-      ));
+      );
     });
 
     return { events };
@@ -211,7 +347,15 @@ async function crawlGncaf(): Promise<{ events: CrawledEvent[]; error?: string }>
   try {
     const html = await fetchHtml(url);
     const $ = cheerio.load(html);
-    const events: CrawledEvent[] = [];
+
+    const rawItems: {
+      id: string;
+      title: string;
+      dateRaw: string;
+      link: string;
+      location: string;
+      thumbnail: string | null;
+    }[] = [];
 
     $("div.grid-item").each((_, el) => {
       const $el = $(el);
@@ -234,18 +378,30 @@ async function crawlGncaf(): Promise<{ events: CrawledEvent[]; error?: string }>
         ? (imgSrc.startsWith("http") ? imgSrc : `${GNCAF_BASE}${imgSrc}`)
         : null;
 
-      events.push(buildEvent(
-        makeId("gncaf", link || title),
-        title,
-        location,
-        dateRaw,
-        link,
+      const id = makeId("gncaf", link || title);
+      rawItems.push({ id, title, dateRaw, link, location, thumbnail });
+    });
+
+    // 강릉문화예술재단은 목록에 설명 없음 → 상세페이지 병렬 fetch 필수
+    const detailLinks = rawItems
+      .filter(it => it.link && it.link !== url)
+      .map(it => ({ id: it.id, link: it.link }));
+    const descMap = await fetchDescriptions(detailLinks, 4);
+
+    const events: CrawledEvent[] = rawItems.map(it => {
+      const desc = descMap[it.id] || it.location;
+      return buildEvent(
+        it.id,
+        it.title,
+        desc,
+        it.dateRaw,
+        it.link,
         "강릉문화예술재단",
         "html",
-        thumbnail,
-        location,
+        it.thumbnail,
+        it.location,
         "행사",
-      ));
+      );
     });
 
     return { events };

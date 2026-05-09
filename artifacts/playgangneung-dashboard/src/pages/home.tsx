@@ -129,7 +129,7 @@ function FeedCard({ item }: { item: FeedItem }) {
         <img
           src={thumbnail}
           alt={item.title}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500"
           loading="lazy"
         />
         <div className="absolute top-3 left-3 flex flex-col gap-1">

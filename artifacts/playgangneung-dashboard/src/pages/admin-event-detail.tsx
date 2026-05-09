@@ -165,7 +165,7 @@ export default function AdminEventDetail() {
       <div className="max-w-2xl mx-auto px-4 py-6 space-y-5">
         {/* Hero image */}
         {event.thumbnail ? (
-          <img src={event.thumbnail} alt={event.title} className="w-full aspect-video object-cover rounded-2xl border border-border shadow-sm" />
+          <img src={event.thumbnail} alt={event.title} className="w-full rounded-2xl border border-border shadow-sm" />
         ) : (
           <div className="w-full aspect-video bg-gray-100 rounded-2xl border-dashed border-2 border-gray-200 flex flex-col items-center justify-center gap-2 text-gray-400">
             <ImageOff className="w-10 h-10" />

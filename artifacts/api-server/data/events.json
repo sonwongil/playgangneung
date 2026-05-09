@@ -45,7 +45,19 @@
     "source": "강릉아트센터",
     "sourceType": "html",
     "status": "approved",
-    "socialDraft": null,
+    "socialDraft": {
+      "title": "🌿 [1기] 토요예술시식단",
+      "caption": "📍 아름다운 강릉에서\n🗓️ 2026년 4월 18일\n\n강릉아트센터 예술교육실\n\n강릉의 매력을 온몸으로 느낄 수 있는 기회입니다.\n\n👉 자세히 보기: https://play-gangneung-dashboard.replit.app/content/c736593e51f39ab1d8bc3f2f438e7129",
+      "hashtags": [
+        "#강릉",
+        "#강릉여행추천",
+        "#강릉여행",
+        "#강원도",
+        "#강원도여행",
+        "#강릉나들이"
+      ],
+      "createdAt": "2026-05-09T05:34:52.672Z"
+    },
     "cardImageUrl": null,
     "crawledAt": "2026-05-06T13:38:35.939Z"
   },

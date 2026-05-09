@@ -893,12 +893,25 @@ export default function Admin() {
                                 {sc.label}
                               </span>
                             </TableCell>
-                            <TableCell>
+                            <TableCell
+                              className="cursor-pointer group/title"
+                              onClick={() => setSelectedScheduleEvent(event)}
+                            >
                               <div className="flex items-center gap-1.5">
-                                <p className="font-medium line-clamp-1 max-w-[180px]">{event.title}</p>
+                                <p className="font-medium line-clamp-1 max-w-[180px] group-hover/title:text-blue-600 transition-colors">{event.title}</p>
                                 {!event.thumbnail && (
                                   <span title="대표 이미지 없음" className="shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-orange-100 text-orange-600 border border-orange-200">
                                     <ImageOff className="w-2.5 h-2.5" />이미지없음
+                                  </span>
+                                )}
+                                {event.socialDraft && (
+                                  <span className="shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-600 border border-blue-200">
+                                    <MessageSquare className="w-2.5 h-2.5" />초안
+                                  </span>
+                                )}
+                                {event.cardImageUrl && (
+                                  <span className="shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-purple-100 text-purple-600 border border-purple-200">
+                                    <Image className="w-2.5 h-2.5" />카드
                                   </span>
                                 )}
                               </div>
@@ -940,7 +953,9 @@ export default function Admin() {
                                     size="sm"
                                     variant="outline"
                                     className="h-7 px-2 text-xs"
-                                    onClick={() => draftMutation.mutate(event.id)}
+                                    onClick={() => draftMutation.mutate(event.id, {
+                                      onSuccess: (d) => setSelectedScheduleEvent({ ...event, socialDraft: d.socialDraft }),
+                                    })}
                                     disabled={draftMutation.isPending}
                                   >
                                     <MessageSquare className="w-3 h-3" /> SNS초안
@@ -951,18 +966,13 @@ export default function Admin() {
                                     size="sm"
                                     variant="outline"
                                     className="h-7 px-2 text-xs"
-                                    onClick={() => cardMutation.mutate(event.id)}
+                                    onClick={() => cardMutation.mutate(event.id, {
+                                      onSuccess: (d) => setSelectedScheduleEvent({ ...event, cardImageUrl: d.cardImageUrl }),
+                                    })}
                                     disabled={cardMutation.isPending}
                                   >
                                     <Image className="w-3 h-3" /> 카드생성
                                   </Button>
-                                )}
-                                {event.cardImageUrl && (
-                                  <a href={event.cardImageUrl} target="_blank" rel="noopener noreferrer">
-                                    <Button size="sm" variant="outline" className="h-7 px-2 text-xs text-blue-700 border-blue-200">
-                                      <Image className="w-3 h-3" /> 카드보기
-                                    </Button>
-                                  </a>
                                 )}
                                 <Button
                                   size="sm"
@@ -1022,6 +1032,19 @@ export default function Admin() {
             </DialogHeader>
 
             <div className="space-y-4 py-1">
+              {/* 섬네일 이미지 */}
+              {ev.thumbnail ? (
+                <img
+                  src={ev.thumbnail}
+                  alt={ev.title}
+                  className="w-full h-44 object-cover rounded-xl border border-border"
+                />
+              ) : (
+                <div className="w-full h-20 bg-gray-100 rounded-xl border border-dashed border-gray-300 flex items-center justify-center text-xs text-gray-400 gap-1.5">
+                  <ImageOff className="w-4 h-4" />대표 이미지 없음
+                </div>
+              )}
+
               {/* 메타 정보 */}
               <div className="flex items-center gap-2 flex-wrap">
                 <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs border font-semibold ${sc.class}`}>
@@ -1032,10 +1055,15 @@ export default function Admin() {
                   <CalendarDays className="w-3 h-3" />{ev.date}
                 </span>
                 <span className="text-xs text-muted-foreground">· {ev.source}</span>
+                {ev.link && (
+                  <a href={ev.link} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-500 hover:underline flex items-center gap-0.5">
+                    <ExternalLink className="w-3 h-3" />원문 보기
+                  </a>
+                )}
               </div>
 
               {/* 설명 */}
-              <p className="text-sm text-muted-foreground leading-relaxed bg-gray-50 rounded-lg p-3">{ev.description}</p>
+              <p className="text-sm text-muted-foreground leading-relaxed bg-gray-50 rounded-lg p-3 whitespace-pre-line">{ev.description}</p>
 
               {/* 워크플로우 단계 표시 */}
               <div className="border border-border rounded-xl p-4">

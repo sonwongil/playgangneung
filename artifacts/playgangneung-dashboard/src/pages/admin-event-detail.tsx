@@ -45,6 +45,7 @@ export default function AdminEventDetail() {
   const [caption, setCaption] = useState("");
   const [hashtagsStr, setHashtagsStr] = useState("");
   const [draftInited, setDraftInited] = useState(false);
+  const [contact, setContact] = useState<string | null>(null);
 
   // ── Data ─────────────────────────────────────────────────────────────────
   const { data, isLoading } = useQuery<{ events: Event[] }>({
@@ -99,6 +100,23 @@ export default function AdminEventDetail() {
       qc.invalidateQueries({ queryKey: ["admin-events"] });
     },
     onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
+  });
+
+  const saveContactMutation = useMutation({
+    mutationFn: async (value: string) => {
+      const r = await fetch(`${BASE}/api/events/${eventId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contact: value }),
+      });
+      if (!r.ok) throw new Error("저장 실패");
+      return r.json();
+    },
+    onSuccess: () => {
+      toast({ title: "문의처 저장 완료" });
+      qc.invalidateQueries({ queryKey: ["admin-events"] });
+    },
+    onError: () => toast({ title: "저장 실패", variant: "destructive" }),
   });
 
   const deleteMutation = useMutation({
@@ -186,9 +204,24 @@ export default function AdminEventDetail() {
         </div>
 
         {/* 문의처 */}
-        <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3">
-          <p className="text-xs font-bold text-blue-700 mb-1">📞 문의처</p>
-          <p className="text-sm font-semibold text-blue-900">{event.contact || event.source || "—"}</p>
+        <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 space-y-2">
+          <p className="text-xs font-bold text-blue-700">📞 문의처</p>
+          <div className="flex gap-2">
+            <Input
+              className="bg-white text-sm h-9"
+              placeholder="예: 강릉시청 문화예술과 033-000-0000"
+              value={contact ?? (event.contact || "")}
+              onChange={(e) => setContact(e.target.value)}
+            />
+            <Button
+              size="sm"
+              className="h-9 px-4 shrink-0 bg-blue-600 hover:bg-blue-700 text-white"
+              disabled={saveContactMutation.isPending}
+              onClick={() => saveContactMutation.mutate(contact ?? (event.contact || ""))}
+            >
+              저장
+            </Button>
+          </div>
         </div>
 
         {/* Original URL */}

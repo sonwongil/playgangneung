@@ -322,9 +322,10 @@ export default function AdminEventDetail() {
                 <Button
                   className="flex-1 gap-1.5 text-white bg-[#1877F2] hover:bg-[#1565C0]"
                   onClick={async () => {
-                    await navigator.clipboard.writeText(fullText);
+                    await navigator.clipboard.writeText(`${fullText}\n\n${contentUrl}`);
                     saveDraftMutation.mutate();
-                    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(contentUrl)}`, "_blank");
+                    toast({ title: "텍스트+링크 복사됨 — 페이스북에 붙여넣기 하세요" });
+                    setTimeout(() => window.open("https://www.facebook.com/", "_blank"), 600);
                   }}
                 >
                   페이스북

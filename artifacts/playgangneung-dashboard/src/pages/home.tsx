@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
-  CalendarDays, ExternalLink, MapPin, Instagram, Facebook, Youtube,
+  CalendarDays, MapPin, Instagram, Facebook, Youtube,
   Megaphone, Star, Pin, Search, X,
 } from "lucide-react";
 
@@ -116,72 +116,69 @@ function FeedCard({ item }: { item: FeedItem }) {
   const adCfg = item.isAd && item.adPlan ? AD_PLAN_CONFIG[item.adPlan] : null;
   const isToday = item.date === TODAY_STR;
 
+  const href = item.isAd ? item.link : `/content/${item.id}`;
+
   return (
-    <Card className={`overflow-hidden hover:shadow-lg transition-shadow duration-300 group ${adCfg?.ring ?? ""}`}>
-      {adCfg && (item.adPlan === "premium" || item.adPlan === "main") && (
-        <div className={`${adCfg.banner} flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold`}>
-          {adCfg.icon}
-          <span>{adCfg.label}</span>
-          <span className="ml-auto opacity-80 text-[10px]">{item.businessName}</span>
-        </div>
-      )}
-      <div className="relative h-52 overflow-hidden bg-gray-100">
-        {/* 흐린 배경 — 빈 공간 채우기 */}
-        <img
-          src={thumbnail}
-          alt=""
-          aria-hidden="true"
-          className="absolute inset-0 w-full h-full object-cover scale-110 blur-xl opacity-60"
-        />
-        {/* 원본 이미지 — 잘리지 않음 */}
-        <img
-          src={thumbnail}
-          alt={item.title}
-          className="relative z-10 w-full h-full object-contain group-hover:scale-105 transition-transform duration-500"
-          loading="lazy"
-        />
-        <div className="absolute top-3 left-3 z-20 flex flex-col gap-1">
-          {item.isAd && item.adPlan ? (
-            <AdBadge plan={item.adPlan} />
-          ) : (
-            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorClass}`}>
-              {category}
-            </span>
-          )}
-          {isToday && !item.isAd && (
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-600 text-white">
-              오늘
-            </span>
-          )}
-        </div>
-      </div>
-      <CardContent className="p-4">
-        <h3 className="font-semibold text-base leading-snug mb-1.5 line-clamp-2 group-hover:text-primary transition-colors">
-          {item.title}
-        </h3>
-        <p className="text-sm text-muted-foreground line-clamp-2 mb-3">{item.description}</p>
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <div className="flex items-center gap-1">
-            <CalendarDays className="w-3.5 h-3.5" />
-            <span>{item.date}</span>
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="block"
+    >
+      <Card className={`overflow-hidden hover:shadow-lg transition-shadow duration-300 group cursor-pointer ${adCfg?.ring ?? ""}`}>
+        {adCfg && (item.adPlan === "premium" || item.adPlan === "main") && (
+          <div className={`${adCfg.banner} flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold`}>
+            {adCfg.icon}
+            <span>{adCfg.label}</span>
+            <span className="ml-auto opacity-80 text-[10px]">{item.businessName}</span>
           </div>
-          <div className="flex items-center gap-1">
-            <MapPin className="w-3.5 h-3.5" />
-            <span>{item.location || item.source}</span>
-          </div>
-        </div>
-        {(item.isAd ? item.link : item.id) && (
-          <a
-            href={item.isAd ? item.link : `/content/${item.id}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-3 flex items-center gap-1.5 text-xs text-primary hover:underline font-medium"
-          >
-            {item.isAd ? "업체 정보 보기" : "자세히 보기"} <ExternalLink className="w-3 h-3" />
-          </a>
         )}
-      </CardContent>
-    </Card>
+        <div className="relative h-52 overflow-hidden bg-gray-100">
+          <img
+            src={thumbnail}
+            alt=""
+            aria-hidden="true"
+            className="absolute inset-0 w-full h-full object-cover scale-110 blur-xl opacity-60"
+          />
+          <img
+            src={thumbnail}
+            alt={item.title}
+            className="relative z-10 w-full h-full object-contain group-hover:scale-105 transition-transform duration-500"
+            loading="lazy"
+          />
+          <div className="absolute top-3 left-3 z-20 flex flex-col gap-1">
+            {item.isAd && item.adPlan ? (
+              <AdBadge plan={item.adPlan} />
+            ) : (
+              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorClass}`}>
+                {category}
+              </span>
+            )}
+            {isToday && !item.isAd && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-600 text-white">
+                오늘
+              </span>
+            )}
+          </div>
+        </div>
+        <CardContent className="p-4">
+          <h3 className="font-semibold text-base leading-snug mb-1.5 line-clamp-2 group-hover:text-primary transition-colors">
+            {item.title}
+          </h3>
+          <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{item.description}</p>
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <div className="flex items-center gap-1">
+              <CalendarDays className="w-3.5 h-3.5" />
+              <span>{item.date}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <MapPin className="w-3.5 h-3.5" />
+              <span>{item.location || item.source}</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </a>
   );
 }
 

@@ -25,8 +25,6 @@ import {
 import {
   LayoutDashboard,
   CalendarDays,
-  FileText,
-  Share2,
   Settings,
   RefreshCw,
   Image,
@@ -96,11 +94,7 @@ type NavItem = {
 
 const NAV_ITEMS: NavItem[] = [
   { icon: <LayoutDashboard className="w-4 h-4" />, label: "대시보드", key: "dashboard" },
-  { icon: <CalendarRange className="w-4 h-4" />, label: "행사 스케줄", key: "schedule" },
-  { icon: <CalendarDays className="w-4 h-4" />, label: "행사 관리", key: "events" },
   { icon: <Megaphone className="w-4 h-4" />, label: "광고접수", key: "ads" },
-  { icon: <FileText className="w-4 h-4" />, label: "콘텐츠 관리", key: "content" },
-  { icon: <Share2 className="w-4 h-4" />, label: "SNS 관리", key: "sns" },
   { icon: <Settings className="w-4 h-4" />, label: "설정", key: "settings" },
 ];
 
@@ -156,6 +150,7 @@ function StatCard({ label, value, sub, color }: { label: string; value: number |
 
 export default function Admin() {
   const [activeNav, setActiveNav] = useState("dashboard");
+  const [dashboardView, setDashboardView] = useState<"list" | "schedule">("list");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [editingAd, setEditingAd] = useState<Ad | null>(null);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
@@ -588,8 +583,34 @@ export default function Admin() {
             </Card>
           )}
 
-          {/* ── 행사 스케줄 섹션 ── */}
-          {activeNav === "schedule" && (() => {
+          {/* ── 대시보드 상단 탭 ── */}
+          {activeNav === "dashboard" && (
+            <div className="flex items-center gap-2 mb-5">
+              <button
+                onClick={() => setDashboardView("list")}
+                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-semibold border transition-all ${
+                  dashboardView === "list"
+                    ? "bg-blue-600 text-white border-blue-600 shadow"
+                    : "bg-white text-gray-600 border-gray-200 hover:border-blue-300 hover:text-blue-600"
+                }`}
+              >
+                <LayoutDashboard className="w-3.5 h-3.5" />전체 목록
+              </button>
+              <button
+                onClick={() => setDashboardView("schedule")}
+                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-semibold border transition-all ${
+                  dashboardView === "schedule"
+                    ? "bg-blue-600 text-white border-blue-600 shadow"
+                    : "bg-white text-gray-600 border-gray-200 hover:border-blue-300 hover:text-blue-600"
+                }`}
+              >
+                <CalendarRange className="w-3.5 h-3.5" />행사 스케줄
+              </button>
+            </div>
+          )}
+
+          {/* ── 행사 스케줄 (대시보드 내 탭) ── */}
+          {activeNav === "dashboard" && dashboardView === "schedule" && (() => {
             const weekStart = (() => {
               const d = new Date();
               const dow = d.getDay();
@@ -850,8 +871,8 @@ export default function Admin() {
             </div>
           )}
 
-          {/* ── 대시보드/기타 섹션 ── */}
-          {activeNav !== "ads" && activeNav !== "schedule" && activeNav !== "settings" && <>
+          {/* ── 대시보드 전체 목록 ── */}
+          {activeNav === "dashboard" && dashboardView === "list" && <>
           {/* Stats Cards */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <StatCard label="전체 콘텐츠" value={totalCount} sub="수집된 항목 수" color="text-blue-600" />

@@ -343,12 +343,12 @@ export default function Home() {
       {/* Main Content */}
       <main className="flex-1 max-w-6xl mx-auto px-4 pt-3 pb-4 w-full">
         {/* Quick filter pills */}
-        <div className="flex flex-wrap items-center gap-1.5 mb-3">
+        <div className="flex flex-wrap justify-center items-center gap-1 mb-2">
           {QUICK_FILTERS.map(({ key, label }) => (
             <button
               key={key}
               onClick={() => handleFilterToggle(key)}
-              className={`px-3 py-1 rounded-full text-xs font-medium transition-all border
+              className={`px-3 py-1 rounded-full text-[0.8rem] font-medium transition-all border
                 ${activeFilter === key
                   ? "bg-blue-600 text-white border-blue-600 shadow-sm"
                   : "bg-white text-gray-600 border-gray-200 hover:border-blue-300 hover:text-blue-600"
@@ -360,7 +360,7 @@ export default function Home() {
           {isSearching && (
             <button
               onClick={clearSearch}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium text-gray-400 border border-dashed border-gray-300 hover:border-gray-400 hover:text-gray-500 transition-all"
+              className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[0.8rem] font-medium text-gray-400 border border-dashed border-gray-300 hover:border-gray-400 hover:text-gray-500 transition-all"
             >
               <X className="w-3 h-3" /> 초기화
             </button>

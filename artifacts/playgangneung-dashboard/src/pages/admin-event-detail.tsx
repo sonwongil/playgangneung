@@ -225,7 +225,7 @@ export default function AdminEventDetail() {
               <div className="flex gap-2">
                 <Input
                   className="bg-white text-sm h-9"
-                  placeholder="예: 강릉시청 문화예술과 033-000-0000"
+                  placeholder="예: 033-000-0000"
                   value={currentContact}
                   onChange={(e) => setContact(e.target.value)}
                   autoFocus

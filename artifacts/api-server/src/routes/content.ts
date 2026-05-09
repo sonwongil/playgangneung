@@ -131,7 +131,6 @@ function renderHtml(item: ContentItem, contentUrl: string): string {
   const actionButtons: string[] = [];
   if (hasMap) actionButtons.push(`<a href="https://map.kakao.com/link/search/${encodeURIComponent(item.location!)}" class="btn btn-secondary">🗺️ 지도 보기</a>`);
   if (hasPhone) actionButtons.push(`<a href="tel:${item.phone}" class="btn btn-secondary">📞 전화하기</a>`);
-  if (hasLink) actionButtons.push(`<a href="${escHtml(item.link)}" class="btn btn-primary">🔗 자세히 보기</a>`);
 
   return `<!DOCTYPE html>
 <html lang="ko">
@@ -183,6 +182,7 @@ a{text-decoration:none;color:inherit}
 .description{font-size:15px;line-height:1.75;color:#334155;white-space:pre-wrap;word-break:keep-all}
 /* Source */
 .source-tag{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#94a3b8;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:2px 8px}
+.source-link{display:inline-flex;align-items:center;gap:6px;font-size:14px;font-weight:700;color:#2563eb;padding:10px 0}
 /* Bottom bar */
 .bottom-bar{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #e2e8f0;padding:10px 16px;display:flex;gap:8px;z-index:50;box-shadow:0 -2px 12px rgba(0,0,0,.08)}
 .btn{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:12px 8px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;border:none;transition:opacity .15s}
@@ -233,6 +233,7 @@ ${item.hasThumbnail ? `
   <div class="divider"></div>
   <p class="section-title">상세 내용</p>
   <p class="description">${desc}</p>
+  ${hasLink ? `<div class="divider"></div><a href="${escHtml(item.link)}" target="_blank" rel="noopener noreferrer" class="source-link">🔗 원문 보기</a>` : ""}
 </div>
 
 <!-- Brand footer -->

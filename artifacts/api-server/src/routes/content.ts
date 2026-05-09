@@ -233,7 +233,7 @@ ${item.hasThumbnail ? `
   <div class="divider"></div>
   <p class="section-title">상세 내용</p>
   <p class="description">${desc}</p>
-  ${hasLink ? `<div class="divider"></div><a href="${escHtml(item.link)}" target="_blank" rel="noopener noreferrer" class="source-link">🔗 원문 보기</a>` : ""}
+  ${hasLink ? `<div class="divider"></div><a href="${escHtml(item.link)}" target="_blank" rel="noopener noreferrer" class="source-link">🔗 자세히 보기</a>` : ""}
 </div>
 
 <!-- Brand footer -->

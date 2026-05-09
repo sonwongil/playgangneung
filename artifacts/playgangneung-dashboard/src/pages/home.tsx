@@ -125,11 +125,11 @@ function FeedCard({ item }: { item: FeedItem }) {
           <span className="ml-auto opacity-80 text-[10px]">{item.businessName}</span>
         </div>
       )}
-      <div className="relative overflow-hidden h-48">
+      <div className="relative">
         <img
           src={thumbnail}
           alt={item.title}
-          className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500"
+          className="w-full group-hover:scale-105 transition-transform duration-500"
           loading="lazy"
         />
         <div className="absolute top-3 left-3 flex flex-col gap-1">

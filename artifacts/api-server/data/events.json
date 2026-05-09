@@ -27,7 +27,6 @@
       ],
       "createdAt": "2026-05-09T05:33:57.569Z"
     },
-    "cardImageUrl": "/api/cards/ed14d13e947dc3ee02916430eace298a.png",
     "crawledAt": "2026-05-06T13:37:02.767Z"
   },
   {
@@ -58,7 +57,6 @@
       ],
       "createdAt": "2026-05-09T05:34:52.672Z"
     },
-    "cardImageUrl": "/api/cards/c736593e51f39ab1d8bc3f2f438e7129.png",
     "crawledAt": "2026-05-06T13:38:35.939Z"
   },
   {
@@ -77,7 +75,6 @@
     "sourceType": "html",
     "status": "approved",
     "socialDraft": null,
-    "cardImageUrl": null,
     "crawledAt": "2026-05-06T13:37:01.555Z"
   },
   {
@@ -96,7 +93,6 @@
     "sourceType": "html",
     "status": "approved",
     "socialDraft": null,
-    "cardImageUrl": null,
     "crawledAt": "2026-05-06T13:37:01.554Z"
   },
   {
@@ -114,8 +110,19 @@
     "source": "강릉아트센터",
     "sourceType": "html",
     "status": "approved",
-    "socialDraft": null,
-    "cardImageUrl": null,
+    "socialDraft": {
+      "title": "✨ 제6회 강원예술고등학교 무용과 개인작품 발표회",
+      "caption": "📍 강원특별자치도 강릉시\n🗓️ 2026년 5월 7일\n\n강릉아트센터 소공연장\n\n올해 강릉에서 가장 기대되는 행사입니다.\n\n👉 자세히 보기: https://play-gangneung-dashboard.replit.app/content/5a59a3fc0a4cc0da030634c0ac6257f7",
+      "hashtags": [
+        "#공연관람",
+        "#강릉여행추천",
+        "#강릉축제",
+        "#PLAY강릉",
+        "#강릉",
+        "#강릉여행"
+      ],
+      "createdAt": "2026-05-09T08:34:24.237Z"
+    },
     "crawledAt": "2026-05-06T13:38:35.940Z"
   },
   {
@@ -134,7 +141,6 @@
     "sourceType": "html",
     "status": "approved",
     "socialDraft": null,
-    "cardImageUrl": null,
     "crawledAt": "2026-05-06T13:37:01.562Z"
   },
   {
@@ -153,7 +159,6 @@
     "sourceType": "html",
     "status": "approved",
     "socialDraft": null,
-    "cardImageUrl": null,
     "crawledAt": "2026-05-06T13:38:35.939Z"
   },
   {
@@ -172,7 +177,6 @@
     "sourceType": "html",
     "status": "approved",
     "socialDraft": null,
-    "cardImageUrl": null,
     "crawledAt": "2026-05-06T13:37:01.569Z"
   },
   {
@@ -191,7 +195,6 @@
     "sourceType": "html",
     "status": "approved",
     "socialDraft": null,
-    "cardImageUrl": null,
     "crawledAt": "2026-05-06T13:38:35.939Z"
   },
   {
@@ -210,7 +213,6 @@
     "sourceType": "html",
     "status": "approved",
     "socialDraft": null,
-    "cardImageUrl": null,
     "crawledAt": "2026-05-06T13:37:02.768Z"
   },
   {
@@ -229,7 +231,6 @@
     "sourceType": "html",
     "status": "approved",
     "socialDraft": null,
-    "cardImageUrl": null,
     "crawledAt": "2026-05-06T13:37:01.576Z"
   },
   {
@@ -248,7 +249,6 @@
     "sourceType": "html",
     "status": "approved",
     "socialDraft": null,
-    "cardImageUrl": null,
     "crawledAt": "2026-05-06T13:38:35.938Z"
   },
   {
@@ -267,7 +267,6 @@
     "sourceType": "html",
     "status": "approved",
     "socialDraft": null,
-    "cardImageUrl": null,
     "crawledAt": "2026-05-06T13:37:01.579Z"
   },
   {
@@ -286,7 +285,6 @@
     "sourceType": "html",
     "status": "approved",
     "socialDraft": null,
-    "cardImageUrl": null,
     "crawledAt": "2026-05-06T13:38:35.938Z"
   },
   {
@@ -305,7 +303,6 @@
     "sourceType": "html",
     "status": "approved",
     "socialDraft": null,
-    "cardImageUrl": null,
     "crawledAt": "2026-05-06T13:38:35.938Z"
   },
   {
@@ -336,7 +333,6 @@
       ],
       "createdAt": "2026-05-09T05:31:50.008Z"
     },
-    "cardImageUrl": "/api/cards/bd82689195a3eba8fd3d2390b465fda4.png",
     "crawledAt": "2026-05-06T13:37:01.555Z"
   },
   {
@@ -355,7 +351,6 @@
     "sourceType": "html",
     "status": "approved",
     "socialDraft": null,
-    "cardImageUrl": null,
     "crawledAt": "2026-05-06T13:37:01.556Z"
   },
   {
@@ -374,7 +369,6 @@
     "sourceType": "html",
     "status": "approved",
     "socialDraft": null,
-    "cardImageUrl": null,
     "crawledAt": "2026-05-06T13:37:01.557Z"
   },
   {
@@ -393,7 +387,6 @@
     "sourceType": "html",
     "status": "approved",
     "socialDraft": null,
-    "cardImageUrl": null,
     "crawledAt": "2026-05-06T13:37:01.559Z"
   },
   {
@@ -412,7 +405,6 @@
     "sourceType": "html",
     "status": "approved",
     "socialDraft": null,
-    "cardImageUrl": null,
     "crawledAt": "2026-05-06T13:37:01.559Z"
   },
   {
@@ -431,7 +423,6 @@
     "sourceType": "html",
     "status": "approved",
     "socialDraft": null,
-    "cardImageUrl": null,
     "crawledAt": "2026-05-06T13:37:01.560Z"
   },
   {
@@ -450,7 +441,6 @@
     "sourceType": "html",
     "status": "approved",
     "socialDraft": null,
-    "cardImageUrl": null,
     "crawledAt": "2026-05-06T13:37:01.563Z"
   },
   {
@@ -469,7 +459,6 @@
     "sourceType": "html",
     "status": "approved",
     "socialDraft": null,
-    "cardImageUrl": null,
     "crawledAt": "2026-05-06T13:37:01.564Z"
   },
   {
@@ -488,7 +477,6 @@
     "sourceType": "html",
     "status": "approved",
     "socialDraft": null,
-    "cardImageUrl": null,
     "crawledAt": "2026-05-06T13:37:01.564Z"
   },
   {
@@ -507,7 +495,6 @@
     "sourceType": "manual",
     "status": "draft",
     "socialDraft": null,
-    "cardImageUrl": null,
     "crawledAt": "2026-04-29T05:47:16.641Z"
   },
   {
@@ -526,7 +513,6 @@
     "sourceType": "html",
     "status": "approved",
     "socialDraft": null,
-    "cardImageUrl": null,
     "crawledAt": "2026-05-06T13:37:01.565Z"
   },
   {
@@ -545,7 +531,6 @@
     "sourceType": "html",
     "status": "approved",
     "socialDraft": null,
-    "cardImageUrl": null,
     "crawledAt": "2026-05-06T13:37:01.565Z"
   },
   {
@@ -564,7 +549,6 @@
     "sourceType": "html",
     "status": "approved",
     "socialDraft": null,
-    "cardImageUrl": null,
     "crawledAt": "2026-05-06T13:37:01.566Z"
   },
   {
@@ -583,7 +567,6 @@
     "sourceType": "html",
     "status": "approved",
     "socialDraft": null,
-    "cardImageUrl": null,
     "crawledAt": "2026-05-06T13:37:01.566Z"
   },
   {
@@ -602,7 +585,6 @@
     "sourceType": "html",
     "status": "approved",
     "socialDraft": null,
-    "cardImageUrl": null,
     "crawledAt": "2026-05-06T13:37:01.567Z"
   },
   {
@@ -621,7 +603,6 @@
     "sourceType": "html",
     "status": "approved",
     "socialDraft": null,
-    "cardImageUrl": null,
     "crawledAt": "2026-05-06T13:37:01.570Z"
   },
   {
@@ -640,7 +621,6 @@
     "sourceType": "html",
     "status": "approved",
     "socialDraft": null,
-    "cardImageUrl": null,
     "crawledAt": "2026-05-06T13:37:01.573Z"
   },
   {
@@ -659,7 +639,6 @@
     "sourceType": "html",
     "status": "approved",
     "socialDraft": null,
-    "cardImageUrl": null,
     "crawledAt": "2026-05-06T13:37:01.574Z"
   },
   {
@@ -678,7 +657,6 @@
     "sourceType": "html",
     "status": "approved",
     "socialDraft": null,
-    "cardImageUrl": null,
     "crawledAt": "2026-05-06T13:37:01.575Z"
   },
   {
@@ -697,7 +675,6 @@
     "sourceType": "html",
     "status": "approved",
     "socialDraft": null,
-    "cardImageUrl": null,
     "crawledAt": "2026-05-06T13:37:01.576Z"
   },
   {
@@ -716,7 +693,6 @@
     "sourceType": "html",
     "status": "approved",
     "socialDraft": null,
-    "cardImageUrl": null,
     "crawledAt": "2026-05-06T13:37:01.577Z"
   },
   {
@@ -735,7 +711,6 @@
     "sourceType": "html",
     "status": "approved",
     "socialDraft": null,
-    "cardImageUrl": null,
     "crawledAt": "2026-05-06T13:37:01.578Z"
   },
   {
@@ -754,7 +729,6 @@
     "sourceType": "html",
     "status": "approved",
     "socialDraft": null,
-    "cardImageUrl": null,
     "crawledAt": "2026-05-06T13:37:01.579Z"
   },
   {
@@ -773,7 +747,6 @@
     "sourceType": "html",
     "status": "approved",
     "socialDraft": null,
-    "cardImageUrl": null,
     "crawledAt": "2026-05-06T13:37:01.580Z"
   },
   {
@@ -792,7 +765,6 @@
     "sourceType": "html",
     "status": "approved",
     "socialDraft": null,
-    "cardImageUrl": null,
     "crawledAt": "2026-05-06T13:37:01.580Z"
   },
   {
@@ -823,7 +795,6 @@
       ],
       "createdAt": "2026-05-06T08:37:26.464Z"
     },
-    "cardImageUrl": "/api/cards/a13dc840d34f73a778b4a1d83e5d2966.png",
     "crawledAt": "2026-04-29T05:42:00.375Z"
   },
   {
@@ -842,7 +813,6 @@
     "sourceType": "html",
     "status": "approved",
     "socialDraft": null,
-    "cardImageUrl": null,
     "crawledAt": "2026-05-06T13:37:01.581Z"
   },
   {
@@ -861,7 +831,6 @@
     "sourceType": "html",
     "status": "draft",
     "socialDraft": null,
-    "cardImageUrl": null,
     "crawledAt": "2026-04-29T05:42:00.414Z"
   },
   {
@@ -880,7 +849,6 @@
     "sourceType": "manual",
     "status": "draft",
     "socialDraft": null,
-    "cardImageUrl": null,
     "crawledAt": "2026-04-29T05:51:56.656Z"
   }
 ]

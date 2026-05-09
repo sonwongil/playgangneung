@@ -89,7 +89,7 @@ type NavKey = "dashboard" | "feed" | "publish" | "ads" | "settings";
 const NAV_ITEMS: { icon: React.ReactNode; label: string; key: NavKey }[] = [
   { icon: <LayoutDashboard className="w-4 h-4" />, label: "대시보드", key: "dashboard" },
   { icon: <Rss className="w-4 h-4" />, label: "SNS 피드 만들기", key: "feed" },
-  { icon: <Send className="w-4 h-4" />, label: "발행하기", key: "publish" },
+  { icon: <Send className="w-4 h-4" />, label: "SNS 발행", key: "publish" },
   { icon: <Megaphone className="w-4 h-4" />, label: "광고접수", key: "ads" },
   { icon: <Settings className="w-4 h-4" />, label: "설정", key: "settings" },
 ];

@@ -1,6 +1,8 @@
 import { createCanvas, GlobalFonts, loadImage } from "@napi-rs/canvas";
 import fs from "fs/promises";
 import path from "path";
+import https from "https";
+import axios from "axios";
 import type { CrawledEvent } from "./storage.js";
 
 let fontsRegistered = false;
@@ -78,10 +80,23 @@ export async function generateCardImage(event: CrawledEvent): Promise<string> {
   const ctx = canvas.getContext("2d");
 
   // ── 배경: 행사 썸네일 이미지 (cover-fit) ──────────────────────────────────
+  // loadImage(url) 직접 사용 시 SSL/리퍼러 차단으로 실패 → axios 버퍼 fetch 후 전달
   let usedThumbnail = false;
   if (event.thumbnail) {
     try {
-      const img = await loadImage(event.thumbnail);
+      const resp = await axios.get(event.thumbnail, {
+        responseType: "arraybuffer",
+        timeout: 10000,
+        httpsAgent: new https.Agent({ rejectUnauthorized: false }),
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36",
+          Accept: "image/*,*/*;q=0.8",
+        },
+        maxRedirects: 5,
+      });
+      const buf = Buffer.from(resp.data as ArrayBuffer);
+      const img = await loadImage(buf);
       const iw = img.width as number;
       const ih = img.height as number;
       const scale = Math.max(SIZE / iw, SIZE / ih);
@@ -91,7 +106,7 @@ export async function generateCardImage(event: CrawledEvent): Promise<string> {
       const sy = (SIZE - sh) / 2;
       ctx.drawImage(img as Parameters<typeof ctx.drawImage>[0], sx, sy, sw, sh);
       usedThumbnail = true;
-    } catch {
+    } catch (e) {
       // 이미지 로딩 실패 시 그라디언트 배경으로 대체
     }
   }

@@ -76,6 +76,38 @@ const TOMORROW_STR = getRelativeDate(1);
 
 const FALLBACK_FEED: FeedItem[] = [];
 
+const CATEGORY_FALLBACK_POOL: Record<string, string[]> = {
+  행사: [
+    "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=800&q=80",
+    "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=800&q=80",
+    "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&q=80",
+    "https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800&q=80",
+    "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=800&q=80",
+  ],
+  맛집: [
+    "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=800&q=80",
+    "https://images.unsplash.com/photo-1559925393-8be0ec4767c8?w=800&q=80",
+    "https://images.unsplash.com/photo-1565299543923-37dd37887442?w=800&q=80",
+  ],
+  핫플: [
+    "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&q=80",
+    "https://images.unsplash.com/photo-1528360983277-13d401cdc186?w=800&q=80",
+    "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=800&q=80",
+  ],
+  지역소식: [
+    "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=800&q=80",
+    "https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=800&q=80",
+    "https://images.unsplash.com/photo-1434626881859-194d67b2b86f?w=800&q=80",
+  ],
+};
+
+function pickFallbackImage(id: string, category: string): string {
+  const pool = CATEGORY_FALLBACK_POOL[category] ?? CATEGORY_FALLBACK_POOL["행사"];
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
+  return pool[hash % pool.length];
+}
+
 function AdBadge({ plan }: { plan: "basic" | "main" | "premium" }) {
   const cfg = AD_PLAN_CONFIG[plan];
   return (
@@ -88,7 +120,7 @@ function AdBadge({ plan }: { plan: "basic" | "main" | "premium" }) {
 function FeedCard({ item }: { item: FeedItem }) {
   const category = item.category ?? "지역소식";
   const colorClass = CATEGORY_COLORS[category] ?? "bg-gray-100 text-gray-700";
-  const thumbnail = item.thumbnail ?? `https://images.unsplash.com/photo-1528360983277-13d401cdc186?w=800&q=80`;
+  const thumbnail = item.thumbnail ?? pickFallbackImage(item.id, category);
   const adCfg = item.isAd && item.adPlan ? AD_PLAN_CONFIG[item.adPlan] : null;
   const isToday = item.date === TODAY_STR;
   const isTomorrow = item.date === TOMORROW_STR;
@@ -429,24 +461,29 @@ export default function Home() {
           <div className="flex items-center justify-between gap-2 w-full">
             <Tabs value={activeTab} onValueChange={handleMainTabChange}>
               <TabsList className="bg-white border border-border shadow-sm h-8 p-0.5 gap-0.5">
-                {(["전체", "행사", "맛집", "핫플", "지역소식"] as Category[]).map((cat) => (
-                  <TabsTrigger
-                    key={cat}
-                    value={cat}
-                    className="px-3 py-1 text-xs data-[state=active]:bg-primary data-[state=active]:text-white rounded flex items-center gap-1"
-                  >
-                    {cat}
-                    {categoryCounts[cat] > 0 && (
-                      <span className={`text-[10px] font-bold px-1 py-0.5 rounded-full leading-none
-                        ${activeTab === cat
-                          ? "bg-white/25 text-white"
-                          : "bg-gray-100 text-gray-500"
-                        }`}>
-                        {categoryCounts[cat]}
-                      </span>
-                    )}
-                  </TabsTrigger>
-                ))}
+                {(["전체", "행사", "지역소식", "맛집", "핫플"] as Category[]).map((cat) => {
+                  const isEmpty = cat !== "전체" && categoryCounts[cat] === 0;
+                  return (
+                    <TabsTrigger
+                      key={cat}
+                      value={cat}
+                      className={`px-3 py-1 text-xs data-[state=active]:bg-primary data-[state=active]:text-white rounded flex items-center gap-1 ${isEmpty ? "opacity-40" : ""}`}
+                    >
+                      {cat}
+                      {isEmpty ? (
+                        <span className="text-[9px] font-medium px-1 py-0.5 rounded-full bg-gray-100 text-gray-400 leading-none">준비중</span>
+                      ) : categoryCounts[cat] > 0 ? (
+                        <span className={`text-[10px] font-bold px-1 py-0.5 rounded-full leading-none
+                          ${activeTab === cat
+                            ? "bg-white/25 text-white"
+                            : "bg-gray-100 text-gray-500"
+                          }`}>
+                          {categoryCounts[cat]}
+                        </span>
+                      ) : null}
+                    </TabsTrigger>
+                  );
+                })}
               </TabsList>
             </Tabs>
             <div className="flex items-center gap-2">

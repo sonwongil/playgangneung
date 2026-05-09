@@ -133,7 +133,7 @@ function eventToFeedItem(ev: CrawledEvent): FeedItem {
     link: `${SITE_URL}/content/${ev.id}`,
     source: ev.source,
     category,
-    thumbnail: proxyThumbnail(ev.thumbnail) ?? CATEGORY_THUMBNAILS[category] ?? null,
+    thumbnail: proxyThumbnail(ev.thumbnail),
     location: ev.location || "강릉",
     isAd: false,
   };

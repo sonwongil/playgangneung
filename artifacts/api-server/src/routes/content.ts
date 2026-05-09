@@ -172,10 +172,6 @@ a{text-decoration:none;color:inherit}
 .divider{height:1px;background:#e2e8f0;margin:14px 0}
 .section-title{font-size:13px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px}
 .description{font-size:15px;line-height:1.75;color:#334155;white-space:pre-wrap;word-break:keep-all}
-/* Share box */
-.share-box{margin:16px;padding:14px 16px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px}
-.share-label{font-size:11px;font-weight:700;color:#2563eb;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
-.share-url{font-size:12px;color:#1d4ed8;word-break:break-all;line-height:1.5}
 /* Source */
 .source-tag{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#94a3b8;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:2px 8px}
 /* Bottom bar */
@@ -249,7 +245,7 @@ router.get("/:id", async (req, res) => {
   }
 
   res.setHeader("Content-Type", "text/html; charset=utf-8");
-  res.setHeader("Cache-Control", "public, max-age=300, stale-while-revalidate=60");
+  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
   res.send(renderHtml(item, contentUrl));
 });
 

@@ -84,12 +84,10 @@ interface Ad {
   createdAt: string;
 }
 
-type NavKey = "dashboard" | "feed" | "publish" | "ads" | "settings";
+type NavKey = "dashboard" | "ads" | "settings";
 
 const NAV_ITEMS: { icon: React.ReactNode; label: string; key: NavKey }[] = [
   { icon: <LayoutDashboard className="w-4 h-4" />, label: "대시보드", key: "dashboard" },
-  { icon: <Rss className="w-4 h-4" />, label: "SNS 피드 만들기", key: "feed" },
-  { icon: <Send className="w-4 h-4" />, label: "SNS 발행", key: "publish" },
   { icon: <Megaphone className="w-4 h-4" />, label: "광고접수", key: "ads" },
   { icon: <Settings className="w-4 h-4" />, label: "설정", key: "settings" },
 ];
@@ -452,8 +450,8 @@ export default function Admin() {
             </div>
           )}
 
-          {/* ══ SNS 피드 만들기 ═══════════════════════════════════════════════ */}
-          {activeNav === "feed" && (
+          {/* ══ SNS 피드 만들기 (removed) ══════════════════════════════════════ */}
+          {false && (
             <div className="space-y-4">
               <p className="text-xs text-muted-foreground mb-1">
                 승인된 콘텐츠 <span className="font-semibold text-foreground">{feedEvents.length}건</span> — 초안을 작성하고 수정한 뒤 카드이미지를 생성하세요.
@@ -564,8 +562,8 @@ export default function Admin() {
             </div>
           )}
 
-          {/* ══ 발행하기 ══════════════════════════════════════════════════════ */}
-          {activeNav === "publish" && (
+          {/* ══ 발행하기 (removed) ════════════════════════════════════════════ */}
+          {false && (
             <div className="space-y-4">
               <p className="text-xs text-muted-foreground mb-1">
                 발행 준비 완료 <span className="font-semibold text-foreground">{publishEvents.length}건</span> — SNS 초안이 완성된 항목입니다.

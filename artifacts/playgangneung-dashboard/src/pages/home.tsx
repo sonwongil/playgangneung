@@ -9,14 +9,13 @@ import {
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-type QuickFilter = "오늘" | "이번 주" | "주말" | "무료" | "가족" | "공연·전시";
+type QuickFilter = "오늘" | "이번 주" | "주말" | "무료" | "가족";
 
 const DATE_FILTERS = new Set<QuickFilter>(["오늘", "이번 주", "주말"]);
 
 const QUICK_FILTER_KEYWORDS: Partial<Record<QuickFilter, string[]>> = {
   무료: ["무료"],
   가족: ["가족"],
-  "공연·전시": ["공연", "전시"],
 };
 
 interface FeedItem {
@@ -210,7 +209,6 @@ const QUICK_FILTERS: { key: QuickFilter; label: string }[] = [
   { key: "주말", label: "🌅 주말" },
   { key: "무료", label: "🎉 무료" },
   { key: "가족", label: "👨‍👩‍👧 가족" },
-  { key: "공연·전시", label: "🎭 공연·전시" },
 ];
 
 export default function Home() {

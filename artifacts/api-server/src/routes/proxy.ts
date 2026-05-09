@@ -61,4 +61,60 @@ router.get("/proxy/image", async (req, res) => {
   }
 });
 
+router.get("/proxy/page", async (req, res) => {
+  const rawUrl = req.query["url"] as string | undefined;
+  if (!rawUrl) { res.status(400).send("url 파라미터 필요"); return; }
+
+  let parsed: URL;
+  try { parsed = new URL(rawUrl); } catch { res.status(400).send("유효하지 않은 URL"); return; }
+
+  if (!ALLOWED_HOSTS.includes(parsed.hostname)) {
+    res.status(403).send("허용되지 않은 도메인");
+    return;
+  }
+
+  try {
+    const upstream = await fetch(rawUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Referer": `${parsed.protocol}//${parsed.hostname}/`,
+        "Accept": "text/html,application/xhtml+xml,*/*;q=0.9",
+        "Accept-Language": "ko-KR,ko;q=0.9",
+      },
+      signal: AbortSignal.timeout(10000),
+    });
+
+    if (!upstream.ok) { res.status(502).send(`업스트림 오류: ${upstream.status}`); return; }
+
+    const contentType = upstream.headers.get("content-type") ?? "";
+    if (!contentType.includes("html")) { res.status(400).send("HTML 페이지가 아님"); return; }
+
+    const charset = contentType.match(/charset=([^\s;]+)/i)?.[1] ?? "utf-8";
+    const buf = await upstream.arrayBuffer();
+    let html = new TextDecoder(charset).decode(buf);
+
+    // <base> 태그 주입 — 상대 URL을 원본 도메인 기준으로 해석
+    const baseTag = `<base href="${parsed.protocol}//${parsed.hostname}/">`;
+    if (/<head/i.test(html)) {
+      html = html.replace(/<head([^>]*)>/i, `<head$1>${baseTag}`);
+    } else {
+      html = baseTag + html;
+    }
+
+    // 외부 링크가 새 탭에서 열리도록
+    html = html.replace(/<a /gi, '<a target="_blank" rel="noopener noreferrer" ');
+
+    res.set({
+      "Content-Type": "text/html; charset=utf-8",
+      "Cache-Control": "public, max-age=3600",
+      "X-Frame-Options": "ALLOWALL",
+      "Content-Security-Policy": "",
+    });
+    res.send(html);
+  } catch (err) {
+    req.log.warn({ err, url: rawUrl }, "페이지 프록시 실패");
+    res.status(502).send("페이지 가져오기 실패");
+  }
+});
+
 export default router;

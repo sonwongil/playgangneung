@@ -194,6 +194,9 @@ a{text-decoration:none;color:inherit}
 .btn:active{opacity:.75}
 .btn-primary{background:#2563eb;color:#fff}
 .btn-secondary{background:#f1f5f9;color:#1e293b}
+/* iframe 원본 페이지 */
+.iframe-wrap{border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;background:#fff}
+.iframe-wrap iframe{width:100%;min-height:400px;border:none;display:block}
 /* PLAY강릉 brand footer */
 .brand-footer{text-align:center;padding:20px 16px 8px;font-size:11px;color:#94a3b8}
 @media(min-width:640px){
@@ -242,9 +245,23 @@ ${item.hasThumbnail ? `
   </div>
 
   <div class="divider"></div>
+  ${hasLink ? `
+  <p class="section-title">원본 페이지</p>
+  <div class="iframe-wrap">
+    <iframe
+      id="orig-frame"
+      src="/api/proxy/page?url=${encodeURIComponent(item.link)}"
+      sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+      loading="lazy"
+      onload="this.style.height=(this.contentDocument.body.scrollHeight+40)+'px'"
+      onerror="document.getElementById('iframe-fallback').style.display='block';this.style.display='none'"
+    ></iframe>
+    <div id="iframe-fallback" style="display:none;padding:16px;text-align:center">
+      <a href="${escHtml(item.link)}" target="_blank" rel="noopener noreferrer" class="source-link">🔗 원본 페이지 열기</a>
+    </div>
+  </div>` : `
   <p class="section-title">상세 내용</p>
-  <p class="description">${desc}</p>
-  ${hasLink ? `<div class="divider"></div><a href="${escHtml(item.link)}" target="_blank" rel="noopener noreferrer" class="source-link">🔗 자세히 보기</a>` : ""}
+  <p class="description">${desc}</p>`}
 </div>
 
 <!-- Brand footer -->

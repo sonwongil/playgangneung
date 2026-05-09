@@ -140,7 +140,19 @@
     "source": "강릉시 이달의 행사",
     "sourceType": "html",
     "status": "approved",
-    "socialDraft": null,
+    "socialDraft": {
+      "title": "🏔️ 악극_가시나무 새",
+      "caption": "📍 강릉에서 만나요\n🗓️ 2026년 5월 8일\n\n강릉아트센터 사임당홀\n\n강릉을 더욱 특별하게 만들어 줄 행사를 소개합니다.\n\n👉 자세히 보기: https://play-gangneung-dashboard.replit.app/content/fe21b5510535e3c9a953a71fc1a7eb97",
+      "hashtags": [
+        "#강릉",
+        "#강릉여행",
+        "#국내여행추천",
+        "#강릉관광",
+        "#PLAY강릉",
+        "#강릉핫플"
+      ],
+      "createdAt": "2026-05-09T10:42:04.579Z"
+    },
     "crawledAt": "2026-05-06T13:37:01.562Z"
   },
   {

@@ -1,19 +1,23 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useSearch, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
 import {
   CalendarDays, ExternalLink, MapPin, Instagram, Facebook, Youtube,
-  Megaphone, Star, Pin, ChevronLeft, ChevronRight, RefreshCw,
+  Megaphone, Star, Pin, Search, X,
 } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-type Category = "전체" | "행사" | "맛집" | "핫플" | "지역소식";
-type EventSubTab = "전체" | "달력" | "오늘" | "내일" | "이번 주";
+type QuickFilter = "오늘" | "이번 주" | "주말" | "무료" | "가족" | "공연·전시";
+
+const DATE_FILTERS = new Set<QuickFilter>(["오늘", "이번 주", "주말"]);
+
+const QUICK_FILTER_KEYWORDS: Partial<Record<QuickFilter, string[]>> = {
+  무료: ["무료"],
+  가족: ["가족"],
+  "공연·전시": ["공연", "전시"],
+};
 
 interface FeedItem {
   id: string;
@@ -72,7 +76,6 @@ function getRelativeDate(offsetDays: number) {
 }
 
 const TODAY_STR = getRelativeDate(0);
-const TOMORROW_STR = getRelativeDate(1);
 
 const FALLBACK_FEED: FeedItem[] = [];
 
@@ -108,6 +111,22 @@ function pickFallbackImage(id: string, category: string): string {
   return pool[hash % pool.length];
 }
 
+function isWeekend(dateStr: string): boolean {
+  const d = new Date(dateStr + "T00:00:00");
+  const dow = d.getDay();
+  return dow === 0 || dow === 6;
+}
+
+function getWeekRange() {
+  const d = new Date();
+  const dow = d.getDay();
+  const mon = new Date(d);
+  mon.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1));
+  const sun = new Date(mon);
+  sun.setDate(mon.getDate() + 6);
+  return { start: mon.toISOString().slice(0, 10), end: sun.toISOString().slice(0, 10) };
+}
+
 function AdBadge({ plan }: { plan: "basic" | "main" | "premium" }) {
   const cfg = AD_PLAN_CONFIG[plan];
   return (
@@ -123,7 +142,6 @@ function FeedCard({ item }: { item: FeedItem }) {
   const thumbnail = item.thumbnail ?? pickFallbackImage(item.id, category);
   const adCfg = item.isAd && item.adPlan ? AD_PLAN_CONFIG[item.adPlan] : null;
   const isToday = item.date === TODAY_STR;
-  const isTomorrow = item.date === TOMORROW_STR;
 
   return (
     <Card className={`overflow-hidden hover:shadow-lg transition-shadow duration-300 group ${adCfg?.ring ?? ""}`}>
@@ -152,11 +170,6 @@ function FeedCard({ item }: { item: FeedItem }) {
           {isToday && !item.isAd && (
             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-600 text-white">
               오늘
-            </span>
-          )}
-          {isTomorrow && !item.isAd && (
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-500 text-white">
-              내일
             </span>
           )}
         </div>
@@ -191,161 +204,22 @@ function FeedCard({ item }: { item: FeedItem }) {
   );
 }
 
-function EventCalendar({
-  events,
-  selectedDate,
-  onSelectDate,
-}: {
-  events: FeedItem[];
-  selectedDate: string | null;
-  onSelectDate: (date: string | null) => void;
-}) {
-  const todayDate = new Date();
-  const [viewDate, setViewDate] = useState(() => new Date());
-
-  const year = viewDate.getFullYear();
-  const month = viewDate.getMonth();
-
-  const eventDates = useMemo(
-    () => new Set(events.map((e) => e.date)),
-    [events]
-  );
-
-  const firstDayOfMonth = new Date(year, month, 1);
-  const startDow = firstDayOfMonth.getDay();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-  const cells: (number | null)[] = [];
-  for (let i = 0; i < startDow; i++) cells.push(null);
-  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
-
-  const dayNames = ["일", "월", "화", "수", "목", "금", "토"];
-
-  const todayStr = todayDate.toISOString().slice(0, 10);
-
-  function toDateStr(day: number) {
-    return `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-  }
-
-  const eventsForSelected = selectedDate
-    ? events.filter((e) => e.date === selectedDate)
-    : [];
-
-  return (
-    <div className="mb-4">
-      <div className="bg-white rounded-xl border border-border p-4">
-        <div className="flex items-center justify-between mb-3">
-          <button
-            onClick={() => setViewDate(new Date(year, month - 1, 1))}
-            className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-          <span className="text-sm font-bold">{year}년 {month + 1}월</span>
-          <button
-            onClick={() => setViewDate(new Date(year, month + 1, 1))}
-            className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
-        </div>
-
-        <div className="grid grid-cols-7 mb-1">
-          {dayNames.map((d, i) => (
-            <div
-              key={d}
-              className={`text-center text-[10px] font-semibold py-1 ${i === 0 ? "text-red-500" : i === 6 ? "text-blue-500" : "text-muted-foreground"}`}
-            >
-              {d}
-            </div>
-          ))}
-        </div>
-
-        <div className="grid grid-cols-7 gap-y-0.5">
-          {cells.map((day, i) => {
-            if (!day) return <div key={`empty-${i}`} />;
-            const dateStr = toDateStr(day);
-            const isToday = dateStr === todayStr;
-            const hasEvent = eventDates.has(dateStr);
-            const isSelected = dateStr === selectedDate;
-            const dow = (startDow + day - 1) % 7;
-
-            return (
-              <button
-                key={dateStr}
-                onClick={() => onSelectDate(isSelected ? null : dateStr)}
-                className={`relative flex flex-col items-center justify-center w-full py-1.5 rounded-lg text-xs transition-all
-                  ${isSelected
-                    ? "bg-blue-600 text-white font-bold shadow"
-                    : isToday
-                    ? "bg-blue-50 text-blue-700 font-bold ring-1 ring-blue-300"
-                    : dow === 0
-                    ? "text-red-500 hover:bg-red-50"
-                    : dow === 6
-                    ? "text-blue-500 hover:bg-blue-50"
-                    : "text-gray-700 hover:bg-gray-50"
-                  }`}
-              >
-                {day}
-                {hasEvent && (
-                  <span
-                    className={`mt-0.5 w-1.5 h-1.5 rounded-full ${isSelected ? "bg-white" : "bg-blue-500"}`}
-                  />
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {selectedDate && (
-        <div className="mt-2">
-          <p className="text-xs text-muted-foreground px-1 mb-2 font-medium">
-            {selectedDate} 행사 {eventsForSelected.length}건
-          </p>
-          {eventsForSelected.length === 0 ? (
-            <p className="text-center text-sm text-muted-foreground py-6">이 날 예정된 행사가 없습니다.</p>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {eventsForSelected.map((item) => (
-                <FeedCard key={item.id} item={item} />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-const VALID_CATEGORIES: Category[] = ["전체", "행사", "맛집", "핫플", "지역소식"];
-
-function parseCategoryParam(search: string): Category {
-  const params = new URLSearchParams(search);
-  const cat = params.get("category");
-  if (cat && VALID_CATEGORIES.includes(cat as Category)) return cat as Category;
-  return "전체";
-}
+const QUICK_FILTERS: { key: QuickFilter; label: string }[] = [
+  { key: "오늘", label: "🗓️ 오늘" },
+  { key: "이번 주", label: "📅 이번 주" },
+  { key: "주말", label: "🌅 주말" },
+  { key: "무료", label: "🎉 무료" },
+  { key: "가족", label: "👨‍👩‍👧 가족" },
+  { key: "공연·전시", label: "🎭 공연·전시" },
+];
 
 export default function Home() {
-  const search = useSearch();
-  const [, navigate] = useLocation();
-
-  const initialCategory = useMemo(() => parseCategoryParam(search), []);
-  const [activeTab, setActiveTab] = useState<Category>(initialCategory);
-  const [eventSubTab, setEventSubTab] = useState<EventSubTab>("전체");
-  const [calendarDate, setCalendarDate] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeFilter, setActiveFilter] = useState<QuickFilter | null>(null);
   const [showAll, setShowAll] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    const cat = parseCategoryParam(search);
-    if (cat !== activeTab) {
-      setActiveTab(cat);
-      setEventSubTab("전체");
-      setCalendarDate(null);
-      setShowAll(false);
-    }
-  }, [search]);
+  const weekRange = useMemo(() => getWeekRange(), []);
 
   const { data } = useQuery<{ feed: FeedItem[]; total: number }>({
     queryKey: ["public-feed"],
@@ -359,228 +233,172 @@ export default function Home() {
 
   const allItems: FeedItem[] = data?.feed?.length ? data.feed : FALLBACK_FEED;
 
-  const weekRange = useMemo(() => {
-    const d = new Date();
-    const dow = d.getDay();
-    const mon = new Date(d);
-    mon.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1));
-    const sun = new Date(mon);
-    sun.setDate(mon.getDate() + 6);
-    return { start: mon.toISOString().slice(0, 10), end: sun.toISOString().slice(0, 10) };
-  }, []);
+  const filtered = useMemo(() => {
+    let items = [...allItems];
 
-  const categoryFiltered = useMemo(
-    () =>
-      activeTab === "전체"
-        ? allItems
-        : allItems.filter((item) => item.category === activeTab),
-    [allItems, activeTab]
-  );
-
-  const eventItems = useMemo(
-    () => allItems.filter((i) => i.category === "행사"),
-    [allItems]
-  );
-
-  const subFiltered = useMemo(() => {
-    if (activeTab !== "행사" || eventSubTab === "달력") return categoryFiltered;
-    switch (eventSubTab) {
-      case "오늘": return categoryFiltered.filter((i) => i.date === TODAY_STR);
-      case "내일": return categoryFiltered.filter((i) => i.date === TOMORROW_STR);
-      case "이번 주": return categoryFiltered.filter((i) => i.date >= weekRange.start && i.date <= weekRange.end);
-      default: return categoryFiltered;
+    // Date-based quick filters (only non-ad items)
+    if (activeFilter === "오늘") {
+      items = items.filter((i) => i.isAd || i.date === TODAY_STR);
+    } else if (activeFilter === "이번 주") {
+      items = items.filter((i) => i.isAd || (i.date >= weekRange.start && i.date <= weekRange.end));
+    } else if (activeFilter === "주말") {
+      items = items.filter((i) => i.isAd || isWeekend(i.date));
     }
-  }, [categoryFiltered, activeTab, eventSubTab, weekRange]);
 
-  const display = showAll ? subFiltered : subFiltered.slice(0, 6);
-  const adCount = allItems.filter((i) => i.isAd).length;
+    // Keyword-based quick filter
+    const kwFilter = activeFilter && !DATE_FILTERS.has(activeFilter)
+      ? QUICK_FILTER_KEYWORDS[activeFilter] ?? []
+      : [];
 
-  const todayEventCount = eventItems.filter((i) => i.date === TODAY_STR).length;
-  const tomorrowEventCount = eventItems.filter((i) => i.date === TOMORROW_STR).length;
-  const weekEventCount = eventItems.filter(
-    (i) => i.date >= weekRange.start && i.date <= weekRange.end
-  ).length;
+    // Text search
+    const q = searchQuery.trim().toLowerCase();
 
-  const categoryCounts = useMemo(() => {
-    const counts: Record<Category, number> = { 전체: allItems.length, 행사: 0, 맛집: 0, 핫플: 0, 지역소식: 0 };
-    for (const item of allItems) {
-      if (item.category in counts) counts[item.category as Category]++;
+    if (q || kwFilter.length > 0) {
+      items = items.filter((item) => {
+        if (item.isAd) return true;
+        const haystack = [item.title, item.description, item.location ?? "", item.category]
+          .join(" ")
+          .toLowerCase();
+        const textMatch = !q || haystack.includes(q);
+        const kwMatch = kwFilter.length === 0 || kwFilter.some((kw) => haystack.includes(kw));
+        return textMatch && kwMatch;
+      });
     }
-    return counts;
-  }, [allItems]);
 
-  function handleMainTabChange(v: string) {
-    const cat = v as Category;
-    setActiveTab(cat);
-    setEventSubTab("전체");
-    setCalendarDate(null);
+    return items;
+  }, [allItems, searchQuery, activeFilter, weekRange]);
+
+  const isSearching = searchQuery.trim() !== "" || activeFilter !== null;
+  const display = showAll ? filtered : filtered.slice(0, 9);
+
+  function handleFilterToggle(f: QuickFilter) {
+    setActiveFilter((prev) => (prev === f ? null : f));
     setShowAll(false);
-    if (cat === "전체") {
-      navigate("/");
-    } else {
-      navigate(`/?category=${encodeURIComponent(cat)}`);
-    }
   }
 
-  function handleSubTabChange(sub: EventSubTab) {
-    setEventSubTab(sub);
-    if (sub !== "달력") setCalendarDate(null);
+  function handleSearchChange(v: string) {
+    setSearchQuery(v);
     setShowAll(false);
+  }
+
+  function clearSearch() {
+    setSearchQuery("");
+    setActiveFilter(null);
+    setShowAll(false);
+    inputRef.current?.focus();
   }
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Header */}
       <header className="sticky top-0 z-50 bg-white border-b border-border shadow-sm">
-        <div className="max-w-6xl mx-auto px-4 flex items-center" style={{ height: 50 }}>
+        <div className="max-w-6xl mx-auto px-4 flex items-center justify-between" style={{ height: 50 }}>
           <a href={`${BASE}/`} className="inline-flex items-center">
             <img src={`${BASE}/logo2.png`} alt="PLAY강릉" style={{ height: 50, width: "auto" }} />
           </a>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-xs text-muted-foreground gap-1"
+            onClick={() => { window.location.href = `${BASE}/ad-submit`; }}
+          >
+            <Megaphone className="w-3.5 h-3.5" /> 광고접수
+          </Button>
         </div>
       </header>
 
       {/* Hero */}
       <section className="relative bg-gradient-to-br from-blue-700 via-blue-600 to-blue-500 text-white overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(255,255,255,0.1),_transparent_60%)]" />
-        <div className="relative max-w-6xl mx-auto px-4 py-6 text-center">
-          <p className="text-blue-200 text-sm font-medium tracking-widest uppercase mb-2">강릉의 모든 소식</p>
-          <h1 className="text-3xl md:text-4xl font-bold mb-3 leading-tight text-center">
-            <span className="block">강릉을 더 즐겁게,</span>
-            <span className="block">PLAY강릉</span>
+        <div className="relative max-w-2xl mx-auto px-4 py-8 text-center">
+          <p className="text-blue-200 text-xs font-semibold tracking-widest uppercase mb-2">강릉의 모든 소식</p>
+          <h1 className="text-2xl md:text-3xl font-bold mb-4 leading-tight">
+            강릉에서 지금 뭐하지?
           </h1>
-          <p className="text-blue-100 text-sm md:text-base max-w-xl mx-auto">
-            강릉의 행사, 맛집, 핫플, 지역소식을 한눈에 만나보세요.
+
+          {/* Search bar */}
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+            <input
+              ref={inputRef}
+              type="text"
+              value={searchQuery}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              placeholder="강릉 행사·소식 검색"
+              className="w-full pl-12 pr-12 py-3.5 rounded-xl text-gray-900 text-sm bg-white shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-300 placeholder:text-gray-400"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => handleSearchChange("")}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+          <p className="text-blue-200 text-xs mt-2 opacity-80">
+            예: 단오, 경포, 전시, 공연, 주말, 무료
           </p>
         </div>
       </section>
 
       {/* Main Content */}
-      <main className="flex-1 max-w-6xl mx-auto px-4 py-4 w-full">
-        {/* Category Tabs */}
-        <div className="mb-3">
-          <div className="flex items-center justify-between gap-2 w-full">
-            <Tabs value={activeTab} onValueChange={handleMainTabChange}>
-              <TabsList className="bg-white border border-border shadow-sm h-8 p-0.5 gap-0.5">
-                {(["전체", "행사", "지역소식", "맛집", "핫플"] as Category[]).map((cat) => {
-                  const isEmpty = cat !== "전체" && categoryCounts[cat] === 0;
-                  return (
-                    <TabsTrigger
-                      key={cat}
-                      value={cat}
-                      className={`px-3 py-1 text-xs data-[state=active]:bg-primary data-[state=active]:text-white rounded flex items-center gap-1 ${isEmpty ? "opacity-40" : ""}`}
-                    >
-                      {cat}
-                      {isEmpty ? (
-                        <span className="text-[9px] font-medium px-1 py-0.5 rounded-full bg-gray-100 text-gray-400 leading-none">준비중</span>
-                      ) : categoryCounts[cat] > 0 ? (
-                        <span className={`text-[10px] font-bold px-1 py-0.5 rounded-full leading-none
-                          ${activeTab === cat
-                            ? "bg-white/25 text-white"
-                            : "bg-gray-100 text-gray-500"
-                          }`}>
-                          {categoryCounts[cat]}
-                        </span>
-                      ) : null}
-                    </TabsTrigger>
-                  );
-                })}
-              </TabsList>
-            </Tabs>
-            <div className="flex items-center gap-2">
-              {adCount > 0 && (
-                <Badge variant="outline" className="text-xs text-amber-700 border-amber-300 bg-amber-50">
-                  <Megaphone className="w-3 h-3 mr-1" />{adCount}건
-                </Badge>
-              )}
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 px-3 text-xs text-blue-600 border-blue-200 hover:bg-blue-50 font-semibold gap-1"
-                onClick={() => { window.location.href = `${BASE}/ad-submit`; }}
-              >
-                <Megaphone className="w-3 h-3" /> 광고접수
-              </Button>
-            </div>
-          </div>
+      <main className="flex-1 max-w-6xl mx-auto px-4 py-5 w-full">
+        {/* Quick filter pills */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 mb-5" style={{ scrollbarWidth: "none" }}>
+          {QUICK_FILTERS.map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => handleFilterToggle(key)}
+              className={`shrink-0 px-4 py-1.5 rounded-full text-sm font-medium transition-all border
+                ${activeFilter === key
+                  ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+                  : "bg-white text-gray-600 border-gray-200 hover:border-blue-300 hover:text-blue-600"
+                }`}
+            >
+              {label}
+            </button>
+          ))}
+          {isSearching && (
+            <button
+              onClick={clearSearch}
+              className="shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium text-gray-400 border border-dashed border-gray-300 hover:border-gray-400 hover:text-gray-500 transition-all"
+            >
+              <X className="w-3 h-3" /> 초기화
+            </button>
+          )}
         </div>
 
-        {/* Event Sub-Tabs — Instagram filter pill style */}
-        {activeTab === "행사" && (
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 mb-4" style={{ scrollbarWidth: "none" }}>
-            {([
-              { key: "전체" as EventSubTab, label: "전체", count: eventItems.length },
-              { key: "달력" as EventSubTab, label: "📅 행사달력", count: null },
-              { key: "오늘" as EventSubTab, label: "오늘", count: todayEventCount },
-              { key: "내일" as EventSubTab, label: "내일", count: tomorrowEventCount },
-              { key: "이번 주" as EventSubTab, label: "이번 주", count: weekEventCount },
-            ]).map(({ key, label, count }) => (
-              <button
-                key={key}
-                onClick={() => handleSubTabChange(key)}
-                className={`shrink-0 flex items-center gap-1 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all border
-                  ${eventSubTab === key
-                    ? "bg-blue-600 text-white border-blue-600 shadow-sm scale-105"
-                    : "bg-white text-gray-600 border-gray-200 hover:border-blue-300 hover:text-blue-600"
-                  }`}
-              >
-                {label}
-                {count !== null && (
-                  <span className={`ml-0.5 text-[10px] font-bold px-1 py-0.5 rounded-full
-                    ${eventSubTab === key ? "bg-white/20" : "bg-gray-100 text-gray-500"}`}>
-                    {count}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* Calendar View */}
-        {activeTab === "행사" && eventSubTab === "달력" && (
-          <EventCalendar
-            events={eventItems}
-            selectedDate={calendarDate}
-            onSelectDate={setCalendarDate}
-          />
+        {/* Result count */}
+        {isSearching && (
+          <p className="text-xs text-muted-foreground mb-3">
+            {filtered.filter(i => !i.isAd).length}건의 결과
+            {activeFilter && <span className="ml-1 font-medium text-blue-600">· {activeFilter}</span>}
+            {searchQuery && <span className="ml-1 font-medium text-blue-600">· &ldquo;{searchQuery}&rdquo;</span>}
+          </p>
         )}
 
         {/* Cards Grid */}
-        {!(activeTab === "행사" && eventSubTab === "달력") && (
+        {filtered.filter(i => !i.isAd).length === 0 && isSearching ? (
+          <div className="flex flex-col items-center justify-center py-24 text-muted-foreground">
+            <Search className="w-12 h-12 mb-3 opacity-15" />
+            <p className="text-base font-semibold text-gray-600">검색 결과가 없습니다.</p>
+            <p className="text-sm mt-1 text-gray-400">다른 키워드로 다시 찾아보세요.</p>
+            <Button variant="outline" size="sm" className="mt-4 text-xs" onClick={clearSearch}>
+              전체 보기
+            </Button>
+          </div>
+        ) : (
           <>
-            {subFiltered.length === 0 ? (
-              activeTab !== "전체" && categoryCounts[activeTab] === 0 ? (
-                <div className="flex flex-col items-center justify-center py-24 text-muted-foreground">
-                  <RefreshCw className="w-12 h-12 mb-3 opacity-20" />
-                  <p className="text-lg font-semibold text-gray-600">곧 업데이트됩니다</p>
-                  <p className="text-sm mt-1 text-gray-400">{activeTab} 카테고리 콘텐츠를 준비 중입니다.</p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="mt-4 text-xs"
-                    onClick={() => handleMainTabChange("전체")}
-                  >
-                    전체 콘텐츠 보기
-                  </Button>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-24 text-muted-foreground">
-                  <CalendarDays className="w-12 h-12 mb-3 opacity-20" />
-                  <p className="text-lg font-medium">해당 날짜의 행사가 없습니다.</p>
-                  <p className="text-sm mt-1">다른 날짜를 선택하거나 전체 탭을 확인해보세요.</p>
-                </div>
-              )
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {display.map((item) => (
-                  <FeedCard key={item.id} item={item} />
-                ))}
-              </div>
-            )}
-
-            {!showAll && subFiltered.length > 6 && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {display.map((item) => (
+                <FeedCard key={item.id} item={item} />
+              ))}
+            </div>
+            {!showAll && filtered.length > 9 && (
               <div className="mt-8 text-center">
                 <Button variant="outline" size="lg" onClick={() => setShowAll(true)}>
-                  더 보기 ({subFiltered.length - 6}건)
+                  더 보기 ({filtered.length - 9}건)
                 </Button>
               </div>
             )}
@@ -589,18 +407,21 @@ export default function Home() {
       </main>
 
       {/* SNS Section */}
-      <section className="bg-white border-t border-border py-12">
+      <section className="bg-white border-t border-border py-10">
         <div className="max-w-6xl mx-auto px-4 text-center">
-          <h2 className="text-xl font-bold mb-2">SNS에서 PLAY강릉 팔로우</h2>
-          <p className="text-muted-foreground text-sm mb-6">최신 강릉 소식을 SNS에서 가장 먼저 만나보세요.</p>
-          <div className="flex items-center justify-center gap-4 flex-wrap">
-            <a href="https://www.instagram.com" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm font-medium hover:opacity-90 transition-opacity">
+          <h2 className="text-lg font-bold mb-1.5">SNS에서 PLAY강릉 팔로우</h2>
+          <p className="text-muted-foreground text-sm mb-5">최신 강릉 소식을 SNS에서 가장 먼저 만나보세요.</p>
+          <div className="flex items-center justify-center gap-3 flex-wrap">
+            <a href="https://www.instagram.com" target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm font-medium hover:opacity-90 transition-opacity">
               <Instagram className="w-4 h-4" />인스타그램
             </a>
-            <a href="https://www.facebook.com" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-medium hover:opacity-90 transition-opacity">
+            <a href="https://www.facebook.com" target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-medium hover:opacity-90 transition-opacity">
               <Facebook className="w-4 h-4" />페이스북
             </a>
-            <a href="https://www.youtube.com" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-red-600 text-white text-sm font-medium hover:opacity-90 transition-opacity">
+            <a href="https://www.youtube.com" target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-red-600 text-white text-sm font-medium hover:opacity-90 transition-opacity">
               <Youtube className="w-4 h-4" />유튜브
             </a>
           </div>

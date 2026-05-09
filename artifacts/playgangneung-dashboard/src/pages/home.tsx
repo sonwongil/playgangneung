@@ -345,7 +345,11 @@ export default function Home() {
       {/* Main Content */}
       <main className="flex-1 max-w-6xl mx-auto px-4 py-5 w-full">
         {/* Quick filter pills */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 mb-5" style={{ scrollbarWidth: "none" }}>
+        <div className="relative mb-5">
+          <div
+            className="flex items-center gap-2 overflow-x-auto pb-1"
+            style={{ scrollbarWidth: "none", WebkitOverflowScrolling: "touch" } as React.CSSProperties}
+          >
           {QUICK_FILTERS.map(({ key, label }) => (
             <button
               key={key}
@@ -367,6 +371,9 @@ export default function Home() {
               <X className="w-3 h-3" /> 초기화
             </button>
           )}
+          </div>
+          {/* 오른쪽 끝 페이드 — 더 스크롤할 수 있음을 시각적으로 표시 */}
+          <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-10 bg-gradient-to-l from-gray-50 to-transparent" />
         </div>
 
         {/* Result count */}

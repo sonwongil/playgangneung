@@ -14,8 +14,20 @@
     "source": "강릉문화예술재단",
     "sourceType": "html",
     "status": "approved",
-    "socialDraft": null,
-    "cardImageUrl": null,
+    "socialDraft": {
+      "title": "🎉 놀자 우리랑",
+      "caption": "📍 강릉에서 만나요\n🗓️ 2026년 4월 17일\n\n(사) 아트컴퍼니 해랑\n\n강릉을 더욱 특별하게 만들어 줄 행사를 소개합니다.\n\n👉 자세히 보기: https://play-gangneung-dashboard.replit.app/content/ed14d13e947dc3ee02916430eace298a",
+      "hashtags": [
+        "#강릉여행추천",
+        "#강릉",
+        "#강릉데이트",
+        "#강릉핫플",
+        "#PLAY강릉",
+        "#국내여행"
+      ],
+      "createdAt": "2026-05-09T05:33:57.569Z"
+    },
+    "cardImageUrl": "/api/cards/ed14d13e947dc3ee02916430eace298a.png",
     "crawledAt": "2026-05-06T13:37:02.767Z"
   },
   {
@@ -299,8 +311,20 @@
     "source": "강릉시 이달의 행사",
     "sourceType": "html",
     "status": "approved",
-    "socialDraft": null,
-    "cardImageUrl": null,
+    "socialDraft": {
+      "title": "🎉 삶, 뒤울림  Echoes of Life",
+      "caption": "📍 아름다운 강릉에서\n🗓️ 2026년 4월 29일\n\n강릉의 특색 있는 문화와 자연을 배경으로 열리는 이번 행사를 소개합니다.\n\n강릉에서만 느낄 수 있는 특별한 경험, 놓치지 마세요!\n\n👉 자세히 보기: https://play-gangneung-dashboard.replit.app/content/bd82689195a3eba8fd3d2390b465fda4",
+      "hashtags": [
+        "#여행스타그램",
+        "#강릉축제",
+        "#강릉핫플",
+        "#강릉관광",
+        "#국내여행",
+        "#강릉여행"
+      ],
+      "createdAt": "2026-05-09T05:31:50.008Z"
+    },
+    "cardImageUrl": "/api/cards/bd82689195a3eba8fd3d2390b465fda4.png",
     "crawledAt": "2026-05-06T13:37:01.555Z"
   },
   {

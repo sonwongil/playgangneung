@@ -162,9 +162,9 @@ function FeedCard({ item }: { item: FeedItem }) {
             <span>{item.location || item.source}</span>
           </div>
         </div>
-        {item.link && (
+        {(item.isAd ? item.link : item.id) && (
           <a
-            href={item.link}
+            href={item.isAd ? item.link : `/content/${item.id}`}
             target="_blank"
             rel="noopener noreferrer"
             className="mt-3 flex items-center gap-1.5 text-xs text-primary hover:underline font-medium"

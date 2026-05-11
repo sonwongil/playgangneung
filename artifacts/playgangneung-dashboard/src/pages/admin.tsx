@@ -1065,21 +1065,21 @@ export default function Admin() {
           </div>
 
           {/* 폰 프레임 */}
-          <div className="relative bg-gray-900 rounded-[40px] p-3 shadow-2xl" style={{ width: 412, height: 760 }}>
+          <div className="relative bg-gray-900 rounded-[46px] p-3 shadow-2xl" style={{ width: 536, height: 988 }}>
             {/* 노치 */}
-            <div className="absolute top-3 left-1/2 -translate-x-1/2 w-24 h-6 bg-gray-900 rounded-full z-10" />
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 w-28 h-7 bg-gray-900 rounded-full z-10" />
             {/* 화면 */}
-            <div className="w-full h-full bg-white rounded-[30px] overflow-hidden">
+            <div className="w-full h-full bg-white rounded-[38px] overflow-hidden">
               <iframe
                 key={mobilePreviewPath}
                 src={`${BASE}${mobilePreviewPath}`}
-                className="w-full h-full border-none block"
+                className="border-none block"
                 title="모바일 미리보기"
-                style={{ width: "390px", transform: "scale(0.965)", transformOrigin: "top left", height: "calc(100% / 0.965)" }}
+                style={{ width: "390px", height: "calc(100% / 1.31)", transform: "scale(1.31)", transformOrigin: "top left" }}
               />
             </div>
           </div>
-          <p className="text-white/50 text-xs">390 × 844 (iPhone 14)</p>
+          <p className="text-white/50 text-xs">390 × 844 (iPhone 14 · 130%)</p>
         </div>
       </div>
     )}

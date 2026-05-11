@@ -765,6 +765,109 @@ async function crawlGncaf(): Promise<{ events: CrawledEvent[]; error?: string }>
   }
 }
 
+// ─── 강원일보 강릉 지역 뉴스 (kwnews.co.kr) ─────────────────────────────────
+
+const KWNEWS_BASE = "https://kwnews.co.kr";
+
+async function crawlKwnews(
+  url: string,
+  sourceName = "강원일보-강릉",
+): Promise<{ events: CrawledEvent[]; error?: string }> {
+  try {
+    const html = await fetchHtml(url, 15000, KWNEWS_BASE + "/");
+    const $ = cheerio.load(html);
+    const events: CrawledEvent[] = [];
+
+    $("#sub_news_list li").each((_, el) => {
+      const $el = $(el);
+
+      const $titleA = $el.find("p.title a").first();
+      const title = $titleA.text().replace(/【강릉】/g, "").trim();
+      if (!title || title.length < 2) return;
+
+      const href = $titleA.attr("href") || "";
+      const link = href.startsWith("http") ? href : href ? `${KWNEWS_BASE}${href}` : url;
+
+      const desc = $el.find("p.body a").first().text().replace(/【강릉】/g, "").trim().slice(0, 300);
+
+      const dateRaw = $el.find("p.date").text().trim().slice(0, 10); // YYYY-MM-DD
+
+      const imgSrc = $el.find("div.thumb img").attr("src") || "";
+      const thumbnail = imgSrc ? (imgSrc.startsWith("http") ? imgSrc : `${KWNEWS_BASE}${imgSrc}`) : null;
+
+      const id = makeId("kwnews", link || title);
+      events.push(buildEvent(id, title, desc, dateRaw, link, sourceName, "html", thumbnail, "강릉", "지역소식"));
+    });
+
+    logger.info({ count: events.length }, "[kwnews] 파싱 완료");
+    return { events };
+  } catch (err) {
+    return { events: [], error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+// ─── 강원도민일보 강릉 뉴스 RSS ──────────────────────────────────────────────
+
+async function crawlKadoRss(
+  rssUrl: string,
+  sourceName = "강원도민일보-강릉",
+): Promise<{ events: CrawledEvent[]; error?: string }> {
+  try {
+    const resp = await axios.get(rssUrl, {
+      headers: { "User-Agent": USER_AGENT },
+      httpsAgent,
+      timeout: 15000,
+      responseType: "text",
+    });
+    const xml: string = resp.data as string;
+    const $ = cheerio.load(xml, { xmlMode: true });
+
+    const events: CrawledEvent[] = [];
+
+    $("item").each((_, el) => {
+      const $el = $(el);
+      const title = $el.find("title").first().text().trim();
+      if (!title || title.length < 2) return;
+
+      const desc = $el.find("description").first().text().replace(/<[^>]+>/g, "").trim().slice(0, 300);
+
+      // 강릉 관련 기사만 필터
+      if (!title.includes("강릉") && !desc.includes("강릉")) return;
+
+      const link = $el.find("link").text().trim() || $el.find("guid").text().trim();
+      const pubDate = $el.find("pubDate").text().trim();
+
+      // pubDate: "Tue, 12 May 2026 00:02:02 +0900" → YYYY-MM-DD
+      let dateRaw = "";
+      try {
+        const d = new Date(pubDate);
+        if (!isNaN(d.getTime())) {
+          dateRaw = d.toISOString().slice(0, 10);
+        }
+      } catch { /* ignore */ }
+
+      // 썸네일: <media:content> 또는 content:encoded 내 첫 img
+      let thumbnail: string | null = null;
+      const mediaUrl = $el.find("media\\:content, content").attr("url") || "";
+      if (mediaUrl) {
+        thumbnail = mediaUrl;
+      } else {
+        const encoded = $el.find("content\\:encoded").text();
+        const imgMatch = encoded.match(/src=["']([^"']+\.(?:jpg|jpeg|png|webp))[^"']*/i);
+        if (imgMatch) thumbnail = imgMatch[1];
+      }
+
+      const id = makeId("kado", link || title);
+      events.push(buildEvent(id, title, desc, dateRaw, link, sourceName, "rss", thumbnail, "강릉", "지역소식"));
+    });
+
+    logger.info({ count: events.length }, "[kado_rss] 강릉 필터 완료");
+    return { events };
+  } catch (err) {
+    return { events: [], error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
 // ─── crawlUrl (수동 URL 크롤링) ───────────────────────────────────────────────
 
 export async function crawlUrl(url: string): Promise<CrawledEvent[]> {
@@ -865,6 +968,14 @@ async function dispatchCrawl(
     }
     if (url.includes("gncaf.or.kr")) {
       return await crawlGncaf();
+    }
+    // 강원일보 강릉 지역면
+    if (url.includes("kwnews.co.kr") || url.includes("kwnews.co.kr")) {
+      return await crawlKwnews(url, name);
+    }
+    // 강원도민일보 RSS
+    if (url.includes("kado.net") && url.includes(".xml")) {
+      return await crawlKadoRss(url, name);
     }
     // 범용 파서: 임의의 게시판/목록 페이지
     const events = await crawlUrl(url);

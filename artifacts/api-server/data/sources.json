@@ -61,5 +61,19 @@
     "url": "https://www.gn.go.kr/mu/selectMoonhwainList.do?key=6620&searchMoon_p_team=gnmu",
     "enabled": true,
     "createdAt": "2026-05-11T05:20:01.024Z"
+  },
+  {
+    "id": "513809de7c582cd13b472e5c0beee376",
+    "name": "강원일보-강릉",
+    "url": "https://kwnews.co.kr/area/gangneung?area=W100000800003",
+    "enabled": true,
+    "createdAt": "2026-05-11T21:14:40.105Z"
+  },
+  {
+    "id": "74ce0078cc9b3362c4f7750d5fb7ea9d",
+    "name": "강원도민일보-강릉",
+    "url": "https://cdn.kado.net/rss/gn_rss_allArticle.xml",
+    "enabled": true,
+    "createdAt": "2026-05-11T21:15:49.488Z"
   }
 ]

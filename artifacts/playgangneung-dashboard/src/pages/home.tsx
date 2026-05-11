@@ -360,7 +360,10 @@ export default function Home() {
         <div className="max-w-6xl mx-auto px-4 text-center text-sm">
           <img src={`${BASE}/logo.png`} alt="PLAY강릉" className="h-7 object-contain mx-auto mb-3 opacity-60 brightness-0 invert" />
           <p>© 2026 PLAY강릉. 강릉시 공식 SNS 운영 백오피스.</p>
-          <p className="mt-1 text-gray-500">강원특별자치도 강릉시</p>
+          <p className="mt-1 text-gray-500">
+            강원특별자치도 강릉시
+            <a href={`${BASE}/admin`} className="ml-2 text-gray-800 hover:text-gray-700 select-none" tabIndex={-1} aria-hidden="true">·</a>
+          </p>
         </div>
       </footer>
     </div>

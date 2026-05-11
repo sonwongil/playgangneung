@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
-  CalendarDays, MapPin, Instagram, Facebook, Youtube,
+  CalendarDays, MapPin,
   Megaphone, Star, Pin, Search, X, ArrowUpDown,
 } from "lucide-react";
 
@@ -398,28 +398,6 @@ export default function Home() {
           </>
         )}
       </main>
-
-      {/* SNS Section */}
-      <section className="bg-white border-t border-border py-10">
-        <div className="max-w-6xl mx-auto px-4 text-center">
-          <h2 className="text-lg font-bold mb-1.5">SNS에서 PLAY강릉 팔로우</h2>
-          <p className="text-muted-foreground text-sm mb-5">최신 강릉 소식을 SNS에서 가장 먼저 만나보세요.</p>
-          <div className="flex items-center justify-center gap-3 flex-wrap">
-            <a href="https://www.instagram.com" target="_blank" rel="noopener noreferrer"
-              className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm font-medium hover:opacity-90 transition-opacity">
-              <Instagram className="w-4 h-4" />인스타그램
-            </a>
-            <a href="https://www.facebook.com" target="_blank" rel="noopener noreferrer"
-              className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-medium hover:opacity-90 transition-opacity">
-              <Facebook className="w-4 h-4" />페이스북
-            </a>
-            <a href="https://www.youtube.com" target="_blank" rel="noopener noreferrer"
-              className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-red-600 text-white text-sm font-medium hover:opacity-90 transition-opacity">
-              <Youtube className="w-4 h-4" />유튜브
-            </a>
-          </div>
-        </div>
-      </section>
 
       {/* Footer */}
       <footer className="bg-gray-900 text-gray-400 py-8">

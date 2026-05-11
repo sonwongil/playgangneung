@@ -16,14 +16,14 @@ function makeId(ns: string, val: string): string {
   return crypto.createHash("md5").update(`${ns}:${val}`).digest("hex");
 }
 
-async function fetchHtml(url: string, timeoutMs = 15000): Promise<string> {
+async function fetchHtml(url: string, timeoutMs = 15000, referer?: string): Promise<string> {
   const resp = await axios.get(url, {
     headers: {
       "User-Agent": USER_AGENT,
       Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
       "Accept-Language": "ko-KR,ko;q=0.9",
       "Accept-Encoding": "gzip, deflate",
-      Referer: new URL(url).origin + "/",
+      Referer: referer ?? (new URL(url).origin + "/"),
     },
     httpsAgent,
     timeout: timeoutMs,
@@ -49,22 +49,26 @@ async function fetchHtml(url: string, timeoutMs = 15000): Promise<string> {
 const PHONE_RE = /0\d{1,2}[-\s]?\d{3,4}[-\s]?\d{4}/;
 
 /**
- * 상세페이지 URL에서 본문 설명과 문의처 전화번호를 추출합니다.
+ * 상세페이지 URL에서 본문 설명, 문의처 전화번호, 썸네일을 추출합니다.
+ * referer: 목록 페이지 URL (gn.go.kr 계열은 Referer 없으면 500)
  */
-async function fetchDetailInfo(url: string, timeoutMs = 8000): Promise<{ desc: string; contact: string }> {
+async function fetchDetailInfo(
+  url: string,
+  timeoutMs = 8000,
+  referer?: string,
+): Promise<{ desc: string; contact: string; thumbnail?: string }> {
   try {
-    const html = await fetchHtml(url, timeoutMs);
+    const html = await fetchHtml(url, timeoutMs, referer);
     const $ = cheerio.load(html);
 
     // ── 문의처 추출 ────────────────────────────────────────────────────────
     let contact = "";
 
-    // 테이블 행에서 "문의" 라벨 옆 값 추출 (강릉문화예술재단, 강릉시청 계열)
-    $("table tr, dl, .info-list li").each((_, el) => {
+    $("table tr, dl, .info-list li, .detail_info li").each((_, el) => {
       const $el = $(el);
-      const label = $el.find("th, dt, .label, strong").first().text().trim();
+      const label = $el.find("th, dt, .label, strong, .tit").first().text().trim();
       if (/문의|연락|전화|tel/i.test(label)) {
-        const val = $el.find("td, dd, .value").first().text().trim();
+        const val = $el.find("td, dd, .value, .txt").first().text().trim();
         const phone = val.match(PHONE_RE)?.[0] ?? val;
         if (phone) { contact = phone; return false; }
       }
@@ -79,6 +83,10 @@ async function fetchDetailInfo(url: string, timeoutMs = 8000): Promise<{ desc: s
 
     // ── 설명 추출 ──────────────────────────────────────────────────────────
     const CONTENT_SELECTORS = [
+      // gn.go.kr 통합예약/아트센터 전용
+      ".view_text",
+      ".view_box",
+      // 강릉문화예술재단
       ".fcontent",
       ".view_cont",
       ".board-view-content",
@@ -100,7 +108,7 @@ async function fetchDetailInfo(url: string, timeoutMs = 8000): Promise<{ desc: s
     for (const sel of CONTENT_SELECTORS) {
       const el = $(sel);
       if (el.length === 0) continue;
-      el.find("script,style,iframe,nav,header,footer,.skip").remove();
+      el.find("script,style,iframe,nav,header,footer,.skip,.view_img_list,.view_title,.view_back,a.view_back,span.view_title").remove();
       const text = el.text().replace(/\s+/g, " ").trim();
       if (text.length > 20) { desc = text.slice(0, 500); break; }
     }
@@ -125,7 +133,15 @@ async function fetchDetailInfo(url: string, timeoutMs = 8000): Promise<{ desc: s
     ];
     if (JUNK_PATTERNS.some((p) => p.test(desc))) desc = "";
 
-    return { desc, contact };
+    // ── 썸네일 추출 (gn.go.kr /DATA/event/main/...) ──────────────────────
+    let thumbnail: string | undefined;
+    const origin = (() => { try { return new URL(url).origin; } catch { return ""; } })();
+    const mainImg = $(".detail_img_box img, .img_inner img").first().attr("src") || "";
+    if (mainImg) {
+      thumbnail = mainImg.startsWith("http") ? mainImg : `${origin}${mainImg}`;
+    }
+
+    return { desc, contact, thumbnail };
   } catch {
     return { desc: "", contact: "" };
   }
@@ -135,8 +151,9 @@ async function fetchDetailInfo(url: string, timeoutMs = 8000): Promise<{ desc: s
 async function fetchDetailInfos(
   items: { id: string; link: string }[],
   concurrency = 4,
-): Promise<Record<string, { desc: string; contact: string }>> {
-  const result: Record<string, { desc: string; contact: string }> = {};
+  referer?: string,
+): Promise<Record<string, { desc: string; contact: string; thumbnail?: string }>> {
+  const result: Record<string, { desc: string; contact: string; thumbnail?: string }> = {};
   const queue = [...items];
 
   async function worker() {
@@ -144,7 +161,7 @@ async function fetchDetailInfos(
       const item = queue.shift();
       if (!item) break;
       if (!item.link || item.link.length < 10) continue;
-      result[item.id] = await fetchDetailInfo(item.link);
+      result[item.id] = await fetchDetailInfo(item.link, 8000, referer);
     }
   }
 
@@ -194,77 +211,100 @@ function buildEvent(
 
 const GN_YEYAK_BASE = "https://www.gn.go.kr";
 
+/** 단일 달 페이지에서 rawItems 추출 */
+function parseGnYeyakPage(
+  html: string,
+  pageUrl: string,
+  seen: Set<string>,
+): {
+  id: string; title: string; dateRaw: string; link: string;
+  location: string; thumbnail: string | null; inlineDesc: string; defaultCategory: string;
+}[] {
+  const $ = cheerio.load(html);
+  const items: {
+    id: string; title: string; dateRaw: string; link: string;
+    location: string; thumbnail: string | null; inlineDesc: string; defaultCategory: string;
+  }[] = [];
+
+  $("li").each((_, el) => {
+    const $el = $(el);
+    const $btn = $el.find("button.category_link");
+    if ($btn.length === 0) return;
+
+    const title = $btn.find("em.text").text().trim();
+    if (!title || title.length < 2) return;
+
+    const categoryLabel = $btn.find("em.category").text().trim();
+
+    const $popup = $el.find(".popup_inner");
+    const infoItems = $popup.find("ul li").map((_, li) => $(li).text().trim()).get();
+
+    const dateRaw = infoItems.find(t => t.startsWith("기간"))?.replace(/^기간\s*:\s*/, "").trim() ?? "";
+    const location = infoItems.find(t => t.startsWith("장소"))?.replace(/^장소\s*:\s*/, "").trim() || "강릉";
+
+    const extraInfo = infoItems
+      .filter(t => !t.startsWith("기간") && !t.startsWith("장소") && t.length > 1)
+      .join(" | ");
+
+    const $detailLink = $popup.find("a.more_link");
+    const href = $detailLink.attr("href") || "";
+    const link = href.startsWith("http") ? href : href ? `${GN_YEYAK_BASE}/yeyak/${href.replace(/^\.\//, "")}` : pageUrl;
+
+    const imgStyle = $el.find(".img_wrap").attr("style") || "";
+    const imgMatch = imgStyle.match(/url\(([^)'"]+)[)'"]/);
+    const thumbnail = imgMatch
+      ? (imgMatch[1].startsWith("http") ? imgMatch[1] : `${GN_YEYAK_BASE}${imgMatch[1]}`)
+      : null;
+
+    // 행사 ID는 상세 링크 기준 (중복 제거)
+    const id = makeId("gn_yeyak", link || title);
+    if (seen.has(id)) return;
+    seen.add(id);
+
+    const defaultCategory = ["공연", "축제", "전시"].includes(categoryLabel) ? "행사" : "행사";
+    items.push({ id, title, dateRaw, link, location, thumbnail, inlineDesc: extraInfo, defaultCategory });
+  });
+
+  return items;
+}
+
 async function crawlGnYeyak(): Promise<{ events: CrawledEvent[]; error?: string }> {
-  const url = `${GN_YEYAK_BASE}/yeyak/selectUnityEventWebList.do?key=6420`;
+  const BASE_URL = `${GN_YEYAK_BASE}/yeyak/selectUnityEventWebList.do?key=6420`;
   try {
-    const html = await fetchHtml(url);
-    const $ = cheerio.load(html);
+    // 현재 달 + 다음 2개월 크롤링
+    const today = new Date();
+    const months: { year: number; month: number }[] = [];
+    for (let offset = 0; offset <= 2; offset++) {
+      const d = new Date(today.getFullYear(), today.getMonth() + offset, 1);
+      months.push({ year: d.getFullYear(), month: d.getMonth() + 1 });
+    }
 
-    const rawItems: {
-      id: string;
-      title: string;
-      dateRaw: string;
-      link: string;
-      location: string;
-      thumbnail: string | null;
-      inlineDesc: string;
-      defaultCategory: string;
-    }[] = [];
     const seen = new Set<string>();
+    const rawItems: ReturnType<typeof parseGnYeyakPage> = [];
 
-    $("li").each((_, el) => {
-      const $el = $(el);
-      const $btn = $el.find("button.category_link");
-      if ($btn.length === 0) return;
+    for (const { year, month } of months) {
+      const pageUrl = `${BASE_URL}&searchYear=${year}&searchMonth=${month}&searchEventCd=`;
+      try {
+        const html = await fetchHtml(pageUrl, 15000, BASE_URL);
+        const items = parseGnYeyakPage(html, pageUrl, seen);
+        rawItems.push(...items);
+        logger.info({ year, month, count: items.length }, "[gn_yeyak] 달 크롤링 완료");
+      } catch (err) {
+        logger.warn({ year, month, err }, "[gn_yeyak] 달 크롤링 실패, 건너뜀");
+      }
+    }
 
-      const title = $btn.find("em.text").text().trim();
-      if (!title || title.length < 2) return;
-
-      const categoryLabel = $btn.find("em.category").text().trim();
-
-      const $popup = $el.find(".popup_inner");
-      const infoItems = $popup.find("ul li").map((_, li) => $(li).text().trim()).get();
-
-      const dateRaw = infoItems.find(t => t.startsWith("기간"))?.replace(/^기간\s*:\s*/, "").trim() ?? "";
-      const location = infoItems.find(t => t.startsWith("장소"))?.replace(/^장소\s*:\s*/, "").trim() || "강릉";
-
-      // 기간/장소 외 나머지 항목을 설명으로 수집
-      const extraInfo = infoItems
-        .filter(t => !t.startsWith("기간") && !t.startsWith("장소") && t.length > 1)
-        .join(" | ");
-
-      const $detailLink = $popup.find("a.more_link");
-      const href = $detailLink.attr("href") || "";
-      const link = href.startsWith("http") ? href : href ? `${GN_YEYAK_BASE}/yeyak/${href.replace(/^\.\//, "")}` : url;
-
-      const imgStyle = $el.find(".img_wrap").attr("style") || "";
-      const imgMatch = imgStyle.match(/url\(([^)]+)\)/);
-      const thumbnail = imgMatch
-        ? (imgMatch[1].startsWith("http") ? imgMatch[1] : `${GN_YEYAK_BASE}${imgMatch[1]}`)
-        : null;
-
-      const key = title + dateRaw;
-      if (seen.has(key)) return;
-      seen.add(key);
-
-      const defaultCategory = categoryLabel === "공연" ? "행사"
-        : categoryLabel === "축제" ? "행사"
-        : categoryLabel === "전시" ? "행사"
-        : "행사";
-
-      const id = makeId("gn_yeyak", link || title);
-      rawItems.push({ id, title, dateRaw, link, location, thumbnail, inlineDesc: extraInfo, defaultCategory });
-    });
-
-    // 상세페이지 병렬 fetch
+    // 상세페이지 병렬 fetch (Referer: 목록 페이지)
     const detailLinks = rawItems
-      .filter(it => it.link && it.link !== url)
+      .filter(it => it.link && it.link !== BASE_URL)
       .map(it => ({ id: it.id, link: it.link }));
-    const infoMap = await fetchDetailInfos(detailLinks, 4);
+    const infoMap = await fetchDetailInfos(detailLinks, 4, BASE_URL);
 
     const events: CrawledEvent[] = rawItems.map(it => {
       const info = infoMap[it.id];
       const desc = info?.desc || it.inlineDesc || it.location;
+      // 목록 썸네일 우선, 없으면 상세 페이지 썸네일 사용
+      const thumbnail = it.thumbnail || info?.thumbnail || null;
       return buildEvent(
         it.id,
         it.title,
@@ -273,7 +313,7 @@ async function crawlGnYeyak(): Promise<{ events: CrawledEvent[]; error?: string 
         it.link,
         "강릉시 이달의 행사",
         "html",
-        it.thumbnail,
+        thumbnail,
         it.location,
         it.defaultCategory,
         info?.contact,
@@ -346,15 +386,16 @@ async function crawlGnArtscenter(): Promise<{ events: CrawledEvent[]; error?: st
       rawItems.push({ id, title, dateRaw, link, location, thumbnail, inlineDesc });
     });
 
-    // 상세페이지 병렬 fetch (artscenter도 상세 정보 보강)
+    // 상세페이지 병렬 fetch (artscenter도 상세 정보 보강, Referer: 목록 페이지)
     const detailLinks = rawItems
       .filter(it => it.link && it.link !== url)
       .map(it => ({ id: it.id, link: it.link }));
-    const infoMap = await fetchDetailInfos(detailLinks, 4);
+    const infoMap = await fetchDetailInfos(detailLinks, 4, url);
 
     const events: CrawledEvent[] = rawItems.map(it => {
       const info = infoMap[it.id];
       const desc = info?.desc || it.inlineDesc || it.location;
+      const thumbnail = it.thumbnail || info?.thumbnail || null;
       return buildEvent(
         it.id,
         it.title,
@@ -363,7 +404,7 @@ async function crawlGnArtscenter(): Promise<{ events: CrawledEvent[]; error?: st
         it.link,
         "강릉아트센터",
         "html",
-        it.thumbnail,
+        thumbnail,
         it.location,
         "행사",
         info?.contact,
@@ -420,15 +461,16 @@ async function crawlGncaf(): Promise<{ events: CrawledEvent[]; error?: string }>
       rawItems.push({ id, title, dateRaw, link, location, thumbnail });
     });
 
-    // 강릉문화예술재단은 목록에 설명 없음 → 상세페이지 병렬 fetch 필수
+    // 강릉문화예술재단은 목록에 설명 없음 → 상세페이지 병렬 fetch 필수 (Referer: 목록 페이지)
     const detailLinks = rawItems
       .filter(it => it.link && it.link !== url)
       .map(it => ({ id: it.id, link: it.link }));
-    const infoMap = await fetchDetailInfos(detailLinks, 4);
+    const infoMap = await fetchDetailInfos(detailLinks, 4, url);
 
     const events: CrawledEvent[] = rawItems.map(it => {
       const info = infoMap[it.id];
       const desc = info?.desc || it.location;
+      const thumbnail = it.thumbnail || info?.thumbnail || null;
       return buildEvent(
         it.id,
         it.title,
@@ -437,7 +479,7 @@ async function crawlGncaf(): Promise<{ events: CrawledEvent[]; error?: string }>
         it.link,
         "강릉문화예술재단",
         "html",
-        it.thumbnail,
+        thumbnail,
         it.location,
         "행사",
         info?.contact,

@@ -535,25 +535,6 @@ export default function AdminEventDetail() {
                   </div>
                 </div>
 
-                {/* 발행완료 처리 */}
-                <div className="border-t border-border pt-3 space-y-2">
-                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">공유 후 처리</p>
-                  {event.status === "published" ? (
-                    <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-blue-50 border border-blue-200">
-                      <Send className="w-4 h-4 text-blue-600 shrink-0" />
-                      <span className="text-sm font-semibold text-blue-700">발행완료 — SNS 공유 처리됐습니다</span>
-                    </div>
-                  ) : (
-                    <Button
-                      className="w-full gap-2 bg-gray-800 hover:bg-gray-900 text-white"
-                      disabled={statusMutation.isPending}
-                      onClick={() => statusMutation.mutate("published")}
-                    >
-                      <Send className="w-4 h-4" />
-                      {statusMutation.isPending ? "처리 중..." : "발행완료 처리 — SNS에 올렸어요"}
-                    </Button>
-                  )}
-                </div>
               </div>
             )}
 

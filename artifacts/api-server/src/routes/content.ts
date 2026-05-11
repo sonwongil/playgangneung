@@ -156,121 +156,119 @@ function renderHtml(item: ContentItem, contentUrl: string): string {
 <link rel="preconnect" href="https://images.unsplash.com">
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-body{font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',sans-serif;background:#f8fafc;color:#1e293b;min-height:100vh;padding-bottom:80px}
+body{font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',sans-serif;background:#f8fafc;color:#1e293b;min-height:100vh;padding-bottom:88px}
 a{text-decoration:none;color:inherit}
+/* 페이지 최대 너비 래퍼 */
+.page-wrap{max-width:680px;margin:0 auto}
 /* Header */
-.header{position:sticky;top:0;z-index:50;background:#fff;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;gap:10px;padding:12px 16px;min-height:52px}
-.header-logo{height:28px;object-fit:contain}
-.header-back{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:50%;background:#f1f5f9;color:#475569;font-size:18px;flex-shrink:0}
-.header-title{font-size:14px;font-weight:600;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}
-/* Hero */
-.hero{position:relative;width:100%;background:#000}
-.hero img{width:100%;height:auto;display:block;object-fit:contain}
-.hero-overlay{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.65) 0%,rgba(0,0,0,.0) 50%)}
+.header{position:sticky;top:0;z-index:50;background:#fff;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;gap:10px;padding:10px 16px;min-height:48px}
+.header-logo{height:24px;object-fit:contain}
+.header-back{display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:#f1f5f9;color:#475569;font-size:18px;flex-shrink:0}
+.header-title{font-size:13px;font-weight:600;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}
+/* Hero 이미지 */
+.hero{position:relative;width:100%;background:#000;overflow:hidden;max-height:300px}
+.hero img{width:100%;height:300px;display:block;object-fit:cover;object-position:center top}
+.hero-overlay{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.7) 0%,rgba(0,0,0,.0) 55%)}
 .hero-meta{position:absolute;bottom:14px;left:16px;right:16px}
-.category-badge{display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;color:#fff;margin-bottom:8px}
-.hero-title{font-size:19px;font-weight:800;color:#fff;line-height:1.35;text-shadow:0 1px 4px rgba(0,0,0,.4)}
-/* Text hero (no image) */
-.hero-text{position:relative;width:100%;min-height:180px;display:flex;flex-direction:column;justify-content:flex-end;padding:20px 16px 16px}
-.hero-text-title{font-size:20px;font-weight:800;color:#fff;line-height:1.4;margin-bottom:6px;word-break:keep-all}
-.hero-text-meta{font-size:12px;color:rgba(255,255,255,.75)}
+.category-badge{display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;color:#fff;margin-bottom:6px}
+.hero-title{font-size:17px;font-weight:800;color:#fff;line-height:1.35;text-shadow:0 1px 4px rgba(0,0,0,.4)}
+/* Text hero (이미지 없을 때) */
+.hero-text{position:relative;width:100%;min-height:140px;display:flex;flex-direction:column;justify-content:flex-end;padding:18px 16px 14px}
+.hero-text-title{font-size:18px;font-weight:800;color:#fff;line-height:1.4;margin-bottom:5px;word-break:keep-all}
+.hero-text-meta{font-size:11px;color:rgba(255,255,255,.75)}
 /* Content */
-.content{padding:16px}
-.info-row{display:flex;align-items:center;gap:6px;font-size:13px;color:#64748b;margin-bottom:6px}
+.content{padding:14px 16px}
+.info-row{display:flex;align-items:center;gap:6px;font-size:12px;color:#64748b;margin-bottom:5px}
 .info-row svg{flex-shrink:0}
-.divider{height:1px;background:#e2e8f0;margin:14px 0}
-.section-title{font-size:13px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px}
-.description{font-size:15px;line-height:1.75;color:#334155;white-space:pre-wrap;word-break:keep-all}
+.divider{height:1px;background:#e2e8f0;margin:12px 0}
+.section-title{font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px}
+.description{font-size:14px;line-height:1.75;color:#334155;white-space:pre-wrap;word-break:keep-all}
 /* Source */
 .source-tag{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#94a3b8;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:2px 8px}
-.source-link{display:inline-flex;align-items:center;gap:6px;font-size:14px;font-weight:700;color:#2563eb;padding:10px 0}
+.source-link{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:#2563eb;padding:8px 0}
 /* Contact box */
-.contact-box{background:#f0f9ff;border:1px solid #bae6fd;border-radius:12px;padding:12px 14px}
-.contact-label{font-size:11px;font-weight:700;color:#0369a1;margin-bottom:4px}
-.contact-value{font-size:14px;font-weight:600;color:#0c4a6e}
+.contact-box{background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;padding:10px 14px}
+.contact-label{font-size:10px;font-weight:700;color:#0369a1;margin-bottom:3px}
+.contact-value{font-size:13px;font-weight:600;color:#0c4a6e}
+/* 원본 링크 버튼 (iframe 대체) */
+.orig-link{display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;border-radius:10px;background:#f1f5f9;border:1px solid #e2e8f0;font-size:13px;font-weight:700;color:#2563eb;text-align:center}
 /* Bottom bar */
 .bottom-bar{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #e2e8f0;padding:10px 16px;display:flex;gap:8px;z-index:50;box-shadow:0 -2px 12px rgba(0,0,0,.08)}
-.btn{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:12px 8px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;border:none;transition:opacity .15s}
+.btn{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:11px 8px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;border:none;transition:opacity .15s}
 .btn:active{opacity:.75}
 .btn-primary{background:#2563eb;color:#fff}
 .btn-secondary{background:#f1f5f9;color:#1e293b}
-/* iframe 원본 페이지 */
-.iframe-wrap{border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;background:#fff}
-.iframe-wrap iframe{width:100%;min-height:400px;border:none;display:block}
 /* PLAY강릉 brand footer */
-.brand-footer{text-align:center;padding:20px 16px 8px;font-size:11px;color:#94a3b8}
+.brand-footer{text-align:center;padding:16px 16px 6px;font-size:11px;color:#94a3b8}
+/* PC (640px 이상) */
 @media(min-width:640px){
-  .hero{aspect-ratio:21/9}
-  .hero-title{font-size:24px}
-  .content{padding:20px 24px}
-  .bottom-bar{max-width:640px;margin-left:auto;margin-right:auto;left:50%;transform:translateX(-50%);width:100%}
-  .bottom-bar{left:50%;transform:translateX(-50%)}
+  .hero{max-height:380px}
+  .hero img{height:380px}
+  .hero-title{font-size:22px}
+  .hero-text{min-height:160px}
+  .hero-text-title{font-size:20px}
+  .content{padding:18px 24px}
+  .description{font-size:15px}
+  .bottom-bar{max-width:680px;left:50%;transform:translateX(-50%);width:100%}
 }
 </style>
 </head>
 <body>
-<!-- Header -->
+<!-- Header (full width, sticky) -->
 <header class="header">
   <a href="javascript:history.back()" class="header-back" aria-label="뒤로가기">‹</a>
   <img src="/logo2.png" alt="PLAY강릉" class="header-logo">
   <span class="header-title">${title}</span>
 </header>
 
-<!-- Hero -->
-${item.hasThumbnail ? `
-<div class="hero">
-  <img src="${escHtml(thumbnailHero)}" alt="${title}" loading="eager" fetchpriority="high">
-  <div class="hero-overlay"></div>
-  <div class="hero-meta">
-    <div class="category-badge" style="background:${catColor}">${escHtml(item.category)}</div>
-    <h1 class="hero-title">${title}</h1>
-  </div>
-</div>` : `
-<div class="hero-text" style="background:linear-gradient(135deg,${catColor}dd,${catColor}99)">
-  <div class="category-badge" style="background:rgba(255,255,255,.2);display:inline-block;margin-bottom:10px">${escHtml(item.category)}</div>
-  <h1 class="hero-text-title">${title}</h1>
-  <p class="hero-text-meta">${escHtml(item.source)}${dateStr ? " · " + escHtml(dateStr) : ""}</p>
-</div>`}
-
-<!-- Info -->
-<div class="content">
-  ${dateStr ? `<div class="info-row"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>${escHtml(dateStr)}</div>` : ""}
-  ${item.location ? `<div class="info-row"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>${escHtml(item.location)}</div>` : ""}
-  <div class="info-row"><span class="source-tag">출처: ${escHtml(item.source)}</span></div>
-
-  <div class="divider"></div>
-  <div class="contact-box">
-    <p class="contact-label">📞 문의처</p>
-    <p class="contact-value">${escHtml(item.contact || item.source)}</p>
-  </div>
-
-  <div class="divider"></div>
-  ${hasLink ? `
-  <p class="section-title">원본 페이지</p>
-  <div class="iframe-wrap">
-    <iframe
-      id="orig-frame"
-      src="/api/proxy/page?url=${encodeURIComponent(item.link)}"
-      sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
-      loading="lazy"
-      onload="this.style.height=(this.contentDocument.body.scrollHeight+40)+'px'"
-      onerror="document.getElementById('iframe-fallback').style.display='block';this.style.display='none'"
-    ></iframe>
-    <div id="iframe-fallback" style="display:none;padding:16px;text-align:center">
-      <a href="${escHtml(item.link)}" target="_blank" rel="noopener noreferrer" class="source-link">🔗 원본 페이지 열기</a>
+<div class="page-wrap">
+  <!-- Hero -->
+  ${item.hasThumbnail ? `
+  <div class="hero">
+    <img src="${escHtml(thumbnailHero)}" alt="${title}" loading="eager" fetchpriority="high">
+    <div class="hero-overlay"></div>
+    <div class="hero-meta">
+      <div class="category-badge" style="background:${catColor}">${escHtml(item.category)}</div>
+      <h1 class="hero-title">${title}</h1>
     </div>
   </div>` : `
-  <p class="section-title">상세 내용</p>
-  <p class="description">${desc}</p>`}
+  <div class="hero-text" style="background:linear-gradient(135deg,${catColor}dd,${catColor}99)">
+    <div class="category-badge" style="background:rgba(255,255,255,.2);display:inline-block;margin-bottom:8px">${escHtml(item.category)}</div>
+    <h1 class="hero-text-title">${title}</h1>
+    <p class="hero-text-meta">${escHtml(item.source)}${dateStr ? " · " + escHtml(dateStr) : ""}</p>
+  </div>`}
+
+  <!-- Info -->
+  <div class="content">
+    ${dateStr ? `<div class="info-row"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>${escHtml(dateStr)}</div>` : ""}
+    ${item.location ? `<div class="info-row"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>${escHtml(item.location)}</div>` : ""}
+    <div class="info-row"><span class="source-tag">출처: ${escHtml(item.source)}</span></div>
+
+    <div class="divider"></div>
+    <div class="contact-box">
+      <p class="contact-label">📞 문의처</p>
+      <p class="contact-value">${escHtml(item.contact || item.source)}</p>
+    </div>
+
+    <div class="divider"></div>
+    <p class="section-title">상세 내용</p>
+    <p class="description">${desc}</p>
+
+    ${hasLink ? `
+    <div class="divider"></div>
+    <a href="${escHtml(item.link)}" target="_blank" rel="noopener noreferrer" class="orig-link">
+      🔗 원본 페이지에서 자세히 보기
+    </a>` : ""}
+  </div>
+
+  <!-- Brand footer -->
+  <div class="brand-footer">
+    강릉의 모든 것 · PLAY강릉<br>
+    <a href="${SITE_URL}" style="color:#2563eb">playgangneung.com</a>
+  </div>
 </div>
 
-<!-- Brand footer -->
-<div class="brand-footer">
-  강릉의 모든 것 · PLAY강릉<br>
-  <a href="${SITE_URL}" style="color:#2563eb">playgangneung.com</a>
-</div>
-
-<!-- Bottom action bar -->
+<!-- Bottom action bar (full width) -->
 ${actionButtons.length > 0 ? `<div class="bottom-bar">${actionButtons.join("")}</div>` : ""}
 
 </body>

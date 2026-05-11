@@ -530,8 +530,12 @@ export default function Admin() {
                 events.map((ev) => {
                   const sc = STATUS_CONFIG[ev.status];
                   return (
-                    <button key={ev.id} className="w-full text-left" onClick={() => navigate(`/admin/events/${ev.id}`)}>
-                      <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-border bg-white hover:border-blue-300 hover:shadow-sm transition-all group">
+                    <div key={ev.id} className="flex items-center gap-2 rounded-xl border border-border bg-white hover:border-blue-300 hover:shadow-sm transition-all group">
+                      {/* 클릭 영역 → 상세 이동 */}
+                      <div
+                        className="flex items-center gap-3 px-4 py-3 flex-1 min-w-0 cursor-pointer"
+                        onClick={() => navigate(`/admin/events/${ev.id}`)}
+                      >
                         {/* Thumbnail */}
                         <div className="w-14 h-14 rounded-lg overflow-hidden bg-gray-100 shrink-0">
                           {ev.thumbnail
@@ -546,7 +550,6 @@ export default function Admin() {
                               {sc.icon}{sc.label}
                             </span>
                             {ev.category && <Badge variant="outline" className="text-[10px] px-1.5 py-0">{ev.category}</Badge>}
-                            {ev.socialDraft && <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-600"><MessageSquare className="w-2.5 h-2.5" />초안</span>}
                           </div>
                           <p className="font-medium text-sm leading-snug line-clamp-1 group-hover:text-blue-600 transition-colors">{ev.title}</p>
                           <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{ev.description || "설명 없음"}</p>
@@ -558,7 +561,15 @@ export default function Admin() {
                           <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-blue-500 ml-auto mt-1" />
                         </div>
                       </div>
-                    </button>
+                      {/* 삭제 버튼 */}
+                      <button
+                        className="shrink-0 pr-3 text-gray-300 hover:text-red-500 transition-colors"
+                        title="삭제"
+                        onClick={() => { if (confirm(`"${ev.title}" 을 삭제할까요?`)) deleteMutation.mutate(ev.id); }}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   );
                 })
               )}

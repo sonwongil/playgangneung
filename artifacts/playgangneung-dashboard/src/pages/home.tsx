@@ -422,7 +422,9 @@ export default function Home() {
       {/* Footer */}
       <footer className="bg-gray-900 text-gray-400 py-8">
         <div className="max-w-6xl mx-auto px-4 text-center text-sm">
-          <img src={`${BASE}/logo_transparent.png`} alt="PLAY강릉" className="h-10 object-contain mx-auto mb-3 brightness-0 invert opacity-70" />
+          <div className="inline-block bg-white/10 rounded-xl px-4 py-2 mb-3">
+            <img src={`${BASE}/logo_transparent.png`} alt="PLAY강릉" className="h-10 object-contain" />
+          </div>
           <p>© 2026 PLAY강릉.</p>
           <p className="mt-1 text-gray-500">
             강원특별자치도 강릉시

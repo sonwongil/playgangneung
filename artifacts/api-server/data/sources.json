@@ -1,0 +1,23 @@
+[
+  {
+    "id": "gn_yeyak",
+    "name": "강릉시 이달의 행사",
+    "url": "https://www.gn.go.kr/yeyak/selectUnityEventWebList.do?key=6420",
+    "enabled": true,
+    "createdAt": "2026-05-09T00:00:00.000Z"
+  },
+  {
+    "id": "gn_artscenter",
+    "name": "강릉아트센터",
+    "url": "https://www.gn.go.kr/artscenter/selectMoonhwainList.do?key=5728&searchMoon_p_team=artCenter",
+    "enabled": true,
+    "createdAt": "2026-05-09T00:00:00.000Z"
+  },
+  {
+    "id": "gncaf",
+    "name": "강릉문화예술재단",
+    "url": "https://www.gncaf.or.kr/ko/community/event",
+    "enabled": true,
+    "createdAt": "2026-05-09T00:00:00.000Z"
+  }
+]

@@ -84,11 +84,20 @@ interface Ad {
   createdAt: string;
 }
 
-type NavKey = "dashboard" | "ads" | "settings";
+interface Source {
+  id: string;
+  name: string;
+  url: string;
+  enabled: boolean;
+  createdAt: string;
+}
+
+type NavKey = "dashboard" | "ads" | "sources" | "settings";
 
 const NAV_ITEMS: { icon: React.ReactNode; label: string; key: NavKey }[] = [
   { icon: <LayoutDashboard className="w-4 h-4" />, label: "대시보드", key: "dashboard" },
   { icon: <Megaphone className="w-4 h-4" />, label: "광고접수", key: "ads" },
+  { icon: <Rss className="w-4 h-4" />, label: "크롤링 소스", key: "sources" },
   { icon: <Settings className="w-4 h-4" />, label: "설정", key: "settings" },
 ];
 
@@ -114,6 +123,8 @@ export default function Admin() {
   const [editThumbnailUrl, setEditThumbnailUrl] = useState("");
   const [editingAd, setEditingAd] = useState<Ad | null>(null);
   const [pwForm, setPwForm] = useState({ current: "", next: "", confirm: "" });
+  const [newSourceName, setNewSourceName] = useState("");
+  const [newSourceUrl, setNewSourceUrl] = useState("");
   // inline draft editing: map of eventId → { caption, hashtagsStr }
   const [draftEdits, setDraftEdits] = useState<Record<string, { caption: string; hashtagsStr: string }>>({});
   const [, navigate] = useLocation();
@@ -138,6 +149,16 @@ export default function Admin() {
       return r.json();
     },
     enabled: activeNav === "ads",
+  });
+
+  const { data: sourcesData, isLoading: sourcesLoading } = useQuery<{ sources: Source[] }>({
+    queryKey: ["sources"],
+    queryFn: async () => {
+      const r = await fetch(`${BASE}/api/sources`, { credentials: "include" });
+      if (!r.ok) throw new Error("소스 로드 실패");
+      return r.json();
+    },
+    enabled: activeNav === "sources",
   });
 
   const SCHEDULE_ORDER: Record<string, number> = {
@@ -286,6 +307,33 @@ export default function Admin() {
       qc.invalidateQueries({ queryKey: ["admin-events"] });
     },
     onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
+  });
+
+  const addSourceMutation = useMutation({
+    mutationFn: async ({ name, url }: { name: string; url: string }) => {
+      const r = await fetch(`${BASE}/api/sources`, { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ name, url }) });
+      const d = await r.json(); if (!r.ok) throw new Error(d.error ?? "추가 실패"); return d;
+    },
+    onSuccess: () => { toast({ title: "소스 추가 완료" }); setNewSourceName(""); setNewSourceUrl(""); qc.invalidateQueries({ queryKey: ["sources"] }); },
+    onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
+  });
+
+  const deleteSourceMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const r = await fetch(`${BASE}/api/sources/${id}`, { method: "DELETE", credentials: "include" });
+      if (!r.ok) throw new Error("삭제 실패"); return r.json();
+    },
+    onSuccess: () => { toast({ title: "소스 삭제 완료" }); qc.invalidateQueries({ queryKey: ["sources"] }); },
+    onError: () => toast({ title: "삭제 실패", variant: "destructive" }),
+  });
+
+  const toggleSourceMutation = useMutation({
+    mutationFn: async ({ id, enabled }: { id: string; enabled: boolean }) => {
+      const r = await fetch(`${BASE}/api/sources/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ enabled }) });
+      if (!r.ok) throw new Error("상태 변경 실패"); return r.json();
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["sources"] }),
+    onError: () => toast({ title: "상태 변경 실패", variant: "destructive" }),
   });
 
   // ── Draft edit helpers ───────────────────────────────────────────────────────
@@ -703,6 +751,120 @@ export default function Admin() {
                   </Card>
                 );
               })}
+            </div>
+          )}
+
+          {/* ══ 크롤링 소스 ═══════════════════════════════════════════════════ */}
+          {activeNav === "sources" && (
+            <div className="max-w-2xl space-y-4">
+              {/* 소스 추가 폼 */}
+              <Card>
+                <CardContent className="p-5 space-y-3">
+                  <p className="font-semibold text-sm flex items-center gap-2">
+                    <Rss className="w-4 h-4 text-blue-600" />새 크롤링 소스 추가
+                  </p>
+                  <p className="text-xs text-muted-foreground">크롤링할 사이트 URL을 추가하면 다음 크롤링부터 해당 소스에서 자동 수집합니다.</p>
+                  <form
+                    className="flex flex-col gap-2"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      if (!newSourceName.trim() || !newSourceUrl.trim()) return;
+                      addSourceMutation.mutate({ name: newSourceName.trim(), url: newSourceUrl.trim() });
+                    }}
+                  >
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="소스 이름 (예: 강릉시청 공지)"
+                        value={newSourceName}
+                        onChange={(e) => setNewSourceName(e.target.value)}
+                        className="w-40 shrink-0"
+                        required
+                      />
+                      <Input
+                        placeholder="https://example.com/board/list"
+                        value={newSourceUrl}
+                        onChange={(e) => setNewSourceUrl(e.target.value)}
+                        type="url"
+                        className="flex-1"
+                        required
+                      />
+                      <Button
+                        type="submit"
+                        className="shrink-0 bg-blue-600 hover:bg-blue-700"
+                        disabled={addSourceMutation.isPending || !newSourceName.trim() || !newSourceUrl.trim()}
+                      >
+                        {addSourceMutation.isPending ? "추가 중..." : "추가"}
+                      </Button>
+                    </div>
+                  </form>
+                </CardContent>
+              </Card>
+
+              {/* 소스 목록 */}
+              {sourcesLoading ? (
+                <div className="py-8 text-center text-sm text-muted-foreground">소스 목록 불러오는 중...</div>
+              ) : !sourcesData?.sources?.length ? (
+                <Card>
+                  <CardContent className="p-8 text-center text-sm text-muted-foreground">
+                    등록된 크롤링 소스가 없습니다. 위에서 소스를 추가해 주세요.
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-2">
+                  {sourcesData.sources.map((src) => (
+                    <Card key={src.id} className={`transition-opacity ${src.enabled ? "" : "opacity-50"}`}>
+                      <CardContent className="p-4 flex items-center gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <span className="font-medium text-sm truncate">{src.name}</span>
+                            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${src.enabled ? "bg-green-50 text-green-700 border-green-200" : "bg-gray-100 text-gray-500 border-gray-200"}`}>
+                              {src.enabled ? "활성" : "비활성"}
+                            </span>
+                          </div>
+                          <a
+                            href={src.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-blue-500 hover:underline truncate block max-w-sm"
+                          >
+                            {src.url}
+                          </a>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className={`h-7 px-2.5 text-xs ${src.enabled ? "text-gray-600" : "text-green-700 border-green-200"}`}
+                            onClick={() => toggleSourceMutation.mutate({ id: src.id, enabled: !src.enabled })}
+                            disabled={toggleSourceMutation.isPending}
+                          >
+                            {src.enabled ? "비활성화" : "활성화"}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 px-2 text-destructive hover:bg-destructive/10"
+                            onClick={() => { if (confirm(`"${src.name}" 소스를 삭제하시겠습니까?`)) deleteSourceMutation.mutate(src.id); }}
+                            disabled={deleteSourceMutation.isPending}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+
+              {/* 안내 */}
+              <Card className="border-amber-200 bg-amber-50">
+                <CardContent className="p-4 text-xs text-amber-800 space-y-1">
+                  <p className="font-semibold">크롤링 소스 안내</p>
+                  <p>• 강릉시청 이달의 행사, 강릉아트센터, 강릉문화예술재단 URL은 전용 파서로 정확하게 수집됩니다.</p>
+                  <p>• 그 외 URL은 범용 게시판 파서를 사용합니다 (제목·날짜 추출 정확도가 낮을 수 있음).</p>
+                  <p>• 비활성화된 소스는 크롤링에서 제외됩니다.</p>
+                </CardContent>
+              </Card>
             </div>
           )}
 

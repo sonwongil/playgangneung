@@ -6,6 +6,7 @@ import adsRouter from "./ads.js";
 import feedRouter from "./feed.js";
 import authRouter from "./auth.js";
 import proxyRouter from "./proxy.js";
+import sourcesRouter from "./sources.js";
 
 const router: IRouter = Router();
 
@@ -20,5 +21,6 @@ router.use(adminRouter);
 router.use(adsRouter);
 router.use(feedRouter);
 router.use(proxyRouter);
+router.use(sourcesRouter);
 
 export default router;

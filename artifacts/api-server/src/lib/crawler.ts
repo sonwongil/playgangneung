@@ -5,6 +5,7 @@ import crypto from "crypto";
 import type { CrawledEvent, SourceType } from "./storage.js";
 import { parseDates, detectCategory } from "./dateParser.js";
 import { logger } from "./logger.js";
+import { readSources } from "./sources.js";
 
 const USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
@@ -514,41 +515,51 @@ export interface CrawlResult {
   error?: string;
 }
 
+/** URL 패턴으로 전용 파서를 선택하고, 알 수 없는 URL은 범용 crawlUrl 사용 */
+async function dispatchCrawl(
+  url: string,
+  name: string,
+): Promise<{ events: CrawledEvent[]; error?: string }> {
+  try {
+    if (url.includes("gn.go.kr/yeyak")) {
+      return await crawlGnYeyak();
+    }
+    if (url.includes("gn.go.kr/artscenter") || url.includes("gn.moonhwain.net")) {
+      return await crawlGnArtscenter();
+    }
+    if (url.includes("gncaf.or.kr")) {
+      return await crawlGncaf();
+    }
+    // 범용 파서: 임의의 게시판/목록 페이지
+    const events = await crawlUrl(url);
+    return { events };
+  } catch (err) {
+    return { events: [], error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
 export async function crawlAll(): Promise<CrawlResult[]> {
+  const sources = await readSources();
+  const enabled = sources.filter((s) => s.enabled);
+
+  if (enabled.length === 0) {
+    logger.warn("크롤링 소스가 없습니다. 소스를 추가해 주세요.");
+    return [];
+  }
+
   const results: CrawlResult[] = [];
 
-  // 강릉시 이달의 행사
-  logger.info({ url: "https://www.gn.go.kr/yeyak/selectUnityEventWebList.do?key=6420" }, "[HTML] 크롤링 시작: 강릉시 이달의 행사");
-  const gnResult = await crawlGnYeyak();
-  logger.info({ count: gnResult.events.length, error: gnResult.error }, "[HTML] 완료: 강릉시 이달의 행사");
-  results.push({
-    source: "강릉시 이달의 행사",
-    url: `${GN_YEYAK_BASE}/yeyak/selectUnityEventWebList.do?key=6420`,
-    sourceType: "html",
-    ...gnResult,
-  });
-
-  // 강릉아트센터 공연일정
-  logger.info({ url: `${GN_ARTSCENTER_BASE}/artscenter/selectMoonhwainList.do?key=5728&searchMoon_p_team=artCenter` }, "[HTML] 크롤링 시작: 강릉아트센터");
-  const artsResult = await crawlGnArtscenter();
-  logger.info({ count: artsResult.events.length, error: artsResult.error }, "[HTML] 완료: 강릉아트센터");
-  results.push({
-    source: "강릉아트센터",
-    url: `${GN_ARTSCENTER_BASE}/artscenter/selectMoonhwainList.do?key=5728&searchMoon_p_team=artCenter`,
-    sourceType: "html",
-    ...artsResult,
-  });
-
-  // 강릉문화예술재단
-  logger.info({ url: "https://www.gncaf.or.kr/ko/community/event" }, "[HTML] 크롤링 시작: 강릉문화예술재단");
-  const gncafResult = await crawlGncaf();
-  logger.info({ count: gncafResult.events.length, error: gncafResult.error }, "[HTML] 완료: 강릉문화예술재단");
-  results.push({
-    source: "강릉문화예술재단",
-    url: `${GNCAF_BASE}/ko/community/event`,
-    sourceType: "html",
-    ...gncafResult,
-  });
+  for (const source of enabled) {
+    logger.info({ url: source.url }, `[HTML] 크롤링 시작: ${source.name}`);
+    const result = await dispatchCrawl(source.url, source.name);
+    logger.info({ count: result.events.length, error: result.error }, `[HTML] 완료: ${source.name}`);
+    results.push({
+      source: source.name,
+      url: source.url,
+      sourceType: "html",
+      ...result,
+    });
+  }
 
   return results;
 }

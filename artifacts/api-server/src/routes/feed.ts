@@ -159,6 +159,8 @@ router.get("/feed", async (req, res) => {
         const sa = SCHEDULE_ORDER[a.scheduleStatus] ?? 4;
         const sb = SCHEDULE_ORDER[b.scheduleStatus] ?? 4;
         if (sa !== sb) return sa - sb;
+        // ended 그룹은 최근 종료 먼저 (내림차순), 나머지는 가까운 날짜 먼저 (오름차순)
+        if (a.scheduleStatus === "ended") return b.date.localeCompare(a.date);
         return a.date.localeCompare(b.date);
       });
 

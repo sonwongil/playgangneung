@@ -19,5 +19,12 @@
     "url": "https://www.gncaf.or.kr/ko/community/event",
     "enabled": true,
     "createdAt": "2026-05-09T00:00:00.000Z"
+  },
+  {
+    "id": "9a42b8e6c3d359503a479d3250dda15a",
+    "name": "강릉시청 공연/행사",
+    "url": "https://www.gn.go.kr/yeyak/selectMoonhwainList.do?key=6422",
+    "enabled": true,
+    "createdAt": "2026-05-11T04:32:53.800Z"
   }
 ]

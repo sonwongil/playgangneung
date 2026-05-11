@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   CalendarDays, MapPin, Instagram, Facebook, Youtube,
-  Megaphone, Star, Pin, Search, X,
+  Megaphone, Star, Pin, Search, X, ArrowUpDown,
 } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -67,6 +67,38 @@ function getRelativeDate(offsetDays: number) {
 
 const TODAY_STR = getRelativeDate(0);
 const FALLBACK_FEED: FeedItem[] = [];
+
+const SCHEDULE_PRIORITY: Record<string, number> = {
+  today: 0, ongoing: 1, tomorrow: 2, upcoming: 3, dateUnknown: 4, ended: 5,
+};
+
+type SortBy = "date" | "latest";
+
+function sortFeed(items: FeedItem[], sortBy: SortBy): FeedItem[] {
+  // premium/main 광고는 항상 최상단 고정
+  const pinned = items.filter(i => i.isAd && (i.adPlan === "premium" || i.adPlan === "main"));
+  const rest   = items.filter(i => !(i.isAd && (i.adPlan === "premium" || i.adPlan === "main")));
+
+  const sorted = [...rest].sort((a, b) => {
+    // 광고 우선
+    if (a.isAd && !b.isAd) return -1;
+    if (!a.isAd && b.isAd) return 1;
+
+    const sa = SCHEDULE_PRIORITY[a.scheduleStatus] ?? 4;
+    const sb = SCHEDULE_PRIORITY[b.scheduleStatus] ?? 4;
+    if (sa !== sb) return sa - sb;
+
+    if (sortBy === "latest") {
+      // 최신순: 시작일 내림차순 (ended는 이미 맨 뒤)
+      return b.date.localeCompare(a.date);
+    }
+    // 날짜순: ended는 최근 종료 먼저, 나머지는 가까운 날짜 먼저
+    if (a.scheduleStatus === "ended") return b.date.localeCompare(a.date);
+    return a.date.localeCompare(b.date);
+  });
+
+  return [...pinned, ...sorted];
+}
 
 const CATEGORY_FALLBACK_POOL: Record<string, string[]> = {
   행사: [
@@ -202,6 +234,7 @@ function FeedCard({ item }: { item: FeedItem }) {
 export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showAll, setShowAll] = useState(false);
+  const [sortBy, setSortBy] = useState<SortBy>("date");
   const inputRef = useRef<HTMLInputElement>(null);
 
   const { data } = useQuery<{ feed: FeedItem[]; total: number }>({
@@ -218,21 +251,27 @@ export default function Home() {
 
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    if (!q) return allItems;
-    return allItems.filter((item) => {
-      if (item.isAd) return true;
-      const haystack = [item.title, item.description, item.location ?? "", item.category]
-        .join(" ")
-        .toLowerCase();
-      return haystack.includes(q);
-    });
-  }, [allItems, searchQuery]);
+    const base = q
+      ? allItems.filter((item) => {
+          if (item.isAd) return true;
+          const haystack = [item.title, item.description, item.location ?? "", item.category]
+            .join(" ").toLowerCase();
+          return haystack.includes(q);
+        })
+      : allItems;
+    return sortFeed(base, sortBy);
+  }, [allItems, searchQuery, sortBy]);
 
   const isSearching = searchQuery.trim() !== "";
   const display = showAll ? filtered : filtered.slice(0, 9);
 
   function handleSearchChange(v: string) {
     setSearchQuery(v);
+    setShowAll(false);
+  }
+
+  function handleSortChange(s: SortBy) {
+    setSortBy(s);
     setShowAll(false);
   }
 
@@ -296,14 +335,39 @@ export default function Home() {
 
       {/* Main Content */}
       <main className="flex-1 max-w-6xl mx-auto px-4 pt-3 pb-4 w-full">
-        {/* Result count */}
-        {isSearching && (
-          <p className="text-xs text-muted-foreground mb-3">
-            {filtered.filter(i => !i.isAd).length}건의 결과
-            <span className="ml-1 font-medium text-blue-600">· &ldquo;{searchQuery}&rdquo;</span>
-            <button onClick={clearSearch} className="ml-2 underline text-gray-400 hover:text-gray-600">초기화</button>
-          </p>
-        )}
+        {/* Toolbar: 검색 결과 + 정렬 버튼 */}
+        <div className="flex items-center justify-between mb-3 min-h-[28px]">
+          {isSearching ? (
+            <p className="text-xs text-muted-foreground">
+              {filtered.filter(i => !i.isAd).length}건의 결과
+              <span className="ml-1 font-medium text-blue-600">· &ldquo;{searchQuery}&rdquo;</span>
+              <button onClick={clearSearch} className="ml-2 underline text-gray-400 hover:text-gray-600">초기화</button>
+            </p>
+          ) : <span />}
+          <div className="flex items-center gap-1">
+            <ArrowUpDown className="w-3.5 h-3.5 text-muted-foreground mr-0.5" />
+            <button
+              onClick={() => handleSortChange("date")}
+              className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                sortBy === "date"
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+              }`}
+            >
+              날짜순
+            </button>
+            <button
+              onClick={() => handleSortChange("latest")}
+              className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                sortBy === "latest"
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+              }`}
+            >
+              최신순
+            </button>
+          </div>
+        </div>
 
         {/* Cards Grid */}
         {filtered.filter(i => !i.isAd).length === 0 && isSearching ? (

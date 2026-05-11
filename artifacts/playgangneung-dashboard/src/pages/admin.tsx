@@ -131,6 +131,8 @@ export default function Admin() {
   const [pwForm, setPwForm] = useState({ current: "", next: "", confirm: "" });
   const [newSourceName, setNewSourceName] = useState("");
   const [newSourceUrl, setNewSourceUrl] = useState("");
+  const [scheduleHour, setScheduleHour] = useState(9);
+  const [scheduleMinute, setScheduleMinute] = useState(0);
   // inline draft editing: map of eventId → { caption, hashtagsStr }
   const [draftEdits, setDraftEdits] = useState<Record<string, { caption: string; hashtagsStr: string }>>({});
   const [, navigate] = useLocation();
@@ -166,6 +168,16 @@ export default function Admin() {
     },
     enabled: activeNav === "sources",
   });
+
+  const { data: scheduleData } = useQuery<{ crawlHour: number; crawlMinute: number }>({
+    queryKey: ["schedule"],
+    queryFn: async () => {
+      const r = await fetch(`${BASE}/api/schedule`, { credentials: "include" });
+      return r.json();
+    },
+    enabled: activeNav === "settings",
+    onSuccess: (d) => { setScheduleHour(d.crawlHour); setScheduleMinute(d.crawlMinute); },
+  } as any);
 
   const [adminSortBy, setAdminSortBy] = useState<"date" | "latest">("date");
 
@@ -317,6 +329,25 @@ export default function Admin() {
     onSuccess: (d) => {
       toast({ title: d.regenerated === 0 ? "모두 최신 링크" : `${d.regenerated}건 재생성 완료` });
       qc.invalidateQueries({ queryKey: ["admin-events"] });
+    },
+    onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
+  });
+
+  const saveScheduleMutation = useMutation({
+    mutationFn: async ({ hour, minute }: { hour: number; minute: number }) => {
+      const r = await fetch(`${BASE}/api/schedule`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ crawlHour: hour, crawlMinute: minute }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error ?? "저장 실패");
+      return d;
+    },
+    onSuccess: () => {
+      toast({ title: "크롤링 시간 저장 완료", description: `다음 날 ${String(scheduleHour).padStart(2,"0")}:${String(scheduleMinute).padStart(2,"0")} 부터 적용됩니다` });
+      qc.invalidateQueries({ queryKey: ["schedule"] });
     },
     onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
   });
@@ -907,6 +938,57 @@ export default function Admin() {
           {/* ══ 설정 ══════════════════════════════════════════════════════════ */}
           {activeNav === "settings" && (
             <div className="max-w-lg space-y-4">
+              {/* 자동 크롤링 시간 설정 */}
+              <Card>
+                <CardContent className="p-5 space-y-4">
+                  <p className="font-semibold text-sm flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-blue-600" />자동 크롤링 시간 설정
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    매일 지정한 시간에 자동으로 강릉 콘텐츠를 수집합니다. 변경 시 다음 날부터 적용됩니다.
+                  </p>
+                  {scheduleData && (
+                    <p className="text-xs text-muted-foreground bg-gray-50 rounded-lg px-3 py-2 border">
+                      현재 설정: 매일 <strong>{String(scheduleData.crawlHour).padStart(2,"0")}:{String(scheduleData.crawlMinute).padStart(2,"0")}</strong> (한국 시간)
+                    </p>
+                  )}
+                  <div className="flex items-center gap-3">
+                    <div className="space-y-1 flex-1">
+                      <Label className="text-xs text-muted-foreground">시 (0–23)</Label>
+                      <select
+                        className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+                        value={scheduleHour}
+                        onChange={(e) => setScheduleHour(Number(e.target.value))}
+                      >
+                        {Array.from({ length: 24 }, (_, i) => (
+                          <option key={i} value={i}>{String(i).padStart(2, "0")}시</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-1 flex-1">
+                      <Label className="text-xs text-muted-foreground">분</Label>
+                      <select
+                        className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+                        value={scheduleMinute}
+                        onChange={(e) => setScheduleMinute(Number(e.target.value))}
+                      >
+                        {[0, 10, 20, 30, 40, 50].map((m) => (
+                          <option key={m} value={m}>{String(m).padStart(2, "0")}분</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <Button
+                    className="w-full gap-2 bg-blue-600 hover:bg-blue-700"
+                    disabled={saveScheduleMutation.isPending}
+                    onClick={() => saveScheduleMutation.mutate({ hour: scheduleHour, minute: scheduleMinute })}
+                  >
+                    <Clock className="w-4 h-4" />
+                    {saveScheduleMutation.isPending ? "저장 중..." : `${String(scheduleHour).padStart(2,"0")}:${String(scheduleMinute).padStart(2,"0")} 으로 저장`}
+                  </Button>
+                </CardContent>
+              </Card>
+
               <Card>
                 <CardContent className="p-5 space-y-3">
                   <p className="font-semibold text-sm flex items-center gap-2"><RefreshCw className="w-4 h-4 text-blue-600" />SNS 초안 링크 일괄 재생성</p>

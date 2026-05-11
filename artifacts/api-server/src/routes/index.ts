@@ -7,6 +7,7 @@ import feedRouter from "./feed.js";
 import authRouter from "./auth.js";
 import proxyRouter from "./proxy.js";
 import sourcesRouter from "./sources.js";
+import scheduleRouter from "./schedule.js";
 
 const router: IRouter = Router();
 
@@ -22,5 +23,6 @@ router.use(adsRouter);
 router.use(feedRouter);
 router.use(proxyRouter);
 router.use(sourcesRouter);
+router.use(scheduleRouter);
 
 export default router;

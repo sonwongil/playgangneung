@@ -178,7 +178,12 @@ export default function AdminEventDetail() {
       return r.json();
     },
     onSuccess: (_, status) => {
-      const labels: Record<string, string> = { approved: "승인 완료 — 공개 피드에 반영됩니다", rejected: "반려됨", draft: "검토 중으로 변경됨" };
+      const labels: Record<string, string> = {
+        approved: "승인 완료 — 공개 피드에 반영됩니다",
+        rejected: "반려됨",
+        draft: "검토 중으로 변경됨",
+        published: "발행완료 — SNS 공유 처리됐습니다",
+      };
       toast({ title: labels[status] ?? "상태 변경 완료" });
       qc.invalidateQueries({ queryKey: ["admin-events"] });
     },
@@ -490,40 +495,64 @@ export default function AdminEventDetail() {
                 >
                   {saveDraftMutation.isPending ? "저장 중..." : "초안 저장"}
                 </Button>
-                <div className="flex gap-2">
-                  <Button
-                    className="flex-1 gap-1.5 text-white bg-[#1877F2] hover:bg-[#1565C0]"
-                    onClick={async () => {
-                      await navigator.clipboard.writeText(`${fullDraftText}\n\n${contentUrl}`);
-                      saveDraftMutation.mutate();
-                      toast({ title: "텍스트+링크 복사됨 — 페이스북에 붙여넣기 하세요" });
-                      setTimeout(() => window.open("https://www.facebook.com/", "_blank"), 600);
-                    }}
-                  >
-                    페이스북
-                  </Button>
-                  <Button
-                    className="flex-1 gap-1.5 text-white bg-[#E1306C] hover:bg-[#C2185B]"
-                    onClick={async () => {
-                      await navigator.clipboard.writeText(fullDraftText);
-                      saveDraftMutation.mutate();
-                      const imgUrl = `${BASE}/api/cards/${eventId}.png`;
-                      const res = await fetch(imgUrl).catch(() => null);
-                      if (res?.ok) {
-                        const blob = await res.blob();
-                        const a = document.createElement("a");
-                        a.href = URL.createObjectURL(blob);
-                        a.download = `${eventId}.png`;
-                        a.click();
-                        toast({ title: "이미지 다운로드됨 · 텍스트 복사됨" });
-                      } else {
-                        toast({ title: "텍스트 복사됨 — 인스타그램에서 이미지를 첨부하세요" });
-                      }
-                      setTimeout(() => window.open("https://www.instagram.com/", "_blank"), 800);
-                    }}
-                  >
-                    인스타그램
-                  </Button>
+                {/* SNS 공유 버튼 */}
+                <div className="space-y-2">
+                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">SNS에 공유하기</p>
+                  <div className="flex gap-2">
+                    <Button
+                      className="flex-1 gap-1.5 text-white bg-[#1877F2] hover:bg-[#1565C0]"
+                      onClick={async () => {
+                        await navigator.clipboard.writeText(`${fullDraftText}\n\n${contentUrl}`);
+                        saveDraftMutation.mutate();
+                        toast({ title: "텍스트+링크 복사됨 — 페이스북에 붙여넣기 하세요" });
+                        setTimeout(() => window.open("https://www.facebook.com/", "_blank"), 600);
+                      }}
+                    >
+                      페이스북
+                    </Button>
+                    <Button
+                      className="flex-1 gap-1.5 text-white bg-[#E1306C] hover:bg-[#C2185B]"
+                      onClick={async () => {
+                        await navigator.clipboard.writeText(fullDraftText);
+                        saveDraftMutation.mutate();
+                        const imgUrl = `${BASE}/api/cards/${eventId}.png`;
+                        const res = await fetch(imgUrl).catch(() => null);
+                        if (res?.ok) {
+                          const blob = await res.blob();
+                          const a = document.createElement("a");
+                          a.href = URL.createObjectURL(blob);
+                          a.download = `${eventId}.png`;
+                          a.click();
+                          toast({ title: "이미지 다운로드됨 · 텍스트 복사됨" });
+                        } else {
+                          toast({ title: "텍스트 복사됨 — 인스타그램에서 이미지를 첨부하세요" });
+                        }
+                        setTimeout(() => window.open("https://www.instagram.com/", "_blank"), 800);
+                      }}
+                    >
+                      인스타그램
+                    </Button>
+                  </div>
+                </div>
+
+                {/* 발행완료 처리 */}
+                <div className="border-t border-border pt-3 space-y-2">
+                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">공유 후 처리</p>
+                  {event.status === "published" ? (
+                    <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-blue-50 border border-blue-200">
+                      <Send className="w-4 h-4 text-blue-600 shrink-0" />
+                      <span className="text-sm font-semibold text-blue-700">발행완료 — SNS 공유 처리됐습니다</span>
+                    </div>
+                  ) : (
+                    <Button
+                      className="w-full gap-2 bg-gray-800 hover:bg-gray-900 text-white"
+                      disabled={statusMutation.isPending}
+                      onClick={() => statusMutation.mutate("published")}
+                    >
+                      <Send className="w-4 h-4" />
+                      {statusMutation.isPending ? "처리 중..." : "발행완료 처리 — SNS에 올렸어요"}
+                    </Button>
+                  )}
                 </div>
               </div>
             )}

@@ -1,59 +1,68 @@
 import type { CrawledEvent, SocialDraft } from "./storage.js";
 
-// ─── 템플릿 풀 ────────────────────────────────────────────────────────────────
+// ─── 카테고리별 마무리 문구 ────────────────────────────────────────────────────
 
-const TITLE_PREFIXES = [
-  "✨", "🌊", "🏔️", "🌿", "🎉", "📍", "🌸", "🎶", "🍃", "🌅",
-];
-
-const VISIT_PHRASES = [
-  "강릉에서만 느낄 수 있는 특별한 경험, 놓치지 마세요!",
-  "강릉으로 떠나는 특별한 하루를 계획해 보세요.",
-  "강릉의 아름다운 자연과 문화를 직접 만나보세요.",
-  "올해 강릉에서 가장 기대되는 행사입니다.",
-  "강릉 여행의 완성! 이 행사와 함께하세요.",
-  "강릉을 더욱 특별하게 만들어 줄 행사를 소개합니다.",
-  "강릉의 매력을 온몸으로 느낄 수 있는 기회입니다.",
-  "강릉 여행 계획 중이라면 꼭 참고하세요!",
-];
-
-const LOCATION_PHRASES = [
-  "📍 강원특별자치도 강릉시",
-  "📍 강릉에서 만나요",
-  "📍 강릉 현지에서 직접 즐기는",
-  "📍 아름다운 강릉에서",
-];
-
-const BASE_HASHTAGS = [
-  "강릉", "강릉여행", "강릉관광", "강원도", "강원도여행",
-  "PLAY강릉", "강릉핫플", "강릉여행추천", "강릉나들이",
-  "강릉데이트", "국내여행", "국내여행추천", "여행스타그램",
-  "강릉축제", "강릉행사",
-];
-
-const CATEGORY_HASHTAGS: Record<string, string[]> = {
-  커피:   ["강릉커피", "강릉카페", "커피도시강릉", "바리스타"],
-  축제:   ["강릉축제", "강릉페스티벌", "축제"],
-  단오:   ["강릉단오제", "단오제", "유네스코무형문화유산"],
-  음악:   ["강릉음악", "뮤직페스티벌", "공연"],
-  해변:   ["강릉해변", "경포해변", "강문해변", "해수욕"],
-  오죽헌: ["오죽헌", "율곡이이", "신사임당", "강릉문화재"],
-  바우길: ["바우길", "트레킹", "강릉둘레길", "걷기여행"],
-  시장:   ["강릉중앙시장", "강릉시장", "강릉맛집"],
-  공연:   ["강릉공연", "문화행사", "공연관람"],
-  전시:   ["강릉전시", "미술전시", "전시회"],
-  사진:   ["강릉포토", "포토존", "사진여행"],
+const CLOSING_BY_CATEGORY: Record<string, string[]> = {
+  행사: [
+    "강릉에서 직접 만나보세요! 📅",
+    "이번 행사를 놓치지 마세요!",
+    "강릉의 특별한 행사가 여러분을 기다립니다.",
+    "더 많은 정보는 아래 링크에서 확인하세요.",
+  ],
+  맛집: [
+    "강릉 여행 중 꼭 들러보세요! 🍽️",
+    "강릉 맛집 투어, 이곳도 리스트에 추가하세요.",
+    "강릉에서만 즐길 수 있는 특별한 맛입니다.",
+  ],
+  핫플: [
+    "강릉 여행 필수 코스로 추천합니다! 📍",
+    "사진 한 장으로 강릉의 매력을 담아보세요.",
+    "강릉 여행 중 꼭 방문해 보세요!",
+  ],
+  지역소식: [
+    "해당 내용을 꼼꼼히 확인하세요.",
+    "관련 문의는 담당 부서로 연락해 주세요.",
+    "자세한 내용은 아래 링크에서 확인하세요.",
+    "신청 기간을 놓치지 마세요!",
+  ],
 };
 
-// ─── 유틸 ─────────────────────────────────────────────────────────────────────
+const DEFAULT_CLOSING = [
+  "더 자세한 내용은 아래 링크에서 확인하세요.",
+  "관련 문의는 해당 기관으로 연락해 주세요.",
+  "자세한 사항을 꼭 확인해 보세요!",
+];
+
+// ─── 카테고리별 해시태그 ──────────────────────────────────────────────────────
+
+const BASE_HASHTAGS_BY_CATEGORY: Record<string, string[]> = {
+  행사: ["PLAY강릉", "강릉", "강릉행사", "강릉축제", "강릉여행", "강원도", "국내여행", "강릉나들이", "강릉핫플"],
+  맛집: ["PLAY강릉", "강릉맛집", "강릉", "강릉여행", "강릉카페", "강원도맛집", "강릉핫플", "맛스타그램"],
+  핫플: ["PLAY강릉", "강릉핫플", "강릉", "강릉여행", "강릉명소", "강원도여행", "국내여행", "여행스타그램"],
+  지역소식: ["PLAY강릉", "강릉", "강릉소식", "강릉시", "강원도", "강릉행정", "강릉정보"],
+};
+
+const DEFAULT_HASHTAGS = ["PLAY강릉", "강릉", "강릉소식", "강원도", "강릉여행", "국내여행"];
+
+// ─── 카테고리별 이모지 ────────────────────────────────────────────────────────
+
+const EMOJI_BY_CATEGORY: Record<string, string[]> = {
+  행사: ["🎉", "🎶", "🌸", "✨", "🎊", "🎭", "🏮"],
+  맛집: ["🍽️", "🍜", "☕", "🥘", "🍣", "🌊"],
+  핫플: ["📍", "🌅", "🏖️", "🌿", "📸", "✨"],
+  지역소식: ["📢", "📋", "ℹ️", "📣", "🏛️"],
+};
+
+const DEFAULT_EMOJI = ["📍", "✨", "🌊", "🏔️", "🌿"];
+
+// ─── 유틸 ────────────────────────────────────────────────────────────────────
 
 function pick<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
 function pickN<T>(arr: T[], n: number): T[] {
-  const shuffled = [...arr].sort(() => Math.random() - 0.5);
-  return shuffled.slice(0, n);
+  return [...arr].sort(() => Math.random() - 0.5).slice(0, n);
 }
 
 function formatDate(dateStr: string): string {
@@ -63,11 +72,13 @@ function formatDate(dateStr: string): string {
   return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일`;
 }
 
-function detectCategories(event: CrawledEvent): string[] {
-  const text = (event.title + " " + event.description).toLowerCase();
-  return Object.entries(CATEGORY_HASHTAGS)
-    .filter(([keyword]) => text.includes(keyword))
-    .map(([, tags]) => pick(tags));
+function getCategory(event: CrawledEvent): string {
+  const cat = event.category ?? "";
+  if (cat.includes("행사") || cat.includes("축제")) return "행사";
+  if (cat.includes("맛집")) return "맛집";
+  if (cat.includes("핫플")) return "핫플";
+  if (cat.includes("지역소식")) return "지역소식";
+  return "";
 }
 
 // ─── 초안 생성 ───────────────────────────────────────────────────────────────
@@ -77,38 +88,57 @@ export function generateSocialDraft(event: CrawledEvent): SocialDraft {
     throw new Error("승인(approved) 상태의 이벤트만 SNS 초안을 생성할 수 있습니다.");
   }
 
-  const emoji = pick(TITLE_PREFIXES);
-  const title = `${emoji} ${event.title}`;
+  const category = getCategory(event);
 
-  // 날짜 표현
-  const dateStr = event.date ? `🗓️ ${formatDate(event.date)}\n` : "";
+  // 이모지 + 제목
+  const emojiPool = EMOJI_BY_CATEGORY[category] ?? DEFAULT_EMOJI;
+  const emoji = pick(emojiPool);
+  const titleLine = `${emoji} ${event.title}`;
 
-  // 본문 3~5줄 구성
-  const visitPhrase = pick(VISIT_PHRASES);
-  const locationPhrase = pick(LOCATION_PHRASES);
+  // 날짜
+  const dateStr = event.date ? `🗓️ ${formatDate(event.date)}` : "";
 
-  let caption = "";
-  caption += `${locationPhrase}\n`;
-  if (dateStr) caption += dateStr;
-  caption += `\n`;
+  // 위치
+  const locationLine = event.location
+    ? `📍 ${event.location}`
+    : "📍 강릉시";
 
-  if (event.description && event.description.length > 10) {
-    caption += `${event.description.slice(0, 120)}\n\n`;
-  } else {
-    caption += `강릉의 특색 있는 문화와 자연을 배경으로 열리는 이번 행사를 소개합니다.\n\n`;
+  // 설명 — 최대 250자, 잘릴 경우 문장 경계에서 자름
+  let descBlock = "";
+  if (event.description && event.description.trim().length > 10) {
+    let desc = event.description.trim();
+    if (desc.length > 250) {
+      const cut = desc.lastIndexOf(".", 250);
+      desc = cut > 50 ? desc.slice(0, cut + 1) : desc.slice(0, 250) + "…";
+    }
+    descBlock = desc;
   }
 
-  caption += `${visitPhrase}`;
+  // 마무리 문구 (카테고리 맞춤)
+  const closingPool = CLOSING_BY_CATEGORY[category] ?? DEFAULT_CLOSING;
+  const closing = pick(closingPool);
 
-  // 해시태그 5~8개
-  const catTags = detectCategories(event);
-  const basePick = pickN(BASE_HASHTAGS, Math.max(0, 6 - catTags.length));
-  const allTags = [...new Set([...catTags, ...basePick])].slice(0, 8);
+  // 본문 조합
+  const parts: string[] = [titleLine];
+  if (dateStr) parts.push(dateStr);
+  parts.push(locationLine);
+  if (descBlock) {
+    parts.push("");
+    parts.push(descBlock);
+  }
+  parts.push("");
+  parts.push(closing);
+
+  const caption = parts.join("\n").trim();
+
+  // 해시태그 (카테고리별 6~8개)
+  const hashtagPool = BASE_HASHTAGS_BY_CATEGORY[category] ?? DEFAULT_HASHTAGS;
+  const hashtags = pickN(hashtagPool, Math.min(8, hashtagPool.length));
 
   return {
-    title,
-    caption: caption.trim(),
-    hashtags: allTags,
+    title: event.title,
+    caption,
+    hashtags,
     createdAt: new Date().toISOString(),
   };
 }

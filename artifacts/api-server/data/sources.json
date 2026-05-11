@@ -33,5 +33,19 @@
     "url": "https://www.gn.go.kr/yeyak/selectUnityProgrmWebList.do?key=5411&insttTy=URINTY01",
     "enabled": true,
     "createdAt": "2026-05-11T04:34:08.435Z"
+  },
+  {
+    "id": "524b0fccab03db8d4b7995f1e20117fa",
+    "name": "체험/견학",
+    "url": "https://www.gn.go.kr/yeyak/selectUnityExprnWebList.do?key=5532",
+    "enabled": true,
+    "createdAt": "2026-05-11T04:35:33.973Z"
+  },
+  {
+    "id": "ecb2b83a9b991614f90adab5720c8833",
+    "name": "지원/접수",
+    "url": "https://www.gn.go.kr/yeyak/selectUserOnlineReceptionList.do?key=5540",
+    "enabled": true,
+    "createdAt": "2026-05-11T04:36:23.636Z"
   }
 ]

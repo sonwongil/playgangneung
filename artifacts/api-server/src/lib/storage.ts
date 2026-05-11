@@ -120,11 +120,18 @@ function keysOverlap(aKeys: string[], bKeys: string[]): boolean {
  */
 function isWithinCrawlWindow(e: CrawledEvent): boolean {
   if (!e.startDate) return true; // 날짜 없는 공지·정보 항상 포함
-  const cutoff = new Date();
-  cutoff.setHours(0, 0, 0, 0);
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // 이미 종료된 행사 제외 (endDate 있으면 endDate 기준, 없으면 startDate 기준)
+  const end = e.endDate ? new Date(e.endDate) : new Date(e.startDate);
+  if (end < today) return false;
+
+  // 앞으로 10일 초과 미래 행사 제외
+  const cutoff = new Date(today);
   cutoff.setDate(cutoff.getDate() + 10);
-  const start = new Date(e.startDate);
-  return start <= cutoff;
+  return new Date(e.startDate) <= cutoff;
 }
 
 export async function appendEvents(

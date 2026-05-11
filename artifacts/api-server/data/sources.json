@@ -54,5 +54,12 @@
     "url": "https://www.gtdc.or.kr/pub/bbsevent.do",
     "enabled": true,
     "createdAt": "2026-05-11T04:46:19.328Z"
+  },
+  {
+    "id": "935f6b9c823bb08808bae2d4c67dbb10",
+    "name": "강릉시립미술관",
+    "url": "https://www.gn.go.kr/mu/index.do",
+    "enabled": true,
+    "createdAt": "2026-05-11T05:20:01.024Z"
   }
 ]

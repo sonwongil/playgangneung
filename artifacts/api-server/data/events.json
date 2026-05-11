@@ -1257,5 +1257,43 @@
       "createdAt": "2026-05-11T05:08:59.083Z"
     },
     "crawledAt": "2026-05-11T05:05:03.952Z"
+  },
+  {
+    "id": "a342343f1f0ba17c1e8280169e1976f0",
+    "title": "지역예술가 전시공간 지원사업",
+    "description": "현재교육 모집마감 지역예술가 전시공간 지원사업 교육일자 2026-04-29 ~ 2026-08-30 교육장소 강릉시립미술관(교동) 교육대상 전체 연령.",
+    "date": "2026-04-29",
+    "startDate": "2026-04-29",
+    "endDate": "2026-08-30",
+    "scheduleStatus": "ongoing",
+    "location": "강릉시립미술관",
+    "category": "행사",
+    "thumbnail": "https://gnmu.moonhwain.kr:447/upload/pfm/202604/pImg154_1.jpg",
+    "link": "https://www.gn.go.kr/mu/selectMoonhwainView.do?pageUnit=8&pageIndex=1&searchCnd=all&key=6620&searchMoon_p_team=gnmu&searchSiteId=mu&searchMoon_p_idx=154",
+    "source": "강릉시립미술관",
+    "contact": "033-660-2446",
+    "sourceType": "html",
+    "status": "approved",
+    "socialDraft": null,
+    "crawledAt": "2026-05-11T05:33:45.226Z"
+  },
+  {
+    "id": "fe79166d77410eea6c13053ae4b2ee45",
+    "title": "전시연계 교육《좋았어 장애물》",
+    "description": "현재교육 모집중 전시연계 교육《좋았어 장애물》 교육일자 2026-05-09 ~ 2026-05-30 교육장소 강릉시립미술관(교동) 교육대상 전연령 ※2인 이상 단체 신청 가능 신청하기",
+    "date": "2026-05-09",
+    "startDate": "2026-05-09",
+    "endDate": "2026-05-30",
+    "scheduleStatus": "ongoing",
+    "location": "강릉시립미술관",
+    "category": "행사",
+    "thumbnail": "https://gnmu.moonhwain.kr:447/upload/pfm/202604/pImg153_1.jpg",
+    "link": "https://www.gn.go.kr/mu/selectMoonhwainView.do?pageUnit=8&pageIndex=1&searchCnd=all&key=6620&searchMoon_p_team=gnmu&searchSiteId=mu&searchMoon_p_idx=153",
+    "source": "강릉시립미술관",
+    "contact": "033-640-4271",
+    "sourceType": "html",
+    "status": "approved",
+    "socialDraft": null,
+    "crawledAt": "2026-05-11T05:33:45.226Z"
   }
 ]

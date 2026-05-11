@@ -70,8 +70,9 @@ async function fetchDetailInfo(
       if (/문의|연락|전화|tel/i.test(label)) {
         const val = $el.find("td, dd, .value, .txt").first().text().trim();
         const phone = val.match(PHONE_RE)?.[0] ?? val;
-        if (phone) { contact = phone; return false; }
+        if (phone) { contact = phone; return false as unknown as void; }
       }
+      return;
     });
 
     // fallback: 페이지 전체에서 전화번호 패턴 탐색
@@ -86,6 +87,10 @@ async function fetchDetailInfo(
       // gn.go.kr 통합예약/아트센터 전용
       ".view_text",
       ".view_box",
+      // 강릉시립미술관 mu 전용
+      ".mu_common_explain .info_brief",
+      ".explain_info .info_text",
+      ".program_detail .detail_text",
       // 강릉문화예술재단
       ".fcontent",
       ".view_cont",
@@ -551,6 +556,92 @@ async function crawlGnArtscenter(): Promise<{ events: CrawledEvent[]; error?: st
   );
 }
 
+// ─── 강릉시립미술관 catalog_item 파서 ──────────────────────────────────────
+
+/**
+ * gn.go.kr/mu — ul.catalog_list > li.catalog_item 구조
+ * 전시/교육/행사 목록 페이지 공통 파서.
+ */
+async function crawlGnMuCatalog(
+  listUrl: string,
+  sourceName: string,
+): Promise<{ events: CrawledEvent[]; error?: string }> {
+  try {
+    const urlObj = new URL(listUrl);
+    const linkBase = `${urlObj.origin}/mu/`;
+
+    const html = await fetchHtml(listUrl, 15000, listUrl);
+    const $ = cheerio.load(html);
+
+    const rawItems: {
+      id: string;
+      title: string;
+      dateRaw: string;
+      link: string;
+      thumbnail: string | null;
+      status: string;
+    }[] = [];
+
+    $("ul.catalog_list li.catalog_item").each((_, el) => {
+      const $el = $(el);
+      const href = $el.find("a.catalog_anchor").attr("href") || "";
+      const link = href.startsWith("http")
+        ? href
+        : href
+          ? linkBase + href.replace(/^\.\//, "")
+          : listUrl;
+
+      // catalog_subject 가 2개: 첫 번째는 상태 태그, 두 번째가 실제 제목
+      const $subjects = $el.find("div.catalog_subject");
+      const title = $subjects.last().text().trim();
+      if (!title || title.length < 2) return;
+
+      const dateRaw = $el.find("div.catalog_date").text().trim().replace(/\s+/g, " ");
+
+      const imgSrc = $el.find("div.catalog_image img").attr("src") || "";
+      const thumbnail = imgSrc
+        ? imgSrc.startsWith("http")
+          ? imgSrc
+          : `${urlObj.origin}${imgSrc}`
+        : null;
+
+      const status = $el.find("div.catalog_tag em").text().replace(/[-\s]/g, "").trim();
+
+      const id = makeId("gn_mu", link || title);
+      rawItems.push({ id, title, dateRaw, link, thumbnail, status });
+    });
+
+    const detailLinks = rawItems
+      .filter(it => it.link && it.link !== listUrl)
+      .map(it => ({ id: it.id, link: it.link }));
+    const infoMap = await fetchDetailInfos(detailLinks, 4, listUrl);
+
+    const events: CrawledEvent[] = rawItems.map(it => {
+      const info = infoMap[it.id];
+      const desc = info?.desc || it.status || "";
+      const thumbnail = it.thumbnail || info?.thumbnail || null;
+      return buildEvent(
+        it.id,
+        it.title,
+        desc,
+        it.dateRaw,
+        it.link,
+        sourceName,
+        "html",
+        thumbnail,
+        "강릉시립미술관",
+        "행사",
+        info?.contact,
+      );
+    });
+
+    logger.info({ count: events.length }, `[gn_mu] 파싱 완료: ${sourceName}`);
+    return { events };
+  } catch (err) {
+    return { events: [], error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
 // ─── 지원/접수 테이블 파서 ────────────────────────────────────────────────────
 
 /**
@@ -751,6 +842,10 @@ async function dispatchCrawl(
       url.includes("selectUnityExprnWebList.do")
     ) {
       return await crawlGnYeyakEduList(url, name);
+    }
+    // 강릉시립미술관 (mu 경로 — catalog_item 구조) — selectMoonhwainList보다 먼저 체크
+    if (url.includes("gn.go.kr/mu/")) {
+      return await crawlGnMuCatalog(url, name);
     }
     // gn.go.kr/yeyak — performance_item 구조 (공연/행사)
     if (url.includes("selectMoonhwainList.do")) {

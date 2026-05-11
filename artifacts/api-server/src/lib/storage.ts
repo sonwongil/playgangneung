@@ -114,6 +114,19 @@ function keysOverlap(aKeys: string[], bKeys: string[]): boolean {
   return false;
 }
 
+/**
+ * 오늘 기준 앞으로 10일 이내 시작하는 항목만 신규 수집.
+ * startDate가 없는 공지/정보는 날짜 무관하게 항상 포함.
+ */
+function isWithinCrawlWindow(e: CrawledEvent): boolean {
+  if (!e.startDate) return true; // 날짜 없는 공지·정보 항상 포함
+  const cutoff = new Date();
+  cutoff.setHours(0, 0, 0, 0);
+  cutoff.setDate(cutoff.getDate() + 10);
+  const start = new Date(e.startDate);
+  return start <= cutoff;
+}
+
 export async function appendEvents(
   newEvents: CrawledEvent[],
 ): Promise<{ added: number; total: number }> {
@@ -121,6 +134,7 @@ export async function appendEvents(
   const existingIds = new Set(existing.map((e) => e.id));
   const existingKeysList = existing.map(dupKeys);
   const fresh = newEvents.filter((e) => {
+    if (!isWithinCrawlWindow(e)) return false; // 10일 초과 항목 제외
     if (existingIds.has(e.id)) return false;
     const newK = dupKeys(e);
     return !existingKeysList.some((exK) => keysOverlap(newK, exK));

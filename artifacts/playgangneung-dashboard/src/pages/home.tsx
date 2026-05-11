@@ -158,14 +158,12 @@ function FeedCard({ item }: { item: FeedItem }) {
   const isToday = item.date === TODAY_STR;
   const gradient = CATEGORY_GRADIENT[category] ?? "from-gray-700 to-gray-900";
 
-  const href = item.isAd
-    ? item.link
-    : `${BASE}/view/${item.id}?url=${encodeURIComponent(item.sourceUrl || item.link)}&title=${encodeURIComponent(item.title)}`;
+  const href = item.isAd ? item.link : (item.sourceUrl || item.link);
 
   return (
     <a
       href={href}
-      target={item.isAd ? "_blank" : undefined}
+      target="_blank"
       rel="noopener noreferrer"
       className="block"
     >

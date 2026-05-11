@@ -5,7 +5,6 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
-import View from "@/pages/view";
 import Admin from "@/pages/admin";
 import AdminEventDetail from "@/pages/admin-event-detail";
 import AdSubmit from "@/pages/ad-submit";
@@ -54,7 +53,6 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
-      <Route path="/view/:id" component={View} />
       <Route path="/admin/events/:id" component={AdminEventDetailGuard} />
       <Route path="/admin" component={AdminGuard} />
       <Route path="/login" component={Login} />

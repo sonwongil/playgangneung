@@ -1,11 +1,9 @@
 import { useState, useCallback } from "react";
-import { useLocation } from "wouter";
 import { ArrowLeft, ExternalLink, RefreshCw } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 export default function View() {
-  const [location] = useLocation();
   const search = window.location.search;
   const params = new URLSearchParams(search);
   const frameUrl = params.get("url") ?? "";
@@ -26,7 +24,7 @@ export default function View() {
   }
 
   return (
-    <div className="fixed inset-0 flex flex-col bg-white">
+    <div className="flex flex-col bg-white" style={{ height: "100dvh" }}>
       {/* 헤더 */}
       <div className="flex items-center gap-2 px-3 py-2.5 border-b bg-white shrink-0 shadow-sm">
         <button

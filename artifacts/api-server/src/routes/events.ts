@@ -46,7 +46,7 @@ router.post("/crawl", async (req, res) => {
     const result = await appendEvents(allEvents);
     added = result.added;
     total = result.total;
-    req.log.info({ added, total }, "전체 크롤링 완료");
+    req.log.info({ added, updated: result.updated, total }, "전체 크롤링 완료");
   } catch (err) {
     req.log.warn({ err }, "크롤링 중 일부 오류 발생 (계속 진행)");
   }
@@ -61,11 +61,12 @@ router.post("/events/crawl", async (req, res) => {
       req.log.info({ url }, "커스텀 URL 크롤링 시작");
       const events = await crawlUrl(url);
       const fresh = events.filter((e) => e.scheduleStatus !== "ended");
-      const { added, total } = await appendEvents(fresh);
-      req.log.info({ added, total, skipped: events.length - fresh.length }, "커스텀 URL 크롤링 완료");
+      const { added, updated, total } = await appendEvents(fresh);
+      req.log.info({ added, updated, total, skipped: events.length - fresh.length }, "커스텀 URL 크롤링 완료");
       return res.json({
         success: true,
         added,
+        updated,
         total,
         summary: [
           {
@@ -83,7 +84,7 @@ router.post("/events/crawl", async (req, res) => {
     const allEvents = results.flatMap((r) => r.events);
     const fresh = allEvents.filter((e) => e.scheduleStatus !== "ended");
     req.log.info({ collected: allEvents.length, skippedEnded: allEvents.length - fresh.length }, "종료된 행사 제외");
-    const { added, total } = await appendEvents(fresh);
+    const { added, updated, total } = await appendEvents(fresh);
 
     const summary = results.map((r) => ({
       source: r.source,
@@ -92,8 +93,8 @@ router.post("/events/crawl", async (req, res) => {
       error: r.error,
     }));
 
-    req.log.info({ added, total }, "전체 크롤링 완료");
-    return res.json({ success: true, added, total, summary });
+    req.log.info({ added, updated, total }, "전체 크롤링 완료");
+    return res.json({ success: true, added, updated, total, summary });
   } catch (err) {
     req.log.error({ err }, "크롤링 실패");
     return res.status(500).json({ success: false, error: String(err) });
@@ -137,8 +138,8 @@ router.post("/events/manual", async (req, res) => {
       crawledAt: new Date().toISOString(),
     };
 
-    const { added, total } = await appendEvents([event]);
-    return res.json({ success: true, added, total });
+    const { added, updated, total } = await appendEvents([event]);
+    return res.json({ success: true, added, updated, total });
   } catch (err) {
     req.log.error({ err }, "수동 등록 실패");
     return res.status(500).json({ success: false, error: "수동 등록 실패" });

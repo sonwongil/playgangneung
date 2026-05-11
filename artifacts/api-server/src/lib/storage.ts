@@ -114,6 +114,32 @@ function keysOverlap(aKeys: string[], bKeys: string[]): boolean {
   return false;
 }
 
+/** 콘텐츠 충실도 점수 — 높을수록 정보가 풍부한 항목 */
+function contentScore(e: CrawledEvent): number {
+  let score = 0;
+  score += Math.min(e.description.length, 400); // 설명 길이 (최대 400점)
+  if (e.thumbnail) score += 150;                // 썸네일 이미지 있음
+  if (e.contact) score += 60;                   // 연락처 있음
+  if (e.startDate) score += 30;                 // 시작일 있음
+  if (e.endDate) score += 20;                   // 종료일 있음
+  if (e.location && e.location !== "강릉") score += 25; // 구체적인 장소 있음
+  return score;
+}
+
+/**
+ * 더 충실한 새 항목의 콘텐츠를 기존 항목에 병합.
+ * 편집 상태(status, socialDraft), ID, 최초 수집 시각은 기존 항목 값을 유지.
+ */
+function mergeRicher(old: CrawledEvent, newer: CrawledEvent): CrawledEvent {
+  return {
+    ...newer,
+    id: old.id,                   // ID 유지 (카드이미지 경로 등 연관 데이터)
+    status: old.status,           // 편집 상태 유지 (draft/approved/rejected/published)
+    socialDraft: old.socialDraft, // SNS 초안 유지
+    crawledAt: old.crawledAt,     // 최초 수집 시각 유지
+  };
+}
+
 /**
  * 오늘 기준 앞으로 10일 이내 시작하는 항목만 신규 수집.
  * startDate가 없는 공지/정보는 날짜 무관하게 항상 포함.
@@ -136,19 +162,52 @@ function isWithinCrawlWindow(e: CrawledEvent): boolean {
 
 export async function appendEvents(
   newEvents: CrawledEvent[],
-): Promise<{ added: number; total: number }> {
+): Promise<{ added: number; updated: number; total: number }> {
   const existing = await readEvents();
-  const existingIds = new Set(existing.map((e) => e.id));
+
+  // 빠른 검색을 위한 인덱스
+  const idxById = new Map<string, number>(existing.map((e, i) => [e.id, i]));
   const existingKeysList = existing.map(dupKeys);
-  const fresh = newEvents.filter((e) => {
-    if (!isWithinCrawlWindow(e)) return false; // 10일 초과 항목 제외
-    if (existingIds.has(e.id)) return false;
-    const newK = dupKeys(e);
-    return !existingKeysList.some((exK) => keysOverlap(newK, exK));
-  });
-  const merged = [...existing, ...fresh];
-  await saveEvents(merged);
-  return { added: fresh.length, total: merged.length };
+
+  let added = 0;
+  let updated = 0;
+
+  for (const newEvent of newEvents) {
+    if (!isWithinCrawlWindow(newEvent)) continue;
+
+    const newKeys = dupKeys(newEvent);
+
+    // ① ID 완전 일치 — 점수 비교 후 더 충실하면 콘텐츠 업데이트
+    if (idxById.has(newEvent.id)) {
+      const idx = idxById.get(newEvent.id)!;
+      if (contentScore(newEvent) > contentScore(existing[idx])) {
+        existing[idx] = mergeRicher(existing[idx], newEvent);
+        existingKeysList[idx] = dupKeys(existing[idx]);
+        updated++;
+      }
+      continue;
+    }
+
+    // ② 제목 키 중복 — 점수 비교 후 더 충실하면 콘텐츠 업데이트
+    const dupIdx = existingKeysList.findIndex((exK) => keysOverlap(newKeys, exK));
+    if (dupIdx !== -1) {
+      if (contentScore(newEvent) > contentScore(existing[dupIdx])) {
+        existing[dupIdx] = mergeRicher(existing[dupIdx], newEvent);
+        existingKeysList[dupIdx] = dupKeys(existing[dupIdx]);
+        updated++;
+      }
+      continue;
+    }
+
+    // ③ 완전 신규 — 추가
+    idxById.set(newEvent.id, existing.length);
+    existingKeysList.push(newKeys);
+    existing.push(newEvent);
+    added++;
+  }
+
+  await saveEvents(existing);
+  return { added, updated, total: existing.length };
 }
 
 export async function updateEventStatus(

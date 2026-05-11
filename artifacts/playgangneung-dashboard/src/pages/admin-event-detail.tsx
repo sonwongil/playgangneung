@@ -281,58 +281,6 @@ export default function AdminEventDetail() {
 
       <div className="max-w-2xl mx-auto px-4 py-5 space-y-4">
 
-        {/* ── 상태 + 승인/반려 ── */}
-        <div className="bg-white rounded-2xl border border-border p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold text-muted-foreground">현재 상태</span>
-              <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs border font-semibold ${statusInfo.cls}`}>
-                {statusInfo.label}
-              </span>
-            </div>
-            <span className="text-xs text-muted-foreground">{event.source}</span>
-          </div>
-
-          <div className="flex gap-2">
-            {!isApproved ? (
-              <Button
-                className="flex-1 gap-2 bg-green-600 hover:bg-green-700 text-white font-bold h-10"
-                disabled={statusMutation.isPending}
-                onClick={() => statusMutation.mutate("approved")}
-              >
-                <CheckCircle className="w-4 h-4" />승인 — 공개 피드에 올리기
-              </Button>
-            ) : (
-              <Button
-                className="flex-1 gap-2 bg-green-100 text-green-700 border border-green-300 hover:bg-green-200 font-bold h-10"
-                disabled
-              >
-                <CheckCircle className="w-4 h-4" />승인됨 — 공개 피드에 표시 중
-              </Button>
-            )}
-            {event.status !== "rejected" && (
-              <Button
-                variant="outline"
-                className="gap-1.5 h-10 text-red-600 border-red-200 hover:bg-red-50"
-                disabled={statusMutation.isPending}
-                onClick={() => statusMutation.mutate("rejected")}
-              >
-                <XCircle className="w-4 h-4" />반려
-              </Button>
-            )}
-            {(event.status === "approved" || event.status === "published") && (
-              <Button
-                variant="outline"
-                className="gap-1.5 h-10 text-yellow-700 border-yellow-200 hover:bg-yellow-50"
-                disabled={statusMutation.isPending}
-                onClick={() => statusMutation.mutate("draft")}
-              >
-                <Clock className="w-3.5 h-3.5" />취소
-              </Button>
-            )}
-          </div>
-        </div>
-
         {/* ── 썸네일 ── */}
         {event.thumbnail ? (
           <div className="rounded-2xl overflow-hidden border border-border shadow-sm bg-black">
@@ -431,6 +379,96 @@ export default function AdminEventDetail() {
           </Button>
         </div>
 
+        {/* ── SNS 초안 ── */}
+        <div className="bg-white rounded-2xl border border-border p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <button
+              className="flex items-center gap-2 text-sm font-semibold"
+              onClick={() => setShowDraft((v) => !v)}
+            >
+              <MessageSquare className="w-4 h-4 text-blue-500" />SNS 초안
+              <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${showDraft ? "rotate-180" : ""}`} />
+            </button>
+            <Button
+              size="sm" variant="outline" className="gap-1.5 h-8"
+              disabled={generateDraftMutation.isPending}
+              onClick={() => generateDraftMutation.mutate()}
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${generateDraftMutation.isPending ? "animate-spin" : ""}`} />
+              {event.socialDraft ? "재생성" : "초안 생성"}
+            </Button>
+          </div>
+
+          {showDraft && (event.socialDraft || draftInited) && (
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">SNS 문구</Label>
+                <Textarea
+                  rows={6} value={caption} className="text-sm resize-none"
+                  onChange={(e) => setCaption(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">해시태그</Label>
+                <Input
+                  value={hashtagsStr} className="text-sm"
+                  placeholder="#강릉 #강릉여행 ..."
+                  onChange={(e) => setHashtagsStr(e.target.value)}
+                />
+              </div>
+              <Button
+                variant="outline" className="w-full gap-1.5"
+                disabled={saveDraftMutation.isPending}
+                onClick={() => saveDraftMutation.mutate()}
+              >
+                {saveDraftMutation.isPending ? "저장 중..." : "초안 저장"}
+              </Button>
+              <div className="space-y-2">
+                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">SNS에 공유하기</p>
+                <div className="flex gap-2">
+                  <Button
+                    className="flex-1 gap-1.5 text-white bg-[#1877F2] hover:bg-[#1565C0]"
+                    onClick={async () => {
+                      await navigator.clipboard.writeText(`${fullDraftText}\n\n${contentUrl}`);
+                      saveDraftMutation.mutate();
+                      toast({ title: "텍스트+링크 복사됨 — 페이스북에 붙여넣기 하세요" });
+                      setTimeout(() => window.open("https://www.facebook.com/", "_blank"), 600);
+                    }}
+                  >
+                    페이스북
+                  </Button>
+                  <Button
+                    className="flex-1 gap-1.5 text-white bg-[#E1306C] hover:bg-[#C2185B]"
+                    onClick={async () => {
+                      await navigator.clipboard.writeText(fullDraftText);
+                      saveDraftMutation.mutate();
+                      const imgUrl = `${BASE}/api/cards/${eventId}.png`;
+                      const res = await fetch(imgUrl).catch(() => null);
+                      if (res?.ok) {
+                        const blob = await res.blob();
+                        const a = document.createElement("a");
+                        a.href = URL.createObjectURL(blob);
+                        a.download = `${eventId}.png`;
+                        a.click();
+                        toast({ title: "이미지 다운로드됨 · 텍스트 복사됨" });
+                      } else {
+                        toast({ title: "텍스트 복사됨 — 인스타그램에서 이미지를 첨부하세요" });
+                      }
+                      setTimeout(() => window.open("https://www.instagram.com/", "_blank"), 800);
+                    }}
+                  >
+                    인스타그램
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {showDraft && !event.socialDraft && !draftInited && (
+            <p className="text-sm text-muted-foreground">초안이 없습니다. 위 버튼으로 생성하세요.</p>
+          )}
+        </div>
+
         {/* ── 원본 링크 ── */}
         {event.link && (
           <div className="bg-white rounded-2xl border border-border overflow-hidden">
@@ -450,99 +488,57 @@ export default function AdminEventDetail() {
           </div>
         )}
 
-        {/* ── SNS 초안 (승인된 항목만) ── */}
-        {isApproved && (
-          <div className="bg-white rounded-2xl border border-border p-5 space-y-4">
-            <div className="flex items-center justify-between">
-              <button
-                className="flex items-center gap-2 text-sm font-semibold"
-                onClick={() => setShowDraft((v) => !v)}
-              >
-                <MessageSquare className="w-4 h-4 text-blue-500" />SNS 초안
-                <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${showDraft ? "rotate-180" : ""}`} />
-              </button>
-              <Button
-                size="sm" variant="outline" className="gap-1.5 h-8"
-                disabled={generateDraftMutation.isPending}
-                onClick={() => generateDraftMutation.mutate()}
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${generateDraftMutation.isPending ? "animate-spin" : ""}`} />
-                {event.socialDraft ? "재생성" : "초안 생성"}
-              </Button>
+        {/* ── 승인 / 반려 ── */}
+        <div className="bg-white rounded-2xl border border-border p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-muted-foreground">현재 상태</span>
+              <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs border font-semibold ${statusInfo.cls}`}>
+                {statusInfo.label}
+              </span>
             </div>
+            <span className="text-xs text-muted-foreground">{event.source}</span>
+          </div>
 
-            {showDraft && (event.socialDraft || draftInited) && (
-              <div className="space-y-4">
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">SNS 문구</Label>
-                  <Textarea
-                    rows={6} value={caption} className="text-sm resize-none"
-                    onChange={(e) => setCaption(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">해시태그</Label>
-                  <Input
-                    value={hashtagsStr} className="text-sm"
-                    placeholder="#강릉 #강릉여행 ..."
-                    onChange={(e) => setHashtagsStr(e.target.value)}
-                  />
-                </div>
-                <Button
-                  variant="outline" className="w-full gap-1.5"
-                  disabled={saveDraftMutation.isPending}
-                  onClick={() => saveDraftMutation.mutate()}
-                >
-                  {saveDraftMutation.isPending ? "저장 중..." : "초안 저장"}
-                </Button>
-                {/* SNS 공유 버튼 */}
-                <div className="space-y-2">
-                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">SNS에 공유하기</p>
-                  <div className="flex gap-2">
-                    <Button
-                      className="flex-1 gap-1.5 text-white bg-[#1877F2] hover:bg-[#1565C0]"
-                      onClick={async () => {
-                        await navigator.clipboard.writeText(`${fullDraftText}\n\n${contentUrl}`);
-                        saveDraftMutation.mutate();
-                        toast({ title: "텍스트+링크 복사됨 — 페이스북에 붙여넣기 하세요" });
-                        setTimeout(() => window.open("https://www.facebook.com/", "_blank"), 600);
-                      }}
-                    >
-                      페이스북
-                    </Button>
-                    <Button
-                      className="flex-1 gap-1.5 text-white bg-[#E1306C] hover:bg-[#C2185B]"
-                      onClick={async () => {
-                        await navigator.clipboard.writeText(fullDraftText);
-                        saveDraftMutation.mutate();
-                        const imgUrl = `${BASE}/api/cards/${eventId}.png`;
-                        const res = await fetch(imgUrl).catch(() => null);
-                        if (res?.ok) {
-                          const blob = await res.blob();
-                          const a = document.createElement("a");
-                          a.href = URL.createObjectURL(blob);
-                          a.download = `${eventId}.png`;
-                          a.click();
-                          toast({ title: "이미지 다운로드됨 · 텍스트 복사됨" });
-                        } else {
-                          toast({ title: "텍스트 복사됨 — 인스타그램에서 이미지를 첨부하세요" });
-                        }
-                        setTimeout(() => window.open("https://www.instagram.com/", "_blank"), 800);
-                      }}
-                    >
-                      인스타그램
-                    </Button>
-                  </div>
-                </div>
-
-              </div>
+          <div className="flex gap-2">
+            {!isApproved ? (
+              <Button
+                className="flex-1 gap-2 bg-green-600 hover:bg-green-700 text-white font-bold h-10"
+                disabled={statusMutation.isPending}
+                onClick={() => statusMutation.mutate("approved")}
+              >
+                <CheckCircle className="w-4 h-4" />승인 — 공개 피드에 올리기
+              </Button>
+            ) : (
+              <Button
+                className="flex-1 gap-2 bg-green-100 text-green-700 border border-green-300 hover:bg-green-200 font-bold h-10"
+                disabled
+              >
+                <CheckCircle className="w-4 h-4" />승인됨 — 공개 피드에 표시 중
+              </Button>
             )}
-
-            {showDraft && !event.socialDraft && !draftInited && (
-              <p className="text-sm text-muted-foreground">초안이 없습니다. 위 버튼으로 생성하세요.</p>
+            {event.status !== "rejected" && (
+              <Button
+                variant="outline"
+                className="gap-1.5 h-10 text-red-600 border-red-200 hover:bg-red-50"
+                disabled={statusMutation.isPending}
+                onClick={() => statusMutation.mutate("rejected")}
+              >
+                <XCircle className="w-4 h-4" />반려
+              </Button>
+            )}
+            {isApproved && (
+              <Button
+                variant="outline"
+                className="gap-1.5 h-10 text-yellow-700 border-yellow-200 hover:bg-yellow-50"
+                disabled={statusMutation.isPending}
+                onClick={() => statusMutation.mutate("draft")}
+              >
+                <Clock className="w-3.5 h-3.5" />취소
+              </Button>
             )}
           </div>
-        )}
+        </div>
 
       </div>
     </div>

@@ -51,10 +51,6 @@ function getCategory(event: CrawledEvent): string {
 // ─── 초안 생성 ───────────────────────────────────────────────────────────────
 
 export function generateSocialDraft(event: CrawledEvent): SocialDraft {
-  if (event.status !== "approved") {
-    throw new Error("승인(approved) 상태의 이벤트만 SNS 초안을 생성할 수 있습니다.");
-  }
-
   const category = getCategory(event);
 
   // 이모지 + 제목

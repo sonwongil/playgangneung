@@ -1226,5 +1226,24 @@
     "status": "approved",
     "socialDraft": null,
     "crawledAt": "2026-05-11T05:01:39.978Z"
+  },
+  {
+    "id": "3b4a107f077b0c1302bb8aa96de90c0d",
+    "title": "2026년 소상공인 카드수수료 지원 신청",
+    "description": "소상공인과 | 접수마감",
+    "date": "2026-03-09",
+    "startDate": "2026-03-09",
+    "endDate": "2026-11-30",
+    "scheduleStatus": "ongoing",
+    "location": "소상공인과",
+    "category": "지역소식",
+    "thumbnail": null,
+    "link": "https://www.gn.go.kr/yeyak/selectUserOnlineReceptionView.do?key=5540&programKey=25",
+    "source": "지원/접수",
+    "contact": "",
+    "sourceType": "html",
+    "status": "approved",
+    "socialDraft": null,
+    "crawledAt": "2026-05-11T05:05:03.952Z"
   }
 ]

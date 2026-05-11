@@ -436,15 +436,27 @@ async function crawlGnYeyakEduList(
   }
 }
 
-// ─── 강릉아트센터 공연일정 ────────────────────────────────────────────────────
+// ─── performance_item 구조 공통 파서 (아트센터·공연행사 계열) ─────────────────
 
 const GN_ARTSCENTER_BASE = "https://www.gn.go.kr";
 
-async function crawlGnArtscenter(): Promise<{ events: CrawledEvent[]; error?: string }> {
-  const url = `${GN_ARTSCENTER_BASE}/artscenter/selectMoonhwainList.do?key=5728&searchMoon_p_team=artCenter`;
+/**
+ * li.performance_item 구조를 파싱하는 공통 함수.
+ * 강릉아트센터(/artscenter/)와 강릉시청 공연/행사(/yeyak/) 모두 동일한 HTML 구조 사용.
+ */
+async function crawlGnPerformanceList(
+  listUrl: string,
+  sourceName: string,
+  defaultLocation = "강릉",
+): Promise<{ events: CrawledEvent[]; error?: string }> {
   try {
-    const html = await fetchHtml(url);
+    const html = await fetchHtml(listUrl);
     const $ = cheerio.load(html);
+
+    // URL에서 base 경로 추출 (링크 상대경로 보정에 사용)
+    const urlObj = new URL(listUrl);
+    const basePath = urlObj.pathname.split("/").slice(0, 2).join("/"); // e.g. /artscenter or /yeyak
+    const linkBase = `${GN_ARTSCENTER_BASE}${basePath}/`;
 
     const rawItems: {
       id: string;
@@ -463,25 +475,28 @@ async function crawlGnArtscenter(): Promise<{ events: CrawledEvent[]; error?: st
       const link = href.startsWith("http")
         ? href
         : href
-        ? `${GN_ARTSCENTER_BASE}/artscenter/${href.replace(/^\.\//, "")}`
-        : url;
+        ? linkBase + href.replace(/^\.\//, "")
+        : listUrl;
 
       const title = $el.find("span.performance_title").text().trim();
       if (!title || title.length < 2) return;
 
       const $dates = $el.find("span.performance_date");
       const dateRaw = $dates.first().text().trim();
-
-      // 두 번째 performance_date span: 공연 시간/상세 일정 정보
       const scheduleInfo = $dates.eq(1).text().trim();
 
-      const location = $el.find("span.performance_place").text().trim() || "강릉아트센터";
+      const location =
+        $el.find("span.performance_place").text().trim() || defaultLocation;
 
-      // 예매상태, 공연등급 등 추가 정보
-      const statusText = $el.find("span.performance_status, span.performance_grade, em.performance_status").text().trim();
-      const extraText = $el.find("span.performance_cont, p.performance_desc, .performance_info").text().trim();
+      const statusText = $el
+        .find("span.performance_status, span.performance_grade, em.performance_status, span.performance_type")
+        .text()
+        .trim();
+      const extraText = $el
+        .find("span.performance_cont, p.performance_desc, .performance_info")
+        .text()
+        .trim();
 
-      // 설명 조합: 시간정보 + 장소 + 추가정보
       const inlineDesc = [scheduleInfo, location, statusText, extraText]
         .filter(Boolean)
         .join(" | ");
@@ -489,18 +504,19 @@ async function crawlGnArtscenter(): Promise<{ events: CrawledEvent[]; error?: st
       const imgStyle = $el.find("span.image").attr("style") || "";
       const imgMatch = imgStyle.match(/url\(['"]?([^'")\s]+)['"]?\)/);
       const thumbnail = imgMatch
-        ? (imgMatch[1].startsWith("http") ? imgMatch[1] : `${GN_ARTSCENTER_BASE}${imgMatch[1]}`)
+        ? imgMatch[1].startsWith("http")
+          ? imgMatch[1]
+          : `${GN_ARTSCENTER_BASE}${imgMatch[1]}`
         : null;
 
-      const id = makeId("gn_artscenter", link || title);
+      const id = makeId("gn_perf", link || title);
       rawItems.push({ id, title, dateRaw, link, location, thumbnail, inlineDesc });
     });
 
-    // 상세페이지 병렬 fetch (artscenter도 상세 정보 보강, Referer: 목록 페이지)
     const detailLinks = rawItems
-      .filter(it => it.link && it.link !== url)
+      .filter(it => it.link && it.link !== listUrl)
       .map(it => ({ id: it.id, link: it.link }));
-    const infoMap = await fetchDetailInfos(detailLinks, 4, url);
+    const infoMap = await fetchDetailInfos(detailLinks, 4, listUrl);
 
     const events: CrawledEvent[] = rawItems.map(it => {
       const info = infoMap[it.id];
@@ -512,7 +528,7 @@ async function crawlGnArtscenter(): Promise<{ events: CrawledEvent[]; error?: st
         desc,
         it.dateRaw,
         it.link,
-        "강릉아트센터",
+        sourceName,
         "html",
         thumbnail,
         it.location,
@@ -521,6 +537,62 @@ async function crawlGnArtscenter(): Promise<{ events: CrawledEvent[]; error?: st
       );
     });
 
+    return { events };
+  } catch (err) {
+    return { events: [], error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+async function crawlGnArtscenter(): Promise<{ events: CrawledEvent[]; error?: string }> {
+  return crawlGnPerformanceList(
+    `${GN_ARTSCENTER_BASE}/artscenter/selectMoonhwainList.do?key=5728&searchMoon_p_team=artCenter`,
+    "강릉아트센터",
+    "강릉아트센터",
+  );
+}
+
+// ─── 지원/접수 테이블 파서 ────────────────────────────────────────────────────
+
+/**
+ * selectUserOnlineReceptionList.do (지원/접수) — table.p-table 구조.
+ * 컬럼: No. | 접수명 | 담당부서 | 접수기간 | 선정방법 | 신청/모집 | 접수상태
+ */
+async function crawlGnReceptionTable(
+  listUrl: string,
+  sourceName: string,
+): Promise<{ events: CrawledEvent[]; error?: string }> {
+  try {
+    const html = await fetchHtml(listUrl, 15000, listUrl);
+    const $ = cheerio.load(html);
+    const linkBase = `${GN_ARTSCENTER_BASE}/yeyak/`;
+
+    const events: CrawledEvent[] = [];
+
+    $("table.p-table tbody tr").each((_, row) => {
+      const $tds = $(row).find("td");
+      if ($tds.length < 4) return;
+
+      const $titleCell = $tds.eq(1);
+      const $a = $titleCell.find("a.subject");
+      const title = $a.text().trim();
+      if (!title || title.length < 2) return;
+
+      const href = $a.attr("href") || "";
+      const link = href.startsWith("http") ? href : href ? linkBase + href.replace(/^\.\//, "") : listUrl;
+
+      const department = $tds.eq(2).text().trim();
+      const dateRaw = $tds.eq(3).text().trim().replace(/\s+/g, " ");
+      const status = $tds.eq(6).text().trim() || $tds.eq(5).text().trim();
+
+      const desc = [department, status].filter(Boolean).join(" | ");
+      const id = makeId("gn_reception", link || title);
+
+      events.push(
+        buildEvent(id, title, desc, dateRaw, link, sourceName, "html", null, department, "공지", undefined),
+      );
+    });
+
+    logger.info({ count: events.length }, `[gn_reception] 파싱 완료: ${sourceName}`);
     return { events };
   } catch (err) {
     return { events: [], error: err instanceof Error ? err.message : String(err) };
@@ -679,6 +751,14 @@ async function dispatchCrawl(
       url.includes("selectUnityExprnWebList.do")
     ) {
       return await crawlGnYeyakEduList(url, name);
+    }
+    // gn.go.kr/yeyak — performance_item 구조 (공연/행사)
+    if (url.includes("selectMoonhwainList.do")) {
+      return await crawlGnPerformanceList(url, name, "강릉시청");
+    }
+    // gn.go.kr/yeyak — table 구조 (지원/접수)
+    if (url.includes("selectUserOnlineReceptionList.do")) {
+      return await crawlGnReceptionTable(url, name);
     }
     // gn.go.kr/yeyak 캘린더 계열 (selectUnityEventWebList.do 등)
     if (url.includes("gn.go.kr/yeyak")) {

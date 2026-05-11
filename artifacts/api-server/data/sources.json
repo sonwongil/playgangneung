@@ -26,5 +26,12 @@
     "url": "https://www.gn.go.kr/yeyak/selectMoonhwainList.do?key=6422",
     "enabled": true,
     "createdAt": "2026-05-11T04:32:53.800Z"
+  },
+  {
+    "id": "8413d48f68679f722eab58fdcb30a3be",
+    "name": "교육/강좌",
+    "url": "https://www.gn.go.kr/yeyak/selectUnityProgrmWebList.do?key=5411&insttTy=URINTY01",
+    "enabled": true,
+    "createdAt": "2026-05-11T04:34:08.435Z"
   }
 ]

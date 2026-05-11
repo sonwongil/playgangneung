@@ -35,6 +35,7 @@ import {
   Send,
   Rss,
   AlertTriangle,
+  ArrowUpDown,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -161,19 +162,25 @@ export default function Admin() {
     enabled: activeNav === "sources",
   });
 
+  const [adminSortBy, setAdminSortBy] = useState<"date" | "latest">("date");
+
   const SCHEDULE_ORDER: Record<string, number> = {
     today: 0, ongoing: 1, tomorrow: 2, upcoming: 3, dateUnknown: 4, ended: 5,
   };
-  function sortBySchedule(arr: Event[]) {
+  function sortBySchedule(arr: Event[], sortBy: "date" | "latest" = "date") {
     return [...arr].sort((a, b) => {
       const sa = SCHEDULE_ORDER[a.scheduleStatus ?? ""] ?? 4;
       const sb = SCHEDULE_ORDER[b.scheduleStatus ?? ""] ?? 4;
       if (sa !== sb) return sa - sb;
-      return (a.startDate ?? a.date ?? "").localeCompare(b.startDate ?? b.date ?? "");
+      const da = a.startDate ?? a.date ?? "";
+      const db = b.startDate ?? b.date ?? "";
+      // ended 그룹: 최근 종료 먼저, 나머지: 가까운 날짜 먼저 or 최신순
+      if (a.scheduleStatus === "ended") return db.localeCompare(da);
+      return sortBy === "latest" ? db.localeCompare(da) : da.localeCompare(db);
     });
   }
 
-  const events: Event[] = sortBySchedule(data?.events ?? []);
+  const events: Event[] = sortBySchedule(data?.events ?? [], adminSortBy);
   const ads: Ad[] = adsData?.ads ?? [];
 
   // derived lists
@@ -449,9 +456,22 @@ export default function Admin() {
           {/* ══ 대시보드: 수집 목차 ══════════════════════════════════════════ */}
           {activeNav === "dashboard" && (
             <div className="space-y-2">
-              <p className="text-xs text-muted-foreground mb-3">
-                수집된 콘텐츠 <span className="font-semibold text-foreground">{events.length}건</span> — 항목을 클릭하면 상세 내용을 확인합니다.
-              </p>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs text-muted-foreground">
+                  수집된 콘텐츠 <span className="font-semibold text-foreground">{events.length}건</span> — 항목을 클릭하면 상세 내용을 확인합니다.
+                </p>
+                <div className="flex items-center gap-1">
+                  <ArrowUpDown className="w-3.5 h-3.5 text-muted-foreground mr-0.5" />
+                  <button
+                    onClick={() => setAdminSortBy("date")}
+                    className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${adminSortBy === "date" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}
+                  >날짜순</button>
+                  <button
+                    onClick={() => setAdminSortBy("latest")}
+                    className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${adminSortBy === "latest" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}
+                  >최신순</button>
+                </div>
+              </div>
               {isLoading ? (
                 <div className="py-16 text-center text-muted-foreground text-sm">불러오는 중...</div>
               ) : events.length === 0 ? (

@@ -38,6 +38,7 @@ import {
   ArrowUpDown,
   Smartphone,
   X,
+  PlusCircle,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -129,6 +130,8 @@ export default function Admin() {
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [editThumbnailUrl, setEditThumbnailUrl] = useState("");
   const [editingAd, setEditingAd] = useState<Ad | null>(null);
+  const [showManualDialog, setShowManualDialog] = useState(false);
+  const [manualThumbnail, setManualThumbnail] = useState("");
   const [pwForm, setPwForm] = useState({ current: "", next: "", confirm: "" });
   const [newSourceName, setNewSourceName] = useState("");
   const [newSourceUrl, setNewSourceUrl] = useState("");
@@ -294,6 +297,27 @@ export default function Admin() {
     },
     onSuccess: () => { toast({ title: "비밀번호 변경 완료" }); setPwForm({ current: "", next: "", confirm: "" }); },
     onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
+  });
+
+  const manualMutation = useMutation({
+    mutationFn: async (body: Record<string, string | null | undefined>) => {
+      const r = await fetch(`${BASE}/api/events/manual`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(body),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error ?? "등록 실패");
+      return d;
+    },
+    onSuccess: (d) => {
+      toast({ title: "등록 완료", description: `총 ${d.total}건` });
+      qc.invalidateQueries({ queryKey: ["admin-events"] });
+      setShowManualDialog(false);
+      setManualThumbnail("");
+    },
+    onError: (e: Error) => toast({ title: "등록 실패", description: e.message, variant: "destructive" }),
   });
 
   const adStatusMutation = useMutation({
@@ -491,6 +515,13 @@ export default function Admin() {
               onClick={() => { setMobilePreviewPath("/"); setShowMobilePreview(true); }}
             >
               <Smartphone className="w-3.5 h-3.5" />모바일 보기
+            </Button>
+            <Button
+              size="sm" variant="outline"
+              className="gap-1.5 text-green-700 border-green-300 hover:bg-green-50"
+              onClick={() => { setManualThumbnail(""); setShowManualDialog(true); }}
+            >
+              <PlusCircle className="w-3.5 h-3.5" />새 피드 등록
             </Button>
             <Button size="sm" onClick={() => crawlMutation.mutate()} disabled={crawlMutation.isPending} className="gap-1.5">
               <RefreshCw className={`w-3.5 h-3.5 ${crawlMutation.isPending ? "animate-spin" : ""}`} />
@@ -1139,6 +1170,100 @@ export default function Admin() {
         </DialogContent>
       </Dialog>
     )}
+    {/* ══ 수동 피드 등록 다이얼로그 ══════════════════════════════════════════ */}
+    <Dialog open={showManualDialog} onOpenChange={(o) => { if (!o) { setShowManualDialog(false); setManualThumbnail(""); } }}>
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <PlusCircle className="w-4 h-4 text-green-600" />새 피드 직접 등록
+          </DialogTitle>
+        </DialogHeader>
+        <form
+          className="space-y-4 py-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const fd = new FormData(e.currentTarget);
+            manualMutation.mutate({
+              title: fd.get("title") as string,
+              description: fd.get("description") as string,
+              category: fd.get("category") as string,
+              startDate: fd.get("startDate") as string || undefined,
+              endDate: (fd.get("endDate") as string) || undefined,
+              location: (fd.get("location") as string) || undefined,
+              contact: (fd.get("contact") as string) || undefined,
+              source: (fd.get("source") as string) || undefined,
+              thumbnail: manualThumbnail || null,
+              videoUrl: (fd.get("videoUrl") as string) || null,
+            });
+          }}
+        >
+          <div className="space-y-1">
+            <Label>제목 <span className="text-red-500">*</span></Label>
+            <Input name="title" required placeholder="예: 2026 강릉커피축제 개막" />
+          </div>
+          <div className="space-y-1">
+            <Label>내용 설명</Label>
+            <Textarea name="description" rows={3} placeholder="행사·장소·정보 등 간단히 설명해 주세요." />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label>카테고리</Label>
+              <select name="category" defaultValue="행사" className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary">
+                <option value="행사">행사</option>
+                <option value="맛집">맛집</option>
+                <option value="핫플">핫플</option>
+                <option value="지역소식">지역소식</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <Label>출처 / 업체명</Label>
+              <Input name="source" placeholder="예: 강릉시청" />
+            </div>
+            <div className="space-y-1">
+              <Label>시작일</Label>
+              <Input name="startDate" type="date" />
+            </div>
+            <div className="space-y-1">
+              <Label>종료일</Label>
+              <Input name="endDate" type="date" />
+            </div>
+            <div className="space-y-1">
+              <Label>장소</Label>
+              <Input name="location" placeholder="예: 강릉 중앙시장" />
+            </div>
+            <div className="space-y-1">
+              <Label>문의처</Label>
+              <Input name="contact" placeholder="예: 033-000-0000" />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>대표 이미지 URL</Label>
+            <Input
+              value={manualThumbnail}
+              onChange={(e) => setManualThumbnail(e.target.value)}
+              placeholder="https://example.com/image.jpg"
+            />
+            {manualThumbnail && (
+              <div className="rounded-lg overflow-hidden border h-32 bg-gray-50">
+                <img src={manualThumbnail} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+              </div>
+            )}
+          </div>
+          <div className="space-y-2">
+            <Label>동영상 URL</Label>
+            <Input name="videoUrl" placeholder="https://youtu.be/... 또는 MP4 직접 URL" />
+            <p className="text-xs text-muted-foreground">유튜브·쇼츠는 자동 임베드 / MP4는 플레이어로 표시됩니다.</p>
+          </div>
+          <DialogFooter className="pt-2">
+            <Button type="button" variant="outline" onClick={() => { setShowManualDialog(false); setManualThumbnail(""); }}>취소</Button>
+            <Button type="submit" disabled={manualMutation.isPending} className="bg-green-600 hover:bg-green-700">
+              {manualMutation.isPending ? "등록 중..." : "등록하기"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+
     {/* ── 모바일 미리보기 오버레이 ── */}
     {showMobilePreview && (
       <div className="fixed inset-0 z-[100] bg-black/70 flex items-center justify-center">

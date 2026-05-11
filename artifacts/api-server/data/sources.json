@@ -47,5 +47,12 @@
     "url": "https://www.gn.go.kr/yeyak/selectUserOnlineReceptionList.do?key=5540",
     "enabled": true,
     "createdAt": "2026-05-11T04:36:23.636Z"
+  },
+  {
+    "id": "7d5086e6b2186994dca3c80b58a00c72",
+    "name": "관광개발공사 행사안내",
+    "url": "https://www.gtdc.or.kr/pub/bbsevent.do",
+    "enabled": true,
+    "createdAt": "2026-05-11T04:46:19.328Z"
   }
 ]

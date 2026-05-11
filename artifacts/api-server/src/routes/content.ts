@@ -216,7 +216,7 @@ a{text-decoration:none;color:inherit}
 <body>
 <!-- Header (full width, sticky) -->
 <header class="header">
-  <a href="javascript:history.back()" class="header-back" aria-label="뒤로가기">‹</a>
+  <a href="${SITE_URL}" class="header-back" aria-label="PLAY강릉 홈으로">‹</a>
   <img src="/logo2.png" alt="PLAY강릉" class="header-logo">
   <span class="header-title">${title}</span>
 </header>

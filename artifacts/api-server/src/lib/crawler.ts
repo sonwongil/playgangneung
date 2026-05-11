@@ -790,13 +790,15 @@ async function crawlKwnews(
 
       const desc = $el.find("p.body a").first().text().replace(/【강릉】/g, "").trim().slice(0, 300);
 
-      const dateRaw = $el.find("p.date").text().trim().slice(0, 10); // YYYY-MM-DD
+      // 뉴스 기사는 발행일을 dateRaw로 쓰면 다음 날 ended 처리되므로 비워둠
+      const pubDateStr = $el.find("p.date").text().trim().slice(0, 10);
+      void pubDateStr; // 발행일은 기록용으로만 참고, 이벤트 날짜로 사용 안 함
 
       const imgSrc = $el.find("div.thumb img").attr("src") || "";
       const thumbnail = imgSrc ? (imgSrc.startsWith("http") ? imgSrc : `${KWNEWS_BASE}${imgSrc}`) : null;
 
       const id = makeId("kwnews", link || title);
-      events.push(buildEvent(id, title, desc, dateRaw, link, sourceName, "html", thumbnail, "강릉", "지역소식"));
+      events.push(buildEvent(id, title, desc, "", link, sourceName, "html", thumbnail, "강릉", "지역소식"));
     });
 
     logger.info({ count: events.length }, "[kwnews] 파싱 완료");
@@ -834,31 +836,18 @@ async function crawlKadoRss(
       // 강릉 관련 기사만 필터
       if (!title.includes("강릉") && !desc.includes("강릉")) return;
 
-      const link = $el.find("link").text().trim() || $el.find("guid").text().trim();
-      const pubDate = $el.find("pubDate").text().trim();
+      // guid가 link보다 cheerio xmlMode에서 더 안정적
+      const link = $el.find("guid").text().trim() || $el.find("link").text().trim();
 
-      // pubDate: "Tue, 12 May 2026 00:02:02 +0900" → YYYY-MM-DD
-      let dateRaw = "";
-      try {
-        const d = new Date(pubDate);
-        if (!isNaN(d.getTime())) {
-          dateRaw = d.toISOString().slice(0, 10);
-        }
-      } catch { /* ignore */ }
-
-      // 썸네일: <media:content> 또는 content:encoded 내 첫 img
+      // 뉴스 기사는 발행일을 이벤트 날짜로 쓰면 다음 날 ended 처리됨 → 날짜 비워둠
+      // 썸네일: content:encoded 내 첫 img src 추출
       let thumbnail: string | null = null;
-      const mediaUrl = $el.find("media\\:content, content").attr("url") || "";
-      if (mediaUrl) {
-        thumbnail = mediaUrl;
-      } else {
-        const encoded = $el.find("content\\:encoded").text();
-        const imgMatch = encoded.match(/src=["']([^"']+\.(?:jpg|jpeg|png|webp))[^"']*/i);
-        if (imgMatch) thumbnail = imgMatch[1];
-      }
+      const rawXml = $.xml($el[0] as Parameters<typeof $.xml>[0]);
+      const imgMatch = rawXml.match(/src=["']([^"']+cdn\.kado\.net[^"']*\.(?:jpg|jpeg|png|webp))[^"']*/i);
+      if (imgMatch) thumbnail = imgMatch[1];
 
       const id = makeId("kado", link || title);
-      events.push(buildEvent(id, title, desc, dateRaw, link, sourceName, "rss", thumbnail, "강릉", "지역소식"));
+      events.push(buildEvent(id, title, desc, "", link, sourceName, "rss", thumbnail, "강릉", "지역소식"));
     });
 
     logger.info({ count: events.length }, "[kado_rss] 강릉 필터 완료");

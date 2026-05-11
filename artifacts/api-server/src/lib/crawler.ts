@@ -206,7 +206,7 @@ function buildEvent(
     source: sourceName,
     contact: contact || "",
     sourceType,
-    status: "approved",
+    status: "pending",
     socialDraft: null,
     crawledAt: new Date().toISOString(),
   };

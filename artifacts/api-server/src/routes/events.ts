@@ -2,6 +2,7 @@ import { Router } from "express";
 import { crawlAll, crawlUrl } from "../lib/crawler.js";
 import {
   appendEvents,
+  deduplicateExisting,
   readEvents,
   saveEvents,
   saveEventDraft,
@@ -86,6 +87,10 @@ router.post("/events/crawl", async (req, res) => {
     req.log.info({ collected: allEvents.length, skippedEnded: allEvents.length - fresh.length }, "종료된 행사 제외");
     const { added, updated, total } = await appendEvents(fresh);
 
+    // 크롤링 후 기존 중복 소급 정리 (내용 충실도 기준)
+    const dedup = await deduplicateExisting();
+    req.log.info(dedup, "중복 소급 정리 완료");
+
     const summary = results.map((r) => ({
       source: r.source,
       sourceType: r.sourceType,
@@ -93,8 +98,8 @@ router.post("/events/crawl", async (req, res) => {
       error: r.error,
     }));
 
-    req.log.info({ added, updated, total }, "전체 크롤링 완료");
-    return res.json({ success: true, added, updated, total, summary });
+    req.log.info({ added, updated, removed: dedup.removed, total: dedup.after }, "전체 크롤링 완료");
+    return res.json({ success: true, added, updated, removed: dedup.removed, total: dedup.after, summary });
   } catch (err) {
     req.log.error({ err }, "크롤링 실패");
     return res.status(500).json({ success: false, error: String(err) });

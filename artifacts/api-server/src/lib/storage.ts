@@ -101,17 +101,51 @@ function dupKeys(e: CrawledEvent): string[] {
   return [...keys];
 }
 
-/** 두 정규화 키가 "같은 행사"로 볼 수 있는지 판단 (완전일치 or 한쪽이 다른 쪽의 접두어) */
+/** 두 정규화 키가 "같은 행사"로 볼 수 있는지 판단 */
 function keysOverlap(aKeys: string[], bKeys: string[]): boolean {
   for (const a of aKeys) {
     for (const b of bKeys) {
       if (a === b) return true;
-      // 짧은 쪽이 긴 쪽의 시작 부분과 같으면 동일 행사 (e.g. "발렌티나리사이틀" vs "발렌티나리사이틀쇼팽")
+      // 짧은 쪽이 긴 쪽 안에 포함되면 동일 행사로 판단
+      // (접두어 방식에서 부분문자열 방식으로 변경 — 다른 소스 간 제목 차이 흡수)
       const [shorter, longer] = a.length <= b.length ? [a, b] : [b, a];
-      if (shorter.length >= 12 && longer.startsWith(shorter)) return true;
+      if (shorter.length >= 6 && longer.includes(shorter)) return true;
     }
   }
   return false;
+}
+
+/**
+ * 기존 저장 이벤트의 중복을 소급 정리.
+ * 제목 키가 겹치는 항목을 하나로 합치되, 가장 충실한 콘텐츠를 유지하고
+ * 편집 상태(status, socialDraft)는 가장 앞서 처리된 항목(먼저 승인된 것)을 우선합니다.
+ */
+export async function deduplicateExisting(): Promise<{ before: number; after: number; removed: number }> {
+  const events = await readEvents();
+  const before = events.length;
+
+  const kept: CrawledEvent[] = [];
+  const keptKeys: string[][] = [];
+
+  for (const ev of events) {
+    const evKeys = dupKeys(ev);
+    const dupIdx = keptKeys.findIndex((k) => keysOverlap(evKeys, k));
+    if (dupIdx === -1) {
+      kept.push(ev);
+      keptKeys.push(evKeys);
+    } else {
+      // 이미 보관된 항목과 비교해 더 충실한 쪽의 콘텐츠 채택
+      const existing = kept[dupIdx];
+      if (contentScore(ev) > contentScore(existing)) {
+        kept[dupIdx] = mergeRicher(existing, ev);
+        keptKeys[dupIdx] = dupKeys(kept[dupIdx]);
+      }
+      // 편집 상태(status, socialDraft)는 mergeRicher 내에서 기존(existing) 것을 유지하므로 별도 처리 불필요
+    }
+  }
+
+  await saveEvents(kept);
+  return { before, after: kept.length, removed: before - kept.length };
 }
 
 /** 콘텐츠 충실도 점수 — 높을수록 정보가 풍부한 항목 */

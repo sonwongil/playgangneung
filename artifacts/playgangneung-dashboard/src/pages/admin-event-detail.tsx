@@ -40,6 +40,32 @@ interface Event {
 
 const CATEGORIES = ["행사", "맛집", "핫플", "지역소식"];
 
+function OriginalPreview({ url, base }: { url: string; base: string }) {
+  const [show, setShow] = useState(false);
+  return (
+    <div>
+      <button
+        className="w-full flex items-center justify-center gap-2 py-2.5 text-xs font-semibold text-blue-600 hover:bg-blue-50 transition-colors"
+        onClick={() => setShow((v) => !v)}
+      >
+        {show ? "미리보기 닫기 ▲" : "원본 페이지 미리보기 ▼"}
+      </button>
+      {show && (
+        <div className="border-t border-border">
+          <iframe
+            src={`${base}/api/proxy/page?url=${encodeURIComponent(url)}`}
+            className="w-full border-none block"
+            style={{ height: "600px" }}
+            sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+            loading="lazy"
+            title="원본 페이지 미리보기"
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 const STATUS_LABEL: Record<string, { label: string; cls: string }> = {
   pending:   { label: "수집됨",   cls: "bg-gray-100 text-gray-600 border-gray-200" },
   draft:     { label: "검토 중",  cls: "bg-yellow-100 text-yellow-700 border-yellow-200" },
@@ -402,11 +428,21 @@ export default function AdminEventDetail() {
 
         {/* ── 원본 링크 ── */}
         {event.link && (
-          <a href={event.link} target="_blank" rel="noopener noreferrer"
-            className="flex items-center gap-3 bg-white border border-blue-100 rounded-2xl px-4 py-3 text-blue-600 hover:bg-blue-50 transition-colors">
-            <ExternalLink className="w-4 h-4 shrink-0" />
-            <span className="text-sm font-medium truncate">원문 보기 — {event.source}</span>
-          </a>
+          <div className="bg-white rounded-2xl border border-border overflow-hidden">
+            <div className="flex items-center gap-3 px-4 py-3 border-b border-border">
+              <ExternalLink className="w-4 h-4 shrink-0 text-blue-500" />
+              <span className="text-xs text-muted-foreground truncate flex-1 min-w-0 font-mono">{event.link}</span>
+              <a
+                href={event.link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 transition-colors"
+              >
+                새 탭에서 열기
+              </a>
+            </div>
+            <OriginalPreview url={event.link} base={BASE} />
+          </div>
         )}
 
         {/* ── SNS 초안 (승인된 항목만) ── */}

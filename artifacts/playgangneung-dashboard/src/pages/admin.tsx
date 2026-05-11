@@ -63,7 +63,8 @@ interface Event {
   sourceType: string;
   location?: string;
   category?: string;
-  thumbnail?: string;
+  thumbnail?: string | null;
+  videoUrl?: string | null;
   status: "draft" | "approved" | "rejected" | "published";
   socialDraft: SocialDraft | null;
   crawledAt: string;
@@ -1052,6 +1053,7 @@ export default function Admin() {
               title: fd.get("title") as string,
               description: fd.get("description") as string,
               thumbnail: (fd.get("thumbnail") as string) || undefined,
+              videoUrl: (fd.get("videoUrl") as string) || null,
               location: fd.get("location") as string,
               category: fd.get("category") as string,
               startDate: fd.get("startDate") as string,
@@ -1065,6 +1067,11 @@ export default function Admin() {
               </Label>
               <Input name="thumbnail" value={editThumbnailUrl} onChange={(e) => setEditThumbnailUrl(e.target.value)} placeholder="https://example.com/image.jpg" className={!editThumbnailUrl ? "border-orange-300" : ""} />
               {editThumbnailUrl && <div className="rounded-lg overflow-hidden border h-32 bg-gray-50"><img src={editThumbnailUrl} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} /></div>}
+            </div>
+            <div className="space-y-2">
+              <Label>동영상 URL (유튜브·MP4·릴스 링크)</Label>
+              <Input name="videoUrl" defaultValue={(editingEvent as any).videoUrl ?? ""} placeholder="https://youtu.be/... 또는 https://example.com/video.mp4" />
+              <p className="text-xs text-muted-foreground">유튜브 링크는 자동으로 임베드, MP4는 플레이어로 표시됩니다.</p>
             </div>
             <div className="space-y-1"><Label>제목</Label><Input name="title" defaultValue={editingEvent.title} required /></div>
             <div className="space-y-1"><Label>문의처</Label><Input name="contact" defaultValue={(editingEvent as any).contact ?? ""} placeholder="예: 강릉시청 문화예술과 033-000-0000" /></div>

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, ExternalLink, ImageOff, Trash2, ChevronDown, Send } from "lucide-react";
+import { ArrowLeft, ExternalLink, ImageOff, Trash2, ChevronDown, Send, Video, Image } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -22,7 +22,8 @@ interface Event {
   contact?: string;
   location?: string;
   category?: string;
-  thumbnail?: string;
+  thumbnail?: string | null;
+  videoUrl?: string | null;
   status: string;
   crawledAt: string;
 }
@@ -68,6 +69,8 @@ export default function AdminEventDetail() {
   const [editCategory, setEditCategory] = useState("");
   const [editStartDate, setEditStartDate] = useState("");
   const [editEndDate, setEditEndDate] = useState("");
+  const [editThumbnail, setEditThumbnail] = useState("");
+  const [editVideoUrl, setEditVideoUrl] = useState("");
   const [inited, setInited] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
 
@@ -90,6 +93,8 @@ export default function AdminEventDetail() {
       setEditCategory(event.category ?? "지역소식");
       setEditStartDate(event.startDate ?? event.date ?? "");
       setEditEndDate(event.endDate ?? "");
+      setEditThumbnail(event.thumbnail ?? "");
+      setEditVideoUrl(event.videoUrl ?? "");
       setInited(true);
     }
   }, [event, inited]);
@@ -106,6 +111,8 @@ export default function AdminEventDetail() {
           category: editCategory,
           startDate: editStartDate,
           endDate: editEndDate || undefined,
+          thumbnail: editThumbnail || null,
+          videoUrl: editVideoUrl || null,
         }),
       });
       if (!r.ok) { const d = await r.json(); throw new Error(d.error ?? "저장 실패"); }
@@ -200,6 +207,50 @@ export default function AdminEventDetail() {
             </div>
           </div>
         )}
+
+        {/* 미디어 첨부 */}
+        <div className="bg-white rounded-2xl border border-border p-5 space-y-4">
+          <p className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <Image className="w-4 h-4 text-blue-500" />사진 / 동영상
+          </p>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">대표 이미지 URL</Label>
+            <Input
+              value={editThumbnail}
+              onChange={(e) => { setEditThumbnail(e.target.value); setIsDirty(true); }}
+              className="text-sm"
+              placeholder="https://example.com/image.jpg"
+            />
+            {editThumbnail && (
+              <div className="rounded-xl overflow-hidden border bg-gray-50 max-h-48">
+                <img
+                  src={editThumbnail}
+                  alt="미리보기"
+                  className="w-full h-full object-contain max-h-48"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                />
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
+              <Video className="w-3.5 h-3.5 text-purple-500" />동영상 URL
+            </Label>
+            <Input
+              value={editVideoUrl}
+              onChange={(e) => { setEditVideoUrl(e.target.value); setIsDirty(true); }}
+              className="text-sm"
+              placeholder="https://youtu.be/... 또는 MP4 직접 URL"
+            />
+            {editVideoUrl && (
+              <p className="text-xs text-muted-foreground">
+                유튜브·유튜브 쇼츠는 자동 임베드 / MP4·WebM은 플레이어 / 그 외는 링크로 표시됩니다.
+              </p>
+            )}
+          </div>
+        </div>
 
         {/* 내용 편집 */}
         <div className="bg-white rounded-2xl border border-border p-5 space-y-4">

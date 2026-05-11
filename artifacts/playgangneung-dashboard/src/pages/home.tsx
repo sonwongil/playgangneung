@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   CalendarDays, MapPin,
-  Megaphone, Star, Pin, Search, X, ArrowUpDown,
+  Megaphone, Star, Pin, Search, X, ArrowUpDown, Play,
 } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -22,6 +22,7 @@ interface FeedItem {
   source: string;
   category: string;
   thumbnail: string | null;
+  videoUrl?: string | null;
   isAd: boolean;
   adPlan?: "basic" | "main" | "premium";
   adWeight?: number;
@@ -211,6 +212,11 @@ function FeedCard({ item }: { item: FeedItem }) {
               </span>
             )}
           </div>
+          {item.videoUrl && (
+            <div className="absolute top-3 right-3 z-20 flex items-center gap-1 bg-black/70 text-white rounded-full px-2 py-1 text-[11px] font-bold">
+              <Play className="w-3 h-3 fill-white" />동영상
+            </div>
+          )}
         </div>
         <CardContent className="p-4">
           <h3 className="font-semibold text-base leading-snug mb-1.5 line-clamp-2 group-hover:text-primary transition-colors">

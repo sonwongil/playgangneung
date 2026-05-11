@@ -258,10 +258,11 @@ router.post("/events/regenerate-drafts", async (req, res) => {
 router.patch("/events/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, description, thumbnail, location, category, startDate, endDate, contact } = req.body as {
+    const { title, description, thumbnail, videoUrl, location, category, startDate, endDate, contact } = req.body as {
       title?: string;
       description?: string;
       thumbnail?: string | null;
+      videoUrl?: string | null;
       location?: string;
       category?: string;
       startDate?: string;
@@ -272,6 +273,7 @@ router.patch("/events/:id", async (req, res) => {
     if (title !== undefined) patch.title = title;
     if (description !== undefined) patch.description = description;
     if (thumbnail !== undefined) patch.thumbnail = thumbnail || null;
+    if (videoUrl !== undefined) patch.videoUrl = videoUrl || null;
     if (location !== undefined) patch.location = location;
     if (category !== undefined) patch.category = category;
     if (startDate !== undefined) { patch.startDate = startDate; patch.date = startDate; }

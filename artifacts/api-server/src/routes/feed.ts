@@ -27,6 +27,7 @@ export interface FeedItem {
   source: string;
   category: string;
   thumbnail: string | null;
+  videoUrl: string | null;
   location: string;
   isAd: boolean;
   adPlan?: "basic" | "main" | "premium";
@@ -92,9 +93,11 @@ function adToFeedItem(ad: Ad): FeedItem {
     endDate: "",
     scheduleStatus: "upcoming",
     link: ad.url || "",
+    sourceUrl: "",
     source: ad.businessName,
     category: ad.category,
     thumbnail,
+    videoUrl: (ad as any).videoUrl ?? null,
     location: ad.location || "강릉",
     isAd: true,
     adPlan: ad.plan,
@@ -136,6 +139,7 @@ function eventToFeedItem(ev: CrawledEvent): FeedItem {
     source: ev.source,
     category,
     thumbnail: proxyThumbnail(ev.thumbnail),
+    videoUrl: ev.videoUrl ?? null,
     location: ev.location || "강릉",
     isAd: false,
   };

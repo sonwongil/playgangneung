@@ -55,6 +55,7 @@ interface ContentItem {
   category: string;
   thumbnail: string;
   hasThumbnail: boolean;
+  videoUrl?: string | null;
   phone?: string;
   location?: string;
   businessName?: string;
@@ -75,6 +76,7 @@ async function findContent(id: string): Promise<ContentItem | null> {
         category,
         thumbnail: rawThumb ?? THUMBNAIL_MAP[category] ?? THUMBNAIL_MAP["지역소식"],
         hasThumbnail: !!rawThumb,
+        videoUrl: (ev as any).videoUrl ?? null,
       };
     }
   } catch {}
@@ -110,6 +112,33 @@ function formatDate(d: string): string {
 
 function escHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function extractYoutubeId(url: string): string | null {
+  try {
+    const u = new URL(url);
+    if (u.hostname.includes("youtube.com")) {
+      if (u.pathname.startsWith("/shorts/")) return u.pathname.split("/shorts/")[1]?.split("/")[0] ?? null;
+      return u.searchParams.get("v");
+    }
+    if (u.hostname === "youtu.be") return u.pathname.slice(1).split("?")[0] || null;
+  } catch { /* noop */ }
+  return null;
+}
+
+function isDirectVideo(url: string): boolean {
+  return /\.(mp4|webm|ogg|mov)(\?|$)/i.test(url);
+}
+
+function renderVideoSection(videoUrl: string): string {
+  const ytId = extractYoutubeId(videoUrl);
+  if (ytId) {
+    return `<div class="video-wrap"><iframe src="https://www.youtube.com/embed/${escHtml(ytId)}?rel=0&modestbranding=1" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen title="동영상"></iframe></div>`;
+  }
+  if (isDirectVideo(videoUrl)) {
+    return `<div class="video-wrap"><video controls playsinline preload="metadata"><source src="${escHtml(videoUrl)}"><p>동영상을 재생할 수 없습니다. <a href="${escHtml(videoUrl)}" target="_blank" rel="noopener noreferrer">직접 열기</a></p></video></div>`;
+  }
+  return `<a href="${escHtml(videoUrl)}" target="_blank" rel="noopener noreferrer" class="orig-link">▶ 동영상 보기</a>`;
 }
 
 function renderHtml(item: ContentItem, contentUrl: string): string {
@@ -200,6 +229,10 @@ a{text-decoration:none;color:inherit}
 .btn-secondary{background:#f1f5f9;color:#1e293b}
 /* PLAY강릉 brand footer */
 .brand-footer{text-align:center;padding:16px 16px 6px;font-size:11px;color:#94a3b8}
+/* 동영상 */
+.video-wrap{position:relative;width:100%;padding-bottom:56.25%;background:#000;border-radius:12px;overflow:hidden;margin:12px 0}
+.video-wrap iframe,.video-wrap video{position:absolute;inset:0;width:100%;height:100%;border:none;object-fit:contain}
+.video-label{font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;margin-top:12px}
 /* PC (640px 이상) */
 @media(min-width:640px){
   .hero{max-height:380px}
@@ -243,6 +276,11 @@ a{text-decoration:none;color:inherit}
     ${dateStr ? `<div class="info-row"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>${escHtml(dateStr)}</div>` : ""}
     ${item.location ? `<div class="info-row"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>${escHtml(item.location)}</div>` : ""}
     <div class="info-row"><span class="source-tag">출처: ${escHtml(item.source)}</span></div>
+
+    ${item.videoUrl ? `
+    <div class="divider"></div>
+    <p class="video-label">▶ 동영상</p>
+    ${renderVideoSection(item.videoUrl)}` : ""}
 
     <div class="divider"></div>
     <div class="contact-box">

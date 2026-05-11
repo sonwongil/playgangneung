@@ -26,6 +26,7 @@ export interface CrawledEvent {
   location: string;
   category: string;
   thumbnail: string | null;
+  videoUrl: string | null;
   link: string;
   source: string;
   contact: string;
@@ -59,6 +60,7 @@ export async function readEvents(): Promise<CrawledEvent[]> {
       location: e.location ?? "",
       category: e.category ?? "지역소식",
       thumbnail: e.thumbnail ?? null,
+      videoUrl: (e as any).videoUrl ?? null,
       link: e.link ?? "",
       source: e.source ?? "",
       contact: (e as any).contact ?? "",

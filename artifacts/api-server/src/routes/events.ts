@@ -186,13 +186,6 @@ router.post("/events/:id/draft", async (req, res) => {
     if (!event) {
       return res.status(404).json({ success: false, error: "이벤트를 찾을 수 없습니다." });
     }
-    if (event.status !== "approved") {
-      return res.status(400).json({
-        success: false,
-        error: "승인(approved) 상태의 이벤트만 SNS 초안을 생성할 수 있습니다.",
-      });
-    }
-
     const socialDraft = generateSocialDraft(event);
     const saved = await saveEventDraft(id, socialDraft);
     if (!saved) {

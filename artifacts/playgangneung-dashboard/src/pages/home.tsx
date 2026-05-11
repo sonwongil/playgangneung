@@ -1,10 +1,10 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   CalendarDays, MapPin, Instagram, Facebook, Youtube,
-  Megaphone, Star, Pin, Search, X, ArrowUpDown,
+  Megaphone, Star, Pin, Search, X, ArrowUpDown, ExternalLink, RefreshCw,
 } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -18,6 +18,7 @@ interface FeedItem {
   endDate: string;
   scheduleStatus: string;
   link: string;
+  sourceUrl: string;
   source: string;
   category: string;
   thumbnail: string | null;
@@ -148,7 +149,90 @@ const CATEGORY_GRADIENT: Record<string, string> = {
   지역소식: "from-emerald-600 to-teal-900",
 };
 
-function FeedCard({ item }: { item: FeedItem }) {
+interface IframeModalProps {
+  item: FeedItem;
+  onClose: () => void;
+}
+
+function IframeModal({ item, onClose }: IframeModalProps) {
+  const [blocked, setBlocked] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const frameUrl = item.sourceUrl || item.link;
+
+  const handleLoad = useCallback(() => {
+    setLoading(false);
+  }, []);
+
+  const handleError = useCallback(() => {
+    setLoading(false);
+    setBlocked(true);
+  }, []);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex flex-col bg-black/60"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="flex flex-col w-full h-full max-w-4xl mx-auto bg-white shadow-2xl md:my-6 md:rounded-2xl overflow-hidden">
+        {/* 헤더 */}
+        <div className="flex items-center gap-2 px-4 py-3 border-b bg-white shrink-0">
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors shrink-0"
+            aria-label="닫기"
+          >
+            <X className="w-5 h-5 text-gray-600" />
+          </button>
+          <p className="flex-1 text-sm font-medium text-gray-800 line-clamp-1">{item.title}</p>
+          <a
+            href={frameUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 text-xs font-medium transition-colors shrink-0"
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+            원문 보기
+          </a>
+        </div>
+
+        {/* iframe 영역 */}
+        <div className="relative flex-1 bg-gray-50">
+          {loading && !blocked && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-gray-400">
+              <RefreshCw className="w-8 h-8 animate-spin" />
+              <p className="text-sm">페이지 불러오는 중...</p>
+            </div>
+          )}
+          {blocked ? (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 px-6 text-center">
+              <ExternalLink className="w-12 h-12 text-gray-300" />
+              <p className="text-gray-600 font-medium">이 사이트는 인프레임 표시를 차단합니다.</p>
+              <a
+                href={frameUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-5 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
+              >
+                새 탭에서 열기
+              </a>
+            </div>
+          ) : (
+            <iframe
+              src={frameUrl}
+              title={item.title}
+              className="w-full h-full border-0"
+              onLoad={handleLoad}
+              onError={handleError}
+              sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
+            />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FeedCard({ item, onOpen }: { item: FeedItem; onOpen: (item: FeedItem) => void }) {
   const category = item.category ?? "지역소식";
   const colorClass = CATEGORY_COLORS[category] ?? "bg-gray-100 text-gray-700";
   const hasThumbnail = !!item.thumbnail;
@@ -157,13 +241,21 @@ function FeedCard({ item }: { item: FeedItem }) {
   const isToday = item.date === TODAY_STR;
   const gradient = CATEGORY_GRADIENT[category] ?? "from-gray-700 to-gray-900";
 
-  const href = item.isAd ? item.link : `/content/${item.id}`;
+  function handleClick(e: React.MouseEvent) {
+    if (item.isAd) return;
+    e.preventDefault();
+    onOpen(item);
+  }
+
+  const href = item.isAd ? item.link : (item.sourceUrl || item.link);
 
   return (
     <a
       href={href}
-      target="_blank" rel="noopener noreferrer"
+      target={item.isAd ? "_blank" : undefined}
+      rel="noopener noreferrer"
       className="block"
+      onClick={handleClick}
     >
       <Card className={`overflow-hidden hover:shadow-lg transition-shadow duration-300 group cursor-pointer ${adCfg?.ring ?? ""}`}>
         {adCfg && (item.adPlan === "premium" || item.adPlan === "main") && (
@@ -235,6 +327,7 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showAll, setShowAll] = useState(false);
   const [sortBy, setSortBy] = useState<SortBy>("date");
+  const [modalItem, setModalItem] = useState<FeedItem | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const { data } = useQuery<{ feed: FeedItem[]; total: number }>({
@@ -283,6 +376,9 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
+      {modalItem && (
+        <IframeModal item={modalItem} onClose={() => setModalItem(null)} />
+      )}
       {/* Header */}
       <header className="sticky top-0 z-50 bg-white border-b border-border shadow-sm">
         <div className="max-w-6xl mx-auto px-4 flex items-center justify-between" style={{ height: 50 }}>
@@ -383,7 +479,7 @@ export default function Home() {
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {display.map((item) => (
-                <FeedCard key={item.id} item={item} />
+                <FeedCard key={item.id} item={item} onOpen={setModalItem} />
               ))}
             </div>
             {!showAll && filtered.length > 9 && (

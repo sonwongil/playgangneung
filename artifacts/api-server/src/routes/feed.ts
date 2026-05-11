@@ -23,6 +23,7 @@ export interface FeedItem {
   endDate: string;
   scheduleStatus: string;
   link: string;
+  sourceUrl: string;
   source: string;
   category: string;
   thumbnail: string | null;
@@ -131,6 +132,7 @@ function eventToFeedItem(ev: CrawledEvent): FeedItem {
     endDate: ev.endDate || "",
     scheduleStatus,
     link: `${SITE_URL}/content/${ev.id}`,
+    sourceUrl: ev.link || "",
     source: ev.source,
     category,
     thumbnail: proxyThumbnail(ev.thumbnail),

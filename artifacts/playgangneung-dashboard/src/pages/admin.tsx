@@ -385,7 +385,7 @@ export default function Admin() {
   const Sidebar = ({ mobile = false }: { mobile?: boolean }) => (
     <div className={`flex flex-col h-full bg-sidebar text-sidebar-foreground ${mobile ? "w-64" : "w-56"}`}>
       <div className="p-5 border-b border-sidebar-border">
-        <img src={`${BASE}/logo.png`} alt="PLAY강릉" className="h-8 object-contain brightness-0 invert" />
+        <img src={`${BASE}/logo_transparent.png`} alt="PLAY강릉" className="h-8 object-contain brightness-0 invert" />
         <p className="text-xs text-sidebar-foreground/50 mt-1">관리자</p>
       </div>
       <nav className="flex-1 py-4 px-2">

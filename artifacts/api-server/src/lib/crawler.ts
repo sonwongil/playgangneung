@@ -328,6 +328,114 @@ async function crawlGnYeyak(
   }
 }
 
+// ─── 강릉시 교육/강좌·체험/견학 (li.edu_item 구조) ────────────────────────────
+
+/**
+ * selectUnityProgrmWebList.do (교육/강좌) 및
+ * selectUnityExprnWebList.do (체험/견학) 페이지 파서.
+ * HTML 구조: <li class="edu_item"> ... </li>
+ * 날짜: <span class="edu_dt">운영</span><span class="edu_dd">YYYY-MM-DD ~ YYYY-MM-DD</span>
+ */
+function parseGnYeyakEduList(
+  html: string,
+  pageUrl: string,
+): Array<{
+  id: string;
+  title: string;
+  dateRaw: string;
+  link: string;
+  location: string;
+  thumbnail: string | null;
+  type: string;
+}> {
+  const $ = cheerio.load(html);
+  const base = new URL(pageUrl).origin + "/yeyak/";
+  const items: ReturnType<typeof parseGnYeyakEduList> = [];
+
+  $("li.edu_item").each((_, el) => {
+    const $el = $(el);
+    const href = $el.find("a").first().attr("href") || "";
+    const link = href.startsWith("http") ? href : href ? base + href.replace(/^\.\//, "") : pageUrl;
+
+    const title = $el.find("span.edu_title").text().trim();
+    if (!title || title.length < 2) return;
+
+    // 운영기간 우선, 없으면 접수기간 사용
+    let dateRaw = "";
+    $el.find("li").each((_, li) => {
+      const dt = $(li).find("span.edu_dt").text().trim();
+      const dd = $(li).find("span.edu_dd").text().trim().replace(/\s+/g, " ");
+      if (dt === "운영" && !dateRaw) dateRaw = dd;
+    });
+    if (!dateRaw) {
+      $el.find("li").each((_, li) => {
+        const dt = $(li).find("span.edu_dt").text().trim();
+        const dd = $(li).find("span.edu_dd").text().trim().replace(/\s+/g, " ");
+        if (dt === "접수" && !dateRaw) dateRaw = dd;
+      });
+    }
+
+    let location = "";
+    $el.find("li").each((_, li) => {
+      const dt = $(li).find("span.edu_dt").text().trim();
+      if (dt === "장소") location = $(li).find("span.edu_dd").text().trim();
+    });
+
+    const type = $el.find("span.edu_type").text().trim();
+
+    const imgSrc = $el.find("img").first().attr("src") || "";
+    const thumbnail = imgSrc
+      ? imgSrc.startsWith("http")
+        ? imgSrc
+        : `https://www.gn.go.kr${imgSrc}`
+      : null;
+
+    const id = makeId("gn_edu", link || title);
+    items.push({ id, title, dateRaw, link, location, thumbnail, type });
+  });
+
+  return items;
+}
+
+async function crawlGnYeyakEduList(
+  listUrl: string,
+  sourceName: string,
+): Promise<{ events: CrawledEvent[]; error?: string }> {
+  try {
+    const html = await fetchHtml(listUrl, 20000, listUrl);
+    const rawItems = parseGnYeyakEduList(html, listUrl);
+    logger.info({ count: rawItems.length }, `[gn_edu] 목록 파싱 완료: ${sourceName}`);
+
+    const detailLinks = rawItems
+      .filter(it => it.link && it.link !== listUrl)
+      .map(it => ({ id: it.id, link: it.link }));
+    const infoMap = await fetchDetailInfos(detailLinks, 4, listUrl);
+
+    const events: CrawledEvent[] = rawItems.map(it => {
+      const info = infoMap[it.id];
+      const desc = info?.desc || [it.type, it.location].filter(Boolean).join(" | ");
+      const thumbnail = it.thumbnail || info?.thumbnail || null;
+      return buildEvent(
+        it.id,
+        it.title,
+        desc,
+        it.dateRaw,
+        it.link,
+        sourceName,
+        "html",
+        thumbnail,
+        it.location,
+        "event",
+        info?.contact,
+      );
+    });
+
+    return { events };
+  } catch (err) {
+    return { events: [], error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
 // ─── 강릉아트센터 공연일정 ────────────────────────────────────────────────────
 
 const GN_ARTSCENTER_BASE = "https://www.gn.go.kr";
@@ -565,7 +673,14 @@ async function dispatchCrawl(
   name: string,
 ): Promise<{ events: CrawledEvent[]; error?: string }> {
   try {
-    // gn.go.kr/yeyak 캘린더 계열 — URL과 소스명을 그대로 전달
+    // gn.go.kr/yeyak — edu_item 리스트 구조 (교육/강좌, 체험/견학)
+    if (
+      url.includes("selectUnityProgrmWebList.do") ||
+      url.includes("selectUnityExprnWebList.do")
+    ) {
+      return await crawlGnYeyakEduList(url, name);
+    }
+    // gn.go.kr/yeyak 캘린더 계열 (selectUnityEventWebList.do 등)
     if (url.includes("gn.go.kr/yeyak")) {
       return await crawlGnYeyak(url, name);
     }

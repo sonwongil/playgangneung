@@ -36,6 +36,8 @@ import {
   Rss,
   AlertTriangle,
   ArrowUpDown,
+  Smartphone,
+  X,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -121,6 +123,8 @@ const AD_STATUS: Record<string, { label: string; cls: string }> = {
 export default function Admin() {
   const [activeNav, setActiveNav] = useState<NavKey>("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showMobilePreview, setShowMobilePreview] = useState(false);
+  const [mobilePreviewPath, setMobilePreviewPath] = useState("/");
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [editThumbnailUrl, setEditThumbnailUrl] = useState("");
   const [editingAd, setEditingAd] = useState<Ad | null>(null);
@@ -448,10 +452,19 @@ export default function Admin() {
               <p className="text-xs text-muted-foreground">PLAY강릉 백오피스</p>
             </div>
           </div>
-          <Button size="sm" onClick={() => crawlMutation.mutate()} disabled={crawlMutation.isPending} className="gap-1.5">
-            <RefreshCw className={`w-3.5 h-3.5 ${crawlMutation.isPending ? "animate-spin" : ""}`} />
-            {crawlMutation.isPending ? "크롤링 중..." : "전체 크롤링"}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm" variant="outline"
+              className="gap-1.5 text-blue-600 border-blue-200 hover:bg-blue-50"
+              onClick={() => { setMobilePreviewPath("/"); setShowMobilePreview(true); }}
+            >
+              <Smartphone className="w-3.5 h-3.5" />모바일 보기
+            </Button>
+            <Button size="sm" onClick={() => crawlMutation.mutate()} disabled={crawlMutation.isPending} className="gap-1.5">
+              <RefreshCw className={`w-3.5 h-3.5 ${crawlMutation.isPending ? "animate-spin" : ""}`} />
+              {crawlMutation.isPending ? "크롤링 중..." : "전체 크롤링"}
+            </Button>
+          </div>
         </header>
 
         <main className="flex-1 overflow-y-auto p-5">
@@ -1025,6 +1038,50 @@ export default function Admin() {
           </form>
         </DialogContent>
       </Dialog>
+    )}
+    {/* ── 모바일 미리보기 오버레이 ── */}
+    {showMobilePreview && (
+      <div className="fixed inset-0 z-[100] bg-black/70 flex items-center justify-center">
+        <div className="relative flex flex-col items-center gap-3">
+          {/* 닫기 + 경로 선택 툴바 */}
+          <div className="flex items-center gap-2 bg-white rounded-2xl px-3 py-2 shadow-xl">
+            <Smartphone className="w-4 h-4 text-blue-500" />
+            <span className="text-sm font-semibold text-gray-700 mr-1">모바일 미리보기</span>
+            <button
+              onClick={() => setMobilePreviewPath("/")}
+              className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${mobilePreviewPath === "/" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}
+            >홈</button>
+            <button
+              onClick={() => setMobilePreviewPath("/admin")}
+              className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${mobilePreviewPath === "/admin" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}
+            >관리자</button>
+            <button
+              onClick={() => setShowMobilePreview(false)}
+              className="ml-2 p-1.5 rounded-full hover:bg-gray-100 text-gray-500"
+              aria-label="닫기"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* 폰 프레임 */}
+          <div className="relative bg-gray-900 rounded-[40px] p-3 shadow-2xl" style={{ width: 412, height: 760 }}>
+            {/* 노치 */}
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 w-24 h-6 bg-gray-900 rounded-full z-10" />
+            {/* 화면 */}
+            <div className="w-full h-full bg-white rounded-[30px] overflow-hidden">
+              <iframe
+                key={mobilePreviewPath}
+                src={`${BASE}${mobilePreviewPath}`}
+                className="w-full h-full border-none block"
+                title="모바일 미리보기"
+                style={{ width: "390px", transform: "scale(0.965)", transformOrigin: "top left", height: "calc(100% / 0.965)" }}
+              />
+            </div>
+          </div>
+          <p className="text-white/50 text-xs">390 × 844 (iPhone 14)</p>
+        </div>
+      </div>
     )}
     </>
   );

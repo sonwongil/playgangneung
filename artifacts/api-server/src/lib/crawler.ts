@@ -268,8 +268,11 @@ function parseGnYeyakPage(
   return items;
 }
 
-async function crawlGnYeyak(): Promise<{ events: CrawledEvent[]; error?: string }> {
-  const BASE_URL = `${GN_YEYAK_BASE}/yeyak/selectUnityEventWebList.do?key=6420`;
+async function crawlGnYeyak(
+  listUrl = `${GN_YEYAK_BASE}/yeyak/selectUnityEventWebList.do?key=6420`,
+  sourceName = "강릉시 이달의 행사",
+): Promise<{ events: CrawledEvent[]; error?: string }> {
+  const BASE_URL = listUrl;
   try {
     // 현재 달 + 다음 2개월 크롤링
     const today = new Date();
@@ -303,7 +306,6 @@ async function crawlGnYeyak(): Promise<{ events: CrawledEvent[]; error?: string 
     const events: CrawledEvent[] = rawItems.map(it => {
       const info = infoMap[it.id];
       const desc = info?.desc || it.inlineDesc || it.location;
-      // 목록 썸네일 우선, 없으면 상세 페이지 썸네일 사용
       const thumbnail = it.thumbnail || info?.thumbnail || null;
       return buildEvent(
         it.id,
@@ -311,7 +313,7 @@ async function crawlGnYeyak(): Promise<{ events: CrawledEvent[]; error?: string 
         desc,
         it.dateRaw,
         it.link,
-        "강릉시 이달의 행사",
+        sourceName,
         "html",
         thumbnail,
         it.location,
@@ -563,9 +565,11 @@ async function dispatchCrawl(
   name: string,
 ): Promise<{ events: CrawledEvent[]; error?: string }> {
   try {
+    // gn.go.kr/yeyak 캘린더 계열 — URL과 소스명을 그대로 전달
     if (url.includes("gn.go.kr/yeyak")) {
-      return await crawlGnYeyak();
+      return await crawlGnYeyak(url, name);
     }
+    // 아트센터 계열 (artscenter 경로 또는 moonhwain.net)
     if (url.includes("gn.go.kr/artscenter") || url.includes("gn.moonhwain.net")) {
       return await crawlGnArtscenter();
     }

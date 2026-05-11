@@ -1,38 +1,5 @@
 import type { CrawledEvent, SocialDraft } from "./storage.js";
 
-// ─── 카테고리별 마무리 문구 ────────────────────────────────────────────────────
-
-const CLOSING_BY_CATEGORY: Record<string, string[]> = {
-  행사: [
-    "강릉에서 직접 만나보세요! 📅",
-    "이번 행사를 놓치지 마세요!",
-    "강릉의 특별한 행사가 여러분을 기다립니다.",
-    "더 많은 정보는 아래 링크에서 확인하세요.",
-  ],
-  맛집: [
-    "강릉 여행 중 꼭 들러보세요! 🍽️",
-    "강릉 맛집 투어, 이곳도 리스트에 추가하세요.",
-    "강릉에서만 즐길 수 있는 특별한 맛입니다.",
-  ],
-  핫플: [
-    "강릉 여행 필수 코스로 추천합니다! 📍",
-    "사진 한 장으로 강릉의 매력을 담아보세요.",
-    "강릉 여행 중 꼭 방문해 보세요!",
-  ],
-  지역소식: [
-    "해당 내용을 꼼꼼히 확인하세요.",
-    "관련 문의는 담당 부서로 연락해 주세요.",
-    "자세한 내용은 아래 링크에서 확인하세요.",
-    "신청 기간을 놓치지 마세요!",
-  ],
-};
-
-const DEFAULT_CLOSING = [
-  "더 자세한 내용은 아래 링크에서 확인하세요.",
-  "관련 문의는 해당 기관으로 연락해 주세요.",
-  "자세한 사항을 꼭 확인해 보세요!",
-];
-
 // ─── 카테고리별 해시태그 ──────────────────────────────────────────────────────
 
 const BASE_HASHTAGS_BY_CATEGORY: Record<string, string[]> = {
@@ -114,10 +81,6 @@ export function generateSocialDraft(event: CrawledEvent): SocialDraft {
     descBlock = desc;
   }
 
-  // 마무리 문구 (카테고리 맞춤)
-  const closingPool = CLOSING_BY_CATEGORY[category] ?? DEFAULT_CLOSING;
-  const closing = pick(closingPool);
-
   // 본문 조합
   const parts: string[] = [titleLine];
   if (dateStr) parts.push(dateStr);
@@ -126,8 +89,6 @@ export function generateSocialDraft(event: CrawledEvent): SocialDraft {
     parts.push("");
     parts.push(descBlock);
   }
-  parts.push("");
-  parts.push(closing);
 
   const caption = parts.join("\n").trim();
 

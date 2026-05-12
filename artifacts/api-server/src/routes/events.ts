@@ -2,6 +2,7 @@ import { Router } from "express";
 import multer from "multer";
 import fs from "fs/promises";
 import path from "path";
+import * as cheerio from "cheerio";
 import { crawlAll, crawlUrl } from "../lib/crawler.js";
 import {
   appendEvents,
@@ -127,6 +128,74 @@ router.post("/events/crawl", async (req, res) => {
   } catch (err) {
     req.log.error({ err }, "크롤링 실패");
     return res.status(500).json({ success: false, error: String(err) });
+  }
+});
+
+router.post("/events/extract-url", async (req, res) => {
+  const { url } = req.body as { url?: string };
+  if (!url) return res.status(400).json({ error: "url 필드가 필요합니다." });
+
+  try {
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; PlayGangneungBot/1.0)",
+        "Accept": "text/html,application/xhtml+xml",
+        "Accept-Language": "ko-KR,ko;q=0.9,en;q=0.8",
+      },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!response.ok) return res.status(400).json({ error: `페이지를 불러올 수 없습니다. (HTTP ${response.status})` });
+
+    const html = await response.text();
+    const $ = cheerio.load(html);
+
+    const og = (prop: string) =>
+      $(`meta[property="og:${prop}"]`).attr("content")?.trim() ||
+      $(`meta[name="og:${prop}"]`).attr("content")?.trim() || "";
+
+    const title =
+      og("title") ||
+      $("title").text().trim() ||
+      $("h1").first().text().trim();
+
+    const description =
+      og("description") ||
+      $('meta[name="description"]').attr("content")?.trim() ||
+      $("p").first().text().trim().slice(0, 300);
+
+    const thumbnail = og("image") || "";
+
+    // 날짜 패턴 추출 (YYYY.MM.DD, YYYY-MM-DD, YYYY년 MM월 DD일 등)
+    const bodyText = $("body").text();
+    const datePatterns = [
+      /(\d{4})[.\-년](\d{1,2})[.\-월](\d{1,2})/g,
+    ];
+    const dates: string[] = [];
+    for (const pat of datePatterns) {
+      let m: RegExpExecArray | null;
+      while ((m = pat.exec(bodyText)) !== null && dates.length < 4) {
+        const d = `${m[1]}-${String(m[2]).padStart(2, "0")}-${String(m[3]).padStart(2, "0")}`;
+        if (!dates.includes(d)) dates.push(d);
+      }
+    }
+
+    // 장소 추출 (강릉 주변 키워드)
+    const locationMatch = bodyText.match(/강릉\s*[\w\s가-힣]{0,20}(?:광장|공원|센터|홀|관|체육관|경기장|시장|거리|해변|해수욕장|호수|역)/);
+    const location = locationMatch?.[0]?.trim() || "";
+
+    req.log.info({ url, title }, "URL 자동 추출 완료");
+    return res.json({
+      title,
+      description,
+      thumbnail,
+      startDate: dates[0] || "",
+      endDate: dates[1] || "",
+      location,
+      link: url,
+    });
+  } catch (err: any) {
+    req.log.warn({ url, err: err?.message }, "URL 추출 실패");
+    return res.status(400).json({ error: `URL을 읽을 수 없습니다: ${err?.message ?? "알 수 없는 오류"}` });
   }
 });
 

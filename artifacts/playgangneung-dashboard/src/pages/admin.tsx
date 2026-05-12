@@ -132,6 +132,12 @@ export default function Admin() {
   const [editingAd, setEditingAd] = useState<Ad | null>(null);
   const [showManualDialog, setShowManualDialog] = useState(false);
   const [manualThumbnail, setManualThumbnail] = useState("");
+  const [urlInput, setUrlInput] = useState("");
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [manualForm, setManualForm] = useState({
+    title: "", description: "", link: "", source: "", contact: "",
+    category: "행사", startDate: "", endDate: "", location: "", videoUrl: "",
+  });
   const [pwForm, setPwForm] = useState({ current: "", next: "", confirm: "" });
   const [newSourceName, setNewSourceName] = useState("");
   const [newSourceUrl, setNewSourceUrl] = useState("");
@@ -299,6 +305,44 @@ export default function Admin() {
     onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
   });
 
+  function resetManualDialog() {
+    setShowManualDialog(false);
+    setManualThumbnail("");
+    setUrlInput("");
+    setIsExtracting(false);
+    setManualForm({ title: "", description: "", link: "", source: "", contact: "", category: "행사", startDate: "", endDate: "", location: "", videoUrl: "" });
+  }
+
+  async function handleExtractUrl() {
+    if (!urlInput.trim()) return;
+    setIsExtracting(true);
+    try {
+      const r = await fetch(`${BASE}/api/events/extract-url`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ url: urlInput.trim() }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error ?? "추출 실패");
+      setManualForm((prev) => ({
+        ...prev,
+        title: d.title || prev.title,
+        description: d.description || prev.description,
+        link: d.link || prev.link,
+        startDate: d.startDate || prev.startDate,
+        endDate: d.endDate || prev.endDate,
+        location: d.location || prev.location,
+      }));
+      if (d.thumbnail) setManualThumbnail(d.thumbnail);
+      toast({ title: "자동 추출 완료", description: "내용을 확인하고 필요하면 수정하세요." });
+    } catch (e: any) {
+      toast({ title: "추출 실패", description: e.message, variant: "destructive" });
+    } finally {
+      setIsExtracting(false);
+    }
+  }
+
   const manualMutation = useMutation({
     mutationFn: async (body: Record<string, string | null | undefined>) => {
       const r = await fetch(`${BASE}/api/events/manual`, {
@@ -314,8 +358,7 @@ export default function Admin() {
     onSuccess: (d) => {
       toast({ title: "등록 완료", description: `총 ${d.total}건` });
       qc.invalidateQueries({ queryKey: ["admin-events"] });
-      setShowManualDialog(false);
-      setManualThumbnail("");
+      resetManualDialog();
     },
     onError: (e: Error) => toast({ title: "등록 실패", description: e.message, variant: "destructive" }),
   });
@@ -519,7 +562,7 @@ export default function Admin() {
             <Button
               size="sm" variant="outline"
               className="gap-1.5 text-green-700 border-green-300 hover:bg-green-50"
-              onClick={() => { setManualThumbnail(""); setShowManualDialog(true); }}
+              onClick={() => { resetManualDialog(); setShowManualDialog(true); }}
             >
               <PlusCircle className="w-3.5 h-3.5" />새 피드 등록
             </Button>
@@ -1181,49 +1224,91 @@ export default function Admin() {
       </Dialog>
     )}
     {/* ══ 수동 피드 등록 다이얼로그 ══════════════════════════════════════════ */}
-    <Dialog open={showManualDialog} onOpenChange={(o) => { if (!o) { setShowManualDialog(false); setManualThumbnail(""); } }}>
+    <Dialog open={showManualDialog} onOpenChange={(o) => { if (!o) resetManualDialog(); }}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <PlusCircle className="w-4 h-4 text-green-600" />새 피드 직접 등록
+            <PlusCircle className="w-4 h-4 text-green-600" />새 피드 등록
           </DialogTitle>
         </DialogHeader>
         <form
           className="space-y-4 py-2"
           onSubmit={(e) => {
             e.preventDefault();
-            const fd = new FormData(e.currentTarget);
             manualMutation.mutate({
-              title: fd.get("title") as string,
-              description: fd.get("description") as string,
-              category: fd.get("category") as string,
-              link: (fd.get("link") as string) || undefined,
-              startDate: fd.get("startDate") as string || undefined,
-              endDate: (fd.get("endDate") as string) || undefined,
-              location: (fd.get("location") as string) || undefined,
-              contact: (fd.get("contact") as string) || undefined,
-              source: (fd.get("source") as string) || undefined,
+              title: manualForm.title,
+              description: manualForm.description,
+              category: manualForm.category,
+              link: manualForm.link || undefined,
+              startDate: manualForm.startDate || undefined,
+              endDate: manualForm.endDate || undefined,
+              location: manualForm.location || undefined,
+              contact: manualForm.contact || undefined,
+              source: manualForm.source || undefined,
               thumbnail: manualThumbnail || null,
-              videoUrl: (fd.get("videoUrl") as string) || null,
+              videoUrl: manualForm.videoUrl || null,
             });
           }}
         >
+          {/* URL 자동추출 */}
+          <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 space-y-2">
+            <p className="text-xs font-semibold text-blue-700">URL로 자동 추출</p>
+            <div className="flex gap-2">
+              <Input
+                value={urlInput}
+                onChange={(e) => setUrlInput(e.target.value)}
+                placeholder="https://... 링크를 붙여넣으세요"
+                className="text-sm bg-white"
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleExtractUrl(); } }}
+              />
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleExtractUrl}
+                disabled={isExtracting || !urlInput.trim()}
+                className="shrink-0 bg-blue-600 hover:bg-blue-700"
+              >
+                {isExtracting ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : "추출"}
+              </Button>
+            </div>
+            <p className="text-[11px] text-blue-500">제목·설명·이미지·날짜를 자동으로 가져옵니다. 이후 직접 수정 가능합니다.</p>
+          </div>
+
           <div className="space-y-1">
             <Label>제목 <span className="text-red-500">*</span></Label>
-            <Input name="title" required placeholder="예: 2026 강릉커피축제 개막" />
+            <Input
+              required
+              value={manualForm.title}
+              onChange={(e) => setManualForm((p) => ({ ...p, title: e.target.value }))}
+              placeholder="예: 2026 강릉커피축제 개막"
+            />
           </div>
           <div className="space-y-1">
             <Label>내용 설명</Label>
-            <Textarea name="description" rows={3} placeholder="행사·장소·정보 등 간단히 설명해 주세요." />
+            <Textarea
+              rows={3}
+              value={manualForm.description}
+              onChange={(e) => setManualForm((p) => ({ ...p, description: e.target.value }))}
+              placeholder="행사·장소·정보 등 간단히 설명해 주세요."
+            />
           </div>
           <div className="space-y-1">
             <Label>원본 링크</Label>
-            <Input name="link" type="url" placeholder="https://example.com/article" />
+            <Input
+              type="url"
+              value={manualForm.link}
+              onChange={(e) => setManualForm((p) => ({ ...p, link: e.target.value }))}
+              placeholder="https://example.com/article"
+            />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label>카테고리</Label>
-              <select name="category" defaultValue="행사" className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary">
+              <select
+                value={manualForm.category}
+                onChange={(e) => setManualForm((p) => ({ ...p, category: e.target.value }))}
+                className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+              >
                 <option value="행사">행사</option>
                 <option value="맛집">맛집</option>
                 <option value="핫플">핫플</option>
@@ -1232,23 +1317,43 @@ export default function Admin() {
             </div>
             <div className="space-y-1">
               <Label>출처 / 업체명</Label>
-              <Input name="source" placeholder="예: 강릉시청" />
+              <Input
+                value={manualForm.source}
+                onChange={(e) => setManualForm((p) => ({ ...p, source: e.target.value }))}
+                placeholder="예: 강릉시청"
+              />
             </div>
             <div className="space-y-1">
               <Label>시작일</Label>
-              <Input name="startDate" type="date" />
+              <Input
+                type="date"
+                value={manualForm.startDate}
+                onChange={(e) => setManualForm((p) => ({ ...p, startDate: e.target.value }))}
+              />
             </div>
             <div className="space-y-1">
               <Label>종료일</Label>
-              <Input name="endDate" type="date" />
+              <Input
+                type="date"
+                value={manualForm.endDate}
+                onChange={(e) => setManualForm((p) => ({ ...p, endDate: e.target.value }))}
+              />
             </div>
             <div className="space-y-1">
               <Label>장소</Label>
-              <Input name="location" placeholder="예: 강릉 중앙시장" />
+              <Input
+                value={manualForm.location}
+                onChange={(e) => setManualForm((p) => ({ ...p, location: e.target.value }))}
+                placeholder="예: 강릉 중앙시장"
+              />
             </div>
             <div className="space-y-1">
               <Label>문의처</Label>
-              <Input name="contact" placeholder="예: 033-000-0000" />
+              <Input
+                value={manualForm.contact}
+                onChange={(e) => setManualForm((p) => ({ ...p, contact: e.target.value }))}
+                placeholder="예: 033-000-0000"
+              />
             </div>
           </div>
           <div className="space-y-2">
@@ -1266,11 +1371,15 @@ export default function Admin() {
           </div>
           <div className="space-y-2">
             <Label>동영상 URL</Label>
-            <Input name="videoUrl" placeholder="https://youtu.be/... 또는 MP4 직접 URL" />
+            <Input
+              value={manualForm.videoUrl}
+              onChange={(e) => setManualForm((p) => ({ ...p, videoUrl: e.target.value }))}
+              placeholder="https://youtu.be/... 또는 MP4 직접 URL"
+            />
             <p className="text-xs text-muted-foreground">유튜브·쇼츠는 자동 임베드 / MP4는 플레이어로 표시됩니다.</p>
           </div>
           <DialogFooter className="pt-2">
-            <Button type="button" variant="outline" onClick={() => { setShowManualDialog(false); setManualThumbnail(""); }}>취소</Button>
+            <Button type="button" variant="outline" onClick={resetManualDialog}>취소</Button>
             <Button type="submit" disabled={manualMutation.isPending} className="bg-green-600 hover:bg-green-700">
               {manualMutation.isPending ? "등록 중..." : "등록하기"}
             </Button>

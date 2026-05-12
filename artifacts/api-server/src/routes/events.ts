@@ -10,6 +10,7 @@ import {
 } from "../lib/storage.js";
 import type { CrawledEvent, EventStatus } from "../lib/storage.js";
 import { generateSocialDraft } from "../lib/draft.js";
+import { generateCardImage } from "../lib/card.js";
 import { parseDates, detectCategory } from "../lib/dateParser.js";
 import crypto from "crypto";
 
@@ -218,6 +219,30 @@ router.patch("/events/:id/draft", async (req, res) => {
     return res.json({ success: true, id, socialDraft: updated });
   } catch (err) {
     req.log.error({ err }, "SNS 초안 수정 실패");
+    return res.status(500).json({ success: false, error: String(err) });
+  }
+});
+
+router.post("/events/:id/card", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const events = await readEvents();
+    const event = events.find((e) => e.id === id);
+    if (!event) return res.status(404).json({ success: false, error: "이벤트를 찾을 수 없습니다." });
+    const cardUrl = await generateCardImage({
+      id: event.id,
+      title: event.title,
+      description: event.description,
+      category: event.category,
+      thumbnail: event.thumbnail,
+      source: event.source,
+      startDate: event.startDate,
+      date: event.date,
+    });
+    req.log.info({ id }, "카드이미지 생성 완료");
+    return res.json({ success: true, id, cardUrl });
+  } catch (err) {
+    req.log.error({ err }, "카드이미지 생성 실패");
     return res.status(500).json({ success: false, error: String(err) });
   }
 });

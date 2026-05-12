@@ -5,10 +5,17 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, ExternalLink, ImageOff, Trash2, ChevronDown, Send, Video, Image } from "lucide-react";
+import { ArrowLeft, ExternalLink, ImageOff, Trash2, ChevronDown, Send, Video, Image, Copy, MessageSquare, Download, RefreshCw, Package, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+interface SocialDraft {
+  title: string;
+  caption: string;
+  hashtags: string[];
+  createdAt: string;
+}
 
 interface Event {
   id: string;
@@ -24,6 +31,7 @@ interface Event {
   category?: string;
   thumbnail?: string | null;
   videoUrl?: string | null;
+  socialDraft?: SocialDraft | null;
   status: string;
   crawledAt: string;
 }
@@ -74,6 +82,13 @@ export default function AdminEventDetail() {
   const [inited, setInited] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
 
+  // SNS 게시 패키지
+  const [editCaption, setEditCaption] = useState("");
+  const [editHashtagsStr, setEditHashtagsStr] = useState("");
+  const [isDraftDirty, setIsDraftDirty] = useState(false);
+  const [cardUrl, setCardUrl] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
   const { data, isLoading } = useQuery<{ events: Event[] }>({
     queryKey: ["admin-events"],
     queryFn: async () => {
@@ -95,6 +110,10 @@ export default function AdminEventDetail() {
       setEditEndDate(event.endDate ?? "");
       setEditThumbnail(event.thumbnail ?? "");
       setEditVideoUrl(event.videoUrl ?? "");
+      if (event.socialDraft) {
+        setEditCaption(event.socialDraft.caption);
+        setEditHashtagsStr(event.socialDraft.hashtags.join(" "));
+      }
       setInited(true);
     }
   }, [event, inited]);
@@ -129,6 +148,73 @@ export default function AdminEventDetail() {
     },
     onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
   });
+
+  const draftMutation = useMutation({
+    mutationFn: async () => {
+      const r = await fetch(`${BASE}/api/events/${eventId}/draft`, { method: "POST", credentials: "include" });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error ?? "초안 생성 실패");
+      return d as { socialDraft: SocialDraft };
+    },
+    onSuccess: (d) => {
+      setEditCaption(d.socialDraft.caption);
+      setEditHashtagsStr(d.socialDraft.hashtags.join(" "));
+      setIsDraftDirty(false);
+      toast({ title: "SNS 문구 자동 생성 완료" });
+      qc.invalidateQueries({ queryKey: ["admin-events"] });
+    },
+    onError: (e: Error) => toast({ title: "생성 실패", description: e.message, variant: "destructive" }),
+  });
+
+  const saveDraftMutation = useMutation({
+    mutationFn: async () => {
+      const hashtags = editHashtagsStr.split(/[\s,]+/).map((h) => h.replace(/^#/, "").trim()).filter(Boolean);
+      const r = await fetch(`${BASE}/api/events/${eventId}/draft`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ caption: editCaption, hashtags }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error ?? "저장 실패");
+      return d;
+    },
+    onSuccess: () => {
+      setIsDraftDirty(false);
+      toast({ title: "문구 저장 완료" });
+      qc.invalidateQueries({ queryKey: ["admin-events"] });
+    },
+    onError: (e: Error) => toast({ title: "저장 실패", description: e.message, variant: "destructive" }),
+  });
+
+  const cardMutation = useMutation({
+    mutationFn: async () => {
+      const r = await fetch(`${BASE}/api/events/${eventId}/card`, { method: "POST", credentials: "include" });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error ?? "카드 생성 실패");
+      return d as { cardUrl: string };
+    },
+    onSuccess: (d) => {
+      setCardUrl(`${BASE}${d.cardUrl}?t=${Date.now()}`);
+      toast({ title: "카드이미지 생성 완료", description: "아래에서 다운로드하세요." });
+    },
+    onError: (e: Error) => toast({ title: "카드 생성 실패", description: e.message, variant: "destructive" }),
+  });
+
+  function copyAll() {
+    const hashtags = editHashtagsStr.split(/[\s,]+/).map((h) => h.startsWith("#") ? h : `#${h}`).filter(Boolean);
+    const text = `${editCaption}\n\n${hashtags.join(" ")}`;
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      toast({ title: "캡션 복사 완료", description: "인스타·페북 게시창에 붙여넣으세요." });
+      setTimeout(() => setCopied(false), 2500);
+    });
+  }
+
+  function copyVideoUrl() {
+    if (!event?.videoUrl) return;
+    navigator.clipboard.writeText(event.videoUrl).then(() => toast({ title: "동영상 URL 복사 완료" }));
+  }
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
@@ -330,6 +416,140 @@ export default function AdminEventDetail() {
             <Send className="w-4 h-4" />
             {saveMutation.isPending ? "저장 중..." : isDirty ? "저장 & 공개" : isPublished ? "공개 중 (다시 저장)" : "저장 & 공개"}
           </Button>
+        </div>
+
+        {/* ══ SNS 게시 패키지 ════════════════════════════════════════════════ */}
+        <div className="bg-white rounded-2xl border-2 border-violet-200 p-5 space-y-5">
+          <div className="flex items-center gap-2">
+            <Package className="w-4 h-4 text-violet-600" />
+            <p className="text-sm font-bold text-violet-700">SNS 게시 패키지</p>
+            <span className="ml-auto text-[10px] text-violet-400 font-medium bg-violet-50 border border-violet-200 rounded-full px-2 py-0.5">인스타·페북 복사 게시</span>
+          </div>
+
+          {/* STEP 1 — 캡션 */}
+          <div className="space-y-2.5">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">① SNS 문구</p>
+              <Button
+                size="sm" variant="outline"
+                className="h-7 px-2.5 text-xs gap-1 text-violet-700 border-violet-300 hover:bg-violet-50"
+                disabled={draftMutation.isPending}
+                onClick={() => draftMutation.mutate()}
+              >
+                <RefreshCw className={`w-3 h-3 ${draftMutation.isPending ? "animate-spin" : ""}`} />
+                {event?.socialDraft ? "재생성" : "자동 생성"}
+              </Button>
+            </div>
+            {event?.socialDraft || editCaption ? (
+              <>
+                <Textarea
+                  rows={5}
+                  value={editCaption}
+                  className="text-sm resize-none border-violet-200 focus:border-violet-400"
+                  placeholder="SNS 문구를 입력하세요."
+                  onChange={(e) => { setEditCaption(e.target.value); setIsDraftDirty(true); }}
+                />
+                <Input
+                  value={editHashtagsStr}
+                  className="text-sm border-violet-200"
+                  placeholder="#강릉 #강릉여행 #PLAY강릉 ..."
+                  onChange={(e) => { setEditHashtagsStr(e.target.value); setIsDraftDirty(true); }}
+                />
+                <div className="flex gap-2">
+                  {isDraftDirty && (
+                    <Button
+                      size="sm" variant="outline"
+                      className="h-8 text-xs gap-1 border-violet-300 text-violet-700"
+                      disabled={saveDraftMutation.isPending}
+                      onClick={() => saveDraftMutation.mutate()}
+                    >
+                      {saveDraftMutation.isPending ? "저장 중..." : "문구 저장"}
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    className={`h-8 text-xs gap-1.5 flex-1 font-bold ${copied ? "bg-green-600 hover:bg-green-700" : "bg-violet-600 hover:bg-violet-700"}`}
+                    onClick={copyAll}
+                  >
+                    {copied ? <CheckCircle className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                    {copied ? "복사됨! 인스타·페북에 붙여넣기" : "문구 전체 복사"}
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <div className="rounded-xl bg-violet-50 border border-violet-100 p-4 text-center">
+                <MessageSquare className="w-6 h-6 text-violet-300 mx-auto mb-1.5" />
+                <p className="text-xs text-muted-foreground">자동 생성 버튼을 눌러 SNS 문구를 만들어보세요.</p>
+              </div>
+            )}
+          </div>
+
+          {/* STEP 2 — 이미지 */}
+          <div className="space-y-2.5">
+            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">② 이미지</p>
+            <div className="flex flex-col gap-2">
+              {(editThumbnail || event?.thumbnail) && (
+                <a
+                  href={editThumbnail || event?.thumbnail || ""}
+                  download
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 w-full h-9 px-3 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 transition-colors text-sm text-gray-700 font-medium"
+                >
+                  <Download className="w-3.5 h-3.5 text-gray-500 shrink-0" />
+                  대표 이미지 다운로드
+                </a>
+              )}
+              <Button
+                size="sm" variant="outline"
+                className="w-full h-9 text-sm gap-1.5 border-teal-300 text-teal-700 hover:bg-teal-50"
+                disabled={cardMutation.isPending}
+                onClick={() => cardMutation.mutate()}
+              >
+                <Image className={`w-3.5 h-3.5 ${cardMutation.isPending ? "animate-spin" : ""}`} />
+                {cardMutation.isPending ? "카드이미지 생성 중..." : "1080×1080 카드이미지 생성"}
+              </Button>
+              {cardUrl && (
+                <div className="rounded-xl overflow-hidden border border-teal-200 bg-black">
+                  <img src={cardUrl} alt="카드이미지" className="w-full object-cover" />
+                  <a
+                    href={cardUrl}
+                    download={`card-${eventId}.png`}
+                    className="flex items-center justify-center gap-2 w-full py-2.5 bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold transition-colors"
+                  >
+                    <Download className="w-3.5 h-3.5" />카드이미지 저장 (1080×1080 PNG)
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* STEP 3 — 동영상 */}
+          {event?.videoUrl && (
+            <div className="space-y-2.5">
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">③ 동영상</p>
+              <div className="flex gap-2 items-center rounded-xl bg-gray-50 border border-gray-200 px-3 py-2.5">
+                <Video className="w-3.5 h-3.5 text-purple-500 shrink-0" />
+                <span className="text-xs font-mono text-gray-600 flex-1 truncate">{event.videoUrl}</span>
+                <button
+                  className="shrink-0 text-xs font-bold text-purple-600 hover:text-purple-800"
+                  onClick={copyVideoUrl}
+                >
+                  URL 복사
+                </button>
+              </div>
+              <p className="text-[11px] text-muted-foreground">* 동영상은 URL을 복사 후 직접 앱에서 파일 업로드 방식으로 게시하세요.</p>
+            </div>
+          )}
+
+          {/* 게시 가이드 */}
+          <div className="rounded-xl bg-blue-50 border border-blue-100 px-4 py-3 space-y-1">
+            <p className="text-[11px] font-bold text-blue-700 mb-1">📱 인스타그램 게시 방법</p>
+            <p className="text-[11px] text-blue-600">1. 카드이미지 저장 → 갤러리에 보관</p>
+            <p className="text-[11px] text-blue-600">2. 문구 전체 복사 버튼 클릭</p>
+            <p className="text-[11px] text-blue-600">3. 인스타 앱 → 새 게시물 → 이미지 선택</p>
+            <p className="text-[11px] text-blue-600">4. 캡션 입력란에 붙여넣기(길게 누르기) → 게시</p>
+          </div>
         </div>
 
         {/* 원본 링크 */}

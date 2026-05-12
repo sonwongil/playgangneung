@@ -542,38 +542,66 @@ export default function AdminEventDetail() {
             </div>
           )}
 
-          {/* 게시 가이드 + 바로가기 */}
-          <div className="rounded-xl bg-blue-50 border border-blue-100 px-4 py-3 space-y-2">
-            <p className="text-[11px] font-bold text-blue-700">📱 게시 방법</p>
-            <p className="text-[11px] text-blue-600">1. 카드이미지 저장 → 갤러리에 보관</p>
-            <p className="text-[11px] text-blue-600">2. 문구 전체 복사 버튼 클릭</p>
-            <p className="text-[11px] text-blue-600">3. 아래 버튼으로 공식 계정 이동 → 새 게시물</p>
-            <p className="text-[11px] text-blue-600">4. 캡션 입력란에 붙여넣기 → 게시</p>
-            <div className="flex gap-2 pt-1">
-              <a
-                href="https://www.instagram.com/playgangneung/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-lg text-[11px] font-bold text-white bg-[#E1306C] hover:bg-[#C2185B] transition-colors"
-              >
-                인스타그램
-              </a>
-              <a
-                href="https://www.facebook.com/profile.php?id=61589314617028&locale=ko_KR"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-lg text-[11px] font-bold text-white bg-[#1877F2] hover:bg-[#1565C0] transition-colors"
-              >
-                페이스북
-              </a>
-              <a
-                href="https://www.youtube.com/@playgangneung"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-lg text-[11px] font-bold text-white bg-[#FF0000] hover:bg-[#CC0000] transition-colors"
-              >
-                유튜브
-              </a>
+          {/* 게시 가이드 */}
+          <div className="space-y-2">
+            {/* 페이스북 — 링크 미리보기 방식 */}
+            <div className="rounded-xl bg-blue-50 border border-blue-100 px-4 py-3 space-y-1.5">
+              <p className="text-[11px] font-bold text-blue-700">📘 페이스북 — 링크 미리보기로 올리기</p>
+              <p className="text-[11px] text-blue-600">사진 직접 업로드 ❌ → 클릭해도 Facebook 뷰어로만 열림</p>
+              <p className="text-[11px] text-blue-600 font-semibold">✅ 올바른 방법:</p>
+              <p className="text-[11px] text-blue-600">1. 아래 "PLAY강릉 링크 복사" 클릭</p>
+              <p className="text-[11px] text-blue-600">2. 페이스북 게시창에 링크 붙여넣기</p>
+              <p className="text-[11px] text-blue-600">3. 미리보기 카드(행사 사진+제목) 자동 생성 확인</p>
+              <p className="text-[11px] text-blue-600">4. 링크 텍스트 지우고 문구 붙여넣기 → 게시</p>
+              <p className="text-[11px] text-blue-500 italic">→ 독자가 사진 클릭 시 PLAY강릉 페이지로 이동!</p>
+              <div className="flex gap-2 pt-0.5">
+                <button
+                  className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-lg text-[11px] font-bold text-white bg-violet-600 hover:bg-violet-700 transition-colors"
+                  onClick={() => {
+                    const contentUrl = `${window.location.origin}/content/${eventId}`;
+                    navigator.clipboard.writeText(contentUrl).then(() =>
+                      toast({ title: "PLAY강릉 링크 복사됨", description: "페이스북 게시창에 붙여넣으세요." })
+                    );
+                  }}
+                >
+                  🔗 PLAY강릉 링크 복사
+                </button>
+                <a
+                  href="https://www.facebook.com/profile.php?id=61589314617028&locale=ko_KR"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 flex items-center justify-center h-8 rounded-lg text-[11px] font-bold text-white bg-[#1877F2] hover:bg-[#1565C0] transition-colors"
+                >
+                  페이스북 열기
+                </a>
+              </div>
+            </div>
+
+            {/* 인스타그램 — 이미지 업로드 방식 */}
+            <div className="rounded-xl bg-pink-50 border border-pink-100 px-4 py-3 space-y-1.5">
+              <p className="text-[11px] font-bold text-pink-700">📸 인스타그램 — 카드이미지 올리기</p>
+              <p className="text-[11px] text-pink-600">1. 위 카드이미지 저장 → 갤러리에 보관</p>
+              <p className="text-[11px] text-pink-600">2. "문구 전체 복사" 클릭 (링크 포함)</p>
+              <p className="text-[11px] text-pink-600">3. 인스타 앱 → 새 게시물 → 카드이미지 선택</p>
+              <p className="text-[11px] text-pink-600">4. 캡션란에 붙여넣기(길게 누르기) → 게시</p>
+              <div className="flex gap-2 pt-0.5">
+                <a
+                  href="https://www.instagram.com/playgangneung/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 flex items-center justify-center h-8 rounded-lg text-[11px] font-bold text-white bg-[#E1306C] hover:bg-[#C2185B] transition-colors"
+                >
+                  인스타그램 열기
+                </a>
+                <a
+                  href="https://www.youtube.com/@playgangneung"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 flex items-center justify-center h-8 rounded-lg text-[11px] font-bold text-white bg-[#FF0000] hover:bg-[#CC0000] transition-colors"
+                >
+                  유튜브 열기
+                </a>
+              </div>
             </div>
           </div>
         </div>

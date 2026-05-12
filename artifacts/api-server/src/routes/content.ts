@@ -61,6 +61,17 @@ interface ContentItem {
   businessName?: string;
 }
 
+const CARDS_DIR = path.resolve(process.cwd(), "public/cards");
+
+async function hasCardImage(id: string): Promise<boolean> {
+  try {
+    await fs.access(path.join(CARDS_DIR, `${id}.png`));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function findContent(id: string): Promise<ContentItem | null> {
   // Check events
   try {
@@ -141,16 +152,16 @@ function renderVideoSection(videoUrl: string): string {
   return `<a href="${escHtml(videoUrl)}" target="_blank" rel="noopener noreferrer" class="orig-link">▶ 동영상 보기</a>`;
 }
 
-function renderHtml(item: ContentItem, contentUrl: string): string {
+function renderHtml(item: ContentItem, contentUrl: string, ogImageOverride?: string | null): string {
   const title = escHtml(item.title);
   const desc = escHtml(item.description || "강릉의 특색 있는 행사와 명소를 소개합니다.");
   const descShort = desc.length > 120 ? desc.slice(0, 117) + "..." : desc;
   const dateStr = formatDate(item.date);
   const thumbnailHero = proxyUrl(item.thumbnail);
-  // OG 이미지: 실제 썸네일 우선, 없으면 카테고리 기본 이미지
-  const thumbnailOg = item.hasThumbnail
-    ? proxyUrlAbsolute(item.thumbnail)
-    : (THUMBNAIL_MAP[item.category] ?? THUMBNAIL_MAP["지역소식"]);
+  // OG 이미지 우선순위: 카드이미지(생성된 경우) > 실제 썸네일 > 카테고리 기본 이미지
+  const thumbnailOg = ogImageOverride
+    ?? (item.hasThumbnail ? proxyUrlAbsolute(item.thumbnail) : null)
+    ?? (THUMBNAIL_MAP[item.category] ?? THUMBNAIL_MAP["지역소식"]);
 
   const categoryColors: Record<string, string> = {
     행사: "#2563eb", 맛집: "#ea580c", 핫플: "#7c3aed", 지역소식: "#059669", 광고: "#0891b2",
@@ -177,8 +188,8 @@ function renderHtml(item: ContentItem, contentUrl: string): string {
 <meta property="og:title" content="${title}">
 <meta property="og:description" content="${descShort}">
 <meta property="og:image" content="${escHtml(thumbnailOg)}">
-<meta property="og:image:width" content="1200">
-<meta property="og:image:height" content="630">
+<meta property="og:image:width" content="${ogImageOverride ? "1080" : "1200"}">
+<meta property="og:image:height" content="${ogImageOverride ? "1080" : "630"}">
 <meta property="og:url" content="${escHtml(contentUrl)}">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${title}">
@@ -327,9 +338,13 @@ router.get("/:id", async (req, res) => {
     return;
   }
 
+  // 카드이미지가 생성돼 있으면 OG 이미지로 우선 사용 (Facebook 링크 미리보기 최적화)
+  const cardExists = await hasCardImage(id);
+  const ogImageOverride = cardExists ? `${SITE_URL}/api/cards/${id}.png` : null;
+
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-  res.send(renderHtml(item, contentUrl));
+  res.send(renderHtml(item, contentUrl, ogImageOverride));
 });
 
 export default router;

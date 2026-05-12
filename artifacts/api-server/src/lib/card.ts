@@ -101,29 +101,52 @@ export async function generateCardImage(event: {
   ctx.textBaseline = "middle";
   ctx.fillText(badgeText, 72 + badgePad, badgeY + badgeH / 2);
 
+  // ── 텍스트 영역 (하단 CTA 바 96px 고려해서 위로 올림) ──────────────────
+  const CTA_H = 96; // 하단 CTA 바 높이
+
   ctx.fillStyle = "#ffffff";
   ctx.font = "bold 72px NanumGothic";
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
-  wrapText(ctx, event.title, 72, H - 360, W - 144, 88, 4);
+  wrapText(ctx, event.title, 72, H - 360 - CTA_H, W - 144, 88, 4);
 
   if (event.description) {
     ctx.fillStyle = "rgba(255,255,255,0.75)";
     ctx.font = "36px NanumGothic";
-    wrapText(ctx, event.description, 72, H - 190, W - 144, 50, 2);
+    wrapText(ctx, event.description, 72, H - 190 - CTA_H, W - 144, 50, 2);
   }
 
   const dateStr = event.startDate ?? event.date ?? "";
   if (dateStr) {
     ctx.fillStyle = "rgba(255,255,255,0.55)";
     ctx.font = "30px NanumGothic";
-    ctx.fillText(dateStr + (event.source ? `  ·  ${event.source}` : ""), 72, H - 110);
+    ctx.fillText(dateStr + (event.source ? `  ·  ${event.source}` : ""), 72, H - 110 - CTA_H);
   }
 
   ctx.fillStyle = "rgba(255,255,255,0.9)";
   ctx.font = "bold 40px NanumGothic";
   ctx.textAlign = "right";
-  ctx.fillText("PLAY강릉", W - 72, H - 60);
+  ctx.fillText("PLAY강릉", W - 72, H - 60 - CTA_H);
+
+  // ── 하단 "자세히보기" CTA 바 ────────────────────────────────────────────
+  const ctaY = H - CTA_H;
+
+  // 배경: 흰색 불투명 바
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, ctaY, W, CTA_H);
+
+  // 왼쪽: "자세히보기 →" 텍스트
+  ctx.fillStyle = "#1e293b";
+  ctx.font = "bold 42px NanumGothic";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.fillText("자세히보기  →", 72, ctaY + CTA_H / 2);
+
+  // 오른쪽: 도메인 브랜딩
+  ctx.fillStyle = "#2563eb";
+  ctx.font = "bold 32px NanumGothic";
+  ctx.textAlign = "right";
+  ctx.fillText("playgangneung.com", W - 72, ctaY + CTA_H / 2);
 
   const outPath = path.join(CARDS_DIR, `${event.id}.png`);
   await fs.writeFile(outPath, canvas.toBuffer("image/png"));

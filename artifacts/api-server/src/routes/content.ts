@@ -235,6 +235,13 @@ a{text-decoration:none;color:inherit}
 .contact-value{font-size:13px;font-weight:600;color:#0c4a6e}
 /* 원본 링크 버튼 (iframe 대체) */
 .orig-link{display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;border-radius:10px;background:#f1f5f9;border:1px solid #e2e8f0;font-size:13px;font-weight:700;color:#2563eb;text-align:center}
+/* 네비게이션 바 (SNS 복귀 / PLAY강릉 홈) */
+.nav-bar{display:flex;align-items:center;gap:6px;padding:8px 16px;background:#f8fafc;border-bottom:1px solid #e2e8f0;overflow-x:auto;white-space:nowrap}
+.nav-btn{display:inline-flex;align-items:center;gap:4px;padding:6px 12px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;border:none;text-decoration:none;transition:opacity .15s;flex-shrink:0}
+.nav-btn:active{opacity:.7}
+.nav-btn-back{background:#e2e8f0;color:#334155}
+.nav-btn-home{background:#dbeafe;color:#1d4ed8}
+.nav-sep{color:#cbd5e1;font-size:11px;flex-shrink:0}
 /* Bottom bar */
 .bottom-bar{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #e2e8f0;padding:10px 16px;display:flex;gap:8px;z-index:50;box-shadow:0 -2px 12px rgba(0,0,0,.08)}
 .btn{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:11px 8px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;border:none;transition:opacity .15s}
@@ -267,6 +274,13 @@ a{text-decoration:none;color:inherit}
   <img src="/logo2.png" alt="PLAY강릉" class="header-logo">
   <span class="header-title">${title}</span>
 </header>
+
+<!-- 네비게이션 바: SNS 복귀 / PLAY강릉 홈 -->
+<div class="nav-bar">
+  <button class="nav-btn nav-btn-back" onclick="history.back()">← SNS로 돌아가기</button>
+  <span class="nav-sep">|</span>
+  <a href="${SITE_URL}" class="nav-btn nav-btn-home">🏠 PLAY강릉 홈</a>
+</div>
 
 <div class="page-wrap">
   <!-- Hero -->

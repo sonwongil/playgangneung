@@ -1,7 +1,7 @@
-import "express-session";
+import "cookie-session";
 
-declare module "express-session" {
-  interface SessionData {
+declare module "cookie-session" {
+  interface CookieSessionObject {
     isAdmin?: boolean;
   }
 }

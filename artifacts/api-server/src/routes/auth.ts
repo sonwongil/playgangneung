@@ -19,9 +19,8 @@ router.post("/auth/login", async (req, res) => {
 });
 
 router.post("/auth/logout", (req, res) => {
-  req.session.destroy(() => {
-    res.json({ ok: true });
-  });
+  req.session = null;
+  res.json({ ok: true });
 });
 
 router.get("/auth/me", (req, res) => {

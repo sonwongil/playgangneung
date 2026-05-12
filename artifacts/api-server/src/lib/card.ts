@@ -1,6 +1,10 @@
-import { createCanvas, loadImage } from "@napi-rs/canvas";
+import { createCanvas, loadImage, GlobalFonts } from "@napi-rs/canvas";
 import fs from "fs/promises";
 import path from "path";
+
+const FONTS_DIR = path.resolve(process.cwd(), "fonts");
+GlobalFonts.registerFromPath(path.join(FONTS_DIR, "NanumGothic-Regular.ttf"), "NanumGothic");
+GlobalFonts.registerFromPath(path.join(FONTS_DIR, "NanumGothic-Bold.ttf"), "NanumGothic");
 
 const CARDS_DIR = path.resolve(process.cwd(), "public/cards");
 
@@ -21,11 +25,11 @@ function wrapText(
   lineHeight: number,
   maxLines = 4,
 ): void {
-  const words = text.split(" ");
+  const chars = [...text];
   let line = "";
   let lineCount = 0;
-  for (const word of words) {
-    const test = line ? `${line} ${word}` : word;
+  for (const ch of chars) {
+    const test = line + ch;
     if (ctx.measureText(test).width > maxWidth && line) {
       if (lineCount >= maxLines - 1) {
         ctx.fillText(line + "…", x, y);
@@ -34,7 +38,7 @@ function wrapText(
       ctx.fillText(line, x, y);
       y += lineHeight;
       lineCount++;
-      line = word;
+      line = ch;
     } else {
       line = test;
     }
@@ -87,7 +91,7 @@ export async function generateCardImage(event: {
   const badgePad = 22;
   const badgeH = 54;
   const badgeY = 80;
-  ctx.font = "bold 28px sans-serif";
+  ctx.font = "bold 28px NanumGothic";
   const badgeW = ctx.measureText(badgeText).width + badgePad * 2;
   roundRect(ctx, 72, badgeY, badgeW, badgeH, 27);
   ctx.fillStyle = badgeColor;
@@ -98,26 +102,26 @@ export async function generateCardImage(event: {
   ctx.fillText(badgeText, 72 + badgePad, badgeY + badgeH / 2);
 
   ctx.fillStyle = "#ffffff";
-  ctx.font = "bold 72px sans-serif";
+  ctx.font = "bold 72px NanumGothic";
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
   wrapText(ctx, event.title, 72, H - 360, W - 144, 88, 4);
 
   if (event.description) {
     ctx.fillStyle = "rgba(255,255,255,0.75)";
-    ctx.font = "36px sans-serif";
+    ctx.font = "36px NanumGothic";
     wrapText(ctx, event.description, 72, H - 190, W - 144, 50, 2);
   }
 
   const dateStr = event.startDate ?? event.date ?? "";
   if (dateStr) {
     ctx.fillStyle = "rgba(255,255,255,0.55)";
-    ctx.font = "30px sans-serif";
+    ctx.font = "30px NanumGothic";
     ctx.fillText(dateStr + (event.source ? `  ·  ${event.source}` : ""), 72, H - 110);
   }
 
   ctx.fillStyle = "rgba(255,255,255,0.9)";
-  ctx.font = "bold 40px sans-serif";
+  ctx.font = "bold 40px NanumGothic";
   ctx.textAlign = "right";
   ctx.fillText("PLAY강릉", W - 72, H - 60);
 

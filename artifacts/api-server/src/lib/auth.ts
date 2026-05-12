@@ -1,10 +1,7 @@
-import fs from "fs/promises";
-import path from "path";
 import crypto from "crypto";
-import { DATA_DIR } from "./paths.js";
+import { gcsReadJson, gcsWriteJson } from "./gcsJson.js";
 
-const AUTH_FILE = path.join(DATA_DIR, "auth.json");
-
+const AUTH_FILE = "data/auth.json";
 const DEFAULT_PASSWORD = "1235";
 
 interface AuthData {
@@ -16,26 +13,14 @@ function hashPassword(password: string, salt: string): string {
   return crypto.scryptSync(password, salt, 64).toString("hex");
 }
 
-async function ensureDataDir() {
-  try {
-    await fs.mkdir(DATA_DIR, { recursive: true });
-  } catch {
-    // already exists
-  }
-}
-
 async function readAuthData(): Promise<AuthData> {
-  await ensureDataDir();
-  try {
-    const raw = await fs.readFile(AUTH_FILE, "utf-8");
-    return JSON.parse(raw) as AuthData;
-  } catch {
-    const salt = crypto.randomBytes(16).toString("hex");
-    const passwordHash = hashPassword(DEFAULT_PASSWORD, salt);
-    const data: AuthData = { passwordHash, salt };
-    await fs.writeFile(AUTH_FILE, JSON.stringify(data, null, 2), "utf-8");
-    return data;
-  }
+  const data = await gcsReadJson<AuthData | null>(AUTH_FILE, null);
+  if (data) return data;
+  const salt = crypto.randomBytes(16).toString("hex");
+  const passwordHash = hashPassword(DEFAULT_PASSWORD, salt);
+  const newData: AuthData = { passwordHash, salt };
+  await gcsWriteJson(AUTH_FILE, newData);
+  return newData;
 }
 
 export async function verifyPassword(password: string): Promise<boolean> {
@@ -45,8 +30,7 @@ export async function verifyPassword(password: string): Promise<boolean> {
 }
 
 export async function changePassword(newPassword: string): Promise<void> {
-  await ensureDataDir();
   const salt = crypto.randomBytes(16).toString("hex");
   const passwordHash = hashPassword(newPassword, salt);
-  await fs.writeFile(AUTH_FILE, JSON.stringify({ passwordHash, salt }, null, 2), "utf-8");
+  await gcsWriteJson(AUTH_FILE, { passwordHash, salt });
 }

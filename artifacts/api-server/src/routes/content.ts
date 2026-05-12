@@ -46,6 +46,7 @@ const THUMBNAIL_MAP: Record<string, string> = {
 interface ContentItem {
   id: string;
   type: "event" | "ad";
+  sourceType?: string;
   title: string;
   description: string;
   date: string;
@@ -83,7 +84,7 @@ async function findContent(id: string): Promise<ContentItem | null> {
       return {
         id: ev.id, type: "event",
         title: ev.title, description: ev.description,
-        date: ev.date, source: ev.source, contact: (ev as any).contact ?? "", link: ev.link,
+        date: ev.date, source: ev.source, contact: (ev as any).contact ?? "", link: ev.link, sourceType: ev.sourceType,
         category,
         thumbnail: rawThumb ?? THUMBNAIL_MAP[category] ?? THUMBNAIL_MAP["지역소식"],
         hasThumbnail: !!rawThumb,
@@ -170,7 +171,7 @@ function renderHtml(item: ContentItem, contentUrl: string, ogImageOverride?: str
 
   const hasMap = !!(item.location);
   const hasPhone = !!(item.phone);
-  const hasLink = !!(item.link);
+  const hasLink = !!(item.link) && item.sourceType !== "manual";
 
   const actionButtons: string[] = [];
   if (hasMap) actionButtons.push(`<a href="https://map.kakao.com/link/search/${encodeURIComponent(item.location!)}" class="btn btn-secondary">🗺️ 지도 보기</a>`);

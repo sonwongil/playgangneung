@@ -221,8 +221,10 @@ router.post("/events/manual", async (req, res) => {
 
     const dateStr = rawStart || "";
     const { startDate, endDate, scheduleStatus } = parseDates(`${rawStart || ""}${rawEnd ? `~${rawEnd}` : ""}`);
+    const eventId = crypto.createHash("md5").update(`manual:${title}:${Date.now()}`).digest("hex");
+    const siteUrl = process.env["SITE_URL"] ?? "https://playgangneung.com";
     const event: CrawledEvent = {
-      id: crypto.createHash("md5").update(`manual:${title}:${Date.now()}`).digest("hex"),
+      id: eventId,
       title,
       description: description || "",
       date: startDate || dateStr,
@@ -233,8 +235,8 @@ router.post("/events/manual", async (req, res) => {
       category: category || detectCategory(title, description || ""),
       thumbnail: thumbnail || null,
       videoUrl: videoUrl || null,
-      link: link || "",
-      source: source || "수동 등록",
+      link: link || `${siteUrl}/content/${eventId}`,
+      source: source || "PLAY강릉",
       contact: contact || "",
       sourceType: "manual",
       status: "approved",

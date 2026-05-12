@@ -168,7 +168,7 @@ router.post("/events/manual", async (req, res) => {
       source: source || "수동 등록",
       contact: contact || "",
       sourceType: "manual",
-      status: "draft",
+      status: "approved",
       socialDraft: null,
       crawledAt: new Date().toISOString(),
     };

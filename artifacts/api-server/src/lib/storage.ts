@@ -1,8 +1,8 @@
 import fs from "fs/promises";
 import path from "path";
 import type { ScheduleStatus } from "./dateParser.js";
+import { DATA_DIR } from "./paths.js";
 
-const DATA_DIR = path.resolve(process.cwd(), "data");
 const EVENTS_FILE = path.join(DATA_DIR, "events.json");
 
 export type SourceType = "rss" | "html" | "manual";

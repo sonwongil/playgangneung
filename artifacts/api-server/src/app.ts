@@ -1,12 +1,12 @@
 import express, { type Express } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
-import path from "path";
 import session from "express-session";
 import FileStore from "session-file-store";
 import router from "./routes/index.js";
 import contentRouter from "./routes/content.js";
 import { logger } from "./lib/logger.js";
+import { CARDS_DIR, SESSIONS_DIR } from "./lib/paths.js";
 
 const FileStoreSession = FileStore(session);
 
@@ -17,7 +17,7 @@ app.set("trust proxy", 1);
 // Static files: generated card images
 app.use(
   "/api/cards",
-  express.static(path.resolve(process.cwd(), "public/cards"), {
+  express.static(CARDS_DIR, {
     maxAge: 0,
     etag: false,
   }),
@@ -45,7 +45,7 @@ app.use(
 app.use(
   session({
     store: new FileStoreSession({
-      path: path.resolve(process.cwd(), "data/sessions"),
+      path: SESSIONS_DIR,
       ttl: 60 * 60 * 24 * 30,
       retries: 1,
       logFn: () => {},

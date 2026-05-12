@@ -1,12 +1,10 @@
 import { createCanvas, loadImage, GlobalFonts } from "@napi-rs/canvas";
 import fs from "fs/promises";
 import path from "path";
+import { FONTS_DIR, CARDS_DIR } from "./paths.js";
 
-const FONTS_DIR = path.resolve(process.cwd(), "fonts");
 GlobalFonts.registerFromPath(path.join(FONTS_DIR, "NanumGothic-Regular.ttf"), "NanumGothic");
 GlobalFonts.registerFromPath(path.join(FONTS_DIR, "NanumGothic-Bold.ttf"), "NanumGothic");
-
-const CARDS_DIR = path.resolve(process.cwd(), "public/cards");
 
 const CATEGORY_GRADIENT: Record<string, [string, string]> = {
   행사:    ["#1e3a8a", "#2563eb"],

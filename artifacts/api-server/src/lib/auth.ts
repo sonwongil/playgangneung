@@ -1,8 +1,8 @@
 import fs from "fs/promises";
 import path from "path";
 import crypto from "crypto";
+import { DATA_DIR } from "./paths.js";
 
-const DATA_DIR = path.resolve(process.cwd(), "data");
 const AUTH_FILE = path.join(DATA_DIR, "auth.json");
 
 const DEFAULT_PASSWORD = "1235";

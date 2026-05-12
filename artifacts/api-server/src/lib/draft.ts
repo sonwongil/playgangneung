@@ -50,6 +50,8 @@ function getCategory(event: CrawledEvent): string {
 
 // ─── 초안 생성 ───────────────────────────────────────────────────────────────
 
+const SITE_URL = process.env["SITE_URL"] ?? "https://play-gangneung-dashboard.replit.app";
+
 export function generateSocialDraft(event: CrawledEvent): SocialDraft {
   const category = getCategory(event);
 
@@ -66,16 +68,19 @@ export function generateSocialDraft(event: CrawledEvent): SocialDraft {
     ? `📍 ${event.location}`
     : "📍 강릉시";
 
-  // 설명 — 최대 250자, 잘릴 경우 문장 경계에서 자름
+  // 설명 — 최대 200자, 잘릴 경우 문장 경계에서 자름
   let descBlock = "";
   if (event.description && event.description.trim().length > 10) {
     let desc = event.description.trim();
-    if (desc.length > 250) {
-      const cut = desc.lastIndexOf(".", 250);
-      desc = cut > 50 ? desc.slice(0, cut + 1) : desc.slice(0, 250) + "…";
+    if (desc.length > 200) {
+      const cut = desc.lastIndexOf(".", 200);
+      desc = cut > 50 ? desc.slice(0, cut + 1) : desc.slice(0, 200) + "…";
     }
     descBlock = desc;
   }
+
+  // PLAY강릉 콘텐츠 링크 (Facebook OG 미리보기 카드 생성용)
+  const contentLink = `${SITE_URL}/content/${event.id}`;
 
   // 본문 조합
   const parts: string[] = [titleLine];
@@ -85,6 +90,8 @@ export function generateSocialDraft(event: CrawledEvent): SocialDraft {
     parts.push("");
     parts.push(descBlock);
   }
+  parts.push("");
+  parts.push(`🔗 자세히 보기 → ${contentLink}`);
 
   const caption = parts.join("\n").trim();
 

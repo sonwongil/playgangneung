@@ -147,7 +147,10 @@ function renderHtml(item: ContentItem, contentUrl: string): string {
   const descShort = desc.length > 120 ? desc.slice(0, 117) + "..." : desc;
   const dateStr = formatDate(item.date);
   const thumbnailHero = proxyUrl(item.thumbnail);
-  const thumbnailOg = THUMBNAIL_MAP[item.category] ?? THUMBNAIL_MAP["지역소식"];
+  // OG 이미지: 실제 썸네일 우선, 없으면 카테고리 기본 이미지
+  const thumbnailOg = item.hasThumbnail
+    ? proxyUrlAbsolute(item.thumbnail)
+    : (THUMBNAIL_MAP[item.category] ?? THUMBNAIL_MAP["지역소식"]);
 
   const categoryColors: Record<string, string> = {
     행사: "#2563eb", 맛집: "#ea580c", 핫플: "#7c3aed", 지역소식: "#059669", 광고: "#0891b2",

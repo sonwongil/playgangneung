@@ -12,6 +12,8 @@ const FileStoreSession = FileStore(session);
 
 const app: Express = express();
 
+app.set("trust proxy", 1);
+
 // Static files: generated card images
 app.use(
   "/api/cards",
@@ -53,7 +55,7 @@ app.use(
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: false,
+      secure: process.env["NODE_ENV"] === "production",
       sameSite: "lax",
       maxAge: 1000 * 60 * 60 * 24 * 30,
     },

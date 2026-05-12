@@ -542,13 +542,39 @@ export default function AdminEventDetail() {
             </div>
           )}
 
-          {/* 게시 가이드 */}
-          <div className="rounded-xl bg-blue-50 border border-blue-100 px-4 py-3 space-y-1">
-            <p className="text-[11px] font-bold text-blue-700 mb-1">📱 인스타그램 게시 방법</p>
+          {/* 게시 가이드 + 바로가기 */}
+          <div className="rounded-xl bg-blue-50 border border-blue-100 px-4 py-3 space-y-2">
+            <p className="text-[11px] font-bold text-blue-700">📱 게시 방법</p>
             <p className="text-[11px] text-blue-600">1. 카드이미지 저장 → 갤러리에 보관</p>
             <p className="text-[11px] text-blue-600">2. 문구 전체 복사 버튼 클릭</p>
-            <p className="text-[11px] text-blue-600">3. 인스타 앱 → 새 게시물 → 이미지 선택</p>
-            <p className="text-[11px] text-blue-600">4. 캡션 입력란에 붙여넣기(길게 누르기) → 게시</p>
+            <p className="text-[11px] text-blue-600">3. 아래 버튼으로 공식 계정 이동 → 새 게시물</p>
+            <p className="text-[11px] text-blue-600">4. 캡션 입력란에 붙여넣기 → 게시</p>
+            <div className="flex gap-2 pt-1">
+              <a
+                href="https://www.instagram.com/playgangneung/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-lg text-[11px] font-bold text-white bg-[#E1306C] hover:bg-[#C2185B] transition-colors"
+              >
+                인스타그램
+              </a>
+              <a
+                href="https://www.facebook.com/profile.php?id=61589314617028&locale=ko_KR"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-lg text-[11px] font-bold text-white bg-[#1877F2] hover:bg-[#1565C0] transition-colors"
+              >
+                페이스북
+              </a>
+              <a
+                href="https://www.youtube.com/@playgangneung"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-lg text-[11px] font-bold text-white bg-[#FF0000] hover:bg-[#CC0000] transition-colors"
+              >
+                유튜브
+              </a>
+            </div>
           </div>
         </div>
 

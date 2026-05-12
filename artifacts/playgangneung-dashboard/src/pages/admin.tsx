@@ -763,7 +763,7 @@ export default function Admin() {
                           {!isPublished && (
                             <div className="flex flex-wrap gap-2 pt-1">
                               <a
-                                href="https://www.facebook.com/"
+                                href="https://www.facebook.com/profile.php?id=61589314617028&locale=ko_KR"
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 onClick={() => navigator.clipboard.writeText(fullText)}
@@ -773,13 +773,23 @@ export default function Admin() {
                                 </Button>
                               </a>
                               <a
-                                href="https://www.instagram.com/"
+                                href="https://www.instagram.com/playgangneung/"
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 onClick={() => navigator.clipboard.writeText(fullText)}
                               >
                                 <Button size="sm" className="h-8 px-3 text-xs gap-1.5 text-white bg-[#E1306C] hover:bg-[#C2185B]">
                                   인스타그램
+                                </Button>
+                              </a>
+                              <a
+                                href="https://www.youtube.com/@playgangneung"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={() => navigator.clipboard.writeText(fullText)}
+                              >
+                                <Button size="sm" className="h-8 px-3 text-xs gap-1.5 text-white bg-[#FF0000] hover:bg-[#CC0000]">
+                                  유튜브
                                 </Button>
                               </a>
                               <Button

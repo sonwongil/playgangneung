@@ -1197,6 +1197,7 @@ export default function Admin() {
               title: fd.get("title") as string,
               description: fd.get("description") as string,
               category: fd.get("category") as string,
+              link: (fd.get("link") as string) || undefined,
               startDate: fd.get("startDate") as string || undefined,
               endDate: (fd.get("endDate") as string) || undefined,
               location: (fd.get("location") as string) || undefined,
@@ -1214,6 +1215,10 @@ export default function Admin() {
           <div className="space-y-1">
             <Label>내용 설명</Label>
             <Textarea name="description" rows={3} placeholder="행사·장소·정보 등 간단히 설명해 주세요." />
+          </div>
+          <div className="space-y-1">
+            <Label>원본 링크</Label>
+            <Input name="link" type="url" placeholder="https://example.com/article" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">

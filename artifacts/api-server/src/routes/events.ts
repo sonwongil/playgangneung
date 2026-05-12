@@ -132,32 +132,38 @@ router.post("/events/crawl", async (req, res) => {
 
 router.post("/events/manual", async (req, res) => {
   try {
-    const { title, description, date, link, source, contact } = req.body as {
+    const { title, description, link, source, contact, category, startDate: rawStart, endDate: rawEnd, location, thumbnail, videoUrl } = req.body as {
       title?: string;
       description?: string;
-      date?: string;
       link?: string;
       source?: string;
       contact?: string;
+      category?: string;
+      startDate?: string;
+      endDate?: string;
+      location?: string;
+      thumbnail?: string | null;
+      videoUrl?: string | null;
     };
 
     if (!title) {
       return res.status(400).json({ success: false, error: "제목은 필수입니다." });
     }
 
-    const dateStr = date || "";
-    const { startDate, endDate, scheduleStatus } = parseDates(dateStr);
+    const dateStr = rawStart || "";
+    const { startDate, endDate, scheduleStatus } = parseDates(`${rawStart || ""}${rawEnd ? `~${rawEnd}` : ""}`);
     const event: CrawledEvent = {
       id: crypto.createHash("md5").update(`manual:${title}:${Date.now()}`).digest("hex"),
       title,
       description: description || "",
       date: startDate || dateStr,
       startDate: startDate || dateStr,
-      endDate,
+      endDate: endDate || rawEnd || "",
       scheduleStatus,
-      location: "강릉",
-      category: detectCategory(title, description || ""),
-      thumbnail: null,
+      location: location || "강릉",
+      category: category || detectCategory(title, description || ""),
+      thumbnail: thumbnail || null,
+      videoUrl: videoUrl || null,
       link: link || "",
       source: source || "수동 등록",
       contact: contact || "",

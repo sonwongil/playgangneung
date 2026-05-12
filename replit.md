@@ -13,9 +13,9 @@ PLAY강릉 공식 SNS 자동운영 백오피스. 강릉 행사/맛집/핫플/지
 ## Stack
 
 - **Monorepo**: pnpm workspaces, Node.js 24, TypeScript 5.9
-- **Backend**: Express 5, esbuild (CJS bundle), express-session
+- **Backend**: Express 5, esbuild (CJS bundle), cookie-session
 - **Frontend**: React 18 + Vite, Tailwind CSS v4, shadcn/ui, TanStack Query, wouter
-- **Data**: JSON 파일 저장소 (`artifacts/api-server/data/events.json`, `ads.json`, `auth.json`)
+- **Data**: PostgreSQL (Replit managed) via Drizzle ORM — `lib/db/src/schema/`
 - **Image gen**: @napi-rs/canvas (카드뉴스 1080×1080 PNG)
 
 ## Where things live
@@ -24,7 +24,7 @@ PLAY강릉 공식 SNS 자동운영 백오피스. 강릉 행사/맛집/핫플/지
 artifacts/
   api-server/          # Express API 서버 (경로: /api, /content)
     src/lib/crawler.ts   — 강릉 전용 RSS/HTML 크롤러 (강원도 소스 없음)
-    src/lib/storage.ts   — JSON 파일 저장소 (startDate/endDate/scheduleStatus/location/category 포함)
+    src/lib/storage.ts   — PostgreSQL 저장소 (Drizzle ORM, startDate/endDate/scheduleStatus/location/category 포함)
     src/lib/dateParser.ts — 한국 날짜 파싱, scheduleStatus 계산, detectCategory
     src/lib/draft.ts     — SNS 초안 생성 (콘텐츠 URL 포함)
     src/lib/auth.ts      — 비밀번호 해시(scrypt) + 검증

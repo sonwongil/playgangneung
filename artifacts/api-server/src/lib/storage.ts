@@ -1,7 +1,6 @@
+import { db, eventsTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
 import type { ScheduleStatus } from "./dateParser.js";
-import { gcsReadJson, gcsWriteJson } from "./gcsJson.js";
-
-const EVENTS_FILE = "data/events.json";
 
 export type SourceType = "rss" | "html" | "manual";
 export type EventStatus = "draft" | "approved" | "rejected" | "published";
@@ -34,32 +33,82 @@ export interface CrawledEvent {
   crawledAt: string;
 }
 
+function rowToEvent(row: typeof eventsTable.$inferSelect): CrawledEvent {
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    date: row.date,
+    startDate: row.startDate,
+    endDate: row.endDate,
+    scheduleStatus: row.scheduleStatus as ScheduleStatus,
+    location: row.location,
+    category: row.category,
+    thumbnail: row.thumbnail ?? null,
+    videoUrl: row.videoUrl ?? null,
+    link: row.link,
+    source: row.source,
+    contact: row.contact,
+    sourceType: row.sourceType as SourceType,
+    status: row.status as EventStatus,
+    socialDraft: (row.socialDraft as SocialDraft) ?? null,
+    crawledAt: row.crawledAt,
+  };
+}
+
 export async function readEvents(): Promise<CrawledEvent[]> {
-  const raw = await gcsReadJson<Partial<CrawledEvent>[]>(EVENTS_FILE, []);
-  return raw.map((e) => ({
-    id: e.id ?? "",
-    title: e.title ?? "",
-    description: e.description ?? "",
-    date: e.date ?? e.startDate ?? "",
-    startDate: e.startDate ?? e.date ?? "",
-    endDate: e.endDate ?? "",
-    scheduleStatus: (e.scheduleStatus as ScheduleStatus) ?? "upcoming",
-    location: e.location ?? "",
-    category: e.category ?? "지역소식",
-    thumbnail: e.thumbnail ?? null,
-    videoUrl: (e as any).videoUrl ?? null,
-    link: e.link ?? "",
-    source: e.source ?? "",
-    contact: (e as any).contact ?? "",
-    sourceType: (e.sourceType as SourceType) ?? "html",
-    status: (e.status as EventStatus) ?? "draft",
-    socialDraft: e.socialDraft ?? null,
-    crawledAt: e.crawledAt ?? new Date().toISOString(),
-  }));
+  const rows = await db.select().from(eventsTable);
+  return rows.map(rowToEvent);
 }
 
 export async function saveEvents(events: CrawledEvent[]): Promise<void> {
-  await gcsWriteJson(EVENTS_FILE, events);
+  if (events.length === 0) return;
+  await db
+    .insert(eventsTable)
+    .values(
+      events.map((e) => ({
+        id: e.id,
+        title: e.title,
+        description: e.description,
+        date: e.date,
+        startDate: e.startDate,
+        endDate: e.endDate,
+        scheduleStatus: e.scheduleStatus,
+        location: e.location,
+        category: e.category,
+        thumbnail: e.thumbnail,
+        videoUrl: e.videoUrl,
+        link: e.link,
+        source: e.source,
+        contact: e.contact,
+        sourceType: e.sourceType,
+        status: e.status,
+        socialDraft: e.socialDraft as any,
+        crawledAt: e.crawledAt,
+      })),
+    )
+    .onConflictDoUpdate({
+      target: eventsTable.id,
+      set: {
+        title: eventsTable.title,
+        description: eventsTable.description,
+        date: eventsTable.date,
+        startDate: eventsTable.startDate,
+        endDate: eventsTable.endDate,
+        scheduleStatus: eventsTable.scheduleStatus,
+        location: eventsTable.location,
+        category: eventsTable.category,
+        thumbnail: eventsTable.thumbnail,
+        videoUrl: eventsTable.videoUrl,
+        link: eventsTable.link,
+        source: eventsTable.source,
+        contact: eventsTable.contact,
+        sourceType: eventsTable.sourceType,
+        status: eventsTable.status,
+        socialDraft: eventsTable.socialDraft,
+        crawledAt: eventsTable.crawledAt,
+      },
+    });
 }
 
 function normalizeTitle(s: string): string {
@@ -94,31 +143,6 @@ function keysOverlap(aKeys: string[], bKeys: string[]): boolean {
   return false;
 }
 
-export async function deduplicateExisting(): Promise<{ before: number; after: number; removed: number }> {
-  const events = await readEvents();
-  const before = events.length;
-  const kept: CrawledEvent[] = [];
-  const keptKeys: string[][] = [];
-
-  for (const ev of events) {
-    const evKeys = dupKeys(ev);
-    const dupIdx = keptKeys.findIndex((k) => keysOverlap(evKeys, k));
-    if (dupIdx === -1) {
-      kept.push(ev);
-      keptKeys.push(evKeys);
-    } else {
-      const existing = kept[dupIdx];
-      if (contentScore(ev) > contentScore(existing)) {
-        kept[dupIdx] = mergeRicher(existing, ev);
-        keptKeys[dupIdx] = dupKeys(kept[dupIdx]);
-      }
-    }
-  }
-
-  await saveEvents(kept);
-  return { before, after: kept.length, removed: before - kept.length };
-}
-
 function contentScore(e: CrawledEvent): number {
   let score = 0;
   score += Math.min(e.description.length, 400);
@@ -151,12 +175,39 @@ function isWithinCrawlWindow(e: CrawledEvent): boolean {
   return new Date(e.startDate) <= cutoff;
 }
 
+export async function deduplicateExisting(): Promise<{ before: number; after: number; removed: number }> {
+  const events = await readEvents();
+  const before = events.length;
+  const kept: CrawledEvent[] = [];
+  const keptKeys: string[][] = [];
+
+  for (const ev of events) {
+    const evKeys = dupKeys(ev);
+    const dupIdx = keptKeys.findIndex((k) => keysOverlap(evKeys, k));
+    if (dupIdx === -1) {
+      kept.push(ev);
+      keptKeys.push(evKeys);
+    } else {
+      const existing = kept[dupIdx];
+      if (contentScore(ev) > contentScore(existing)) {
+        kept[dupIdx] = mergeRicher(existing, ev);
+        keptKeys[dupIdx] = dupKeys(kept[dupIdx]);
+      }
+    }
+  }
+
+  await db.delete(eventsTable);
+  if (kept.length > 0) await saveEvents(kept);
+  return { before, after: kept.length, removed: before - kept.length };
+}
+
 export async function appendEvents(
   newEvents: CrawledEvent[],
 ): Promise<{ added: number; updated: number; total: number }> {
   const existing = await readEvents();
   const idxById = new Map<string, number>(existing.map((e, i) => [e.id, i]));
   const existingKeysList = existing.map(dupKeys);
+  const toUpsert: CrawledEvent[] = [];
   let added = 0;
   let updated = 0;
 
@@ -167,8 +218,9 @@ export async function appendEvents(
     if (idxById.has(newEvent.id)) {
       const idx = idxById.get(newEvent.id)!;
       if (contentScore(newEvent) > contentScore(existing[idx])) {
-        existing[idx] = mergeRicher(existing[idx], newEvent);
-        existingKeysList[idx] = dupKeys(existing[idx]);
+        const merged = mergeRicher(existing[idx], newEvent);
+        toUpsert.push(merged);
+        existingKeysList[idx] = dupKeys(merged);
         updated++;
       }
       continue;
@@ -177,55 +229,48 @@ export async function appendEvents(
     const dupIdx = existingKeysList.findIndex((exK) => keysOverlap(newKeys, exK));
     if (dupIdx !== -1) {
       if (contentScore(newEvent) > contentScore(existing[dupIdx])) {
-        existing[dupIdx] = mergeRicher(existing[dupIdx], newEvent);
-        existingKeysList[dupIdx] = dupKeys(existing[dupIdx]);
+        const merged = mergeRicher(existing[dupIdx], newEvent);
+        toUpsert.push(merged);
+        existingKeysList[dupIdx] = dupKeys(merged);
         updated++;
       }
       continue;
     }
 
-    idxById.set(newEvent.id, existing.length);
-    existingKeysList.push(newKeys);
-    existing.push(newEvent);
+    toUpsert.push(newEvent);
     added++;
   }
 
-  await saveEvents(existing);
-  return { added, updated, total: existing.length };
+  if (toUpsert.length > 0) await saveEvents(toUpsert);
+  const total = await db.$count(eventsTable);
+  return { added, updated, total };
 }
 
-export async function updateEventStatus(
-  id: string,
-  status: EventStatus,
-): Promise<boolean> {
-  const events = await readEvents();
-  const idx = events.findIndex((e) => e.id === id);
-  if (idx === -1) return false;
-  events[idx] = { ...events[idx], status };
-  await saveEvents(events);
-  return true;
+export async function updateEventStatus(id: string, status: EventStatus): Promise<boolean> {
+  const result = await db
+    .update(eventsTable)
+    .set({ status, updatedAt: new Date() })
+    .where(eq(eventsTable.id, id));
+  return (result.rowCount ?? 0) > 0;
 }
 
-export async function saveEventDraft(
-  id: string,
-  socialDraft: SocialDraft,
-): Promise<boolean> {
-  const events = await readEvents();
-  const idx = events.findIndex((e) => e.id === id);
-  if (idx === -1) return false;
-  events[idx] = { ...events[idx], socialDraft };
-  await saveEvents(events);
-  return true;
+export async function saveEventDraft(id: string, socialDraft: SocialDraft): Promise<boolean> {
+  const result = await db
+    .update(eventsTable)
+    .set({ socialDraft: socialDraft as any, updatedAt: new Date() })
+    .where(eq(eventsTable.id, id));
+  return (result.rowCount ?? 0) > 0;
 }
 
-export async function updateEvent(
-  id: string,
-  patch: Partial<CrawledEvent>,
-): Promise<boolean> {
-  const events = await readEvents();
-  const idx = events.findIndex((e) => e.id === id);
-  if (idx === -1) return false;
-  events[idx] = { ...events[idx], ...patch };
-  await saveEvents(events);
-  return true;
+export async function updateEvent(id: string, patch: Partial<CrawledEvent>): Promise<boolean> {
+  const result = await db
+    .update(eventsTable)
+    .set({ ...(patch as any), updatedAt: new Date() })
+    .where(eq(eventsTable.id, id));
+  return (result.rowCount ?? 0) > 0;
+}
+
+export async function deleteEvent(id: string): Promise<boolean> {
+  const result = await db.delete(eventsTable).where(eq(eventsTable.id, id));
+  return (result.rowCount ?? 0) > 0;
 }

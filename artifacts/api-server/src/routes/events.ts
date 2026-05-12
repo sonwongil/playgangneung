@@ -436,7 +436,8 @@ router.post("/events/:id/upload-image", (req, res) => {
 
 router.delete("/events", async (req, res) => {
   try {
-    await saveEvents([]);
+    const { db, eventsTable } = await import("@workspace/db");
+    await db.delete(eventsTable);
     res.json({ success: true, message: "전체 데이터 초기화 완료" });
   } catch (err) {
     req.log.error({ err }, "데이터 초기화 실패");
@@ -447,10 +448,9 @@ router.delete("/events", async (req, res) => {
 router.delete("/events/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const events = await readEvents();
-    const filtered = events.filter((e) => e.id !== id);
-    await saveEvents(filtered);
-    res.json({ success: true, removed: events.length - filtered.length });
+    const { deleteEvent } = await import("../lib/storage.js");
+    const removed = await deleteEvent(id);
+    res.json({ success: true, removed: removed ? 1 : 0 });
   } catch (err) {
     req.log.error({ err }, "삭제 실패");
     res.status(500).json({ success: false, error: "삭제 실패" });

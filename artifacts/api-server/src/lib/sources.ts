@@ -1,7 +1,6 @@
 import crypto from "crypto";
-import { gcsReadJson, gcsWriteJson } from "./gcsJson.js";
-
-const SOURCES_FILE = "data/sources.json";
+import { db, sourcesTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
 
 export interface CrawlSource {
   id: string;
@@ -25,44 +24,50 @@ const DEFAULT_SOURCES: CrawlSource[] = [
   { id: "74ce0078cc9b3362c4f7750d5fb7ea9d", name: "강원도민일보-강릉",  url: "https://cdn.kado.net/rss/gn_rss_allArticle.xml",                                 enabled: true, createdAt: "2026-05-11T21:15:49.188Z" },
 ];
 
+function rowToSource(row: typeof sourcesTable.$inferSelect): CrawlSource {
+  return {
+    id: row.id,
+    name: row.name,
+    url: row.url,
+    enabled: row.enabled,
+    createdAt: row.createdAt.toISOString(),
+  };
+}
+
 export async function readSources(): Promise<CrawlSource[]> {
-  const stored = await gcsReadJson<CrawlSource[] | null>(SOURCES_FILE, null);
-  if (stored && stored.length > 0) return stored;
-  await gcsWriteJson(SOURCES_FILE, DEFAULT_SOURCES);
+  const rows = await db.select().from(sourcesTable);
+  if (rows.length > 0) return rows.map(rowToSource);
+  await db
+    .insert(sourcesTable)
+    .values(
+      DEFAULT_SOURCES.map((s) => ({
+        id: s.id,
+        name: s.name,
+        url: s.url,
+        enabled: s.enabled,
+        createdAt: new Date(s.createdAt),
+      })),
+    )
+    .onConflictDoNothing();
   return DEFAULT_SOURCES;
 }
 
-export async function saveSources(sources: CrawlSource[]): Promise<void> {
-  await gcsWriteJson(SOURCES_FILE, sources);
-}
-
 export async function addSource(name: string, url: string): Promise<CrawlSource> {
-  const sources = await readSources();
-  const source: CrawlSource = {
-    id: crypto.createHash("md5").update(`source:${url}:${Date.now()}`).digest("hex"),
-    name,
-    url,
-    enabled: true,
-    createdAt: new Date().toISOString(),
-  };
-  sources.push(source);
-  await saveSources(sources);
-  return source;
+  const id = crypto.createHash("md5").update(`source:${url}:${Date.now()}`).digest("hex");
+  const now = new Date();
+  await db.insert(sourcesTable).values({ id, name, url, enabled: true, createdAt: now });
+  return { id, name, url, enabled: true, createdAt: now.toISOString() };
 }
 
 export async function deleteSource(id: string): Promise<boolean> {
-  const sources = await readSources();
-  const filtered = sources.filter((s) => s.id !== id);
-  if (filtered.length === sources.length) return false;
-  await saveSources(filtered);
-  return true;
+  const result = await db.delete(sourcesTable).where(eq(sourcesTable.id, id));
+  return (result.rowCount ?? 0) > 0;
 }
 
 export async function toggleSource(id: string, enabled: boolean): Promise<boolean> {
-  const sources = await readSources();
-  const source = sources.find((s) => s.id === id);
-  if (!source) return false;
-  source.enabled = enabled;
-  await saveSources(sources);
-  return true;
+  const result = await db
+    .update(sourcesTable)
+    .set({ enabled })
+    .where(eq(sourcesTable.id, id));
+  return (result.rowCount ?? 0) > 0;
 }

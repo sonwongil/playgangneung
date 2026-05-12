@@ -53,10 +53,14 @@ async function gcsRead<T>(fileName: string, fallback: T): Promise<T> {
 }
 
 async function gcsWrite<T>(fileName: string, data: T): Promise<void> {
-  const file = getBucket().file(fileName);
-  await file.save(JSON.stringify(data, null, 2), {
-    contentType: "application/json",
-  });
+  try {
+    const file = getBucket().file(fileName);
+    await file.save(JSON.stringify(data, null, 2), {
+      contentType: "application/json",
+    });
+  } catch {
+    // GCS 쓰기 실패 무시 (권한 문제 등) — 읽기는 여전히 시도함
+  }
 }
 
 // ── 공개 API ────────────────────────────────────────────────────────────────

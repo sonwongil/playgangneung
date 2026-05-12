@@ -12,4 +12,5 @@ export const ARTIFACT_ROOT = path.resolve(distDir, "..");
 export const DATA_DIR = path.join(ARTIFACT_ROOT, "data");
 export const FONTS_DIR = path.join(ARTIFACT_ROOT, "fonts");
 export const CARDS_DIR = path.join(ARTIFACT_ROOT, "public", "cards");
+export const UPLOADS_DIR = path.join(ARTIFACT_ROOT, "public", "uploads");
 export const SESSIONS_DIR = path.join(ARTIFACT_ROOT, "data", "sessions");

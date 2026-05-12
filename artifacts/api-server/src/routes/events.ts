@@ -1,4 +1,7 @@
 import { Router } from "express";
+import multer from "multer";
+import fs from "fs/promises";
+import path from "path";
 import { crawlAll, crawlUrl } from "../lib/crawler.js";
 import {
   appendEvents,
@@ -7,12 +10,32 @@ import {
   saveEvents,
   saveEventDraft,
   updateEventStatus,
+  updateEvent,
 } from "../lib/storage.js";
 import type { CrawledEvent, EventStatus } from "../lib/storage.js";
 import { generateSocialDraft } from "../lib/draft.js";
 import { generateCardImage } from "../lib/card.js";
 import { parseDates, detectCategory } from "../lib/dateParser.js";
+import { UPLOADS_DIR } from "../lib/paths.js";
 import crypto from "crypto";
+
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: async (_req, _file, cb) => {
+      await fs.mkdir(UPLOADS_DIR, { recursive: true });
+      cb(null, UPLOADS_DIR);
+    },
+    filename: (_req, file, cb) => {
+      const ext = path.extname(file.originalname) || ".jpg";
+      cb(null, `${Date.now()}-${crypto.randomBytes(4).toString("hex")}${ext}`);
+    },
+  }),
+  limits: { fileSize: 20 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype.startsWith("image/")) cb(null, true);
+    else cb(new Error("이미지 파일만 업로드 가능합니다."));
+  },
+});
 
 const router = Router();
 
@@ -312,6 +335,28 @@ router.patch("/events/:id", async (req, res) => {
     req.log.error({ err }, "이벤트 수정 실패");
     return res.status(500).json({ success: false, error: "이벤트 수정 실패" });
   }
+});
+
+router.post("/events/:id/upload-image", (req, res) => {
+  upload.single("image")(req, res, async (err) => {
+    if (err) {
+      return res.status(400).json({ success: false, error: err instanceof Error ? err.message : "업로드 실패" });
+    }
+    if (!req.file) {
+      return res.status(400).json({ success: false, error: "파일이 없습니다." });
+    }
+    const { id } = req.params;
+    const imageUrl = `/api/uploads/${req.file.filename}`;
+    try {
+      const updated = await updateEvent(id, { thumbnail: imageUrl });
+      if (!updated) return res.status(404).json({ success: false, error: "이벤트를 찾을 수 없습니다." });
+      req.log.info({ id, imageUrl }, "이미지 업로드 완료");
+      return res.json({ success: true, imageUrl });
+    } catch (e) {
+      req.log.error({ e }, "이미지 업로드 후 저장 실패");
+      return res.status(500).json({ success: false, error: "저장 실패" });
+    }
+  });
 });
 
 router.delete("/events", async (req, res) => {

@@ -6,7 +6,7 @@ import FileStore from "session-file-store";
 import router from "./routes/index.js";
 import contentRouter from "./routes/content.js";
 import { logger } from "./lib/logger.js";
-import { CARDS_DIR, SESSIONS_DIR } from "./lib/paths.js";
+import { CARDS_DIR, UPLOADS_DIR, SESSIONS_DIR } from "./lib/paths.js";
 
 const FileStoreSession = FileStore(session);
 
@@ -17,10 +17,11 @@ app.set("trust proxy", 1);
 // Static files: generated card images
 app.use(
   "/api/cards",
-  express.static(CARDS_DIR, {
-    maxAge: 0,
-    etag: false,
-  }),
+  express.static(CARDS_DIR, { maxAge: 0, etag: false }),
+);
+app.use(
+  "/api/uploads",
+  express.static(UPLOADS_DIR, { maxAge: "7d" }),
 );
 
 app.use(

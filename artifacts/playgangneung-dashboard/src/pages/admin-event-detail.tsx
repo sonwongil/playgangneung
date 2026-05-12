@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, ExternalLink, ImageOff, Trash2, ChevronDown, Send, Video, Image, Copy, MessageSquare, Download, RefreshCw, Package, CheckCircle } from "lucide-react";
+import { ArrowLeft, ExternalLink, ImageOff, Trash2, ChevronDown, Send, Video, Image, Copy, MessageSquare, Download, RefreshCw, Package, CheckCircle, Upload, Link } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -88,6 +88,8 @@ export default function AdminEventDetail() {
   const [isDraftDirty, setIsDraftDirty] = useState(false);
   const [cardUrl, setCardUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [imageTab, setImageTab] = useState<"url" | "upload">("url");
+  const [isUploading, setIsUploading] = useState(false);
 
   const { data, isLoading } = useQuery<{ events: Event[] }>({
     queryKey: ["admin-events"],
@@ -201,6 +203,30 @@ export default function AdminEventDetail() {
     onError: (e: Error) => toast({ title: "카드 생성 실패", description: e.message, variant: "destructive" }),
   });
 
+  async function handleImageUpload(file: File) {
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("image", file);
+      const r = await fetch(`${BASE}/api/events/${eventId}/upload-image`, {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error ?? "업로드 실패");
+      setEditThumbnail(d.imageUrl);
+      setIsDirty(false);
+      queryClient.invalidateQueries({ queryKey: ["admin-events"] });
+      toast({ title: "이미지 업로드 완료", description: "대표 이미지가 적용되었습니다." });
+      setImageTab("url");
+    } catch (e: unknown) {
+      toast({ title: "업로드 실패", description: e instanceof Error ? e.message : "다시 시도해 주세요.", variant: "destructive" });
+    } finally {
+      setIsUploading(false);
+    }
+  }
+
   function copyAll() {
     const hashtags = editHashtagsStr.split(/[\s,]+/).map((h) => h.startsWith("#") ? h : `#${h}`).filter(Boolean);
     const text = `${editCaption}\n\n${hashtags.join(" ")}`;
@@ -301,13 +327,67 @@ export default function AdminEventDetail() {
           </p>
 
           <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">대표 이미지 URL</Label>
-            <Input
-              value={editThumbnail}
-              onChange={(e) => { setEditThumbnail(e.target.value); setIsDirty(true); }}
-              className="text-sm"
-              placeholder="https://example.com/image.jpg"
-            />
+            <Label className="text-xs text-muted-foreground">대표 이미지</Label>
+            {/* 탭 전환 */}
+            <div className="flex gap-1 p-1 bg-gray-100 rounded-lg w-fit">
+              <button
+                onClick={() => setImageTab("url")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${imageTab === "url" ? "bg-white shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                <Link className="w-3 h-3" />URL 입력
+              </button>
+              <button
+                onClick={() => setImageTab("upload")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${imageTab === "upload" ? "bg-white shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                <Upload className="w-3 h-3" />파일 올리기
+              </button>
+            </div>
+
+            {imageTab === "url" ? (
+              <Input
+                value={editThumbnail}
+                onChange={(e) => { setEditThumbnail(e.target.value); setIsDirty(true); }}
+                className="text-sm"
+                placeholder="https://example.com/image.jpg"
+              />
+            ) : (
+              <div
+                className="border-2 border-dashed border-border rounded-xl p-6 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50/50 transition-colors relative"
+                onClick={() => document.getElementById("img-file-input")?.click()}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const file = e.dataTransfer.files[0];
+                  if (file) handleImageUpload(file);
+                }}
+              >
+                <input
+                  id="img-file-input"
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleImageUpload(file);
+                    e.target.value = "";
+                  }}
+                />
+                {isUploading ? (
+                  <div className="flex flex-col items-center gap-2">
+                    <RefreshCw className="w-6 h-6 text-blue-500 animate-spin" />
+                    <p className="text-sm text-muted-foreground">업로드 중...</p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center gap-2">
+                    <Upload className="w-6 h-6 text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">클릭하거나 파일을 여기에 드래그</p>
+                    <p className="text-xs text-muted-foreground">JPG, PNG, WebP · 최대 20MB</p>
+                  </div>
+                )}
+              </div>
+            )}
+
             {editThumbnail && (
               <div className="rounded-xl overflow-hidden border bg-gray-50 max-h-48">
                 <img

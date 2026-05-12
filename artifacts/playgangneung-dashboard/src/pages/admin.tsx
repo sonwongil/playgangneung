@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
@@ -148,6 +148,40 @@ export default function Admin() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const qc = useQueryClient();
+  const deployedBuildTime = useRef<string | null>(null);
+
+  useEffect(() => {
+    async function checkVersion() {
+      try {
+        const r = await fetch(`${BASE}/api/version`);
+        if (!r.ok) return;
+        const { buildTime } = await r.json() as { buildTime: string };
+        if (deployedBuildTime.current === null) {
+          deployedBuildTime.current = buildTime;
+        } else if (deployedBuildTime.current !== buildTime) {
+          deployedBuildTime.current = buildTime;
+          toast({
+            title: "✅ 새 버전 배포 완료",
+            description: "페이지를 새로고침하면 최신 버전이 적용됩니다.",
+            duration: 0,
+            action: (
+              <button
+                onClick={() => window.location.reload()}
+                className="shrink-0 rounded bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-700"
+              >
+                새로고침
+              </button>
+            ),
+          } as any);
+        }
+      } catch {
+        // 네트워크 오류 무시
+      }
+    }
+    checkVersion();
+    const id = setInterval(checkVersion, 15000);
+    return () => clearInterval(id);
+  }, []);
 
   // ── Queries ─────────────────────────────────────────────────────────────────
   const { data, isLoading } = useQuery<{ events: Event[] }>({

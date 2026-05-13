@@ -212,12 +212,13 @@ export async function appendEvents(
   let updated = 0;
 
   for (const newEvent of newEvents) {
-    if (!isWithinCrawlWindow(newEvent)) continue;
+    const isManual = newEvent.sourceType === "manual";
+    if (!isManual && !isWithinCrawlWindow(newEvent)) continue;
     const newKeys = dupKeys(newEvent);
 
     if (idxById.has(newEvent.id)) {
       const idx = idxById.get(newEvent.id)!;
-      if (contentScore(newEvent) > contentScore(existing[idx])) {
+      if (isManual || contentScore(newEvent) > contentScore(existing[idx])) {
         const merged = mergeRicher(existing[idx], newEvent);
         toUpsert.push(merged);
         existingKeysList[idx] = dupKeys(merged);
@@ -228,7 +229,7 @@ export async function appendEvents(
 
     const dupIdx = existingKeysList.findIndex((exK) => keysOverlap(newKeys, exK));
     if (dupIdx !== -1) {
-      if (contentScore(newEvent) > contentScore(existing[dupIdx])) {
+      if (isManual || contentScore(newEvent) > contentScore(existing[dupIdx])) {
         const merged = mergeRicher(existing[dupIdx], newEvent);
         toUpsert.push(merged);
         existingKeysList[dupIdx] = dupKeys(merged);

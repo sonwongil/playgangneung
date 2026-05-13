@@ -596,10 +596,8 @@ export default function AdminEventDetail() {
             )}
             {editThumbnail && (
               <a
-                href={editThumbnail}
+                href={`${BASE}/api/proxy/download?url=${encodeURIComponent(editThumbnail)}`}
                 download
-                target="_blank"
-                rel="noopener noreferrer"
                 className="flex items-center justify-center gap-1.5 w-full h-9 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold transition-colors"
               >
                 <Download className="w-3.5 h-3.5" />대표 이미지 다운로드

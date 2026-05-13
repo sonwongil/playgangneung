@@ -117,4 +117,47 @@ router.get("/proxy/page", async (req, res) => {
   }
 });
 
+router.get("/proxy/download", async (req, res) => {
+  const rawUrl = req.query["url"] as string | undefined;
+  if (!rawUrl) { res.status(400).json({ error: "url 파라미터 필요" }); return; }
+
+  let parsed: URL;
+  try { parsed = new URL(rawUrl); } catch { res.status(400).json({ error: "유효하지 않은 URL" }); return; }
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+    res.status(400).json({ error: "http/https URL만 허용" }); return;
+  }
+
+  try {
+    const upstream = await fetch(rawUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; PlayGangneungBot/1.0)",
+        "Referer": `${parsed.protocol}//${parsed.hostname}/`,
+        "Accept": "image/*,*/*;q=0.8",
+      },
+      signal: AbortSignal.timeout(15000),
+    });
+
+    if (!upstream.ok) { res.status(502).json({ error: `업스트림 오류: ${upstream.status}` }); return; }
+
+    const contentType = upstream.headers.get("content-type") ?? "image/jpeg";
+    const buffer = Buffer.from(await upstream.arrayBuffer());
+
+    // 파일명 추출
+    const pathParts = parsed.pathname.split("/");
+    const rawName = pathParts[pathParts.length - 1] || "image";
+    const ext = rawName.includes(".") ? "" : contentType.includes("png") ? ".png" : contentType.includes("gif") ? ".gif" : contentType.includes("webp") ? ".webp" : ".jpg";
+    const filename = `${rawName}${ext}`;
+
+    res.set({
+      "Content-Type": contentType,
+      "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`,
+      "Cache-Control": "no-store",
+    });
+    res.send(buffer);
+  } catch (err) {
+    req.log.warn({ err, url: rawUrl }, "다운로드 프록시 실패");
+    res.status(502).json({ error: "이미지 가져오기 실패" });
+  }
+});
+
 export default router;

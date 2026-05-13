@@ -1,5 +1,5 @@
 import { db, eventsTable } from "@workspace/db";
-import { eq, sql } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 import type { ScheduleStatus } from "./dateParser.js";
 
 export type SourceType = "rss" | "html" | "manual";
@@ -57,7 +57,7 @@ function rowToEvent(row: typeof eventsTable.$inferSelect): CrawledEvent {
 }
 
 export async function readEvents(): Promise<CrawledEvent[]> {
-  const rows = await db.select().from(eventsTable);
+  const rows = await db.select().from(eventsTable).orderBy(desc(eventsTable.updatedAt));
   return rows.map(rowToEvent);
 }
 

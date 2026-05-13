@@ -233,7 +233,7 @@ export default function Admin() {
   };
   function sortBySchedule(arr: Event[], sortBy: "date" | "latest" = "date") {
     if (sortBy === "latest") {
-      return [...arr].sort((a, b) => (b.crawledAt ?? "").localeCompare(a.crawledAt ?? ""));
+      return [...arr]; // DB already orders by updated_at DESC
     }
     return [...arr].sort((a, b) => {
       const sa = SCHEDULE_ORDER[a.scheduleStatus ?? ""] ?? 4;

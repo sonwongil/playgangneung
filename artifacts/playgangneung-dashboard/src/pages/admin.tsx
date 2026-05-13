@@ -232,15 +232,17 @@ export default function Admin() {
     today: 0, ongoing: 1, tomorrow: 2, upcoming: 3, dateUnknown: 4, ended: 5,
   };
   function sortBySchedule(arr: Event[], sortBy: "date" | "latest" = "date") {
+    if (sortBy === "latest") {
+      return [...arr].sort((a, b) => (b.crawledAt ?? "").localeCompare(a.crawledAt ?? ""));
+    }
     return [...arr].sort((a, b) => {
       const sa = SCHEDULE_ORDER[a.scheduleStatus ?? ""] ?? 4;
       const sb = SCHEDULE_ORDER[b.scheduleStatus ?? ""] ?? 4;
       if (sa !== sb) return sa - sb;
       const da = a.startDate ?? a.date ?? "";
       const db = b.startDate ?? b.date ?? "";
-      // ended 그룹: 최근 종료 먼저, 나머지: 가까운 날짜 먼저 or 최신순
       if (a.scheduleStatus === "ended") return db.localeCompare(da);
-      return sortBy === "latest" ? db.localeCompare(da) : da.localeCompare(db);
+      return da.localeCompare(db);
     });
   }
 

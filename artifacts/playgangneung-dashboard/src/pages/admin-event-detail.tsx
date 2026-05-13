@@ -91,12 +91,37 @@ export default function AdminEventDetail() {
   const [isUploading, setIsUploading] = useState(false);
   const [showEmoji, setShowEmoji] = useState(false);
   const [emojiTab, setEmojiTab] = useState(0);
-  const [ctaEnabled, setCtaEnabled] = useState(true);
   const captionRef = useRef<HTMLTextAreaElement>(null);
 
   const SITE_ROOT = "playgangneung.com";
-  function buildCta(contentUrl: string) {
-    return `─────────────\n📅 강릉 행사·맛집·핫플 더보기\n👉 ${SITE_ROOT}\n\n🔗 이 글 자세히 보기\n${contentUrl}`;
+  const FIXED_CTA = `📍 강릉 행사 더보기\n👉 https://playgangneung.com`;
+
+  function applyFormat(type: "bold" | "fullwidth" | "small") {
+    const el = captionRef.current;
+    if (!el) return;
+    const start = el.selectionStart ?? 0;
+    const end = el.selectionEnd ?? 0;
+    const selected = editCaption.slice(start, end);
+    if (!selected) return;
+    const transformed = selected.split("").map((c) => {
+      const code = c.charCodeAt(0);
+      if (type === "bold") {
+        if (code >= 65 && code <= 90) return String.fromCodePoint(0x1d400 + code - 65);
+        if (code >= 97 && code <= 122) return String.fromCodePoint(0x1d41a + code - 97);
+        if (code >= 48 && code <= 57) return String.fromCodePoint(0x1d7ce + code - 48);
+      } else if (type === "fullwidth") {
+        if (code >= 33 && code <= 126) return String.fromCodePoint(code + 0xff00 - 0x20);
+      } else if (type === "small") {
+        const supers: Record<string, string> = { a:"ᵃ",b:"ᵇ",c:"ᶜ",d:"ᵈ",e:"ᵉ",f:"ᶠ",g:"ᵍ",h:"ʰ",i:"ⁱ",j:"ʲ",k:"ᵏ",l:"ˡ",m:"ᵐ",n:"ⁿ",o:"ᵒ",p:"ᵖ",q:"q",r:"ʳ",s:"ˢ",t:"ᵗ",u:"ᵘ",v:"ᵛ",w:"ʷ",x:"ˣ",y:"ʸ",z:"ᶻ",
+          A:"ᴬ",B:"ᴮ",C:"ᶜ",D:"ᴰ",E:"ᴱ",F:"ᶠ",G:"ᴳ",H:"ᴴ",I:"ᴵ",J:"ᴶ",K:"ᴷ",L:"ᴸ",M:"ᴹ",N:"ᴺ",O:"ᴼ",P:"ᴾ",Q:"Q",R:"ᴿ",S:"ˢ",T:"ᵀ",U:"ᵁ",V:"ⱽ",W:"ᵂ",X:"ˣ",Y:"ʸ",Z:"ᶻ" };
+        return supers[c] ?? c;
+      }
+      return c;
+    }).join("");
+    const next = editCaption.slice(0, start) + transformed + editCaption.slice(end);
+    setEditCaption(next);
+    setIsDraftDirty(true);
+    requestAnimationFrame(() => { el.selectionStart = start; el.selectionEnd = start + transformed.length; el.focus(); });
   }
 
   const EMOJI_GROUPS = [
@@ -233,7 +258,7 @@ export default function AdminEventDetail() {
       if (!r.ok) throw new Error(d.error ?? "업로드 실패");
       setEditThumbnail(d.imageUrl);
       setIsDirty(false);
-      queryClient.invalidateQueries({ queryKey: ["admin-events"] });
+      qc.invalidateQueries({ queryKey: ["admin-events"] });
       toast({ title: "이미지 업로드 완료", description: "대표 이미지가 적용되었습니다." });
       setImageTab("url");
     } catch (e: unknown) {
@@ -245,9 +270,7 @@ export default function AdminEventDetail() {
 
   function copyAll() {
     const hashtags = editHashtagsStr.split(/[\s,]+/).map((h) => h.startsWith("#") ? h : `#${h}`).filter(Boolean);
-    const contentUrl = `https://${SITE_ROOT}/content/${eventId}`;
-    const cta = ctaEnabled ? `\n\n${buildCta(contentUrl)}` : "";
-    const text = `${editCaption}\n\n${hashtags.join(" ")}${cta}`;
+    const text = `${editCaption}\n\n${hashtags.join(" ")}\n\n${FIXED_CTA}`;
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true);
       toast({ title: "캡션 복사 완료", description: "인스타·페북 게시창에 붙여넣으세요." });
@@ -476,28 +499,34 @@ export default function AdminEventDetail() {
               </div>
 
               {/* 구분선 삽입 */}
-              <button type="button" onClick={() => insertAtCursor("\n\n")}
-                className="px-2 py-1 rounded-md text-xs font-medium bg-white border border-violet-200 text-violet-600 hover:bg-violet-100 transition-colors"
-                title="줄바꿈 삽입"
-              >↵ 줄바꿈</button>
-
-              <button type="button" onClick={() => insertAtCursor("\n・")}
-                className="px-2 py-1 rounded-md text-xs font-medium bg-white border border-violet-200 text-violet-600 hover:bg-violet-100 transition-colors"
-                title="목록 아이템 삽입"
-              >・ 목록</button>
-
               <button type="button" onClick={() => insertAtCursor("\n─────────────")}
                 className="px-2 py-1 rounded-md text-xs font-medium bg-white border border-violet-200 text-violet-600 hover:bg-violet-100 transition-colors"
                 title="구분선 삽입"
               >─ 구분선</button>
 
-              <button type="button" onClick={() => insertAtCursor("📍 강릉 ")}
-                className="px-2 py-1 rounded-md text-xs font-medium bg-white border border-violet-200 text-violet-600 hover:bg-violet-100 transition-colors"
-              >📍 강릉</button>
+              {/* 굵게 */}
+              <button
+                type="button"
+                onClick={() => applyFormat("bold")}
+                className="px-2 py-1 rounded-md text-xs font-bold bg-white border border-violet-200 text-violet-600 hover:bg-violet-100 transition-colors"
+                title="선택한 텍스트를 굵게 (영문·숫자)"
+              >𝐁 굵게</button>
 
-              <button type="button" onClick={() => insertAtCursor("🔗 PLAY강릉 링크 → ")}
-                className="px-2 py-1 rounded-md text-xs font-medium bg-white border border-violet-200 text-violet-600 hover:bg-violet-100 transition-colors"
-              >🔗 링크문구</button>
+              {/* 폰트 크기 */}
+              <select
+                className="px-1.5 py-1 rounded-md text-xs bg-white border border-violet-200 text-violet-600 hover:bg-violet-100 transition-colors cursor-pointer"
+                defaultValue=""
+                onChange={(e) => {
+                  const v = e.target.value as "fullwidth" | "small";
+                  if (v) applyFormat(v);
+                  e.target.value = "";
+                }}
+                title="선택한 텍스트 크기 변환"
+              >
+                <option value="" disabled>폰트 크기</option>
+                <option value="fullwidth">크게 (전각)</option>
+                <option value="small">작게 (위첨자)</option>
+              </select>
 
               {/* 글자수 카운터 */}
               <span className={`ml-auto text-[11px] font-mono font-semibold tabular-nums ${editCaption.length > 2000 ? "text-red-500" : editCaption.length > 1500 ? "text-orange-500" : "text-muted-foreground"}`}>
@@ -524,19 +553,10 @@ export default function AdminEventDetail() {
               onChange={(e) => { setEditHashtagsStr(e.target.value); setIsDraftDirty(true); }}
             />
 
-            {/* CTA 미리보기 + 토글 */}
-            <div className="rounded-xl border border-violet-100 bg-violet-50/50 p-3 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-violet-700">📢 공통 홍보 문구 자동 첨부</span>
-                <button
-                  type="button"
-                  onClick={() => setCtaEnabled((v) => !v)}
-                  className={`relative w-9 h-5 rounded-full transition-colors ${ctaEnabled ? "bg-violet-500" : "bg-gray-300"}`}
-                >
-                  <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${ctaEnabled ? "translate-x-4" : "translate-x-0.5"}`} />
-                </button>
-              </div>
-              <pre className={`text-[11px] font-mono whitespace-pre-wrap leading-relaxed transition-opacity ${ctaEnabled ? "text-violet-800 opacity-100" : "text-muted-foreground opacity-40"}`}>{`─────────────\n📅 강릉 행사·맛집·핫플 더보기\n👉 playgangneung.com\n\n🔗 이 글 자세히 보기\nhttps://playgangneung.com/content/${eventId}`}</pre>
+            {/* CTA 고정 미리보기 */}
+            <div className="rounded-xl border border-violet-100 bg-violet-50/50 p-3 space-y-1.5">
+              <span className="text-[11px] font-bold text-violet-700">📢 공통 링크 문구 (항상 첨부)</span>
+              <pre className="text-[11px] font-mono whitespace-pre-wrap leading-relaxed text-violet-800">{FIXED_CTA}</pre>
               <p className="text-[10px] text-violet-400">복사 시 문구 아래에 자동 추가됩니다.</p>
             </div>
 

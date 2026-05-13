@@ -222,7 +222,7 @@ export default function Admin() {
       return r.json();
     },
     enabled: activeNav === "settings",
-    onSuccess: (d) => { setScheduleHour(d.crawlHour); setScheduleMinute(d.crawlMinute); },
+    onSuccess: (d: { crawlHour: number; crawlMinute: number }) => { setScheduleHour(d.crawlHour); setScheduleMinute(d.crawlMinute); },
   } as any);
 
   const [adminSortBy, setAdminSortBy] = useState<"date" | "latest">("latest");
@@ -1269,7 +1269,6 @@ export default function Admin() {
               category: fd.get("category") as string,
               startDate: fd.get("startDate") as string,
               endDate: fd.get("endDate") as string,
-              contact: fd.get("contact") as string,
             }});
           }}>
             <div className="space-y-2">

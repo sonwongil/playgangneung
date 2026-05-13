@@ -320,103 +320,6 @@ export default function AdminEventDetail() {
           </div>
         )}
 
-        {/* 미디어 첨부 */}
-        <div className="bg-white rounded-2xl border border-border p-5 space-y-4">
-          <p className="text-sm font-semibold text-foreground flex items-center gap-2">
-            <Image className="w-4 h-4 text-blue-500" />사진 / 동영상
-          </p>
-
-          <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">대표 이미지</Label>
-            {/* 탭 전환 */}
-            <div className="flex gap-1 p-1 bg-gray-100 rounded-lg w-fit">
-              <button
-                onClick={() => setImageTab("url")}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${imageTab === "url" ? "bg-white shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-              >
-                <Link className="w-3 h-3" />URL 입력
-              </button>
-              <button
-                onClick={() => setImageTab("upload")}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${imageTab === "upload" ? "bg-white shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-              >
-                <Upload className="w-3 h-3" />파일 올리기
-              </button>
-            </div>
-
-            {imageTab === "url" ? (
-              <Input
-                value={editThumbnail}
-                onChange={(e) => { setEditThumbnail(e.target.value); setIsDirty(true); }}
-                className="text-sm"
-                placeholder="https://example.com/image.jpg"
-              />
-            ) : (
-              <div
-                className="border-2 border-dashed border-border rounded-xl p-6 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50/50 transition-colors relative"
-                onClick={() => document.getElementById("img-file-input")?.click()}
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  const file = e.dataTransfer.files[0];
-                  if (file) handleImageUpload(file);
-                }}
-              >
-                <input
-                  id="img-file-input"
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) handleImageUpload(file);
-                    e.target.value = "";
-                  }}
-                />
-                {isUploading ? (
-                  <div className="flex flex-col items-center gap-2">
-                    <RefreshCw className="w-6 h-6 text-blue-500 animate-spin" />
-                    <p className="text-sm text-muted-foreground">업로드 중...</p>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center gap-2">
-                    <Upload className="w-6 h-6 text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground">클릭하거나 파일을 여기에 드래그</p>
-                    <p className="text-xs text-muted-foreground">JPG, PNG, WebP · 최대 20MB</p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {editThumbnail && (
-              <div className="rounded-xl overflow-hidden border bg-gray-50 max-h-48">
-                <img
-                  src={editThumbnail}
-                  alt="미리보기"
-                  className="w-full h-full object-contain max-h-48"
-                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                />
-              </div>
-            )}
-          </div>
-
-          <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
-              <Video className="w-3.5 h-3.5 text-purple-500" />동영상 URL
-            </Label>
-            <Input
-              value={editVideoUrl}
-              onChange={(e) => { setEditVideoUrl(e.target.value); setIsDirty(true); }}
-              className="text-sm"
-              placeholder="https://youtu.be/... 또는 MP4 직접 URL"
-            />
-            {editVideoUrl && (
-              <p className="text-xs text-muted-foreground">
-                유튜브·유튜브 쇼츠는 자동 임베드 / MP4·WebM은 플레이어 / 그 외는 링크로 표시됩니다.
-              </p>
-            )}
-          </div>
-        </div>
 
         {/* 내용 편집 */}
         <div className="bg-white rounded-2xl border border-border p-5 space-y-4">
@@ -566,22 +469,69 @@ export default function AdminEventDetail() {
 
           {/* STEP 2 — 이미지 */}
           <div className="space-y-2.5">
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">② 이미지</p>
+            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">② 사진</p>
+            {/* 탭 전환 */}
+            <div className="flex gap-1 p-1 bg-gray-100 rounded-lg w-fit">
+              <button
+                onClick={() => setImageTab("url")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${imageTab === "url" ? "bg-white shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                <Link className="w-3 h-3" />URL 입력
+              </button>
+              <button
+                onClick={() => setImageTab("upload")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${imageTab === "upload" ? "bg-white shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                <Upload className="w-3 h-3" />파일 올리기
+              </button>
+            </div>
+            {imageTab === "url" ? (
+              <Input
+                value={editThumbnail}
+                onChange={(e) => { setEditThumbnail(e.target.value); setIsDirty(true); }}
+                className="text-sm"
+                placeholder="https://example.com/image.jpg"
+              />
+            ) : (
+              <div
+                className="border-2 border-dashed border-border rounded-xl p-5 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50/50 transition-colors"
+                onClick={() => document.getElementById("img-file-input")?.click()}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => { e.preventDefault(); const file = e.dataTransfer.files[0]; if (file) handleImageUpload(file); }}
+              >
+                <input
+                  id="img-file-input" type="file" accept="image/*" className="hidden"
+                  onChange={(e) => { const file = e.target.files?.[0]; if (file) handleImageUpload(file); e.target.value = ""; }}
+                />
+                {isUploading ? (
+                  <div className="flex flex-col items-center gap-2">
+                    <RefreshCw className="w-6 h-6 text-blue-500 animate-spin" />
+                    <p className="text-sm text-muted-foreground">업로드 중...</p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center gap-2">
+                    <Upload className="w-6 h-6 text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">클릭하거나 파일을 여기에 드래그</p>
+                    <p className="text-xs text-muted-foreground">JPG, PNG, WebP · 최대 20MB</p>
+                  </div>
+                )}
+              </div>
+            )}
+            {editThumbnail && (
+              <div className="rounded-xl overflow-hidden border bg-gray-50 max-h-48">
+                <img src={editThumbnail} alt="미리보기" className="w-full h-full object-contain max-h-48"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+              </div>
+            )}
             <div className="flex flex-col gap-2">
-              {(editThumbnail || event?.thumbnail) && (
-                <a
-                  href={editThumbnail || event?.thumbnail || ""}
-                  download
-                  target="_blank"
-                  rel="noopener noreferrer"
+              {editThumbnail && (
+                <a href={editThumbnail} download target="_blank" rel="noopener noreferrer"
                   className="flex items-center gap-2 w-full h-9 px-3 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 transition-colors text-sm text-gray-700 font-medium"
                 >
-                  <Download className="w-3.5 h-3.5 text-gray-500 shrink-0" />
-                  대표 이미지 다운로드
+                  <Download className="w-3.5 h-3.5 text-gray-500 shrink-0" />대표 이미지 다운로드
                 </a>
               )}
-              <Button
-                size="sm" variant="outline"
+              <Button size="sm" variant="outline"
                 className="w-full h-9 text-sm gap-1.5 border-teal-300 text-teal-700 hover:bg-teal-50"
                 disabled={cardMutation.isPending}
                 onClick={() => cardMutation.mutate()}
@@ -592,9 +542,7 @@ export default function AdminEventDetail() {
               {cardUrl && (
                 <div className="rounded-xl overflow-hidden border border-teal-200 bg-black">
                   <img src={cardUrl} alt="카드이미지" className="w-full object-cover" />
-                  <a
-                    href={cardUrl}
-                    download={`card-${eventId}.png`}
+                  <a href={cardUrl} download={`card-${eventId}.png`}
                     className="flex items-center justify-center gap-2 w-full py-2.5 bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold transition-colors"
                   >
                     <Download className="w-3.5 h-3.5" />카드이미지 저장 (1080×1080 PNG)
@@ -605,22 +553,25 @@ export default function AdminEventDetail() {
           </div>
 
           {/* STEP 3 — 동영상 */}
-          {event?.videoUrl && (
-            <div className="space-y-2.5">
-              <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">③ 동영상</p>
+          <div className="space-y-2.5">
+            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">③ 동영상</p>
+            <Input
+              value={editVideoUrl}
+              onChange={(e) => { setEditVideoUrl(e.target.value); setIsDirty(true); }}
+              className="text-sm"
+              placeholder="https://youtu.be/... 또는 MP4 직접 URL"
+            />
+            {editVideoUrl && (
               <div className="flex gap-2 items-center rounded-xl bg-gray-50 border border-gray-200 px-3 py-2.5">
                 <Video className="w-3.5 h-3.5 text-purple-500 shrink-0" />
-                <span className="text-xs font-mono text-gray-600 flex-1 truncate">{event.videoUrl}</span>
-                <button
-                  className="shrink-0 text-xs font-bold text-purple-600 hover:text-purple-800"
-                  onClick={copyVideoUrl}
-                >
+                <span className="text-xs font-mono text-gray-600 flex-1 truncate">{editVideoUrl}</span>
+                <button className="shrink-0 text-xs font-bold text-purple-600 hover:text-purple-800" onClick={copyVideoUrl}>
                   URL 복사
                 </button>
               </div>
-              <p className="text-[11px] text-muted-foreground">* 동영상은 URL을 복사 후 직접 앱에서 파일 업로드 방식으로 게시하세요.</p>
-            </div>
-          )}
+            )}
+            <p className="text-[11px] text-muted-foreground">유튜브·쇼츠는 임베드 / MP4는 플레이어 / 동영상은 URL 복사 후 앱에서 직접 업로드하세요.</p>
+          </div>
 
           {/* 게시 가이드 */}
           <div className="space-y-2">

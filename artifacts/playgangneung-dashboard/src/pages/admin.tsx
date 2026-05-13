@@ -39,6 +39,7 @@ import {
   Smartphone,
   X,
   PlusCircle,
+  Check,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -330,6 +331,25 @@ export default function Admin() {
       qc.invalidateQueries({ queryKey: ["admin-events"] });
     },
     onError: () => toast({ title: "삭제 실패", variant: "destructive" }),
+  });
+
+  const bulkApproveMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const r = await fetch(`${BASE}/api/events/bulk/approve`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ ids }),
+      });
+      if (!r.ok) throw new Error("일괄 승인 실패");
+      return r.json();
+    },
+    onSuccess: (d) => {
+      toast({ title: `${d.approved}개 승인 완료` });
+      setSelectedIds(new Set());
+      qc.invalidateQueries({ queryKey: ["admin-events"] });
+    },
+    onError: () => toast({ title: "승인 실패", variant: "destructive" }),
   });
 
   const editEventMutation = useMutation({
@@ -648,8 +668,18 @@ export default function Admin() {
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-semibold text-blue-600">{selectedIds.size}개 선택됨</span>
                       <button
+                        className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-600 text-white hover:bg-green-700 transition-colors disabled:opacity-50"
+                        disabled={bulkApproveMutation.isPending || bulkDeleteMutation.isPending}
+                        onClick={() => {
+                          if (confirm(`선택한 ${selectedIds.size}개를 승인할까요?`))
+                            bulkApproveMutation.mutate([...selectedIds]);
+                        }}
+                      >
+                        <Check className="w-3 h-3" />선택 승인
+                      </button>
+                      <button
                         className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-red-500 text-white hover:bg-red-600 transition-colors disabled:opacity-50"
-                        disabled={bulkDeleteMutation.isPending}
+                        disabled={bulkDeleteMutation.isPending || bulkApproveMutation.isPending}
                         onClick={() => {
                           if (confirm(`선택한 ${selectedIds.size}개를 삭제할까요?`))
                             bulkDeleteMutation.mutate([...selectedIds]);

@@ -447,6 +447,26 @@ router.delete("/events", async (req, res) => {
   }
 });
 
+router.patch("/events/bulk/approve", async (req, res) => {
+  try {
+    const { ids } = req.body as { ids?: string[] };
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ success: false, error: "ids 배열이 필요합니다." });
+    }
+    const { db, eventsTable } = await import("@workspace/db");
+    const { inArray } = await import("drizzle-orm");
+    const result = await db
+      .update(eventsTable)
+      .set({ status: "approved" })
+      .where(inArray(eventsTable.id, ids));
+    req.log.info({ count: result.rowCount ?? 0 }, "일괄 승인 완료");
+    return res.json({ success: true, approved: result.rowCount ?? 0 });
+  } catch (err) {
+    req.log.error({ err }, "일괄 승인 실패");
+    return res.status(500).json({ success: false, error: "일괄 승인 실패" });
+  }
+});
+
 router.delete("/events/bulk", async (req, res) => {
   try {
     const { ids } = req.body as { ids?: string[] };

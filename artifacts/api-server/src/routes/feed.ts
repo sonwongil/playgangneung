@@ -2,14 +2,13 @@ import { Router } from "express";
 import fs from "fs/promises";
 import path from "path";
 import type { Ad } from "./ads.js";
-import type { CrawledEvent } from "../lib/storage.js";
+import { readEvents, type CrawledEvent } from "../lib/storage.js";
 import { detectCategory } from "../lib/dateParser.js";
 
 const router = Router();
 
 const DATA_DIR = path.resolve(process.cwd(), "data");
 const ADS_FILE = path.join(DATA_DIR, "ads.json");
-const EVENTS_FILE = path.join(DATA_DIR, "events.json");
 
 const PLAN_DAYS: Record<string, number> = { basic: 1, main: 3, premium: 5 };
 const PLAN_WEIGHT: Record<string, number> = { basic: 1, main: 3, premium: 5 };
@@ -70,10 +69,6 @@ async function readAds(): Promise<Ad[]> {
   catch { return []; }
 }
 
-async function readEvents(): Promise<CrawledEvent[]> {
-  try { return JSON.parse(await fs.readFile(EVENTS_FILE, "utf-8")) as CrawledEvent[]; }
-  catch { return []; }
-}
 
 function isAdActive(ad: Ad): boolean {
   const approvedAt = (ad as Ad & { approvedAt?: string }).approvedAt;

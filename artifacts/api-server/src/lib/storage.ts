@@ -1,5 +1,5 @@
 import { db, eventsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import type { ScheduleStatus } from "./dateParser.js";
 
 export type SourceType = "rss" | "html" | "manual";
@@ -90,23 +90,23 @@ export async function saveEvents(events: CrawledEvent[]): Promise<void> {
     .onConflictDoUpdate({
       target: eventsTable.id,
       set: {
-        title: eventsTable.title,
-        description: eventsTable.description,
-        date: eventsTable.date,
-        startDate: eventsTable.startDate,
-        endDate: eventsTable.endDate,
-        scheduleStatus: eventsTable.scheduleStatus,
-        location: eventsTable.location,
-        category: eventsTable.category,
-        thumbnail: eventsTable.thumbnail,
-        videoUrl: eventsTable.videoUrl,
-        link: eventsTable.link,
-        source: eventsTable.source,
-        contact: eventsTable.contact,
-        sourceType: eventsTable.sourceType,
-        status: eventsTable.status,
-        socialDraft: eventsTable.socialDraft,
-        crawledAt: eventsTable.crawledAt,
+        title: sql`excluded.title`,
+        description: sql`excluded.description`,
+        date: sql`excluded.date`,
+        startDate: sql`excluded."startDate"`,
+        endDate: sql`excluded."endDate"`,
+        scheduleStatus: sql`excluded."scheduleStatus"`,
+        location: sql`excluded.location`,
+        category: sql`excluded.category`,
+        thumbnail: sql`excluded.thumbnail`,
+        videoUrl: sql`excluded."videoUrl"`,
+        link: sql`excluded.link`,
+        source: sql`excluded.source`,
+        contact: sql`excluded.contact`,
+        sourceType: sql`excluded."sourceType"`,
+        status: sql`excluded.status`,
+        socialDraft: sql`excluded."socialDraft"`,
+        crawledAt: sql`excluded."crawledAt"`,
       },
     });
 }

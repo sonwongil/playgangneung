@@ -225,7 +225,7 @@ export default function Admin() {
     onSuccess: (d) => { setScheduleHour(d.crawlHour); setScheduleMinute(d.crawlMinute); },
   } as any);
 
-  const [adminSortBy, setAdminSortBy] = useState<"date" | "latest">("date");
+  const [adminSortBy, setAdminSortBy] = useState<"date" | "latest">("latest");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const SCHEDULE_ORDER: Record<string, number> = {

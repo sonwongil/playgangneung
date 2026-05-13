@@ -216,7 +216,6 @@ export async function appendEvents(
 ): Promise<{ added: number; updated: number; total: number }> {
   const existing = await readEvents();
   const idxById = new Map<string, number>(existing.map((e, i) => [e.id, i]));
-  const existingKeysList = existing.map(dupKeys);
   const toUpsert: CrawledEvent[] = [];
   let added = 0;
   let updated = 0;
@@ -224,32 +223,13 @@ export async function appendEvents(
   for (const newEvent of newEvents) {
     const isManual = newEvent.sourceType === "manual";
     if (!isManual && !isWithinCrawlWindow(newEvent)) continue;
-    const newKeys = dupKeys(newEvent);
 
     if (idxById.has(newEvent.id)) {
-      const idx = idxById.get(newEvent.id)!;
-      if (isManual || contentScore(newEvent) > contentScore(existing[idx])) {
-        const merged = mergeRicher(existing[idx], newEvent);
-        toUpsert.push(merged);
-        existingKeysList[idx] = dupKeys(merged);
-        updated++;
-      }
-      continue;
+      updated++;
+    } else {
+      added++;
     }
-
-    const dupIdx = existingKeysList.findIndex((exK) => keysOverlap(newKeys, exK));
-    if (dupIdx !== -1) {
-      if (isManual || contentScore(newEvent) > contentScore(existing[dupIdx])) {
-        const merged = mergeRicher(existing[dupIdx], newEvent);
-        toUpsert.push(merged);
-        existingKeysList[dupIdx] = dupKeys(merged);
-        updated++;
-      }
-      continue;
-    }
-
     toUpsert.push(newEvent);
-    added++;
   }
 
   if (toUpsert.length > 0) await saveEvents(toUpsert);

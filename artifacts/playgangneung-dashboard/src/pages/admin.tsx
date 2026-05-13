@@ -400,15 +400,19 @@ export default function Admin() {
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error ?? "추출 실패");
-      setManualForm((prev) => ({
-        ...prev,
-        title: d.title || prev.title,
-        description: d.description || prev.description,
-        link: d.link || prev.link,
-        startDate: d.startDate || prev.startDate,
-        endDate: d.endDate || prev.endDate,
-        location: d.location || prev.location,
-      }));
+      setManualForm((prev) => {
+        const cutoff = "2024-01-01";
+        const validDate = (v: string | undefined) => (v && v >= cutoff ? v : undefined);
+        return {
+          ...prev,
+          title: d.title || prev.title,
+          description: d.description || prev.description,
+          link: d.link || prev.link,
+          startDate: validDate(d.startDate) ?? prev.startDate,
+          endDate: validDate(d.endDate) ?? prev.endDate,
+          location: d.location || prev.location,
+        };
+      });
       if (d.thumbnail) setManualThumbnail(d.thumbnail);
       toast({ title: "자동 추출 완료", description: "내용을 확인하고 필요하면 수정하세요." });
     } catch (e: any) {

@@ -86,7 +86,6 @@ export default function AdminEventDetail() {
   const [editCaption, setEditCaption] = useState("");
   const [editHashtagsStr, setEditHashtagsStr] = useState("");
   const [isDraftDirty, setIsDraftDirty] = useState(false);
-  const [cardUrl, setCardUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [imageTab, setImageTab] = useState<"url" | "upload">("url");
   const [isUploading, setIsUploading] = useState(false);
@@ -213,19 +212,6 @@ export default function AdminEventDetail() {
     onError: (e: Error) => toast({ title: "저장 실패", description: e.message, variant: "destructive" }),
   });
 
-  const cardMutation = useMutation({
-    mutationFn: async () => {
-      const r = await fetch(`${BASE}/api/events/${eventId}/card`, { method: "POST", credentials: "include" });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.error ?? "카드 생성 실패");
-      return d as { cardUrl: string };
-    },
-    onSuccess: (d) => {
-      setCardUrl(`${BASE}${d.cardUrl}?t=${Date.now()}`);
-      toast({ title: "카드이미지 생성 완료", description: "아래에서 다운로드하세요." });
-    },
-    onError: (e: Error) => toast({ title: "카드 생성 실패", description: e.message, variant: "destructive" }),
-  });
 
   async function handleImageUpload(file: File) {
     setIsUploading(true);
@@ -608,33 +594,17 @@ export default function AdminEventDetail() {
                   onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
               </div>
             )}
-            <div className="flex flex-col gap-2">
-              {editThumbnail && (
-                <a href={editThumbnail} download target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-2 w-full h-9 px-3 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 transition-colors text-sm text-gray-700 font-medium"
-                >
-                  <Download className="w-3.5 h-3.5 text-gray-500 shrink-0" />대표 이미지 다운로드
-                </a>
-              )}
-              <Button size="sm" variant="outline"
-                className="w-full h-9 text-sm gap-1.5 border-teal-300 text-teal-700 hover:bg-teal-50"
-                disabled={cardMutation.isPending}
-                onClick={() => cardMutation.mutate()}
+            {editThumbnail && (
+              <a
+                href={editThumbnail}
+                download
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-1.5 w-full h-9 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold transition-colors"
               >
-                <Image className={`w-3.5 h-3.5 ${cardMutation.isPending ? "animate-spin" : ""}`} />
-                {cardMutation.isPending ? "카드이미지 생성 중..." : "1080×1080 카드이미지 생성"}
-              </Button>
-              {cardUrl && (
-                <div className="rounded-xl overflow-hidden border border-teal-200 bg-black">
-                  <img src={cardUrl} alt="카드이미지" className="w-full object-cover" />
-                  <a href={cardUrl} download={`card-${eventId}.png`}
-                    className="flex items-center justify-center gap-2 w-full py-2.5 bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold transition-colors"
-                  >
-                    <Download className="w-3.5 h-3.5" />카드이미지 저장 (1080×1080 PNG)
-                  </a>
-                </div>
-              )}
-            </div>
+                <Download className="w-3.5 h-3.5" />대표 이미지 다운로드
+              </a>
+            )}
           </div>
 
           {/* STEP 3 — 동영상 */}
@@ -695,10 +665,10 @@ export default function AdminEventDetail() {
 
             {/* 인스타그램 — 이미지 업로드 방식 */}
             <div className="rounded-xl bg-pink-50 border border-pink-100 px-4 py-3 space-y-1.5">
-              <p className="text-[11px] font-bold text-pink-700">📸 인스타그램 — 카드이미지 올리기</p>
-              <p className="text-[11px] text-pink-600">1. 위 카드이미지 저장 → 갤러리에 보관</p>
+              <p className="text-[11px] font-bold text-pink-700">📸 인스타그램 — 대표 이미지로 올리기</p>
+              <p className="text-[11px] text-pink-600">1. 위 "대표 이미지 다운로드" → 갤러리에 보관</p>
               <p className="text-[11px] text-pink-600">2. "문구 전체 복사" 클릭 (링크 포함)</p>
-              <p className="text-[11px] text-pink-600">3. 인스타 앱 → 새 게시물 → 카드이미지 선택</p>
+              <p className="text-[11px] text-pink-600">3. 인스타 앱 → 새 게시물 → 대표 이미지 선택</p>
               <p className="text-[11px] text-pink-600">4. 캡션란에 붙여넣기(길게 누르기) → 게시</p>
               <div className="flex gap-2 pt-0.5">
                 <a

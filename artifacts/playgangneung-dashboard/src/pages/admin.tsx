@@ -135,9 +135,10 @@ export default function Admin() {
   const [manualThumbnail, setManualThumbnail] = useState("");
   const [urlInput, setUrlInput] = useState("");
   const [isExtracting, setIsExtracting] = useState(false);
+  const todayStr = () => new Date().toISOString().slice(0, 10);
   const [manualForm, setManualForm] = useState({
     title: "", description: "", link: "", source: "", contact: "",
-    category: "행사", startDate: "", endDate: "", location: "", videoUrl: "",
+    category: "행사", startDate: todayStr(), endDate: todayStr(), location: "", videoUrl: "",
   });
   const [pwForm, setPwForm] = useState({ current: "", next: "", confirm: "" });
   const [newSourceName, setNewSourceName] = useState("");
@@ -384,7 +385,7 @@ export default function Admin() {
     setManualThumbnail("");
     setUrlInput("");
     setIsExtracting(false);
-    setManualForm({ title: "", description: "", link: "", source: "", contact: "", category: "행사", startDate: "", endDate: "", location: "", videoUrl: "" });
+    setManualForm({ title: "", description: "", link: "", source: "", contact: "", category: "행사", startDate: todayStr(), endDate: todayStr(), location: "", videoUrl: "" });
   }
 
   async function handleExtractUrl() {
@@ -1414,7 +1415,7 @@ export default function Admin() {
           <div className="space-y-1">
             <Label>내용 설명</Label>
             <Textarea
-              rows={3}
+              rows={6}
               value={manualForm.description}
               onChange={(e) => setManualForm((p) => ({ ...p, description: e.target.value }))}
               placeholder="행사·장소·정보 등 간단히 설명해 주세요."

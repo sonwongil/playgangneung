@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRoute, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -90,6 +90,28 @@ export default function AdminEventDetail() {
   const [copied, setCopied] = useState(false);
   const [imageTab, setImageTab] = useState<"url" | "upload">("url");
   const [isUploading, setIsUploading] = useState(false);
+  const [showEmoji, setShowEmoji] = useState(false);
+  const [emojiTab, setEmojiTab] = useState(0);
+  const captionRef = useRef<HTMLTextAreaElement>(null);
+
+  const EMOJI_GROUPS = [
+    { label: "❤️ 감정", emojis: ["😊","🥰","😍","🤩","😆","😂","🙏","👏","🙌","❤️","💕","💯","🔥","✨","💫","🌟","😎","🥳","😋","🤗"] },
+    { label: "📍 장소", emojis: ["📍","🗺️","🏖️","🏔️","🌊","🌸","🌿","🌲","🍃","🌺","🌻","🌈","⛰️","🏞️","🏙️","🌃","🚗","🚶","🛤️","🌅"] },
+    { label: "🍜 음식", emojis: ["🍜","🍣","🥗","☕","🍰","🍺","🍷","🍕","🥘","🥩","🍱","🧋","🍦","🥪","🍤","🍛","🥐","🧁","🍻","🥂"] },
+    { label: "🎉 이벤트", emojis: ["🎉","🎊","🎁","📢","📣","🎵","🎶","🎤","🎭","🎪","🏆","🥇","🎯","🎈","🎠","🎡","🎢","🎆","🎇","🪅"] },
+    { label: "📸 SNS", emojis: ["📸","📷","🤳","💻","📱","🔗","✅","⭐","💡","📌","🔔","👀","💬","📝","🗓️","⏰","📊","🆕","🔖","💥"] },
+  ];
+
+  const insertAtCursor = (text: string) => {
+    const el = captionRef.current;
+    if (!el) { setEditCaption((p) => p + text); setIsDraftDirty(true); return; }
+    const start = el.selectionStart ?? editCaption.length;
+    const end = el.selectionEnd ?? editCaption.length;
+    const next = editCaption.slice(0, start) + text + editCaption.slice(end);
+    setEditCaption(next);
+    setIsDraftDirty(true);
+    requestAnimationFrame(() => { el.selectionStart = el.selectionEnd = start + text.length; el.focus(); });
+  };
 
   const { data, isLoading } = useQuery<{ events: Event[] }>({
     queryKey: ["admin-events"],
@@ -115,6 +137,8 @@ export default function AdminEventDetail() {
       if (event.socialDraft) {
         setEditCaption(event.socialDraft.caption);
         setEditHashtagsStr(event.socialDraft.hashtags.join(" "));
+      } else if (event.description) {
+        setEditCaption(event.description);
       }
       setInited(true);
     }
@@ -420,51 +444,112 @@ export default function AdminEventDetail() {
                 onClick={() => draftMutation.mutate()}
               >
                 <RefreshCw className={`w-3 h-3 ${draftMutation.isPending ? "animate-spin" : ""}`} />
-                {event?.socialDraft ? "재생성" : "자동 생성"}
+                {event?.socialDraft ? "AI 재생성" : "AI 자동 생성"}
               </Button>
             </div>
-            {event?.socialDraft || editCaption ? (
-              <>
-                <Textarea
-                  rows={5}
-                  value={editCaption}
-                  className="text-sm resize-none border-violet-200 focus:border-violet-400"
-                  placeholder="SNS 문구를 입력하세요."
-                  onChange={(e) => { setEditCaption(e.target.value); setIsDraftDirty(true); }}
-                />
-                <Input
-                  value={editHashtagsStr}
-                  className="text-sm border-violet-200"
-                  placeholder="#강릉 #강릉여행 #PLAY강릉 ..."
-                  onChange={(e) => { setEditHashtagsStr(e.target.value); setIsDraftDirty(true); }}
-                />
-                <div className="flex gap-2">
-                  {isDraftDirty && (
-                    <Button
-                      size="sm" variant="outline"
-                      className="h-8 text-xs gap-1 border-violet-300 text-violet-700"
-                      disabled={saveDraftMutation.isPending}
-                      onClick={() => saveDraftMutation.mutate()}
-                    >
-                      {saveDraftMutation.isPending ? "저장 중..." : "문구 저장"}
-                    </Button>
-                  )}
-                  <Button
-                    size="sm"
-                    className={`h-8 text-xs gap-1.5 flex-1 font-bold ${copied ? "bg-green-600 hover:bg-green-700" : "bg-violet-600 hover:bg-violet-700"}`}
-                    onClick={copyAll}
-                  >
-                    {copied ? <CheckCircle className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                    {copied ? "복사됨! 인스타·페북에 붙여넣기" : "문구 전체 복사"}
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <div className="rounded-xl bg-violet-50 border border-violet-100 p-4 text-center">
-                <MessageSquare className="w-6 h-6 text-violet-300 mx-auto mb-1.5" />
-                <p className="text-xs text-muted-foreground">자동 생성 버튼을 눌러 SNS 문구를 만들어보세요.</p>
+
+            {/* 에디터 툴바 */}
+            <div className="rounded-t-xl border border-b-0 border-violet-200 bg-violet-50/60 px-2.5 py-2 flex flex-wrap items-center gap-1.5">
+              {/* 이모지 피커 토글 */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowEmoji((v) => !v)}
+                  className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-colors ${showEmoji ? "bg-violet-200 text-violet-800" : "bg-white border border-violet-200 text-violet-600 hover:bg-violet-100"}`}
+                >
+                  😊 이모지
+                </button>
+                {showEmoji && (
+                  <div className="absolute left-0 top-8 z-50 bg-white border border-border rounded-2xl shadow-xl w-72 p-3 space-y-2">
+                    {/* 탭 */}
+                    <div className="flex gap-1 overflow-x-auto pb-1">
+                      {EMOJI_GROUPS.map((g, i) => (
+                        <button key={i} onClick={() => setEmojiTab(i)}
+                          className={`shrink-0 px-2 py-1 rounded-lg text-xs font-medium transition-colors ${emojiTab === i ? "bg-violet-100 text-violet-700" : "text-muted-foreground hover:bg-gray-100"}`}
+                        >{g.label}</button>
+                      ))}
+                    </div>
+                    {/* 이모지 그리드 */}
+                    <div className="grid grid-cols-10 gap-0.5">
+                      {EMOJI_GROUPS[emojiTab].emojis.map((em) => (
+                        <button key={em} onClick={() => { insertAtCursor(em); setShowEmoji(false); }}
+                          className="text-lg w-7 h-7 flex items-center justify-center rounded hover:bg-violet-50 transition-colors"
+                        >{em}</button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
+
+              {/* 구분선 삽입 */}
+              <button type="button" onClick={() => insertAtCursor("\n\n")}
+                className="px-2 py-1 rounded-md text-xs font-medium bg-white border border-violet-200 text-violet-600 hover:bg-violet-100 transition-colors"
+                title="줄바꿈 삽입"
+              >↵ 줄바꿈</button>
+
+              <button type="button" onClick={() => insertAtCursor("\n・")}
+                className="px-2 py-1 rounded-md text-xs font-medium bg-white border border-violet-200 text-violet-600 hover:bg-violet-100 transition-colors"
+                title="목록 아이템 삽입"
+              >・ 목록</button>
+
+              <button type="button" onClick={() => insertAtCursor("\n─────────────")}
+                className="px-2 py-1 rounded-md text-xs font-medium bg-white border border-violet-200 text-violet-600 hover:bg-violet-100 transition-colors"
+                title="구분선 삽입"
+              >─ 구분선</button>
+
+              <button type="button" onClick={() => insertAtCursor("📍 강릉 ")}
+                className="px-2 py-1 rounded-md text-xs font-medium bg-white border border-violet-200 text-violet-600 hover:bg-violet-100 transition-colors"
+              >📍 강릉</button>
+
+              <button type="button" onClick={() => insertAtCursor("🔗 PLAY강릉 링크 → ")}
+                className="px-2 py-1 rounded-md text-xs font-medium bg-white border border-violet-200 text-violet-600 hover:bg-violet-100 transition-colors"
+              >🔗 링크문구</button>
+
+              {/* 글자수 카운터 */}
+              <span className={`ml-auto text-[11px] font-mono font-semibold tabular-nums ${editCaption.length > 2000 ? "text-red-500" : editCaption.length > 1500 ? "text-orange-500" : "text-muted-foreground"}`}>
+                {editCaption.length} / 2200
+              </span>
+            </div>
+
+            {/* 본문 textarea */}
+            <Textarea
+              ref={captionRef}
+              rows={7}
+              value={editCaption}
+              className="text-sm resize-y border-violet-200 focus:border-violet-400 rounded-t-none rounded-b-xl -mt-px"
+              placeholder="SNS 문구를 입력하세요. 수동 등록 시 상세 내용이 자동으로 채워집니다."
+              onChange={(e) => { setEditCaption(e.target.value); setIsDraftDirty(true); }}
+              onClick={() => setShowEmoji(false)}
+            />
+
+            {/* 해시태그 */}
+            <Input
+              value={editHashtagsStr}
+              className="text-sm border-violet-200"
+              placeholder="#강릉 #강릉여행 #PLAY강릉 #강릉맛집 ..."
+              onChange={(e) => { setEditHashtagsStr(e.target.value); setIsDraftDirty(true); }}
+            />
+
+            <div className="flex gap-2">
+              {isDraftDirty && (
+                <Button
+                  size="sm" variant="outline"
+                  className="h-8 text-xs gap-1 border-violet-300 text-violet-700"
+                  disabled={saveDraftMutation.isPending}
+                  onClick={() => saveDraftMutation.mutate()}
+                >
+                  {saveDraftMutation.isPending ? "저장 중..." : "문구 저장"}
+                </Button>
+              )}
+              <Button
+                size="sm"
+                className={`h-8 text-xs gap-1.5 flex-1 font-bold ${copied ? "bg-green-600 hover:bg-green-700" : "bg-violet-600 hover:bg-violet-700"}`}
+                onClick={copyAll}
+              >
+                {copied ? <CheckCircle className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                {copied ? "복사됨! 인스타·페북에 붙여넣기" : "문구 전체 복사"}
+              </Button>
+            </div>
           </div>
 
           {/* STEP 2 — 이미지 */}

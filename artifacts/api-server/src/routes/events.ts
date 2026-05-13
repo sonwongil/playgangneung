@@ -447,6 +447,22 @@ router.delete("/events", async (req, res) => {
   }
 });
 
+router.delete("/events/bulk", async (req, res) => {
+  try {
+    const { ids } = req.body as { ids?: string[] };
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ success: false, error: "ids 배열이 필요합니다." });
+    }
+    const { db, eventsTable } = await import("@workspace/db");
+    const { inArray } = await import("drizzle-orm");
+    const result = await db.delete(eventsTable).where(inArray(eventsTable.id, ids));
+    return res.json({ success: true, removed: result.rowCount ?? 0 });
+  } catch (err) {
+    req.log.error({ err }, "일괄 삭제 실패");
+    return res.status(500).json({ success: false, error: "일괄 삭제 실패" });
+  }
+});
+
 router.delete("/events/:id", async (req, res) => {
   try {
     const { id } = req.params;

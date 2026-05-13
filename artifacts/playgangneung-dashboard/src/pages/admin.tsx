@@ -224,6 +224,7 @@ export default function Admin() {
   } as any);
 
   const [adminSortBy, setAdminSortBy] = useState<"date" | "latest">("date");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const SCHEDULE_ORDER: Record<string, number> = {
     today: 0, ongoing: 1, tomorrow: 2, upcoming: 3, dateUnknown: 4, ended: 5,
@@ -309,6 +310,25 @@ export default function Admin() {
       return r.json();
     },
     onSuccess: () => { toast({ title: "삭제 완료" }); qc.invalidateQueries({ queryKey: ["admin-events"] }); },
+    onError: () => toast({ title: "삭제 실패", variant: "destructive" }),
+  });
+
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const r = await fetch(`${BASE}/api/events/bulk`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ ids }),
+      });
+      if (!r.ok) throw new Error("일괄 삭제 실패");
+      return r.json();
+    },
+    onSuccess: (d) => {
+      toast({ title: `${d.removed}개 삭제 완료` });
+      setSelectedIds(new Set());
+      qc.invalidateQueries({ queryKey: ["admin-events"] });
+    },
     onError: () => toast({ title: "삭제 실패", variant: "destructive" }),
   });
 
@@ -613,9 +633,37 @@ export default function Admin() {
           {activeNav === "dashboard" && (
             <div className="space-y-2">
               <div className="flex items-center justify-between mb-3">
-                <p className="text-xs text-muted-foreground">
-                  수집된 콘텐츠 <span className="font-semibold text-foreground">{events.length}건</span> — 항목을 클릭하면 상세 내용을 확인합니다.
-                </p>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4 rounded accent-blue-600 cursor-pointer"
+                    checked={events.length > 0 && selectedIds.size === events.length}
+                    ref={(el) => { if (el) el.indeterminate = selectedIds.size > 0 && selectedIds.size < events.length; }}
+                    onChange={(e) => {
+                      if (e.target.checked) setSelectedIds(new Set(events.map((ev) => ev.id)));
+                      else setSelectedIds(new Set());
+                    }}
+                  />
+                  {selectedIds.size > 0 ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-blue-600">{selectedIds.size}개 선택됨</span>
+                      <button
+                        className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-red-500 text-white hover:bg-red-600 transition-colors disabled:opacity-50"
+                        disabled={bulkDeleteMutation.isPending}
+                        onClick={() => {
+                          if (confirm(`선택한 ${selectedIds.size}개를 삭제할까요?`))
+                            bulkDeleteMutation.mutate([...selectedIds]);
+                        }}
+                      >
+                        <Trash2 className="w-3 h-3" />선택 삭제
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      수집된 콘텐츠 <span className="font-semibold text-foreground">{events.length}건</span>
+                    </p>
+                  )}
+                </div>
                 <div className="flex items-center gap-1">
                   <ArrowUpDown className="w-3.5 h-3.5 text-muted-foreground mr-0.5" />
                   <button
@@ -639,10 +687,26 @@ export default function Admin() {
                 events.map((ev) => {
                   const sc = STATUS_CONFIG[ev.status];
                   return (
-                    <div key={ev.id} className="flex items-center gap-2 rounded-xl border border-border bg-white hover:border-blue-300 hover:shadow-sm transition-all group">
+                    <div key={ev.id} className={`flex items-center gap-2 rounded-xl border bg-white hover:border-blue-300 hover:shadow-sm transition-all group ${selectedIds.has(ev.id) ? "border-blue-400 bg-blue-50/40" : "border-border"}`}>
+                      {/* 체크박스 */}
+                      <div className="pl-3 shrink-0" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          className="w-4 h-4 rounded accent-blue-600 cursor-pointer"
+                          checked={selectedIds.has(ev.id)}
+                          onChange={(e) => {
+                            setSelectedIds((prev) => {
+                              const next = new Set(prev);
+                              if (e.target.checked) next.add(ev.id);
+                              else next.delete(ev.id);
+                              return next;
+                            });
+                          }}
+                        />
+                      </div>
                       {/* 클릭 영역 → 상세 이동 */}
                       <div
-                        className="flex items-center gap-3 px-4 py-3 flex-1 min-w-0 cursor-pointer"
+                        className="flex items-center gap-3 px-2 py-3 flex-1 min-w-0 cursor-pointer"
                         onClick={() => navigate(`/admin/events/${ev.id}`)}
                       >
                         {/* Thumbnail */}

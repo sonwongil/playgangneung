@@ -91,7 +91,13 @@ export default function AdminEventDetail() {
   const [isUploading, setIsUploading] = useState(false);
   const [showEmoji, setShowEmoji] = useState(false);
   const [emojiTab, setEmojiTab] = useState(0);
+  const [ctaEnabled, setCtaEnabled] = useState(true);
   const captionRef = useRef<HTMLTextAreaElement>(null);
+
+  const SITE_ROOT = "playgangneung.com";
+  function buildCta(contentUrl: string) {
+    return `─────────────\n📅 강릉 행사·맛집·핫플 더보기\n👉 ${SITE_ROOT}\n\n🔗 이 글 자세히 보기\n${contentUrl}`;
+  }
 
   const EMOJI_GROUPS = [
     { label: "❤️ 감정", emojis: ["😊","🥰","😍","🤩","😆","😂","🙏","👏","🙌","❤️","💕","💯","🔥","✨","💫","🌟","😎","🥳","😋","🤗"] },
@@ -239,7 +245,9 @@ export default function AdminEventDetail() {
 
   function copyAll() {
     const hashtags = editHashtagsStr.split(/[\s,]+/).map((h) => h.startsWith("#") ? h : `#${h}`).filter(Boolean);
-    const text = `${editCaption}\n\n${hashtags.join(" ")}`;
+    const contentUrl = `https://${SITE_ROOT}/content/${eventId}`;
+    const cta = ctaEnabled ? `\n\n${buildCta(contentUrl)}` : "";
+    const text = `${editCaption}\n\n${hashtags.join(" ")}${cta}`;
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true);
       toast({ title: "캡션 복사 완료", description: "인스타·페북 게시창에 붙여넣으세요." });
@@ -515,6 +523,22 @@ export default function AdminEventDetail() {
               placeholder="#강릉 #강릉여행 #PLAY강릉 #강릉맛집 ..."
               onChange={(e) => { setEditHashtagsStr(e.target.value); setIsDraftDirty(true); }}
             />
+
+            {/* CTA 미리보기 + 토글 */}
+            <div className="rounded-xl border border-violet-100 bg-violet-50/50 p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-violet-700">📢 공통 홍보 문구 자동 첨부</span>
+                <button
+                  type="button"
+                  onClick={() => setCtaEnabled((v) => !v)}
+                  className={`relative w-9 h-5 rounded-full transition-colors ${ctaEnabled ? "bg-violet-500" : "bg-gray-300"}`}
+                >
+                  <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${ctaEnabled ? "translate-x-4" : "translate-x-0.5"}`} />
+                </button>
+              </div>
+              <pre className={`text-[11px] font-mono whitespace-pre-wrap leading-relaxed transition-opacity ${ctaEnabled ? "text-violet-800 opacity-100" : "text-muted-foreground opacity-40"}`}>{`─────────────\n📅 강릉 행사·맛집·핫플 더보기\n👉 playgangneung.com\n\n🔗 이 글 자세히 보기\nhttps://playgangneung.com/content/${eventId}`}</pre>
+              <p className="text-[10px] text-violet-400">복사 시 문구 아래에 자동 추가됩니다.</p>
+            </div>
 
             <div className="flex gap-2">
               {isDraftDirty && (

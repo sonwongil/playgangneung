@@ -252,7 +252,8 @@ export default function Home() {
       if (!res.ok) throw new Error("피드 로드 실패");
       return res.json();
     },
-    staleTime: 30_000,
+    staleTime: 0,
+    refetchInterval: 30_000,
   });
 
   const allItems: FeedItem[] = data?.feed?.length ? data.feed : FALLBACK_FEED;

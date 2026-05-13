@@ -153,15 +153,20 @@ router.post("/events/extract-url", async (req, res) => {
       $(`meta[property="og:${prop}"]`).attr("content")?.trim() ||
       $(`meta[name="og:${prop}"]`).attr("content")?.trim() || "";
 
-    const title =
+    const decodeEntities = (s: string) =>
+      $("<span>").html(s).text();
+
+    const title = decodeEntities(
       og("title") ||
       $("title").text().trim() ||
-      $("h1").first().text().trim();
+      $("h1").first().text().trim()
+    );
 
-    const description =
+    const description = decodeEntities(
       og("description") ||
       $('meta[name="description"]').attr("content")?.trim() ||
-      $("p").first().text().trim().slice(0, 300);
+      $("p").first().text().trim().slice(0, 300)
+    );
 
     const thumbnail = og("image") || "";
 

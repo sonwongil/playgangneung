@@ -120,9 +120,19 @@ function normalizeTitle(s: string): string {
     .slice(0, 60);
 }
 
+function normalizeLink(url: string): string {
+  try {
+    const u = new URL(url);
+    return `${u.hostname}${u.pathname}`.toLowerCase().replace(/\/+$/, "");
+  } catch {
+    return url.toLowerCase().replace(/\/+$/, "");
+  }
+}
+
 function dupKeys(e: CrawledEvent): string[] {
   const keys = new Set<string>();
   keys.add(normalizeTitle(e.title));
+  if (e.link) keys.add(`link:${normalizeLink(e.link)}`);
   const bracketRe = /[＜＜《「『【<(（\[](.*?)[＞＞》」』】>)）\]]/g;
   let m: RegExpExecArray | null;
   while ((m = bracketRe.exec(e.title)) !== null) {

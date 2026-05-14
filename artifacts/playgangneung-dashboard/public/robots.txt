@@ -1,7 +1,4 @@
 User-agent: *
 Allow: /
-Disallow: /admin
-Disallow: /login
-Disallow: /api/
 
 Sitemap: https://playgangneung.com/sitemap.xml

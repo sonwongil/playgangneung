@@ -160,8 +160,13 @@ function renderVideoSection(videoUrl: string): string {
 
 function renderHtml(item: ContentItem, contentUrl: string, ogImageOverride?: string | null): string {
   const title = escHtml(item.title);
-  const desc = escHtml(item.description || "강릉의 특색 있는 행사와 명소를 소개합니다.");
-  const descShort = desc.length > 120 ? desc.slice(0, 117) + "..." : desc;
+  const rawDesc = (item.description || "강릉의 특색 있는 행사와 명소를 소개합니다.")
+    .replace(/[\r\n\t]+/g, " ")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+  const descShortRaw = rawDesc.length > 155 ? rawDesc.slice(0, 152) + "..." : rawDesc;
+  const desc = escHtml(rawDesc);
+  const descShort = escHtml(descShortRaw);
   const dateStr = formatDate(item.date);
   const thumbnailHero = proxyUrl(item.thumbnail);
   // OG 이미지 우선순위: 카드이미지(생성된 경우) > 실제 썸네일 > 카테고리 기본 이미지
@@ -194,6 +199,7 @@ function renderHtml(item: ContentItem, contentUrl: string, ogImageOverride?: str
 <meta property="og:title" content="${title}">
 <meta property="og:description" content="${descShort}">
 <meta property="og:image" content="${escHtml(thumbnailOg)}">
+<meta property="og:image:alt" content="${title}">
 <meta property="og:image:width" content="${ogImageOverride ? "1080" : "1200"}">
 <meta property="og:image:height" content="${ogImageOverride ? "1080" : "630"}">
 <meta property="og:url" content="${escHtml(contentUrl)}">
@@ -201,6 +207,7 @@ function renderHtml(item: ContentItem, contentUrl: string, ogImageOverride?: str
 <meta name="twitter:title" content="${title}">
 <meta name="twitter:description" content="${descShort}">
 <meta name="twitter:image" content="${escHtml(thumbnailOg)}">
+<meta name="twitter:image:alt" content="${title}">
 <meta name="theme-color" content="#1d4ed8">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="${escHtml(contentUrl)}">

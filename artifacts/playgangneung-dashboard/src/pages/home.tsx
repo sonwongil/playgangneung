@@ -420,7 +420,7 @@ export default function Home() {
       {/* Hero */}
       <section className="relative bg-gradient-to-br from-blue-700 via-blue-600 to-blue-500 text-white overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(255,255,255,0.1),_transparent_60%)]" />
-        <div className="relative max-w-2xl mx-auto px-4 py-6 text-center">
+        <div className="relative max-w-2xl mx-auto px-4 pt-8 pb-3 text-center">
           <p className="text-blue-200 text-xs font-semibold tracking-widest uppercase mb-2">강릉의 모든 소식</p>
           <h1 className="text-2xl md:text-3xl font-bold mb-4 leading-tight">
             강릉에서 지금 뭐하지?

@@ -955,6 +955,16 @@ export default function Admin() {
                                 </Button>
                               </a>
                               <a
+                                href="https://business.facebook.com/latest/composer?asset_id=1135888279600983&business_id=1004678568916594&ir_qe_exposed=1&nav_ref=internal_nav&ref=biz_web_content_manager_calendar_view&context_ref=CONTENT_CALENDAR"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={() => navigator.clipboard.writeText(fullText)}
+                              >
+                                <Button size="sm" className="h-8 px-3 text-xs gap-1.5 text-white bg-[#3b5bdb] hover:bg-[#2f4ac4]">
+                                  🏢 Meta Suite
+                                </Button>
+                              </a>
+                              <a
                                 href="https://www.youtube.com/@playgangneung"
                                 target="_blank"
                                 rel="noopener noreferrer"

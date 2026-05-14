@@ -407,13 +407,37 @@ export default function Home() {
       </main>
 
       {/* Footer */}
-      <footer className="bg-gray-900 text-gray-400 py-4">
-        <div className="max-w-6xl mx-auto px-4 text-center text-xs">
-          <img src={`${BASE}/logo_transparent.png`} alt="PLAY강릉" className="h-10 object-contain mx-auto mb-1.5" />
-          <p>© 2026 PLAY강릉.</p>
-          <p className="mt-0.5 text-gray-500">
-            강원특별자치도 강릉시
-            <a href={`${BASE}/admin`} className="ml-2 text-gray-800 hover:text-gray-700 select-none" tabIndex={-1} aria-hidden="true">·</a>
+      <footer className="bg-gray-900 text-gray-400 py-8">
+        <div className="max-w-6xl mx-auto px-4 text-center">
+          <img src={`${BASE}/logo_transparent.png`} alt="PLAY강릉" className="h-10 object-contain mx-auto mb-3" />
+
+          <div className="text-[11px] leading-relaxed space-y-0.5 text-gray-500">
+            <p>
+              <span className="text-gray-400 font-medium">상호</span> 플레이강릉
+              <span className="mx-2 text-gray-700">|</span>
+              <span className="text-gray-400 font-medium">대표자</span> 손원길
+              <span className="mx-2 text-gray-700">|</span>
+              <span className="text-gray-400 font-medium">정보책임자</span> 손원길
+            </p>
+            <p>
+              <span className="text-gray-400 font-medium">사업자등록번호</span> 292-07-03357
+              <span className="mx-2 text-gray-700">|</span>
+              <span className="text-gray-400 font-medium">개업일</span> 2026. 05. 11
+            </p>
+            <p>
+              <span className="text-gray-400 font-medium">주소</span>{" "}
+              강원특별자치도 강릉시 사천면 진리해변길 37, 103동 1101호
+            </p>
+            <p>
+              <span className="text-gray-400 font-medium">업태</span> 정보통신업
+              <span className="mx-2 text-gray-700">|</span>
+              <span className="text-gray-400 font-medium">종목</span> 뉴스 제공업 · 영상물 및 데이터베이스 정보 제공업 · 행사 대행업
+            </p>
+          </div>
+
+          <p className="mt-4 text-[11px] text-gray-600">
+            © 2026 PLAY강릉. All rights reserved.
+            <a href={`${BASE}/admin`} className="ml-2 text-gray-900 select-none" tabIndex={-1} aria-hidden="true">·</a>
           </p>
         </div>
       </footer>

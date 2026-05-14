@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -301,6 +301,17 @@ export default function Home() {
   const [showAll, setShowAll] = useState(false);
   const [sortBy, setSortBy] = useState<SortBy>("date");
   const inputRef = useRef<HTMLInputElement>(null);
+  const [installPrompt, setInstallPrompt] = useState<Event & { prompt: () => Promise<void> } | null>(null);
+  const [installDismissed, setInstallDismissed] = useState(false);
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      e.preventDefault();
+      setInstallPrompt(e as Event & { prompt: () => Promise<void> });
+    };
+    window.addEventListener("beforeinstallprompt", handler);
+    return () => window.removeEventListener("beforeinstallprompt", handler);
+  }, []);
 
   const { data } = useQuery<{ feed: FeedItem[]; total: number }>({
     queryKey: ["public-feed"],
@@ -365,6 +376,32 @@ export default function Home() {
           </Button>
         </div>
       </header>
+
+      {/* 홈화면 추가 배너 */}
+      {installPrompt && !installDismissed && (
+        <div className="bg-blue-600 text-white px-4 py-2.5 flex items-center gap-3">
+          <img src={`${BASE}/logo.png`} alt="" className="w-8 h-8 rounded-lg shrink-0 object-contain bg-white" />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-bold leading-tight">PLAY강릉 앱으로 설치하기</p>
+            <p className="text-[11px] text-blue-200 leading-tight">홈화면에 추가하면 앱처럼 바로 실행됩니다</p>
+          </div>
+          <button
+            onClick={async () => {
+              await installPrompt.prompt();
+              setInstallPrompt(null);
+            }}
+            className="shrink-0 bg-white text-blue-600 text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-blue-50 transition-colors"
+          >
+            추가
+          </button>
+          <button
+            onClick={() => setInstallDismissed(true)}
+            className="shrink-0 text-blue-200 hover:text-white text-lg leading-none px-1"
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       {/* Hero */}
       <section className="relative bg-gradient-to-br from-blue-700 via-blue-600 to-blue-500 text-white overflow-hidden">

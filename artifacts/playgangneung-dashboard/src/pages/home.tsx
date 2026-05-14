@@ -421,17 +421,10 @@ export default function Home() {
             </p>
             <p>
               <span className="text-gray-400 font-medium">사업자등록번호</span> 292-07-03357
-              <span className="mx-2 text-gray-700">|</span>
-              <span className="text-gray-400 font-medium">개업일</span> 2026. 05. 11
             </p>
             <p>
               <span className="text-gray-400 font-medium">주소</span>{" "}
-              강원특별자치도 강릉시 사천면 진리해변길 37, 103동 1101호
-            </p>
-            <p>
-              <span className="text-gray-400 font-medium">업태</span> 정보통신업
-              <span className="mx-2 text-gray-700">|</span>
-              <span className="text-gray-400 font-medium">종목</span> 뉴스 제공업 · 영상물 및 데이터베이스 정보 제공업 · 행사 대행업
+              강원특별자치도 강릉시 사천면 진리해변길 37 103-1101
             </p>
           </div>
 

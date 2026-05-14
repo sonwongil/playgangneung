@@ -50,6 +50,8 @@ interface ContentItem {
   title: string;
   description: string;
   date: string;
+  startDate?: string;
+  endDate?: string;
   source: string;
   contact: string;
   link: string;
@@ -84,7 +86,10 @@ async function findContent(id: string): Promise<ContentItem | null> {
       return {
         id: ev.id, type: "event",
         title: ev.title, description: ev.description,
-        date: ev.date, source: ev.source, contact: (ev as any).contact ?? "", link: ev.link, sourceType: ev.sourceType,
+        date: ev.date,
+        startDate: (ev as any).startDate || ev.date || undefined,
+        endDate: (ev as any).endDate || (ev as any).startDate || ev.date || undefined,
+        source: ev.source, contact: (ev as any).contact ?? "", link: ev.link, sourceType: ev.sourceType,
         category,
         thumbnail: rawThumb ?? THUMBNAIL_MAP[category] ?? THUMBNAIL_MAP["지역소식"],
         hasThumbnail: !!rawThumb,
@@ -208,7 +213,9 @@ ${item.category === "행사" ? JSON.stringify({
   "description": (item.description || "").slice(0, 200),
   "url": contentUrl,
   "image": thumbnailOg,
-  "startDate": item.date || undefined,
+  "eventStatus": "https://schema.org/EventScheduled",
+  "startDate": item.startDate || item.date || undefined,
+  "endDate": item.endDate || item.startDate || item.date || undefined,
   "location": { "@type": "Place", "name": item.location || "강릉", "address": { "@type": "PostalAddress", "addressLocality": "강릉시", "addressRegion": "강원특별자치도", "addressCountry": "KR" } },
   "organizer": { "@type": "Organization", "name": item.source, "url": SITE_URL },
   "offers": { "@type": "Offer", "availability": "https://schema.org/InStock", "url": contentUrl }

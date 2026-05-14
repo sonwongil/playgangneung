@@ -151,6 +151,7 @@ const CATEGORY_GRADIENT: Record<string, string> = {
 };
 
 function FeedCard({ item }: { item: FeedItem }) {
+  const [copied, setCopied] = useState(false);
   const category = item.category ?? "지역소식";
   const colorClass = CATEGORY_COLORS[category] ?? "bg-gray-100 text-gray-700";
   const hasThumbnail = !!item.thumbnail;
@@ -160,15 +161,38 @@ function FeedCard({ item }: { item: FeedItem }) {
   const gradient = CATEGORY_GRADIENT[category] ?? "from-gray-700 to-gray-900";
 
   const href = item.isAd ? item.link : (item.sourceUrl || item.link);
+  const contentUrl = `${window.location.origin}/content/${item.id}`;
+
+  function openCard() {
+    window.open(href, "_blank", "noopener,noreferrer");
+  }
+
+  function copyLink(e: React.MouseEvent) {
+    e.stopPropagation();
+    navigator.clipboard.writeText(contentUrl).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
+  function shareFacebook(e: React.MouseEvent) {
+    e.stopPropagation();
+    window.open(
+      `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(contentUrl)}`,
+      "_blank",
+      "noopener,noreferrer,width=600,height=500"
+    );
+  }
+
+  function shareInstagram(e: React.MouseEvent) {
+    e.stopPropagation();
+    navigator.clipboard.writeText(contentUrl);
+    window.open("https://www.instagram.com/playgangneung/", "_blank", "noopener,noreferrer");
+  }
 
   return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="block"
-    >
-      <Card className={`overflow-hidden hover:shadow-lg transition-shadow duration-300 group cursor-pointer ${adCfg?.ring ?? ""}`}>
+    <div onClick={openCard} className="block cursor-pointer">
+      <Card className={`overflow-hidden hover:shadow-lg transition-shadow duration-300 group ${adCfg?.ring ?? ""}`}>
         {adCfg && (item.adPlan === "premium" || item.adPlan === "main") && (
           <div className={`${adCfg.banner} flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold`}>
             {adCfg.icon}
@@ -223,7 +247,7 @@ function FeedCard({ item }: { item: FeedItem }) {
             {item.title}
           </h3>
           <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{item.description}</p>
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <div className="flex items-center justify-between text-xs text-muted-foreground mb-3">
             <div className="flex items-center gap-1">
               <CalendarDays className="w-3.5 h-3.5" />
               <span>{item.date}</span>
@@ -233,9 +257,32 @@ function FeedCard({ item }: { item: FeedItem }) {
               <span>{item.location || item.source}</span>
             </div>
           </div>
+
+          {/* 공유 버튼 */}
+          <div className="flex gap-1.5" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={copyLink}
+              className={`flex-1 flex items-center justify-center gap-1 h-7 rounded-lg text-[11px] font-semibold transition-colors
+                ${copied ? "bg-green-100 text-green-700" : "bg-gray-100 hover:bg-gray-200 text-gray-600"}`}
+            >
+              {copied ? "✓ 복사됨" : "🔗 링크복사"}
+            </button>
+            <button
+              onClick={shareFacebook}
+              className="flex-1 flex items-center justify-center gap-1 h-7 rounded-lg text-[11px] font-semibold bg-[#1877F2] hover:bg-[#1565C0] text-white transition-colors"
+            >
+              📘 페북
+            </button>
+            <button
+              onClick={shareInstagram}
+              className="flex-1 flex items-center justify-center gap-1 h-7 rounded-lg text-[11px] font-semibold bg-[#E1306C] hover:bg-[#C2185B] text-white transition-colors"
+            >
+              📸 인스타
+            </button>
+          </div>
         </CardContent>
       </Card>
-    </a>
+    </div>
   );
 }
 

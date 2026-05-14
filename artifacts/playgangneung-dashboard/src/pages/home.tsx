@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   CalendarDays, MapPin,
-  Megaphone, Star, Pin, Search, X, ArrowUpDown, Play,
+  Megaphone, Star, Pin, Search, X, ArrowUpDown, Play, MoreVertical, Smartphone,
 } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -302,7 +302,8 @@ export default function Home() {
   const [sortBy, setSortBy] = useState<SortBy>("date");
   const inputRef = useRef<HTMLInputElement>(null);
   const [installPrompt, setInstallPrompt] = useState<Event & { prompt: () => Promise<void> } | null>(null);
-  const [installDismissed, setInstallDismissed] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handler = (e: Event) => {
@@ -312,6 +313,16 @@ export default function Home() {
     window.addEventListener("beforeinstallprompt", handler);
     return () => window.removeEventListener("beforeinstallprompt", handler);
   }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    if (menuOpen) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [menuOpen]);
 
   const { data } = useQuery<{ feed: FeedItem[]; total: number }>({
     queryKey: ["public-feed"],
@@ -366,42 +377,41 @@ export default function Home() {
           <a href={`${BASE}/`} className="inline-flex items-center">
             <img src={`${BASE}/logo2.png`} alt="PLAY강릉" style={{ height: 50, width: "auto" }} />
           </a>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-xs text-muted-foreground gap-1"
-            onClick={() => { window.location.href = `${BASE}/ad-submit`; }}
-          >
-            <Megaphone className="w-3.5 h-3.5" /> 광고접수
-          </Button>
+          <div className="relative" ref={menuRef}>
+            <button
+              onClick={() => setMenuOpen((v) => !v)}
+              className="flex items-center justify-center w-9 h-9 rounded-full hover:bg-gray-100 transition-colors"
+              aria-label="메뉴"
+            >
+              <MoreVertical className="w-5 h-5 text-gray-600" />
+            </button>
+            {menuOpen && (
+              <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden">
+                {installPrompt && (
+                  <button
+                    onClick={async () => {
+                      setMenuOpen(false);
+                      await installPrompt.prompt();
+                      setInstallPrompt(null);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-blue-600 font-semibold hover:bg-blue-50 transition-colors border-b border-gray-100"
+                  >
+                    <Smartphone className="w-4 h-4 shrink-0" />
+                    홈화면에 추가
+                  </button>
+                )}
+                <button
+                  onClick={() => { setMenuOpen(false); window.location.href = `${BASE}/ad-submit`; }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  <Megaphone className="w-4 h-4 shrink-0" />
+                  광고접수
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </header>
-
-      {/* 홈화면 추가 배너 */}
-      {installPrompt && !installDismissed && (
-        <div className="bg-blue-600 text-white px-4 py-2.5 flex items-center gap-3">
-          <img src={`${BASE}/logo.png`} alt="" className="w-8 h-8 rounded-lg shrink-0 object-contain bg-white" />
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-bold leading-tight">PLAY강릉 앱으로 설치하기</p>
-            <p className="text-[11px] text-blue-200 leading-tight">홈화면에 추가하면 앱처럼 바로 실행됩니다</p>
-          </div>
-          <button
-            onClick={async () => {
-              await installPrompt.prompt();
-              setInstallPrompt(null);
-            }}
-            className="shrink-0 bg-white text-blue-600 text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-blue-50 transition-colors"
-          >
-            추가
-          </button>
-          <button
-            onClick={() => setInstallDismissed(true)}
-            className="shrink-0 text-blue-200 hover:text-white text-lg leading-none px-1"
-          >
-            ×
-          </button>
-        </div>
-      )}
 
       {/* Hero */}
       <section className="relative bg-gradient-to-br from-blue-700 via-blue-600 to-blue-500 text-white overflow-hidden">

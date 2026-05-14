@@ -177,17 +177,27 @@ function FeedCard({ item }: { item: FeedItem }) {
 
   function shareFacebook(e: React.MouseEvent) {
     e.stopPropagation();
+    // Facebook 공유 다이얼로그 — 로그인된 계정(페북 페이지)에 콘텐츠 URL 첨부
     window.open(
       `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(contentUrl)}`,
-      "_blank",
-      "noopener,noreferrer,width=600,height=500"
+      "_blank"
     );
   }
 
-  function shareInstagram(e: React.MouseEvent) {
+  async function shareInstagram(e: React.MouseEvent) {
     e.stopPropagation();
-    navigator.clipboard.writeText(contentUrl);
-    window.open("https://www.instagram.com/playgangneung/", "_blank", "noopener,noreferrer");
+    if (navigator.share) {
+      // 모바일: 시스템 공유시트 → 인스타그램 앱에서 스토리/게시물로 직접 공유
+      try {
+        await navigator.share({ title: item.title, url: contentUrl });
+      } catch {
+        // 사용자가 취소한 경우 무시
+      }
+    } else {
+      // PC: 링크 복사 후 인스타그램 웹 열기 (PC는 인스타 앱 연동 불가)
+      await navigator.clipboard.writeText(contentUrl);
+      window.open("https://www.instagram.com/playgangneung/", "_blank");
+    }
   }
 
   return (

@@ -2,8 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import { useRoute, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import SnsEditor, { type SnsEditorHandle } from "@/components/sns-editor";
 import { Label } from "@/components/ui/label";
 import { ArrowLeft, ExternalLink, ImageOff, Trash2, ChevronDown, Send, Video, Image, Copy, MessageSquare, Download, RefreshCw, Package, CheckCircle, Upload, Link } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -91,38 +91,9 @@ export default function AdminEventDetail() {
   const [isUploading, setIsUploading] = useState(false);
   const [showEmoji, setShowEmoji] = useState(false);
   const [emojiTab, setEmojiTab] = useState(0);
-  const captionRef = useRef<HTMLTextAreaElement>(null);
+  const editorRef = useRef<SnsEditorHandle>(null);
 
-  const SITE_ROOT = "playgangneung.com";
   const FIXED_CTA = `📍 강릉 행사 더보기\n👉 https://playgangneung.com`;
-
-  function applyFormat(type: "bold" | "fullwidth" | "small") {
-    const el = captionRef.current;
-    if (!el) return;
-    const start = el.selectionStart ?? 0;
-    const end = el.selectionEnd ?? 0;
-    const selected = editCaption.slice(start, end);
-    if (!selected) return;
-    const transformed = selected.split("").map((c) => {
-      const code = c.charCodeAt(0);
-      if (type === "bold") {
-        if (code >= 65 && code <= 90) return String.fromCodePoint(0x1d400 + code - 65);
-        if (code >= 97 && code <= 122) return String.fromCodePoint(0x1d41a + code - 97);
-        if (code >= 48 && code <= 57) return String.fromCodePoint(0x1d7ce + code - 48);
-      } else if (type === "fullwidth") {
-        if (code >= 33 && code <= 126) return String.fromCodePoint(code + 0xff00 - 0x20);
-      } else if (type === "small") {
-        const supers: Record<string, string> = { a:"ᵃ",b:"ᵇ",c:"ᶜ",d:"ᵈ",e:"ᵉ",f:"ᶠ",g:"ᵍ",h:"ʰ",i:"ⁱ",j:"ʲ",k:"ᵏ",l:"ˡ",m:"ᵐ",n:"ⁿ",o:"ᵒ",p:"ᵖ",q:"q",r:"ʳ",s:"ˢ",t:"ᵗ",u:"ᵘ",v:"ᵛ",w:"ʷ",x:"ˣ",y:"ʸ",z:"ᶻ",
-          A:"ᴬ",B:"ᴮ",C:"ᶜ",D:"ᴰ",E:"ᴱ",F:"ᶠ",G:"ᴳ",H:"ᴴ",I:"ᴵ",J:"ᴶ",K:"ᴷ",L:"ᴸ",M:"ᴹ",N:"ᴺ",O:"ᴼ",P:"ᴾ",Q:"Q",R:"ᴿ",S:"ˢ",T:"ᵀ",U:"ᵁ",V:"ⱽ",W:"ᵂ",X:"ˣ",Y:"ʸ",Z:"ᶻ" };
-        return supers[c] ?? c;
-      }
-      return c;
-    }).join("");
-    const next = editCaption.slice(0, start) + transformed + editCaption.slice(end);
-    setEditCaption(next);
-    setIsDraftDirty(true);
-    requestAnimationFrame(() => { el.selectionStart = start; el.selectionEnd = start + transformed.length; el.focus(); });
-  }
 
   const EMOJI_GROUPS = [
     { label: "❤️ 감정", emojis: ["😊","🥰","😍","🤩","😆","😂","🙏","👏","🙌","❤️","💕","💯","🔥","✨","💫","🌟","😎","🥳","😋","🤗"] },
@@ -131,17 +102,6 @@ export default function AdminEventDetail() {
     { label: "🎉 이벤트", emojis: ["🎉","🎊","🎁","📢","📣","🎵","🎶","🎤","🎭","🎪","🏆","🥇","🎯","🎈","🎠","🎡","🎢","🎆","🎇","🪅"] },
     { label: "📸 SNS", emojis: ["📸","📷","🤳","💻","📱","🔗","✅","⭐","💡","📌","🔔","👀","💬","📝","🗓️","⏰","📊","🆕","🔖","💥"] },
   ];
-
-  const insertAtCursor = (text: string) => {
-    const el = captionRef.current;
-    if (!el) { setEditCaption((p) => p + text); setIsDraftDirty(true); return; }
-    const start = el.selectionStart ?? editCaption.length;
-    const end = el.selectionEnd ?? editCaption.length;
-    const next = editCaption.slice(0, start) + text + editCaption.slice(end);
-    setEditCaption(next);
-    setIsDraftDirty(true);
-    requestAnimationFrame(() => { el.selectionStart = el.selectionEnd = start + text.length; el.focus(); });
-  };
 
   const { data, isLoading } = useQuery<{ events: Event[] }>({
     queryKey: ["admin-events"],
@@ -423,11 +383,11 @@ export default function AdminEventDetail() {
 
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">상세 내용 (SNS에 그대로 게시됩니다)</Label>
-            <Textarea
+            <textarea
               rows={6}
               value={editDescription}
-              onChange={(e) => { setEditDescription(e.target.value); setIsDirty(true); }}
-              className="text-sm resize-none"
+              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => { setEditDescription(e.target.value); setIsDirty(true); }}
+              className="text-sm resize-none flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               placeholder="내용을 입력하세요. 이 내용이 SNS에 그대로 올라갑니다."
             />
           </div>
@@ -489,7 +449,7 @@ export default function AdminEventDetail() {
                     {/* 이모지 그리드 */}
                     <div className="grid grid-cols-10 gap-0.5">
                       {EMOJI_GROUPS[emojiTab].emojis.map((em) => (
-                        <button key={em} onClick={() => { insertAtCursor(em); setShowEmoji(false); }}
+                        <button key={em} onClick={() => { editorRef.current?.insertText(em); setShowEmoji(false); }}
                           className="text-lg w-7 h-7 flex items-center justify-center rounded hover:bg-violet-50 transition-colors"
                         >{em}</button>
                       ))}
@@ -499,7 +459,7 @@ export default function AdminEventDetail() {
               </div>
 
               {/* 구분선 삽입 */}
-              <button type="button" onClick={() => insertAtCursor("\n─────────────")}
+              <button type="button" onClick={() => editorRef.current?.insertText("─────────────")}
                 className="px-2 py-1 rounded-md text-xs font-medium bg-white border border-violet-200 text-violet-600 hover:bg-violet-100 transition-colors"
                 title="구분선 삽입"
               >─ 구분선</button>
@@ -507,7 +467,7 @@ export default function AdminEventDetail() {
               {/* 굵게 */}
               <button
                 type="button"
-                onClick={() => applyFormat("bold")}
+                onClick={() => editorRef.current?.applyUnicodeBold()}
                 className="px-2 py-1 rounded-md text-xs font-bold bg-white border border-violet-200 text-violet-600 hover:bg-violet-100 transition-colors"
                 title="선택한 텍스트를 굵게 (영문·숫자)"
               >𝐁 굵게</button>
@@ -518,7 +478,8 @@ export default function AdminEventDetail() {
                 defaultValue=""
                 onChange={(e) => {
                   const v = e.target.value as "fullwidth" | "small";
-                  if (v) applyFormat(v);
+                  if (v === "fullwidth") editorRef.current?.applyFullwidth();
+                  if (v === "small") editorRef.current?.applySmall();
                   e.target.value = "";
                 }}
                 title="선택한 텍스트 크기 변환"
@@ -534,15 +495,13 @@ export default function AdminEventDetail() {
               </span>
             </div>
 
-            {/* 본문 textarea */}
-            <Textarea
-              ref={captionRef}
-              rows={7}
+            {/* TipTap 에디터 */}
+            <SnsEditor
+              ref={editorRef}
               value={editCaption}
-              className="text-sm resize-y border-violet-200 focus:border-violet-400 rounded-t-none rounded-b-xl -mt-px"
-              placeholder="SNS 문구를 입력하세요. 수동 등록 시 상세 내용이 자동으로 채워집니다."
-              onChange={(e) => { setEditCaption(e.target.value); setIsDraftDirty(true); }}
-              onClick={() => setShowEmoji(false)}
+              rows={7}
+              placeholder="SNS 문구를 입력하세요."
+              onChange={(plain) => { setEditCaption(plain); setIsDraftDirty(true); }}
             />
 
             {/* 해시태그 */}

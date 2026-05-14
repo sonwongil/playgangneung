@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import SnsEditor, { type SnsEditorHandle } from "@/components/sns-editor";
+import { htmlToSns, snsToHtml } from "@/lib/sns-utils";
 import { Label } from "@/components/ui/label";
 import { ArrowLeft, ExternalLink, ImageOff, Trash2, ChevronDown, Send, Video, Image, Copy, MessageSquare, Download, RefreshCw, Package, CheckCircle, Upload, Link } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -125,10 +126,10 @@ export default function AdminEventDetail() {
       setEditThumbnail(event.thumbnail ?? "");
       setEditVideoUrl(event.videoUrl ?? "");
       if (event.socialDraft) {
-        setEditCaption(event.socialDraft.caption);
+        setEditCaption(snsToHtml(event.socialDraft.caption));
         setEditHashtagsStr(event.socialDraft.hashtags.join(" "));
       } else if (event.description) {
-        setEditCaption(event.description);
+        setEditCaption(snsToHtml(event.description));
       }
       setInited(true);
     }
@@ -189,7 +190,7 @@ export default function AdminEventDetail() {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ caption: editCaption, hashtags }),
+        body: JSON.stringify({ caption: htmlToSns(editCaption), hashtags }),
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error ?? "저장 실패");
@@ -230,7 +231,7 @@ export default function AdminEventDetail() {
 
   function copyAll() {
     const hashtags = editHashtagsStr.split(/[\s,]+/).map((h) => h.startsWith("#") ? h : `#${h}`).filter(Boolean);
-    const text = `${editCaption}\n\n${hashtags.join(" ")}\n\n${FIXED_CTA}`;
+    const text = `${htmlToSns(editCaption)}\n\n${hashtags.join(" ")}\n\n${FIXED_CTA}`;
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true);
       toast({ title: "캡션 복사 완료", description: "인스타·페북 게시창에 붙여넣으세요." });
@@ -425,8 +426,8 @@ export default function AdminEventDetail() {
               </Button>
             </div>
 
-            {/* 에디터 툴바 */}
-            <div className="rounded-t-xl border border-b-0 border-violet-200 bg-violet-50/60 px-2.5 py-2 flex flex-wrap items-center gap-1.5">
+            {/* 이모지 + 구분선 퀵 버튼 */}
+            <div className="flex flex-wrap items-center gap-1.5 mb-1">
               {/* 이모지 피커 토글 */}
               <div className="relative">
                 <button
@@ -439,7 +440,6 @@ export default function AdminEventDetail() {
                 </button>
                 {showEmoji && (
                   <div className="absolute left-0 top-8 z-50 bg-white border border-border rounded-2xl shadow-xl w-72 p-3 space-y-2">
-                    {/* 탭 */}
                     <div className="flex gap-1 overflow-x-auto pb-1">
                       {EMOJI_GROUPS.map((g, i) => (
                         <button key={i}
@@ -449,7 +449,6 @@ export default function AdminEventDetail() {
                         >{g.label}</button>
                       ))}
                     </div>
-                    {/* 이모지 그리드 */}
                     <div className="grid grid-cols-10 gap-0.5">
                       {EMOJI_GROUPS[emojiTab].emojis.map((em) => (
                         <button key={em}
@@ -471,46 +470,19 @@ export default function AdminEventDetail() {
                 title="구분선 삽입"
               >─ 구분선</button>
 
-              {/* 굵게 */}
-              <button
-                type="button"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => editorRef.current?.applyUnicodeBold()}
-                className="px-2 py-1 rounded-md text-xs font-bold bg-white border border-violet-200 text-violet-600 hover:bg-violet-100 transition-colors"
-                title="선택한 텍스트를 굵게 (영문·숫자)"
-              >𝐁 굵게</button>
-
-              {/* 폰트 크기 */}
-              <select
-                className="px-1.5 py-1 rounded-md text-xs bg-white border border-violet-200 text-violet-600 hover:bg-violet-100 transition-colors cursor-pointer"
-                defaultValue=""
-                onMouseDown={(e) => e.preventDefault()}
-                onChange={(e) => {
-                  const v = e.target.value as "fullwidth" | "small";
-                  if (v === "fullwidth") editorRef.current?.applyFullwidth();
-                  if (v === "small") editorRef.current?.applySmall();
-                  e.target.value = "";
-                }}
-                title="선택한 텍스트 크기 변환"
-              >
-                <option value="" disabled>폰트 크기</option>
-                <option value="fullwidth">크게 (전각)</option>
-                <option value="small">작게 (위첨자)</option>
-              </select>
-
-              {/* 글자수 카운터 */}
-              <span className={`ml-auto text-[11px] font-mono font-semibold tabular-nums ${editCaption.length > 2000 ? "text-red-500" : editCaption.length > 1500 ? "text-orange-500" : "text-muted-foreground"}`}>
-                {editCaption.length} / 2200
+              {/* 글자수 */}
+              <span className={`ml-auto text-[11px] font-mono font-semibold tabular-nums ${htmlToSns(editCaption).length > 2000 ? "text-red-500" : htmlToSns(editCaption).length > 1500 ? "text-orange-500" : "text-muted-foreground"}`}>
+                {htmlToSns(editCaption).length} / 2200
               </span>
             </div>
 
-            {/* TipTap 에디터 */}
+            {/* TipTap 에디터 (Bold/Italic/취소선/목록/실행취소 툴바 내장) */}
             <SnsEditor
               ref={editorRef}
               value={editCaption}
               rows={7}
               placeholder="SNS 문구를 입력하세요."
-              onChange={(plain) => { setEditCaption(plain); setIsDraftDirty(true); }}
+              onChange={(html) => { setEditCaption(html); setIsDraftDirty(true); }}
             />
 
             {/* 해시태그 */}

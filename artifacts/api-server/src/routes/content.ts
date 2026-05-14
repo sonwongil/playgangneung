@@ -197,7 +197,33 @@ function renderHtml(item: ContentItem, contentUrl: string, ogImageOverride?: str
 <meta name="twitter:description" content="${descShort}">
 <meta name="twitter:image" content="${escHtml(thumbnailOg)}">
 <meta name="theme-color" content="#1d4ed8">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="${escHtml(contentUrl)}">
 <link rel="preconnect" href="https://images.unsplash.com">
+<script type="application/ld+json">
+${item.category === "행사" ? JSON.stringify({
+  "@context": "https://schema.org",
+  "@type": "Event",
+  "name": item.title,
+  "description": (item.description || "").slice(0, 200),
+  "url": contentUrl,
+  "image": thumbnailOg,
+  "startDate": item.date || undefined,
+  "location": { "@type": "Place", "name": item.location || "강릉", "address": { "@type": "PostalAddress", "addressLocality": "강릉시", "addressRegion": "강원특별자치도", "addressCountry": "KR" } },
+  "organizer": { "@type": "Organization", "name": item.source, "url": SITE_URL },
+  "offers": { "@type": "Offer", "availability": "https://schema.org/InStock", "url": contentUrl }
+}) : JSON.stringify({
+  "@context": "https://schema.org",
+  "@type": "NewsArticle",
+  "headline": item.title,
+  "description": (item.description || "").slice(0, 200),
+  "url": contentUrl,
+  "image": thumbnailOg,
+  "datePublished": item.date || undefined,
+  "publisher": { "@type": "Organization", "name": "PLAY강릉", "url": SITE_URL, "logo": { "@type": "ImageObject", "url": `${SITE_URL}/logo.png` } },
+  "author": { "@type": "Organization", "name": item.source }
+})}
+</script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 body{font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',sans-serif;background:#f8fafc;color:#1e293b;min-height:100vh;padding-bottom:88px}

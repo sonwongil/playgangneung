@@ -3,7 +3,11 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
-    <title>PLAY강릉</title>
+    <title>PLAY강릉 | 강릉 행사·맛집·핫플·지역소식</title>
+    <meta name="description" content="강릉의 행사·맛집·핫플·지역소식을 한눈에. 강릉 여행과 나들이 정보를 실시간으로 확인하세요." />
+    <meta name="keywords" content="강릉,강릉행사,강릉맛집,강릉핫플,강릉여행,강릉축제,강릉소식,강원도,PLAY강릉" />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://playgangneung.com/" />
 
     <!-- PWA Manifest -->
     <link rel="manifest" href="%BASE_URL%manifest.json" />
@@ -24,11 +28,66 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="application-name" content="PLAY강릉" />
 
-    <!-- 기본 OG -->
+    <!-- Open Graph -->
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="PLAY강릉" />
-    <meta property="og:description" content="강릉 행사·맛집·핫플·지역소식 한눈에" />
-    <meta property="og:image" content="%BASE_URL%opengraph.jpg" />
+    <meta property="og:site_name" content="PLAY강릉" />
+    <meta property="og:title" content="PLAY강릉 | 강릉 행사·맛집·핫플·지역소식" />
+    <meta property="og:description" content="강릉의 행사·맛집·핫플·지역소식을 한눈에. 강릉 여행과 나들이 정보를 실시간으로 확인하세요." />
+    <meta property="og:image" content="https://playgangneung.com/opengraph.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:url" content="https://playgangneung.com/" />
+    <meta property="og:locale" content="ko_KR" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="PLAY강릉 | 강릉 행사·맛집·핫플·지역소식" />
+    <meta name="twitter:description" content="강릉의 행사·맛집·핫플·지역소식을 한눈에." />
+    <meta name="twitter:image" content="https://playgangneung.com/opengraph.jpg" />
+
+    <!-- JSON-LD: WebSite 구조화 데이터 -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "WebSite",
+          "@id": "https://playgangneung.com/#website",
+          "name": "PLAY강릉",
+          "url": "https://playgangneung.com/",
+          "description": "강릉의 행사·맛집·핫플·지역소식을 한눈에",
+          "inLanguage": "ko",
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": {
+              "@type": "EntryPoint",
+              "urlTemplate": "https://playgangneung.com/?q={search_term_string}"
+            },
+            "query-input": "required name=search_term_string"
+          }
+        },
+        {
+          "@type": "Organization",
+          "@id": "https://playgangneung.com/#organization",
+          "name": "플레이강릉",
+          "url": "https://playgangneung.com/",
+          "logo": "https://playgangneung.com/logo.png",
+          "contactPoint": {
+            "@type": "ContactPoint",
+            "email": "event62@gmail.com",
+            "contactType": "customer service",
+            "areaServed": "KR"
+          },
+          "address": {
+            "@type": "PostalAddress",
+            "addressLocality": "강릉시",
+            "addressRegion": "강원특별자치도",
+            "addressCountry": "KR"
+          }
+        }
+      ]
+    }
+    </script>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

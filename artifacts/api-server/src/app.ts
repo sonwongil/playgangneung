@@ -4,6 +4,7 @@ import pinoHttp from "pino-http";
 import cookieSession from "cookie-session";
 import router from "./routes/index.js";
 import contentRouter from "./routes/content.js";
+import sitemapRouter from "./routes/sitemap.js";
 import { logger } from "./lib/logger.js";
 import { CARDS_DIR, UPLOADS_DIR } from "./lib/paths.js";
 
@@ -58,5 +59,6 @@ app.use("/api", (_req, res, next) => {
 
 app.use("/api", router);
 app.use("/content", contentRouter);
+app.use(sitemapRouter);
 
 export default app;

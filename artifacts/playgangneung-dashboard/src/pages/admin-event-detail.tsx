@@ -431,6 +431,7 @@ export default function AdminEventDetail() {
               <div className="relative">
                 <button
                   type="button"
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={() => setShowEmoji((v) => !v)}
                   className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-colors ${showEmoji ? "bg-violet-200 text-violet-800" : "bg-white border border-violet-200 text-violet-600 hover:bg-violet-100"}`}
                 >
@@ -441,7 +442,9 @@ export default function AdminEventDetail() {
                     {/* 탭 */}
                     <div className="flex gap-1 overflow-x-auto pb-1">
                       {EMOJI_GROUPS.map((g, i) => (
-                        <button key={i} onClick={() => setEmojiTab(i)}
+                        <button key={i}
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => setEmojiTab(i)}
                           className={`shrink-0 px-2 py-1 rounded-lg text-xs font-medium transition-colors ${emojiTab === i ? "bg-violet-100 text-violet-700" : "text-muted-foreground hover:bg-gray-100"}`}
                         >{g.label}</button>
                       ))}
@@ -449,7 +452,9 @@ export default function AdminEventDetail() {
                     {/* 이모지 그리드 */}
                     <div className="grid grid-cols-10 gap-0.5">
                       {EMOJI_GROUPS[emojiTab].emojis.map((em) => (
-                        <button key={em} onClick={() => { editorRef.current?.insertText(em); setShowEmoji(false); }}
+                        <button key={em}
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => { editorRef.current?.insertText(em); setShowEmoji(false); }}
                           className="text-lg w-7 h-7 flex items-center justify-center rounded hover:bg-violet-50 transition-colors"
                         >{em}</button>
                       ))}
@@ -459,7 +464,9 @@ export default function AdminEventDetail() {
               </div>
 
               {/* 구분선 삽입 */}
-              <button type="button" onClick={() => editorRef.current?.insertText("─────────────")}
+              <button type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => editorRef.current?.insertText("─────────────")}
                 className="px-2 py-1 rounded-md text-xs font-medium bg-white border border-violet-200 text-violet-600 hover:bg-violet-100 transition-colors"
                 title="구분선 삽입"
               >─ 구분선</button>
@@ -467,6 +474,7 @@ export default function AdminEventDetail() {
               {/* 굵게 */}
               <button
                 type="button"
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={() => editorRef.current?.applyUnicodeBold()}
                 className="px-2 py-1 rounded-md text-xs font-bold bg-white border border-violet-200 text-violet-600 hover:bg-violet-100 transition-colors"
                 title="선택한 텍스트를 굵게 (영문·숫자)"
@@ -476,6 +484,7 @@ export default function AdminEventDetail() {
               <select
                 className="px-1.5 py-1 rounded-md text-xs bg-white border border-violet-200 text-violet-600 hover:bg-violet-100 transition-colors cursor-pointer"
                 defaultValue=""
+                onMouseDown={(e) => e.preventDefault()}
                 onChange={(e) => {
                   const v = e.target.value as "fullwidth" | "small";
                   if (v === "fullwidth") editorRef.current?.applyFullwidth();

@@ -378,7 +378,7 @@ export default function Home() {
       <header className="sticky top-0 z-50 bg-white border-b border-border shadow-sm">
         <div className="max-w-6xl mx-auto px-4 flex items-center justify-between" style={{ height: 64 }}>
           <a href={`${BASE}/`} className="inline-flex items-center">
-            <img src={`${BASE}/logo2.png`} alt="PLAY강릉" style={{ height: 56, width: "auto" }} />
+            <img src={`${BASE}/logo2.png`} alt="PLAY강릉" style={{ height: 56, width: "auto", marginTop: 2 }} />
           </a>
           <div className="flex items-center gap-1">
             {/* 검색 버튼 */}

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   CalendarDays, MapPin,
-  Megaphone, Star, Pin, Search, X, ArrowUpDown, Play, MoreVertical, Smartphone,
+  Megaphone, Star, Pin, Search, X, ArrowUpDown, Play, Menu, Smartphone,
 } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -303,6 +303,7 @@ export default function Home() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [installPrompt, setInstallPrompt] = useState<Event & { prompt: () => Promise<void> } | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [installGuide, setInstallGuide] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
@@ -375,80 +376,86 @@ export default function Home() {
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Header */}
       <header className="sticky top-0 z-50 bg-white border-b border-border shadow-sm">
-        <div className="max-w-6xl mx-auto px-4 flex items-center justify-between" style={{ height: 50 }}>
+        <div className="max-w-6xl mx-auto px-4 flex items-center justify-between" style={{ height: 64 }}>
           <a href={`${BASE}/`} className="inline-flex items-center">
-            <img src={`${BASE}/logo2.png`} alt="PLAY강릉" style={{ height: 50, width: "auto" }} />
+            <img src={`${BASE}/logo2.png`} alt="PLAY강릉" style={{ height: 56, width: "auto" }} />
           </a>
-          <div className="relative" ref={menuRef}>
+          <div className="flex items-center gap-1">
+            {/* 검색 버튼 */}
             <button
-              onClick={() => setMenuOpen((v) => !v)}
-              className="flex items-center justify-center w-9 h-9 rounded-full hover:bg-gray-100 transition-colors"
-              aria-label="메뉴"
+              onClick={() => { setSearchOpen((v) => !v); setMenuOpen(false); }}
+              className="flex flex-col items-center justify-center w-14 h-14 rounded-full hover:bg-gray-100 transition-colors gap-0.5"
+              aria-label="검색"
             >
-              <MoreVertical className="w-5 h-5 text-gray-600" />
-            </button>
-            {menuOpen && (
-              <div className="absolute right-0 top-full mt-1 w-52 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden">
-                <button
-                  onClick={async () => {
-                    setMenuOpen(false);
-                    if (installPrompt) {
-                      await installPrompt.prompt();
-                      setInstallPrompt(null);
-                    } else {
-                      setInstallGuide(true);
-                    }
-                  }}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-sm text-blue-600 font-semibold hover:bg-blue-50 transition-colors border-b border-gray-100"
-                >
-                  <Smartphone className="w-4 h-4 shrink-0" />
-                  홈화면에 바로가기 추가
-                </button>
-                <button
-                  onClick={() => { setMenuOpen(false); window.location.href = `${BASE}/ad-submit`; }}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                >
-                  <Megaphone className="w-4 h-4 shrink-0" />
-                  광고접수
-                </button>
+              <div className="w-8 h-8 rounded-full border-2 border-gray-400 flex items-center justify-center">
+                <Search className="w-4 h-4 text-gray-600" />
               </div>
-            )}
-          </div>
-        </div>
-      </header>
-
-      {/* Hero */}
-      <section className="relative bg-gradient-to-br from-blue-700 via-blue-600 to-blue-500 text-white overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(255,255,255,0.1),_transparent_60%)]" />
-        <div className="relative max-w-2xl mx-auto px-4 pt-8 pb-3 text-center">
-          <p className="text-blue-200 text-xs font-semibold tracking-widest uppercase mb-2">강릉의 모든 소식</p>
-          <h1 className="text-2xl md:text-3xl font-bold mb-4 leading-tight">
-            강릉에서 지금 뭐하지?
-          </h1>
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
-            <input
-              ref={inputRef}
-              type="text"
-              value={searchQuery}
-              onChange={(e) => handleSearchChange(e.target.value)}
-              placeholder="강릉 행사·소식 검색"
-              className="w-full pl-12 pr-12 py-3.5 rounded-xl text-gray-900 text-sm bg-white shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-300 placeholder:text-gray-400"
-            />
-            {searchQuery && (
+              <span className="text-[10px] text-gray-500 leading-none">검색</span>
+            </button>
+            {/* 메뉴 버튼 */}
+            <div className="relative" ref={menuRef}>
               <button
-                onClick={() => handleSearchChange("")}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                onClick={() => { setMenuOpen((v) => !v); setSearchOpen(false); }}
+                className="flex items-center justify-center w-12 h-14 hover:bg-gray-100 rounded-full transition-colors"
+                aria-label="메뉴"
               >
-                <X className="w-4 h-4" />
+                <Menu className="w-7 h-7 text-gray-700" />
               </button>
-            )}
+              {menuOpen && (
+                <div className="absolute right-0 top-full mt-1 w-52 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden">
+                  <button
+                    onClick={async () => {
+                      setMenuOpen(false);
+                      if (installPrompt) {
+                        await installPrompt.prompt();
+                        setInstallPrompt(null);
+                      } else {
+                        setInstallGuide(true);
+                      }
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-blue-600 font-semibold hover:bg-blue-50 transition-colors border-b border-gray-100"
+                  >
+                    <Smartphone className="w-4 h-4 shrink-0" />
+                    홈화면에 바로가기 추가
+                  </button>
+                  <button
+                    onClick={() => { setMenuOpen(false); window.location.href = `${BASE}/ad-submit`; }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    <Megaphone className="w-4 h-4 shrink-0" />
+                    광고접수
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
-          <p className="text-blue-200 text-xs mt-2 opacity-80">
-            예: 단오, 경포, 전시, 공연, 주말, 무료
-          </p>
         </div>
-      </section>
+        {/* 검색 패널 */}
+        {searchOpen && (
+          <div className="border-t border-gray-100 bg-white px-4 py-2.5">
+            <div className="relative max-w-6xl mx-auto">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              <input
+                ref={inputRef}
+                type="text"
+                value={searchQuery}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                placeholder="강릉 행사·소식 검색"
+                className="w-full pl-9 pr-9 py-2.5 rounded-lg text-gray-900 text-sm bg-gray-100 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-300 placeholder:text-gray-400 transition-colors"
+                autoFocus
+              />
+              {searchQuery && (
+                <button
+                  onClick={clearSearch}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+      </header>
 
       {/* Main Content */}
       <main className="flex-1 max-w-6xl mx-auto px-4 pt-3 pb-4 w-full">

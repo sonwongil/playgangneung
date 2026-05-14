@@ -378,7 +378,7 @@ export default function Home() {
       <header className="sticky top-0 z-50 bg-white border-b border-border shadow-sm">
         <div className="max-w-6xl mx-auto px-4 flex items-center justify-between" style={{ height: 64 }}>
           <a href={`${BASE}/`} className="inline-flex items-center">
-            <img src={`${BASE}/logo2.png`} alt="PLAY강릉" style={{ height: 56, width: "auto", marginTop: 2 }} />
+            <img src={`${BASE}/logo2.png`} alt="PLAY강릉" style={{ height: 56, width: "auto", marginTop: 5 }} />
           </a>
           <div className="flex items-center gap-1">
             {/* 검색 버튼 */}
@@ -387,10 +387,10 @@ export default function Home() {
               className="flex flex-col items-center justify-center w-14 h-14 rounded-full hover:bg-gray-100 transition-colors gap-0.5"
               aria-label="검색"
             >
-              <div className="w-8 h-8 rounded-full border-2 border-gray-400 flex items-center justify-center">
-                <Search className="w-4 h-4 text-gray-600" />
+              <div className="w-8 h-8 rounded-full border-2 border-gray-700 flex items-center justify-center">
+                <Search className="w-4 h-4 text-gray-900" />
               </div>
-              <span className="text-[10px] text-gray-500 leading-none">검색</span>
+              <span className="text-[12px] text-gray-700 leading-none font-medium">검색</span>
             </button>
             {/* 메뉴 버튼 */}
             <div className="relative" ref={menuRef}>

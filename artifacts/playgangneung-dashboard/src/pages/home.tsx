@@ -421,6 +421,9 @@ export default function Home() {
             </p>
             <p>
               <span className="text-gray-400 font-medium">사업자등록번호</span> 292-07-03357
+              <span className="mx-2 text-gray-700">|</span>
+              <span className="text-gray-400 font-medium">이메일</span>{" "}
+              <a href="mailto:event62@gmail.com" className="hover:text-gray-300 transition-colors">event62@gmail.com</a>
             </p>
             <p>
               <span className="text-gray-400 font-medium">주소</span>{" "}

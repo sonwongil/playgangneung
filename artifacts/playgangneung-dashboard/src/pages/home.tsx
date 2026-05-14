@@ -303,7 +303,9 @@ export default function Home() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [installPrompt, setInstallPrompt] = useState<Event & { prompt: () => Promise<void> } | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [installGuide, setInstallGuide] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
 
   useEffect(() => {
     const handler = (e: Event) => {
@@ -386,20 +388,22 @@ export default function Home() {
               <MoreVertical className="w-5 h-5 text-gray-600" />
             </button>
             {menuOpen && (
-              <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden">
-                {installPrompt && (
-                  <button
-                    onClick={async () => {
-                      setMenuOpen(false);
+              <div className="absolute right-0 top-full mt-1 w-52 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden">
+                <button
+                  onClick={async () => {
+                    setMenuOpen(false);
+                    if (installPrompt) {
                       await installPrompt.prompt();
                       setInstallPrompt(null);
-                    }}
-                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-blue-600 font-semibold hover:bg-blue-50 transition-colors border-b border-gray-100"
-                  >
-                    <Smartphone className="w-4 h-4 shrink-0" />
-                    홈화면에 추가
-                  </button>
-                )}
+                    } else {
+                      setInstallGuide(true);
+                    }
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm text-blue-600 font-semibold hover:bg-blue-50 transition-colors border-b border-gray-100"
+                >
+                  <Smartphone className="w-4 h-4 shrink-0" />
+                  홈화면에 바로가기 추가
+                </button>
                 <button
                   onClick={() => { setMenuOpen(false); window.location.href = `${BASE}/ad-submit`; }}
                   className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
@@ -541,6 +545,64 @@ export default function Home() {
           </p>
         </div>
       </footer>
+
+      {/* 홈화면 추가 안내 모달 */}
+      {installGuide && (
+        <div
+          className="fixed inset-0 z-[100] flex items-end justify-center bg-black/50"
+          onClick={() => setInstallGuide(false)}
+        >
+          <div
+            className="w-full max-w-sm bg-white rounded-t-2xl p-6 pb-10 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3 mb-5">
+              <img src={`${BASE}/logo.png`} alt="" className="w-12 h-12 rounded-2xl object-contain bg-blue-50 p-1 border border-blue-100" />
+              <div>
+                <p className="font-bold text-gray-900 text-base">PLAY강릉 홈화면 추가</p>
+                <p className="text-xs text-gray-500">앱처럼 바로 실행할 수 있습니다</p>
+              </div>
+            </div>
+            {isIOS ? (
+              <ol className="space-y-3 text-sm text-gray-700">
+                <li className="flex gap-3">
+                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center">1</span>
+                  <span>Safari 하단의 <strong>공유 버튼(□↑)</strong>을 누릅니다</span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center">2</span>
+                  <span>스크롤해서 <strong>"홈 화면에 추가"</strong>를 선택합니다</span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center">3</span>
+                  <span>오른쪽 위 <strong>"추가"</strong>를 누르면 완료!</span>
+                </li>
+              </ol>
+            ) : (
+              <ol className="space-y-3 text-sm text-gray-700">
+                <li className="flex gap-3">
+                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center">1</span>
+                  <span>Chrome 주소창 오른쪽 <strong>⋮ 메뉴</strong>를 누릅니다</span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center">2</span>
+                  <span><strong>"홈 화면에 추가"</strong> 또는 <strong>"앱 설치"</strong>를 선택합니다</span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center">3</span>
+                  <span><strong>"추가"</strong>를 누르면 홈화면에 아이콘이 생깁니다</span>
+                </li>
+              </ol>
+            )}
+            <button
+              onClick={() => setInstallGuide(false)}
+              className="mt-6 w-full py-3 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-colors"
+            >
+              확인
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -54,12 +54,7 @@ export function Feed() {
       {/* Header */}
       <div style={{ background: "#fff", padding: "14px 16px 0", position: "sticky", top: 0, zIndex: 50, borderBottom: "1px solid #f0f0f0" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <div style={{ width: 28, height: 28, borderRadius: 8, background: "linear-gradient(135deg,#2563eb,#7c3aed)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <span style={{ color: "#fff", fontWeight: 900, fontSize: 12 }}>P</span>
-            </div>
-            <span style={{ fontWeight: 800, fontSize: 16, color: "#111", letterSpacing: "-0.5px" }}>PLAY강릉</span>
-          </div>
+          <img src="/logo2.png" alt="PLAY강릉" style={{ height: 28, objectFit: "contain" }} />
           <div style={{ display: "flex", gap: 12 }}>
             <button style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer" }}>🔍</button>
             <button style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer" }}>☰</button>

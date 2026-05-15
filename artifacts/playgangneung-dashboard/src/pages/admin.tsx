@@ -11,6 +11,12 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -1379,6 +1385,89 @@ export default function Admin() {
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
+
+              {/* 스토리 미리보기 패널 */}
+              <Sheet open={!!previewStory} onOpenChange={(o) => { if (!o) setPreviewStory(null); }}>
+                <SheetContent side="right" className="w-full sm:max-w-lg flex flex-col p-0 overflow-hidden">
+                  {previewStory && (() => {
+                    const s = previewStory;
+                    const sc = STATUS_CONFIG[s.status] ?? STATUS_CONFIG.draft;
+                    return (
+                      <>
+                        {/* 이미지 */}
+                        {s.images[0] && (
+                          <div className="relative h-52 shrink-0 bg-gray-100 overflow-hidden">
+                            <img src={s.images[0]} alt={s.title} className="w-full h-full object-cover" />
+                          </div>
+                        )}
+                        {/* 스크롤 영역 */}
+                        <div className="flex-1 overflow-y-auto p-5 space-y-3">
+                          <SheetHeader>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs border font-medium ${sc.cls}`}>{sc.icon}{sc.label}</span>
+                              {s.author && <span className="text-xs text-muted-foreground">{s.author}</span>}
+                              <span className="text-xs text-muted-foreground ml-auto">{new Date(s.createdAt).toLocaleDateString("ko-KR")}</span>
+                            </div>
+                            <SheetTitle className="text-base leading-snug mt-1">{s.title}</SheetTitle>
+                          </SheetHeader>
+                          {s.body && <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">{s.body}</p>}
+                          {s.tags?.length > 0 && (
+                            <div className="flex flex-wrap gap-1">
+                              {s.tags.filter(Boolean).map(t => <span key={t} className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">#{t}</span>)}
+                            </div>
+                          )}
+                        </div>
+                        {/* 액션 푸터 */}
+                        <div className="border-t p-4 flex flex-col gap-2 shrink-0">
+                          {s.sourceUrl && (
+                            <a href={s.sourceUrl} target="_blank" rel="noopener noreferrer"
+                              className="flex items-center justify-center gap-2 w-full h-9 rounded-md border text-sm font-medium hover:bg-gray-50 transition-colors">
+                              <ExternalLink className="w-4 h-4" />원문 보기
+                            </a>
+                          )}
+                          <div className="flex gap-2">
+                            {s.status === "draft" && (
+                              <Button className="flex-1 gap-1" size="sm" variant="outline"
+                                onClick={async () => {
+                                  await fetch(`${BASE}/api/stories/${s.id}/status`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ status: "approved" }) });
+                                  refetchStories(); setPreviewStory(null);
+                                }}>
+                                <CheckCircle className="w-4 h-4 text-green-600" />승인
+                              </Button>
+                            )}
+                            {s.status === "approved" && (
+                              <Button className="flex-1 gap-1" size="sm"
+                                onClick={async () => {
+                                  await fetch(`${BASE}/api/stories/${s.id}/status`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ status: "published" }) });
+                                  refetchStories(); setPreviewStory(null);
+                                }}>
+                                <Send className="w-4 h-4" />발행
+                              </Button>
+                            )}
+                            {s.status !== "draft" && (
+                              <Button className="flex-1" size="sm" variant="outline"
+                                onClick={async () => {
+                                  await fetch(`${BASE}/api/stories/${s.id}/status`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ status: "draft" }) });
+                                  refetchStories(); setPreviewStory(null);
+                                }}>
+                                검토중으로
+                              </Button>
+                            )}
+                            <Button size="sm" variant="ghost" className="text-destructive hover:bg-destructive/10 px-3"
+                              onClick={async () => {
+                                if (!confirm("삭제하시겠습니까?")) return;
+                                await fetch(`${BASE}/api/stories/${s.id}`, { method: "DELETE", credentials: "include" });
+                                refetchStories(); setPreviewStory(null);
+                              }}>
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </SheetContent>
+              </Sheet>
             </div>
           )}
 
@@ -1436,7 +1525,7 @@ export default function Admin() {
                       : `${v.viewCount.toLocaleString()}회`
                     : null;
                   return (
-                    <Card key={v.id}>
+                    <Card key={v.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setPreviewVideo(v)}>
                       <CardContent className="p-4">
                         <div className="flex items-start gap-3">
                           {thumb && <img src={thumb} alt="" className="w-24 h-[54px] object-cover rounded-lg shrink-0" />}
@@ -1457,7 +1546,7 @@ export default function Admin() {
                             </div>
                             <p className="text-xs text-muted-foreground mt-0.5">{new Date(v.createdAt).toLocaleDateString("ko-KR")}</p>
                           </div>
-                          <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
+                          <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end" onClick={(e) => e.stopPropagation()}>
                             <Button size="sm" variant="outline" className="h-7 px-2 text-xs"
                               title="YouTube 정보 새로고침"
                               onClick={async () => {
@@ -1546,6 +1635,88 @@ export default function Admin() {
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
+
+              {/* 영상 미리보기 패널 */}
+              <Sheet open={!!previewVideo} onOpenChange={(o) => { if (!o) setPreviewVideo(null); }}>
+                <SheetContent side="right" className="w-full sm:max-w-lg flex flex-col p-0 overflow-hidden">
+                  {previewVideo && (() => {
+                    const v = previewVideo;
+                    const sc = STATUS_CONFIG[v.status] ?? STATUS_CONFIG.draft;
+                    return (
+                      <>
+                        {/* YouTube embed */}
+                        {v.youtubeId && (
+                          <div className="relative shrink-0 bg-black" style={{ paddingBottom: "56.25%" }}>
+                            <iframe
+                              className="absolute inset-0 w-full h-full"
+                              src={`https://www.youtube.com/embed/${v.youtubeId}`}
+                              title={v.title}
+                              allow="encrypted-media; fullscreen"
+                              allowFullScreen
+                            />
+                          </div>
+                        )}
+                        {/* 스크롤 영역 */}
+                        <div className="flex-1 overflow-y-auto p-5 space-y-3">
+                          <SheetHeader>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs border font-medium ${sc.cls}`}>{sc.icon}{sc.label}</span>
+                              <span className="text-xs text-muted-foreground ml-auto">{new Date(v.createdAt).toLocaleDateString("ko-KR")}</span>
+                            </div>
+                            <SheetTitle className="text-base leading-snug mt-1">{v.title || v.youtubeId}</SheetTitle>
+                          </SheetHeader>
+                          {v.channelName && <p className="text-sm text-muted-foreground">{v.channelName}</p>}
+                          {v.description && <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">{v.description.slice(0, 400)}</p>}
+                        </div>
+                        {/* 액션 푸터 */}
+                        <div className="border-t p-4 flex flex-col gap-2 shrink-0">
+                          <a href={`https://www.youtube.com/watch?v=${v.youtubeId}`} target="_blank" rel="noopener noreferrer"
+                            className="flex items-center justify-center gap-2 w-full h-9 rounded-md border text-sm font-medium hover:bg-gray-50 transition-colors">
+                            <ExternalLink className="w-4 h-4" />YouTube에서 보기
+                          </a>
+                          <div className="flex gap-2">
+                            {v.status === "draft" && (
+                              <Button className="flex-1 gap-1" size="sm" variant="outline"
+                                onClick={async () => {
+                                  await fetch(`${BASE}/api/videos/${v.id}/status`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ status: "approved" }) });
+                                  refetchVideos(); setPreviewVideo(null);
+                                }}>
+                                <CheckCircle className="w-4 h-4 text-green-600" />승인
+                              </Button>
+                            )}
+                            {v.status === "approved" && (
+                              <Button className="flex-1 gap-1" size="sm"
+                                onClick={async () => {
+                                  await fetch(`${BASE}/api/videos/${v.id}/status`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ status: "published" }) });
+                                  refetchVideos(); setPreviewVideo(null);
+                                }}>
+                                <Send className="w-4 h-4" />발행
+                              </Button>
+                            )}
+                            {v.status !== "draft" && (
+                              <Button className="flex-1" size="sm" variant="outline"
+                                onClick={async () => {
+                                  await fetch(`${BASE}/api/videos/${v.id}/status`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ status: "draft" }) });
+                                  refetchVideos(); setPreviewVideo(null);
+                                }}>
+                                검토중으로
+                              </Button>
+                            )}
+                            <Button size="sm" variant="ghost" className="text-destructive hover:bg-destructive/10 px-3"
+                              onClick={async () => {
+                                if (!confirm("삭제하시겠습니까?")) return;
+                                await fetch(`${BASE}/api/videos/${v.id}`, { method: "DELETE", credentials: "include" });
+                                refetchVideos(); setPreviewVideo(null);
+                              }}>
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </SheetContent>
+              </Sheet>
             </div>
           )}
 

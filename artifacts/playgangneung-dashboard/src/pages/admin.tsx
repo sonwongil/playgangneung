@@ -40,6 +40,8 @@ import {
   X,
   PlusCircle,
   Check,
+  BookOpen,
+  Video,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -98,11 +100,38 @@ interface Source {
   createdAt: string;
 }
 
-type NavKey = "dashboard" | "ads" | "sources" | "settings";
+interface AdminStory {
+  id: string;
+  title: string;
+  body: string;
+  images: string[];
+  sourceUrl: string;
+  author: string;
+  tags: string[];
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface AdminVideo {
+  id: string;
+  youtubeId: string;
+  title: string;
+  channelName: string;
+  thumbnailUrl: string | null;
+  description: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+type NavKey = "dashboard" | "ads" | "stories" | "videos" | "sources" | "settings";
 
 const NAV_ITEMS: { icon: React.ReactNode; label: string; key: NavKey }[] = [
   { icon: <LayoutDashboard className="w-4 h-4" />, label: "대시보드", key: "dashboard" },
   { icon: <Megaphone className="w-4 h-4" />, label: "광고접수", key: "ads" },
+  { icon: <BookOpen className="w-4 h-4" />, label: "스토리", key: "stories" },
+  { icon: <Video className="w-4 h-4" />, label: "영상", key: "videos" },
   { icon: <Rss className="w-4 h-4" />, label: "크롤링 소스", key: "sources" },
   { icon: <Settings className="w-4 h-4" />, label: "설정", key: "settings" },
 ];
@@ -145,6 +174,10 @@ export default function Admin() {
   const [newSourceUrl, setNewSourceUrl] = useState("");
   const [scheduleHour, setScheduleHour] = useState(9);
   const [scheduleMinute, setScheduleMinute] = useState(0);
+  const [showStoryDialog, setShowStoryDialog] = useState(false);
+  const [storyForm, setStoryForm] = useState({ title: "", body: "", imagesStr: "", sourceUrl: "", author: "", tagsStr: "" });
+  const [showVideoDialog, setShowVideoDialog] = useState(false);
+  const [videoForm, setVideoForm] = useState({ youtubeUrl: "", title: "", channelName: "", description: "" });
   // inline draft editing: map of eventId → { caption, hashtagsStr }
   const [draftEdits, setDraftEdits] = useState<Record<string, { caption: string; hashtagsStr: string }>>({});
   const [, navigate] = useLocation();
@@ -224,6 +257,26 @@ export default function Admin() {
     enabled: activeNav === "settings",
     onSuccess: (d: { crawlHour: number; crawlMinute: number }) => { setScheduleHour(d.crawlHour); setScheduleMinute(d.crawlMinute); },
   } as any);
+
+  const { data: storiesData, isLoading: storiesLoading, refetch: refetchStories } = useQuery<{ stories: AdminStory[] }>({
+    queryKey: ["admin-stories"],
+    queryFn: async () => {
+      const r = await fetch(`${BASE}/api/stories/all`, { credentials: "include" });
+      if (!r.ok) throw new Error("스토리 로드 실패");
+      return r.json();
+    },
+    enabled: activeNav === "stories",
+  });
+
+  const { data: videosData, isLoading: videosLoading, refetch: refetchVideos } = useQuery<{ videos: AdminVideo[] }>({
+    queryKey: ["admin-videos"],
+    queryFn: async () => {
+      const r = await fetch(`${BASE}/api/videos/all`, { credentials: "include" });
+      if (!r.ok) throw new Error("영상 로드 실패");
+      return r.json();
+    },
+    enabled: activeNav === "videos",
+  });
 
   const [adminSortBy, setAdminSortBy] = useState<"date" | "latest">("latest");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -1167,6 +1220,222 @@ export default function Admin() {
                   <p>• 비활성화된 소스는 크롤링에서 제외됩니다.</p>
                 </CardContent>
               </Card>
+            </div>
+          )}
+
+          {/* ══ 스토리 ════════════════════════════════════════════════════════ */}
+          {activeNav === "stories" && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs text-muted-foreground">스토리 목록 <span className="font-semibold text-foreground">{storiesData?.stories?.length ?? 0}건</span></p>
+                <Button size="sm" onClick={() => setShowStoryDialog(true)} className="h-7 px-3 text-xs gap-1">
+                  <PlusCircle className="w-3 h-3" />새 스토리
+                </Button>
+              </div>
+              {storiesLoading ? <div className="py-16 text-center text-sm text-muted-foreground">불러오는 중...</div>
+                : !storiesData?.stories?.length ? (
+                  <div className="py-16 text-center text-sm text-muted-foreground"><BookOpen className="w-8 h-8 mx-auto mb-2 opacity-30" />등록된 스토리가 없습니다.</div>
+                ) : storiesData.stories.map((s) => {
+                  const sc = STATUS_CONFIG[s.status] ?? STATUS_CONFIG.draft;
+                  return (
+                    <Card key={s.id}>
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs border font-medium ${sc.cls}`}>{sc.icon}{sc.label}</span>
+                              {s.author && <span className="text-xs text-muted-foreground">{s.author}</span>}
+                            </div>
+                            <p className="font-semibold text-sm line-clamp-1">{s.title}</p>
+                            {s.body && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{s.body}</p>}
+                            <p className="text-xs text-muted-foreground mt-1">{new Date(s.createdAt).toLocaleDateString("ko-KR")}</p>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
+                            {s.status === "draft" && (
+                              <Button size="sm" variant="outline" className="h-7 px-2 text-xs text-green-700 border-green-200 hover:bg-green-50"
+                                onClick={async () => {
+                                  await fetch(`${BASE}/api/stories/${s.id}/status`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ status: "approved" }) });
+                                  refetchStories();
+                                }}>
+                                <CheckCircle className="w-3 h-3" />승인
+                              </Button>
+                            )}
+                            {s.status === "approved" && (
+                              <Button size="sm" variant="outline" className="h-7 px-2 text-xs text-blue-700 border-blue-200"
+                                onClick={async () => {
+                                  await fetch(`${BASE}/api/stories/${s.id}/status`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ status: "published" }) });
+                                  refetchStories();
+                                }}>
+                                <Send className="w-3 h-3" />발행
+                              </Button>
+                            )}
+                            {s.status !== "draft" && (
+                              <Button size="sm" variant="outline" className="h-7 px-2 text-xs"
+                                onClick={async () => {
+                                  await fetch(`${BASE}/api/stories/${s.id}/status`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ status: "draft" }) });
+                                  refetchStories();
+                                }}>
+                                검토중
+                              </Button>
+                            )}
+                            <Button size="sm" variant="ghost" className="h-7 px-2 text-destructive hover:bg-destructive/10"
+                              onClick={async () => {
+                                if (!confirm("삭제하시겠습니까?")) return;
+                                await fetch(`${BASE}/api/stories/${s.id}`, { method: "DELETE", credentials: "include" });
+                                refetchStories();
+                              }}>
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+
+              {/* 새 스토리 다이얼로그 */}
+              <Dialog open={showStoryDialog} onOpenChange={setShowStoryDialog}>
+                <DialogContent className="max-w-lg">
+                  <DialogHeader><DialogTitle>새 스토리 등록</DialogTitle></DialogHeader>
+                  <div className="space-y-3 py-2">
+                    <div><Label className="text-xs">제목 *</Label><Input className="h-8 text-sm mt-1" value={storyForm.title} onChange={(e) => setStoryForm(f => ({ ...f, title: e.target.value }))} /></div>
+                    <div><Label className="text-xs">본문</Label><Textarea className="text-sm mt-1 min-h-[80px]" value={storyForm.body} onChange={(e) => setStoryForm(f => ({ ...f, body: e.target.value }))} /></div>
+                    <div><Label className="text-xs">이미지 URL (쉼표 구분)</Label><Input className="h-8 text-sm mt-1" value={storyForm.imagesStr} onChange={(e) => setStoryForm(f => ({ ...f, imagesStr: e.target.value }))} placeholder="https://..." /></div>
+                    <div><Label className="text-xs">원문 링크</Label><Input className="h-8 text-sm mt-1" value={storyForm.sourceUrl} onChange={(e) => setStoryForm(f => ({ ...f, sourceUrl: e.target.value }))} placeholder="https://..." /></div>
+                    <div><Label className="text-xs">작성자/출처</Label><Input className="h-8 text-sm mt-1" value={storyForm.author} onChange={(e) => setStoryForm(f => ({ ...f, author: e.target.value }))} /></div>
+                    <div><Label className="text-xs">태그 (쉼표 구분)</Label><Input className="h-8 text-sm mt-1" value={storyForm.tagsStr} onChange={(e) => setStoryForm(f => ({ ...f, tagsStr: e.target.value }))} placeholder="강릉,바다,카페" /></div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" size="sm" onClick={() => setShowStoryDialog(false)}>취소</Button>
+                    <Button size="sm" disabled={!storyForm.title} onClick={async () => {
+                      await fetch(`${BASE}/api/stories`, {
+                        method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
+                        body: JSON.stringify({
+                          title: storyForm.title, body: storyForm.body,
+                          images: storyForm.imagesStr.split(",").map(s => s.trim()).filter(Boolean),
+                          sourceUrl: storyForm.sourceUrl, author: storyForm.author,
+                          tags: storyForm.tagsStr.split(",").map(s => s.trim()).filter(Boolean),
+                        }),
+                      });
+                      setStoryForm({ title: "", body: "", imagesStr: "", sourceUrl: "", author: "", tagsStr: "" });
+                      setShowStoryDialog(false);
+                      refetchStories();
+                      toast({ description: "스토리가 등록됐습니다." });
+                    }}>등록</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
+          )}
+
+          {/* ══ 영상 ══════════════════════════════════════════════════════════ */}
+          {activeNav === "videos" && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs text-muted-foreground">영상 목록 <span className="font-semibold text-foreground">{videosData?.videos?.length ?? 0}건</span></p>
+                <Button size="sm" onClick={() => setShowVideoDialog(true)} className="h-7 px-3 text-xs gap-1">
+                  <PlusCircle className="w-3 h-3" />새 영상
+                </Button>
+              </div>
+              {videosLoading ? <div className="py-16 text-center text-sm text-muted-foreground">불러오는 중...</div>
+                : !videosData?.videos?.length ? (
+                  <div className="py-16 text-center text-sm text-muted-foreground"><Video className="w-8 h-8 mx-auto mb-2 opacity-30" />등록된 영상이 없습니다.</div>
+                ) : videosData.videos.map((v) => {
+                  const sc = STATUS_CONFIG[v.status] ?? STATUS_CONFIG.draft;
+                  const thumb = v.thumbnailUrl ?? (v.youtubeId ? `https://img.youtube.com/vi/${v.youtubeId}/mqdefault.jpg` : null);
+                  return (
+                    <Card key={v.id}>
+                      <CardContent className="p-4">
+                        <div className="flex items-start gap-3">
+                          {thumb && <img src={thumb} alt="" className="w-20 h-14 object-cover rounded-lg shrink-0" />}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs border font-medium ${sc.cls}`}>{sc.icon}{sc.label}</span>
+                              {v.channelName && <span className="text-xs text-muted-foreground">{v.channelName}</span>}
+                            </div>
+                            <p className="font-semibold text-sm line-clamp-1">{v.title || v.youtubeId}</p>
+                            <p className="text-xs text-muted-foreground mt-1">{new Date(v.createdAt).toLocaleDateString("ko-KR")}</p>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
+                            {v.status === "draft" && (
+                              <Button size="sm" variant="outline" className="h-7 px-2 text-xs text-green-700 border-green-200 hover:bg-green-50"
+                                onClick={async () => {
+                                  await fetch(`${BASE}/api/videos/${v.id}/status`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ status: "approved" }) });
+                                  refetchVideos();
+                                }}>
+                                <CheckCircle className="w-3 h-3" />승인
+                              </Button>
+                            )}
+                            {v.status === "approved" && (
+                              <Button size="sm" variant="outline" className="h-7 px-2 text-xs text-blue-700 border-blue-200"
+                                onClick={async () => {
+                                  await fetch(`${BASE}/api/videos/${v.id}/status`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ status: "published" }) });
+                                  refetchVideos();
+                                }}>
+                                <Send className="w-3 h-3" />발행
+                              </Button>
+                            )}
+                            {v.status !== "draft" && (
+                              <Button size="sm" variant="outline" className="h-7 px-2 text-xs"
+                                onClick={async () => {
+                                  await fetch(`${BASE}/api/videos/${v.id}/status`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ status: "draft" }) });
+                                  refetchVideos();
+                                }}>
+                                검토중
+                              </Button>
+                            )}
+                            <Button size="sm" variant="ghost" className="h-7 px-2 text-destructive hover:bg-destructive/10"
+                              onClick={async () => {
+                                if (!confirm("삭제하시겠습니까?")) return;
+                                await fetch(`${BASE}/api/videos/${v.id}`, { method: "DELETE", credentials: "include" });
+                                refetchVideos();
+                              }}>
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+
+              {/* 새 영상 다이얼로그 */}
+              <Dialog open={showVideoDialog} onOpenChange={setShowVideoDialog}>
+                <DialogContent className="max-w-lg">
+                  <DialogHeader><DialogTitle>새 영상 등록</DialogTitle></DialogHeader>
+                  <div className="space-y-3 py-2">
+                    <div>
+                      <Label className="text-xs">YouTube URL 또는 영상 ID *</Label>
+                      <Input className="h-8 text-sm mt-1" value={videoForm.youtubeUrl}
+                        onChange={(e) => setVideoForm(f => ({ ...f, youtubeUrl: e.target.value }))}
+                        placeholder="https://youtu.be/xxxxx 또는 영상 ID" />
+                    </div>
+                    <div><Label className="text-xs">제목</Label><Input className="h-8 text-sm mt-1" value={videoForm.title} onChange={(e) => setVideoForm(f => ({ ...f, title: e.target.value }))} /></div>
+                    <div><Label className="text-xs">채널명</Label><Input className="h-8 text-sm mt-1" value={videoForm.channelName} onChange={(e) => setVideoForm(f => ({ ...f, channelName: e.target.value }))} /></div>
+                    <div><Label className="text-xs">설명</Label><Textarea className="text-sm mt-1 min-h-[60px]" value={videoForm.description} onChange={(e) => setVideoForm(f => ({ ...f, description: e.target.value }))} /></div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" size="sm" onClick={() => setShowVideoDialog(false)}>취소</Button>
+                    <Button size="sm" disabled={!videoForm.youtubeUrl} onClick={async () => {
+                      const raw = videoForm.youtubeUrl.trim();
+                      let youtubeId = raw;
+                      try {
+                        const u = new URL(raw);
+                        if (u.hostname.includes("youtu.be")) youtubeId = u.pathname.slice(1);
+                        else if (u.searchParams.get("v")) youtubeId = u.searchParams.get("v")!;
+                      } catch { /* raw is already an ID */ }
+                      await fetch(`${BASE}/api/videos`, {
+                        method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
+                        body: JSON.stringify({ youtubeId, title: videoForm.title, channelName: videoForm.channelName, description: videoForm.description }),
+                      });
+                      setVideoForm({ youtubeUrl: "", title: "", channelName: "", description: "" });
+                      setShowVideoDialog(false);
+                      refetchVideos();
+                      toast({ description: "영상이 등록됐습니다." });
+                    }}>등록</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </div>
           )}
 

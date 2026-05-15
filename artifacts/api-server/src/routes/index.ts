@@ -8,6 +8,8 @@ import authRouter from "./auth.js";
 import proxyRouter from "./proxy.js";
 import sourcesRouter from "./sources.js";
 import scheduleRouter from "./schedule.js";
+import storiesRouter from "./stories.js";
+import videosRouter from "./videos.js";
 
 const router: IRouter = Router();
 
@@ -24,5 +26,7 @@ router.use(feedRouter);
 router.use(proxyRouter);
 router.use(sourcesRouter);
 router.use(scheduleRouter);
+router.use(storiesRouter);
+router.use(videosRouter);
 
 export default router;

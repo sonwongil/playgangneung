@@ -30,6 +30,32 @@ interface FeedItem {
   location?: string;
 }
 
+interface StoryItem {
+  id: string;
+  title: string;
+  body: string;
+  images: string[];
+  sourceUrl: string;
+  author: string;
+  tags: string[];
+  status: string;
+  createdAt: string;
+}
+
+interface VideoItem {
+  id: string;
+  youtubeId: string;
+  title: string;
+  channelName: string;
+  thumbnailUrl: string | null;
+  description: string;
+  status: string;
+  createdAt: string;
+}
+
+type HomeTab = "전체" | "행사" | "정보" | "스토리" | "영상";
+const HOME_TABS: HomeTab[] = ["전체", "행사", "정보", "스토리", "영상"];
+
 const CATEGORY_COLORS: Record<string, string> = {
   행사: "bg-blue-100 text-blue-700",
   맛집: "bg-orange-100 text-orange-700",
@@ -77,12 +103,10 @@ const SCHEDULE_PRIORITY: Record<string, number> = {
 type SortBy = "date" | "latest";
 
 function sortFeed(items: FeedItem[], sortBy: SortBy): FeedItem[] {
-  // premium/main 광고는 항상 최상단 고정
   const pinned = items.filter(i => i.isAd && (i.adPlan === "premium" || i.adPlan === "main"));
   const rest   = items.filter(i => !(i.isAd && (i.adPlan === "premium" || i.adPlan === "main")));
 
   const sorted = [...rest].sort((a, b) => {
-    // 광고 우선
     if (a.isAd && !b.isAd) return -1;
     if (!a.isAd && b.isAd) return 1;
 
@@ -91,10 +115,8 @@ function sortFeed(items: FeedItem[], sortBy: SortBy): FeedItem[] {
     if (sa !== sb) return sa - sb;
 
     if (sortBy === "latest") {
-      // 최신순: 시작일 내림차순 (ended는 이미 맨 뒤)
       return b.date.localeCompare(a.date);
     }
-    // 날짜순: ended는 최근 종료 먼저, 나머지는 가까운 날짜 먼저
     if (a.scheduleStatus === "ended") return b.date.localeCompare(a.date);
     return a.date.localeCompare(b.date);
   });
@@ -177,7 +199,6 @@ function FeedCard({ item }: { item: FeedItem }) {
 
   function shareFacebook(e: React.MouseEvent) {
     e.stopPropagation();
-    // Facebook 공유 다이얼로그 — 로그인된 계정(페북 페이지)에 콘텐츠 URL 첨부
     window.open(
       `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(contentUrl)}`,
       "_blank"
@@ -187,14 +208,12 @@ function FeedCard({ item }: { item: FeedItem }) {
   async function shareInstagram(e: React.MouseEvent) {
     e.stopPropagation();
     if (navigator.share) {
-      // 모바일: 시스템 공유시트 → 인스타그램 앱에서 스토리/게시물로 직접 공유
       try {
         await navigator.share({ title: item.title, url: contentUrl });
       } catch {
         // 사용자가 취소한 경우 무시
       }
     } else {
-      // PC: 링크 복사 후 인스타그램 웹 열기 (PC는 인스타 앱 연동 불가)
       await navigator.clipboard.writeText(contentUrl);
       window.open("https://www.instagram.com/playgangneung/", "_blank");
     }
@@ -268,7 +287,6 @@ function FeedCard({ item }: { item: FeedItem }) {
             </div>
           </div>
 
-          {/* 공유 버튼 */}
           <div className="flex gap-1.5" onClick={(e) => e.stopPropagation()}>
             <button
               onClick={copyLink}
@@ -296,10 +314,109 @@ function FeedCard({ item }: { item: FeedItem }) {
   );
 }
 
+function StoryCard({ item }: { item: StoryItem }) {
+  const firstImage = item.images[0];
+  function openSource() {
+    if (item.sourceUrl) window.open(item.sourceUrl, "_blank", "noopener,noreferrer");
+  }
+  return (
+    <div
+      onClick={item.sourceUrl ? openSource : undefined}
+      className={`rounded-2xl overflow-hidden bg-gray-900 text-white ${item.sourceUrl ? "cursor-pointer hover:brightness-110" : ""} transition-all`}
+    >
+      {firstImage && (
+        <div className="relative h-48 overflow-hidden">
+          <img src={firstImage} alt={item.title} className="w-full h-full object-cover" loading="lazy" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+        </div>
+      )}
+      <div className="p-4">
+        {item.author && (
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-xs font-bold shrink-0">
+              {item.author[0]}
+            </div>
+            <span className="text-xs text-gray-400">{item.author}</span>
+          </div>
+        )}
+        <h3 className="font-bold text-base leading-snug mb-2 line-clamp-2">{item.title}</h3>
+        {item.body && (
+          <p className="text-sm text-gray-400 line-clamp-3 leading-relaxed">{item.body}</p>
+        )}
+        {item.tags?.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-3">
+            {item.tags.slice(0, 4).map(tag => (
+              <span key={tag} className="text-xs bg-gray-800 text-gray-400 px-2 py-0.5 rounded-full">#{tag}</span>
+            ))}
+          </div>
+        )}
+        <p className="text-xs text-gray-600 mt-3">
+          {new Date(item.createdAt).toLocaleDateString("ko-KR")}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function VideoCard({ item }: { item: VideoItem }) {
+  const [playing, setPlaying] = useState(false);
+  const thumb = item.thumbnailUrl ?? (item.youtubeId ? `https://img.youtube.com/vi/${item.youtubeId}/maxresdefault.jpg` : null);
+
+  if (playing && item.youtubeId) {
+    return (
+      <div className="rounded-2xl overflow-hidden bg-black shadow-lg">
+        <div className="relative" style={{ paddingBottom: "56.25%" }}>
+          <iframe
+            className="absolute inset-0 w-full h-full"
+            src={`https://www.youtube.com/embed/${item.youtubeId}?autoplay=1`}
+            title={item.title}
+            allow="autoplay; encrypted-media; fullscreen"
+            allowFullScreen
+          />
+        </div>
+        <div className="p-3 bg-gray-900">
+          <h3 className="text-white font-semibold text-sm line-clamp-2">{item.title}</h3>
+          {item.channelName && <p className="text-gray-400 text-xs mt-1">{item.channelName}</p>}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      onClick={() => setPlaying(true)}
+      className="rounded-2xl overflow-hidden bg-gray-900 cursor-pointer hover:brightness-110 transition-all shadow-lg"
+    >
+      <div className="relative h-48 overflow-hidden bg-gray-800">
+        {thumb ? (
+          <img src={thumb} alt={item.title} className="w-full h-full object-cover" loading="lazy" />
+        ) : (
+          <div className="w-full h-full bg-gray-800" />
+        )}
+        <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+          <div className="w-14 h-14 rounded-full bg-red-600 flex items-center justify-center shadow-lg">
+            <Play className="w-6 h-6 text-white fill-white ml-0.5" />
+          </div>
+        </div>
+      </div>
+      <div className="p-3 bg-gray-900">
+        <h3 className="text-white font-semibold text-sm line-clamp-2 mb-1">{item.title}</h3>
+        {item.channelName && (
+          <p className="text-gray-400 text-xs">{item.channelName}</p>
+        )}
+        {item.description && (
+          <p className="text-gray-500 text-xs mt-1 line-clamp-2">{item.description}</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showAll, setShowAll] = useState(false);
   const [sortBy, setSortBy] = useState<SortBy>("date");
+  const [activeTab, setActiveTab] = useState<HomeTab>("전체");
   const inputRef = useRef<HTMLInputElement>(null);
   const [installPrompt, setInstallPrompt] = useState<Event & { prompt: () => Promise<void> } | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -338,23 +455,59 @@ export default function Home() {
     refetchInterval: 30_000,
   });
 
+  const { data: storiesData } = useQuery<{ stories: StoryItem[] }>({
+    queryKey: ["public-stories"],
+    queryFn: async () => {
+      const res = await fetch(`${BASE}/api/stories`);
+      if (!res.ok) throw new Error("스토리 로드 실패");
+      return res.json();
+    },
+    staleTime: 60_000,
+    enabled: activeTab === "스토리" || activeTab === "전체",
+  });
+
+  const { data: videosData } = useQuery<{ videos: VideoItem[] }>({
+    queryKey: ["public-videos"],
+    queryFn: async () => {
+      const res = await fetch(`${BASE}/api/videos`);
+      if (!res.ok) throw new Error("영상 로드 실패");
+      return res.json();
+    },
+    staleTime: 60_000,
+    enabled: activeTab === "영상" || activeTab === "전체",
+  });
+
   const allItems: FeedItem[] = data?.feed?.length ? data.feed : FALLBACK_FEED;
+  const stories: StoryItem[] = storiesData?.stories ?? [];
+  const videos: VideoItem[] = videosData?.videos ?? [];
+
+  const tabBaseItems = useMemo(() => {
+    if (activeTab === "행사") return allItems.filter(i => !i.isAd && i.category === "행사");
+    if (activeTab === "정보") return allItems.filter(i => !i.isAd && ["맛집", "핫플", "지역소식"].includes(i.category));
+    return allItems;
+  }, [allItems, activeTab]);
 
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     const base = q
-      ? allItems.filter((item) => {
+      ? tabBaseItems.filter((item) => {
           if (item.isAd) return true;
           const haystack = [item.title, item.description, item.location ?? "", item.category]
             .join(" ").toLowerCase();
           return haystack.includes(q);
         })
-      : allItems;
+      : tabBaseItems;
     return sortFeed(base, sortBy);
-  }, [allItems, searchQuery, sortBy]);
+  }, [tabBaseItems, searchQuery, sortBy]);
 
   const isSearching = searchQuery.trim() !== "";
   const display = showAll ? filtered : filtered.slice(0, 9);
+
+  function handleTabChange(tab: HomeTab) {
+    setActiveTab(tab);
+    setShowAll(false);
+    setSearchQuery("");
+  }
 
   function handleSearchChange(v: string) {
     setSearchQuery(v);
@@ -372,6 +525,8 @@ export default function Home() {
     inputRef.current?.focus();
   }
 
+  const isEventTab = activeTab === "전체" || activeTab === "행사" || activeTab === "정보";
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Header */}
@@ -381,7 +536,6 @@ export default function Home() {
             <img src={`${BASE}/logo2.png`} alt="PLAY강릉" style={{ height: 56, width: "auto", marginTop: 5 }} />
           </a>
           <div className="flex items-center gap-1">
-            {/* 검색 버튼 */}
             <button
               onClick={() => { setSearchOpen((v) => !v); setMenuOpen(false); }}
               className="flex flex-col items-center justify-center w-14 h-14 rounded-full hover:bg-gray-100 transition-colors gap-0.5"
@@ -392,7 +546,6 @@ export default function Home() {
               </div>
               <span className="text-[12px] text-gray-700 leading-none font-medium">검색</span>
             </button>
-            {/* 메뉴 버튼 */}
             <div className="relative" ref={menuRef}>
               <button
                 onClick={() => { setMenuOpen((v) => !v); setSearchOpen(false); }}
@@ -430,8 +583,26 @@ export default function Home() {
             </div>
           </div>
         </div>
+
+        {/* 탭 바 */}
+        <div className="max-w-6xl mx-auto flex border-t border-gray-100">
+          {HOME_TABS.map((tab) => (
+            <button
+              key={tab}
+              onClick={() => handleTabChange(tab)}
+              className={`flex-1 py-2.5 text-sm font-semibold transition-colors border-b-2 ${
+                activeTab === tab
+                  ? "text-blue-600 border-blue-600"
+                  : "text-gray-500 border-transparent hover:text-gray-700"
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+
         {/* 검색 패널 */}
-        {searchOpen && (
+        {searchOpen && isEventTab && (
           <div className="border-t border-gray-100 bg-white px-4 py-2.5">
             <div className="relative max-w-6xl mx-auto">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
@@ -459,63 +630,93 @@ export default function Home() {
 
       {/* Main Content */}
       <main className="flex-1 max-w-6xl mx-auto px-4 pt-3 pb-4 w-full">
-        {/* Toolbar: 검색 결과 + 정렬 버튼 */}
-        <div className="flex items-center justify-between mb-3 min-h-[28px]">
-          {isSearching ? (
-            <p className="text-xs text-muted-foreground">
-              {filtered.filter(i => !i.isAd).length}건의 결과
-              <span className="ml-1 font-medium text-blue-600">· &ldquo;{searchQuery}&rdquo;</span>
-              <button onClick={clearSearch} className="ml-2 underline text-gray-400 hover:text-gray-600">초기화</button>
-            </p>
-          ) : <span />}
-          <div className="flex items-center gap-1">
-            <ArrowUpDown className="w-3.5 h-3.5 text-muted-foreground mr-0.5" />
-            <button
-              onClick={() => handleSortChange("date")}
-              className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
-                sortBy === "date"
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-100 text-gray-500 hover:bg-gray-200"
-              }`}
-            >
-              날짜순
-            </button>
-            <button
-              onClick={() => handleSortChange("latest")}
-              className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
-                sortBy === "latest"
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-100 text-gray-500 hover:bg-gray-200"
-              }`}
-            >
-              최신순
-            </button>
-          </div>
-        </div>
-
-        {/* Cards Grid */}
-        {filtered.filter(i => !i.isAd).length === 0 && isSearching ? (
-          <div className="flex flex-col items-center justify-center py-24 text-muted-foreground">
-            <Search className="w-12 h-12 mb-3 opacity-15" />
-            <p className="text-base font-semibold text-gray-600">검색 결과가 없습니다.</p>
-            <p className="text-sm mt-1 text-gray-400">다른 키워드로 다시 찾아보세요.</p>
-            <Button variant="outline" size="sm" className="mt-4 text-xs" onClick={clearSearch}>
-              전체 보기
-            </Button>
-          </div>
+        {activeTab === "스토리" ? (
+          stories.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-24 text-muted-foreground">
+              <p className="text-base font-semibold text-gray-500">아직 등록된 스토리가 없습니다.</p>
+              <p className="text-sm mt-1 text-gray-400">곧 강릉의 이야기를 전해드릴게요.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {stories.map((s) => <StoryCard key={s.id} item={s} />)}
+            </div>
+          )
+        ) : activeTab === "영상" ? (
+          videos.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-24 text-muted-foreground">
+              <p className="text-base font-semibold text-gray-500">아직 등록된 영상이 없습니다.</p>
+              <p className="text-sm mt-1 text-gray-400">강릉의 영상을 큐레이션 중입니다.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {videos.map((v) => <VideoCard key={v.id} item={v} />)}
+            </div>
+          )
         ) : (
           <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {display.map((item) => (
-                <FeedCard key={item.id} item={item} />
-              ))}
+            {/* Toolbar: 검색 결과 + 정렬 버튼 */}
+            <div className="flex items-center justify-between mb-3 min-h-[28px]">
+              {isSearching ? (
+                <p className="text-xs text-muted-foreground">
+                  {filtered.filter(i => !i.isAd).length}건의 결과
+                  <span className="ml-1 font-medium text-blue-600">· &ldquo;{searchQuery}&rdquo;</span>
+                  <button onClick={clearSearch} className="ml-2 underline text-gray-400 hover:text-gray-600">초기화</button>
+                </p>
+              ) : <span />}
+              <div className="flex items-center gap-1">
+                <ArrowUpDown className="w-3.5 h-3.5 text-muted-foreground mr-0.5" />
+                <button
+                  onClick={() => handleSortChange("date")}
+                  className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                    sortBy === "date"
+                      ? "bg-blue-600 text-white"
+                      : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                  }`}
+                >
+                  날짜순
+                </button>
+                <button
+                  onClick={() => handleSortChange("latest")}
+                  className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                    sortBy === "latest"
+                      ? "bg-blue-600 text-white"
+                      : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                  }`}
+                >
+                  최신순
+                </button>
+              </div>
             </div>
-            {!showAll && filtered.length > 9 && (
-              <div className="mt-8 text-center">
-                <Button variant="outline" size="lg" onClick={() => setShowAll(true)}>
-                  더 보기 ({filtered.length - 9}건)
+
+            {/* Cards Grid */}
+            {filtered.filter(i => !i.isAd).length === 0 && isSearching ? (
+              <div className="flex flex-col items-center justify-center py-24 text-muted-foreground">
+                <Search className="w-12 h-12 mb-3 opacity-15" />
+                <p className="text-base font-semibold text-gray-600">검색 결과가 없습니다.</p>
+                <p className="text-sm mt-1 text-gray-400">다른 키워드로 다시 찾아보세요.</p>
+                <Button variant="outline" size="sm" className="mt-4 text-xs" onClick={clearSearch}>
+                  전체 보기
                 </Button>
               </div>
+            ) : filtered.filter(i => !i.isAd).length === 0 && !isSearching ? (
+              <div className="flex flex-col items-center justify-center py-24 text-muted-foreground">
+                <p className="text-base font-semibold text-gray-500">아직 등록된 콘텐츠가 없습니다.</p>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {display.map((item) => (
+                    <FeedCard key={item.id} item={item} />
+                  ))}
+                </div>
+                {!showAll && filtered.length > 9 && (
+                  <div className="mt-8 text-center">
+                    <Button variant="outline" size="lg" onClick={() => setShowAll(true)}>
+                      더 보기 ({filtered.length - 9}건)
+                    </Button>
+                  </div>
+                )}
+              </>
             )}
           </>
         )}

@@ -1370,8 +1370,8 @@ export default function Admin() {
                     <Card key={s.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setPreviewStory(s)}>
                       <CardContent className="p-4">
                         <div className="flex items-start justify-between gap-3">
-                          <div className="flex items-start gap-2 flex-1 min-w-0" onClick={(e) => e.stopPropagation()}>
-                            <Checkbox className="mt-1 shrink-0" checked={selectedStoryIds.has(s.id)}
+                          <div className="shrink-0 pt-0.5" onClick={(e) => e.stopPropagation()}>
+                            <Checkbox checked={selectedStoryIds.has(s.id)}
                               onCheckedChange={(checked) => {
                                 setSelectedStoryIds(prev => {
                                   const next = new Set(prev);

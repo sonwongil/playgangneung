@@ -56,7 +56,7 @@ router.post("/videos/crawl", async (req, res) => {
     const { videos: crawled, error } = await crawlYoutubeVideos({
       query: query ?? "강릉",
       channelId,
-      maxResults: maxResults ?? 20,
+      maxResults: maxResults ?? 50,
       sinceDate,
     });
     if (error) return res.status(502).json({ error });

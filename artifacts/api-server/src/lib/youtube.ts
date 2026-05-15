@@ -152,7 +152,7 @@ export async function crawlYoutubeVideos(opts: {
   const apiKey = process.env.YOUTUBE_API_KEY;
   if (!apiKey) return { videos: [], error: "YOUTUBE_API_KEY 미설정" };
 
-  const maxResults = Math.min(opts.maxResults ?? 20, 50);
+  const maxResults = Math.min(opts.maxResults ?? 50, 50);
   const searchUrl = new URL(`${YOUTUBE_API_BASE}/search`);
   searchUrl.searchParams.set("key", apiKey);
   searchUrl.searchParams.set("part", "id");

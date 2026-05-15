@@ -199,6 +199,8 @@ export default function Admin() {
   const [isCrawlingStories, setIsCrawlingStories] = useState(false);
   const [isCrawlingVideos, setIsCrawlingVideos] = useState(false);
   const [naverQuery, setNaverQuery] = useState("강릉 맛집");
+  const [naverPeriodUnit, setNaverPeriodUnit] = useState<"days" | "months" | "years">("months");
+  const [naverPeriodValue, setNaverPeriodValue] = useState(3);
   const [isNaverCrawling, setIsNaverCrawling] = useState(false);
   const [ytCrawlQuery, setYtCrawlQuery] = useState("강릉");
   const [ytChannelId, setYtChannelId] = useState("");
@@ -215,7 +217,12 @@ export default function Admin() {
     try {
       const r = await fetch(`${BASE}/api/stories/naver-crawl`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        credentials: "include", body: JSON.stringify({ query: naverQuery.trim(), display: 30 }),
+        credentials: "include",
+        body: JSON.stringify({
+          query: naverQuery.trim(),
+          display: 30,
+          period: { unit: naverPeriodUnit, value: naverPeriodValue },
+        }),
       });
       const d = await r.json() as { message?: string; error?: string };
       if (!r.ok) toast({ description: d.error ?? "수집 실패", variant: "destructive" });
@@ -1282,6 +1289,27 @@ export default function Admin() {
                     {isNaverCrawling ? <RefreshCw className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
                     {isNaverCrawling ? "수집 중..." : "수집"}
                   </Button>
+                </div>
+                {/* 작성 기간 필터 */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[10px] text-muted-foreground shrink-0">작성 기간</span>
+                  <span className="text-[10px] text-muted-foreground shrink-0">최근</span>
+                  <Input
+                    type="number" min={1} max={999}
+                    className="h-6 text-xs w-16 px-1.5"
+                    value={naverPeriodValue}
+                    onChange={(e) => setNaverPeriodValue(Math.max(1, parseInt(e.target.value) || 1))}
+                  />
+                  <select
+                    className="h-6 text-xs border rounded px-1 bg-white cursor-pointer"
+                    value={naverPeriodUnit}
+                    onChange={(e) => setNaverPeriodUnit(e.target.value as "days" | "months" | "years")}
+                  >
+                    <option value="days">일</option>
+                    <option value="months">달</option>
+                    <option value="years">년</option>
+                  </select>
+                  <span className="text-[10px] text-muted-foreground">이내 글만 수집</span>
                 </div>
                 <p className="text-[10px] text-muted-foreground">키워드로 네이버 블로그 전체에서 강릉 관련 글을 자동 수집합니다.</p>
               </div>

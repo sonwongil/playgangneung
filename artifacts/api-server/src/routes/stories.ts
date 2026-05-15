@@ -38,13 +38,30 @@ router.get("/stories/all", async (req, res) => {
 
 router.post("/stories/naver-crawl", async (req, res) => {
   try {
-    const { query, display } = req.body as { query?: string; display?: number };
+    const { query, display, period } = req.body as {
+      query?: string;
+      display?: number;
+      period?: { unit: "days" | "months" | "years"; value: number };
+    };
     if (!query?.trim()) return res.status(400).json({ error: "검색어(query) 필수" });
+
+    let sinceDate: Date | undefined;
+    if (period && period.value > 0) {
+      const now = new Date();
+      if (period.unit === "days") {
+        sinceDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - period.value);
+      } else if (period.unit === "months") {
+        sinceDate = new Date(now.getFullYear(), now.getMonth() - period.value, now.getDate());
+      } else if (period.unit === "years") {
+        sinceDate = new Date(now.getFullYear() - period.value, now.getMonth(), now.getDate());
+      }
+    }
 
     const { items, total, error } = await searchNaverBlog({
       query: query.trim(),
       display: display ?? 30,
       sort: "date",
+      sinceDate,
     });
 
     if (error) return res.status(500).json({ error });

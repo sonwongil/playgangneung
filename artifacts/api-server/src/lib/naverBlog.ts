@@ -28,11 +28,21 @@ function blogItemId(link: string): string {
   return crypto.createHash("md5").update(`naver:${link}`).digest("hex").slice(0, 16);
 }
 
+function parsePostdate(postdate: string): Date | null {
+  if (!postdate || postdate.length < 8) return null;
+  const y = parseInt(postdate.slice(0, 4), 10);
+  const m = parseInt(postdate.slice(4, 6), 10) - 1;
+  const d = parseInt(postdate.slice(6, 8), 10);
+  const dt = new Date(y, m, d);
+  return isNaN(dt.getTime()) ? null : dt;
+}
+
 export async function searchNaverBlog(opts: {
   query: string;
   display?: number;
   start?: number;
   sort?: "sim" | "date";
+  sinceDate?: Date;
 }): Promise<{ items: NaverBlogItem[]; total: number; error?: string }> {
   const clientId = process.env.NAVER_CLIENT_ID;
   const clientSecret = process.env.NAVER_CLIENT_SECRET;
@@ -72,24 +82,33 @@ export async function searchNaverBlog(opts: {
   };
 
   const total = data.total ?? 0;
-  const items: NaverBlogItem[] = (data.items ?? []).map((item) => {
-    const link = item.link ?? "";
-    const title = stripHtml(item.title ?? "");
-    const desc = stripHtml(item.description ?? "").slice(0, 500);
-    const author = item.bloggername ?? "";
-    const postdate = item.postdate ?? "";
-    const year = postdate.slice(0, 4);
+  const sinceDate = opts.sinceDate ?? null;
 
-    return {
-      id: blogItemId(link),
-      title,
-      body: desc,
-      images: [],
-      sourceUrl: link,
-      author,
-      tags: ["강릉", "블로그", year].filter(Boolean),
-    };
-  });
+  const items: NaverBlogItem[] = (data.items ?? [])
+    .filter((item) => {
+      if (!sinceDate) return true;
+      const dt = parsePostdate(item.postdate ?? "");
+      if (!dt) return true;
+      return dt >= sinceDate;
+    })
+    .map((item) => {
+      const link = item.link ?? "";
+      const title = stripHtml(item.title ?? "");
+      const desc = stripHtml(item.description ?? "").slice(0, 500);
+      const author = item.bloggername ?? "";
+      const postdate = item.postdate ?? "";
+      const year = postdate.slice(0, 4);
+
+      return {
+        id: blogItemId(link),
+        title,
+        body: desc,
+        images: [],
+        sourceUrl: link,
+        author,
+        tags: ["강릉", "블로그", year].filter(Boolean),
+      };
+    });
 
   return { items, total };
 }

@@ -36,13 +36,28 @@ router.get("/videos/all", async (req, res) => {
 // ─── YouTube 자동 수집 ────────────────────────────────────────────────────────
 router.post("/videos/crawl", async (req, res) => {
   try {
-    const { query, channelId, maxResults } = req.body as {
+    const { query, channelId, maxResults, period } = req.body as {
       query?: string; channelId?: string; maxResults?: number;
+      period?: { unit: "days" | "months" | "years"; value: number };
     };
+
+    let sinceDate: Date | undefined;
+    if (period && period.value > 0) {
+      const now = new Date();
+      if (period.unit === "days") {
+        sinceDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - period.value);
+      } else if (period.unit === "months") {
+        sinceDate = new Date(now.getFullYear(), now.getMonth() - period.value, now.getDate());
+      } else if (period.unit === "years") {
+        sinceDate = new Date(now.getFullYear() - period.value, now.getMonth(), now.getDate());
+      }
+    }
+
     const { videos: crawled, error } = await crawlYoutubeVideos({
       query: query ?? "강릉",
       channelId,
       maxResults: maxResults ?? 20,
+      sinceDate,
     });
     if (error) return res.status(502).json({ error });
     if (crawled.length === 0) return res.json({ added: 0, skipped: 0, message: "수집된 영상 없음" });

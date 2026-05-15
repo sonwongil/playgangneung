@@ -147,6 +147,7 @@ export async function crawlYoutubeVideos(opts: {
   query?: string;
   channelId?: string;
   maxResults?: number;
+  sinceDate?: Date;
 }): Promise<{ videos: YoutubeVideoInfo[]; error?: string }> {
   const apiKey = process.env.YOUTUBE_API_KEY;
   if (!apiKey) return { videos: [], error: "YOUTUBE_API_KEY 미설정" };
@@ -160,6 +161,9 @@ export async function crawlYoutubeVideos(opts: {
   searchUrl.searchParams.set("maxResults", String(maxResults));
   searchUrl.searchParams.set("relevanceLanguage", "ko");
   searchUrl.searchParams.set("regionCode", "KR");
+  if (opts.sinceDate) {
+    searchUrl.searchParams.set("publishedAfter", opts.sinceDate.toISOString());
+  }
 
   if (opts.channelId) {
     searchUrl.searchParams.set("channelId", opts.channelId);

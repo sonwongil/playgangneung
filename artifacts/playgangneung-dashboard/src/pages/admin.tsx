@@ -204,6 +204,8 @@ export default function Admin() {
   const [isNaverCrawling, setIsNaverCrawling] = useState(false);
   const [ytCrawlQuery, setYtCrawlQuery] = useState("강릉");
   const [ytChannelId, setYtChannelId] = useState("");
+  const [ytPeriodUnit, setYtPeriodUnit] = useState<"days" | "months" | "years">("months");
+  const [ytPeriodValue, setYtPeriodValue] = useState(3);
   // inline draft editing: map of eventId → { caption, hashtagsStr }
   const [draftEdits, setDraftEdits] = useState<Record<string, { caption: string; hashtagsStr: string }>>({});
   const [, navigate] = useLocation();
@@ -1517,7 +1519,10 @@ export default function Admin() {
                     onClick={async () => {
                       setIsCrawlingVideos(true);
                       try {
-                        const body: Record<string, string | number> = { maxResults: 20 };
+                        const body: Record<string, unknown> = {
+                          maxResults: 20,
+                          period: { unit: ytPeriodUnit, value: ytPeriodValue },
+                        };
                         if (ytChannelId.trim()) body.channelId = ytChannelId.trim();
                         else body.query = ytCrawlQuery.trim() || "강릉";
                         const r = await fetch(`${BASE}/api/videos/crawl`, {
@@ -1536,6 +1541,27 @@ export default function Admin() {
                   <Button size="sm" onClick={() => setShowVideoDialog(true)} className="h-7 px-3 text-xs gap-1 shrink-0">
                     <PlusCircle className="w-3 h-3" />직접 등록
                   </Button>
+                </div>
+                {/* 작성 기간 필터 */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[10px] text-muted-foreground shrink-0">업로드 기간</span>
+                  <span className="text-[10px] text-muted-foreground shrink-0">최근</span>
+                  <Input
+                    type="number" min={1} max={999}
+                    className="h-6 text-xs w-16 px-1.5"
+                    value={ytPeriodValue}
+                    onChange={(e) => setYtPeriodValue(Math.max(1, parseInt(e.target.value) || 1))}
+                  />
+                  <select
+                    className="h-6 text-xs border rounded px-1 bg-white cursor-pointer"
+                    value={ytPeriodUnit}
+                    onChange={(e) => setYtPeriodUnit(e.target.value as "days" | "months" | "years")}
+                  >
+                    <option value="days">일</option>
+                    <option value="months">달</option>
+                    <option value="years">년</option>
+                  </select>
+                  <span className="text-[10px] text-muted-foreground">이내 영상만 수집</span>
                 </div>
               </div>
               {videosLoading ? <div className="py-16 text-center text-sm text-muted-foreground">불러오는 중...</div>

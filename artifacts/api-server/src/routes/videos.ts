@@ -99,6 +99,18 @@ router.post("/videos/crawl", async (req, res) => {
   }
 });
 
+router.delete("/videos/bulk", async (req, res) => {
+  try {
+    const { ids } = req.body as { ids?: string[] };
+    if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ error: "ids 필수" });
+    await db.delete(videosTable).where(inArray(videosTable.id, ids));
+    return res.json({ removed: ids.length });
+  } catch (err) {
+    req.log.error({ err }, "영상 일괄 삭제 실패");
+    return res.status(500).json({ error: "일괄 삭제 실패" });
+  }
+});
+
 router.post("/videos", async (req, res) => {
   try {
     const { youtubeUrl, youtubeId: rawId, title, channelName, thumbnailUrl, description } = req.body as {

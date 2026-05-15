@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -196,6 +197,8 @@ export default function Admin() {
   const [videoForm, setVideoForm] = useState({ youtubeUrl: "", title: "", channelName: "", description: "" });
   const [previewStory, setPreviewStory] = useState<AdminStory | null>(null);
   const [previewVideo, setPreviewVideo] = useState<AdminVideo | null>(null);
+  const [selectedStoryIds, setSelectedStoryIds] = useState<Set<string>>(new Set());
+  const [selectedVideoIds, setSelectedVideoIds] = useState<Set<string>>(new Set());
   const [isCrawlingStories, setIsCrawlingStories] = useState(false);
   const [isCrawlingVideos, setIsCrawlingVideos] = useState(false);
   const [naverQuery, setNaverQuery] = useState("강릉 맛집");
@@ -1317,7 +1320,43 @@ export default function Admin() {
               </div>
 
               <div className="flex items-center justify-between flex-wrap gap-2">
-                <p className="text-xs text-muted-foreground">스토리 목록 <span className="font-semibold text-foreground">{storiesData?.stories?.length ?? 0}건</span></p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-xs text-muted-foreground">스토리 목록 <span className="font-semibold text-foreground">{storiesData?.stories?.length ?? 0}건</span></p>
+                  {(storiesData?.stories?.length ?? 0) > 0 && (
+                    <>
+                      <Button size="sm" variant="outline" className="h-7 px-2 text-xs"
+                        onClick={() => {
+                          const allIds = storiesData!.stories.map(s => s.id);
+                          if (selectedStoryIds.size === allIds.length) setSelectedStoryIds(new Set());
+                          else setSelectedStoryIds(new Set(allIds));
+                        }}>
+                        {selectedStoryIds.size === (storiesData?.stories?.length ?? 0) ? "선택 해제" : "전체 선택"}
+                      </Button>
+                      {selectedStoryIds.size > 0 && (
+                        <Button size="sm" variant="outline" className="h-7 px-2 text-xs text-destructive border-destructive/30 hover:bg-destructive/10"
+                          onClick={async () => {
+                            if (!confirm(`선택한 ${selectedStoryIds.size}개를 삭제할까요?`)) return;
+                            await fetch(`${BASE}/api/stories/bulk`, { method: "DELETE", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ ids: [...selectedStoryIds] }) });
+                            setSelectedStoryIds(new Set());
+                            refetchStories();
+                          }}>
+                          <Trash2 className="w-3 h-3" />선택 삭제 ({selectedStoryIds.size})
+                        </Button>
+                      )}
+                      <Button size="sm" variant="outline" className="h-7 px-2 text-xs text-destructive border-destructive/30 hover:bg-destructive/10"
+                        onClick={async () => {
+                          const total = storiesData?.stories?.length ?? 0;
+                          if (!confirm(`스토리 전체 ${total}개를 삭제할까요?`)) return;
+                          const allIds = storiesData!.stories.map(s => s.id);
+                          await fetch(`${BASE}/api/stories/bulk`, { method: "DELETE", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ ids: allIds }) });
+                          setSelectedStoryIds(new Set());
+                          refetchStories();
+                        }}>
+                        <Trash2 className="w-3 h-3" />모두 삭제
+                      </Button>
+                    </>
+                  )}
+                </div>
                 <Button size="sm" onClick={() => setShowStoryDialog(true)} className="h-7 px-3 text-xs gap-1">
                   <PlusCircle className="w-3 h-3" />직접 등록
                 </Button>
@@ -1331,6 +1370,16 @@ export default function Admin() {
                     <Card key={s.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setPreviewStory(s)}>
                       <CardContent className="p-4">
                         <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-start gap-2 flex-1 min-w-0" onClick={(e) => e.stopPropagation()}>
+                            <Checkbox className="mt-1 shrink-0" checked={selectedStoryIds.has(s.id)}
+                              onCheckedChange={(checked) => {
+                                setSelectedStoryIds(prev => {
+                                  const next = new Set(prev);
+                                  if (checked) next.add(s.id); else next.delete(s.id);
+                                  return next;
+                                });
+                              }} />
+                          </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1 flex-wrap">
                               <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs border font-medium ${sc.cls}`}>{sc.icon}{sc.label}</span>
@@ -1510,6 +1559,7 @@ export default function Admin() {
                   <span className="font-medium text-muted-foreground">YouTube 자동 수집</span>
                   <p className="text-xs text-muted-foreground">영상 목록 <span className="font-semibold text-foreground">{videosData?.videos?.length ?? 0}건</span></p>
                 </div>
+
                 <div className="flex gap-2 flex-wrap">
                   <Input className="h-7 text-xs flex-1 min-w-[120px]" placeholder="검색어 (예: 강릉 카페)" value={ytCrawlQuery}
                     onChange={(e) => setYtCrawlQuery(e.target.value)} />
@@ -1561,6 +1611,41 @@ export default function Admin() {
                   <span className="text-[10px] text-muted-foreground">이내 영상만 수집</span>
                 </div>
               </div>
+              {/* 영상 선택 툴바 */}
+              {(videosData?.videos?.length ?? 0) > 0 && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Button size="sm" variant="outline" className="h-7 px-2 text-xs"
+                    onClick={() => {
+                      const allIds = videosData!.videos.map(v => v.id);
+                      if (selectedVideoIds.size === allIds.length) setSelectedVideoIds(new Set());
+                      else setSelectedVideoIds(new Set(allIds));
+                    }}>
+                    {selectedVideoIds.size === (videosData?.videos?.length ?? 0) ? "선택 해제" : "전체 선택"}
+                  </Button>
+                  {selectedVideoIds.size > 0 && (
+                    <Button size="sm" variant="outline" className="h-7 px-2 text-xs text-destructive border-destructive/30 hover:bg-destructive/10"
+                      onClick={async () => {
+                        if (!confirm(`선택한 ${selectedVideoIds.size}개를 삭제할까요?`)) return;
+                        await fetch(`${BASE}/api/videos/bulk`, { method: "DELETE", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ ids: [...selectedVideoIds] }) });
+                        setSelectedVideoIds(new Set());
+                        refetchVideos();
+                      }}>
+                      <Trash2 className="w-3 h-3" />선택 삭제 ({selectedVideoIds.size})
+                    </Button>
+                  )}
+                  <Button size="sm" variant="outline" className="h-7 px-2 text-xs text-destructive border-destructive/30 hover:bg-destructive/10"
+                    onClick={async () => {
+                      const total = videosData?.videos?.length ?? 0;
+                      if (!confirm(`영상 전체 ${total}개를 삭제할까요?`)) return;
+                      const allIds = videosData!.videos.map(v => v.id);
+                      await fetch(`${BASE}/api/videos/bulk`, { method: "DELETE", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ ids: allIds }) });
+                      setSelectedVideoIds(new Set());
+                      refetchVideos();
+                    }}>
+                    <Trash2 className="w-3 h-3" />모두 삭제
+                  </Button>
+                </div>
+              )}
               {videosLoading ? <div className="py-16 text-center text-sm text-muted-foreground">불러오는 중...</div>
                 : !videosData?.videos?.length ? (
                   <div className="py-16 text-center text-sm text-muted-foreground"><Video className="w-8 h-8 mx-auto mb-2 opacity-30" />등록된 영상이 없습니다.</div>
@@ -1579,6 +1664,16 @@ export default function Admin() {
                     <Card key={v.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setPreviewVideo(v)}>
                       <CardContent className="p-4">
                         <div className="flex items-start gap-3">
+                          <div className="flex items-center pt-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                            <Checkbox checked={selectedVideoIds.has(v.id)}
+                              onCheckedChange={(checked) => {
+                                setSelectedVideoIds(prev => {
+                                  const next = new Set(prev);
+                                  if (checked) next.add(v.id); else next.delete(v.id);
+                                  return next;
+                                });
+                              }} />
+                          </div>
                           {thumb && <img src={thumb} alt="" className="w-24 h-[54px] object-cover rounded-lg shrink-0" />}
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1 flex-wrap">

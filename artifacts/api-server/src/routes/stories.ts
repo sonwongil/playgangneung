@@ -150,6 +150,18 @@ router.post("/stories/crawl", async (req, res) => {
   }
 });
 
+router.delete("/stories/bulk", async (req, res) => {
+  try {
+    const { ids } = req.body as { ids?: string[] };
+    if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ error: "ids 필수" });
+    await db.delete(storiesTable).where(inArray(storiesTable.id, ids));
+    return res.json({ removed: ids.length });
+  } catch (err) {
+    req.log.error({ err }, "스토리 일괄 삭제 실패");
+    return res.status(500).json({ error: "일괄 삭제 실패" });
+  }
+});
+
 router.post("/stories", async (req, res) => {
   try {
     const { title, body, images, sourceUrl, author, tags } = req.body as {

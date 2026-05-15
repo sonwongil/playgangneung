@@ -64,7 +64,10 @@ export function Video() {
     <div style={{ fontFamily: "-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sans KR',sans-serif", background: "#0f0f0f", minHeight: "100vh", width: 390, margin: "0 auto" }}>
       {/* Header */}
       <div style={{ padding: "16px 16px 12px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <img src="/logo_transparent.png" alt="PLAY강릉" style={{ height: 34, objectFit: "contain" }} />
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <img src="/logo_transparent.png" alt="PLAY강릉" style={{ height: 34, objectFit: "contain" }} />
+          <span style={{ fontWeight: 800, fontSize: 16, color: "#fff", letterSpacing: "-0.5px" }}>영상</span>
+        </div>
         <button style={{ background: "none", border: "none", fontSize: 20, color: "#888", cursor: "pointer" }}>🔍</button>
       </div>
 

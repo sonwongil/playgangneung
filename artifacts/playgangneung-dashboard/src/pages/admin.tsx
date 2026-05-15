@@ -100,6 +100,14 @@ interface Source {
   createdAt: string;
 }
 
+interface BlogSource {
+  id: string;
+  name: string;
+  blogId: string;
+  enabled: boolean;
+  createdAt: string;
+}
+
 interface AdminStory {
   id: string;
   title: string;
@@ -182,6 +190,8 @@ export default function Admin() {
   const [videoForm, setVideoForm] = useState({ youtubeUrl: "", title: "", channelName: "", description: "" });
   const [isCrawlingStories, setIsCrawlingStories] = useState(false);
   const [isCrawlingVideos, setIsCrawlingVideos] = useState(false);
+  const [newBlogName, setNewBlogName] = useState("");
+  const [newBlogId, setNewBlogId] = useState("");
   const [ytCrawlQuery, setYtCrawlQuery] = useState("강릉");
   const [ytChannelId, setYtChannelId] = useState("");
   // inline draft editing: map of eventId → { caption, hashtagsStr }
@@ -269,6 +279,16 @@ export default function Admin() {
     queryFn: async () => {
       const r = await fetch(`${BASE}/api/stories/all`, { credentials: "include" });
       if (!r.ok) throw new Error("스토리 로드 실패");
+      return r.json();
+    },
+    enabled: activeNav === "stories",
+  });
+
+  const { data: blogsData, refetch: refetchBlogs } = useQuery<{ blogs: BlogSource[] }>({
+    queryKey: ["admin-blogs"],
+    queryFn: async () => {
+      const r = await fetch(`${BASE}/api/stories/blogs`, { credentials: "include" });
+      if (!r.ok) throw new Error("블로그 소스 로드 실패");
       return r.json();
     },
     enabled: activeNav === "stories",
@@ -552,6 +572,39 @@ export default function Admin() {
       qc.invalidateQueries({ queryKey: ["schedule"] });
     },
     onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
+  });
+
+  const addBlogMutation = useMutation({
+    mutationFn: async ({ name, blogId }: { name: string; blogId: string }) => {
+      const r = await fetch(`${BASE}/api/stories/blogs`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        credentials: "include", body: JSON.stringify({ name, blogId }),
+      });
+      const d = await r.json(); if (!r.ok) throw new Error(d.error ?? "추가 실패"); return d;
+    },
+    onSuccess: () => { toast({ description: "블로그 소스 추가됐습니다." }); setNewBlogName(""); setNewBlogId(""); refetchBlogs(); },
+    onError: (e: Error) => toast({ description: e.message, variant: "destructive" }),
+  });
+
+  const deleteBlogMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const r = await fetch(`${BASE}/api/stories/blogs/${id}`, { method: "DELETE", credentials: "include" });
+      if (!r.ok) throw new Error("삭제 실패"); return r.json();
+    },
+    onSuccess: () => { toast({ description: "블로그 소스 삭제됐습니다." }); refetchBlogs(); },
+    onError: () => toast({ description: "삭제 실패", variant: "destructive" }),
+  });
+
+  const toggleBlogMutation = useMutation({
+    mutationFn: async ({ id, enabled }: { id: string; enabled: boolean }) => {
+      const r = await fetch(`${BASE}/api/stories/blogs/${id}/toggle`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        credentials: "include", body: JSON.stringify({ enabled }),
+      });
+      if (!r.ok) throw new Error("토글 실패"); return r.json();
+    },
+    onSuccess: () => refetchBlogs(),
+    onError: () => toast({ description: "상태 변경 실패", variant: "destructive" }),
   });
 
   const addSourceMutation = useMutation({
@@ -1232,7 +1285,55 @@ export default function Admin() {
           {/* ══ 스토리 ════════════════════════════════════════════════════════ */}
           {activeNav === "stories" && (
             <div className="space-y-3">
-              <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+              {/* 네이버 블로그 소스 관리 */}
+              <div className="p-3 bg-gray-50 rounded-lg border space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                    <Rss className="w-3 h-3" />네이버 블로그 소스
+                    <span className="text-foreground font-semibold ml-1">{blogsData?.blogs?.length ?? 0}개</span>
+                  </span>
+                </div>
+                <div className="flex gap-2">
+                  <Input className="h-7 text-xs flex-1" placeholder="이름 (예: 강릉관광)" value={newBlogName}
+                    onChange={(e) => setNewBlogName(e.target.value)} />
+                  <Input className="h-7 text-xs flex-1" placeholder="블로그 ID 또는 URL (예: visitgangneung)" value={newBlogId}
+                    onChange={(e) => setNewBlogId(e.target.value)} />
+                  <Button size="sm" variant="outline" className="h-7 px-3 text-xs shrink-0"
+                    disabled={!newBlogId.trim() || addBlogMutation.isPending}
+                    onClick={() => addBlogMutation.mutate({ name: newBlogName.trim(), blogId: newBlogId.trim() })}>
+                    <PlusCircle className="w-3 h-3 mr-1" />{addBlogMutation.isPending ? "추가 중..." : "추가"}
+                  </Button>
+                </div>
+                {blogsData?.blogs && blogsData.blogs.length > 0 && (
+                  <div className="flex flex-col gap-1 mt-1">
+                    {blogsData.blogs.map((b) => (
+                      <div key={b.id} className="flex items-center justify-between bg-white rounded border px-2 py-1.5 text-xs">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${b.enabled ? "bg-green-500" : "bg-gray-300"}`} />
+                          <span className="font-medium truncate">{b.name}</span>
+                          <a href={`https://blog.naver.com/${b.blogId}`} target="_blank" rel="noopener noreferrer"
+                            className="text-blue-500 hover:underline shrink-0">@{b.blogId}</a>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <Button size="sm" variant="ghost" className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
+                            onClick={() => toggleBlogMutation.mutate({ id: b.id, enabled: !b.enabled })}
+                            disabled={toggleBlogMutation.isPending}>
+                            {b.enabled ? "비활성" : "활성"}
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-6 px-1.5 text-destructive hover:bg-destructive/10"
+                            onClick={() => { if (confirm(`"${b.name}" 블로그를 삭제하시겠습니까?`)) deleteBlogMutation.mutate(b.id); }}
+                            disabled={deleteBlogMutation.isPending}>
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <p className="text-[10px] text-muted-foreground">블로그를 추가하면 "자동 수집" 시 RSS로 글을 가져옵니다. 블로그 ID는 blog.naver.com/<strong>블로그ID</strong> 형식입니다.</p>
+              </div>
+
+              <div className="flex items-center justify-between flex-wrap gap-2">
                 <p className="text-xs text-muted-foreground">스토리 목록 <span className="font-semibold text-foreground">{storiesData?.stories?.length ?? 0}건</span></p>
                 <div className="flex items-center gap-2">
                   <Button size="sm" variant="outline" disabled={isCrawlingStories} className="h-7 px-3 text-xs gap-1"

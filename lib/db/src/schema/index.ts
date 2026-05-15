@@ -3,3 +3,4 @@ export * from "./sources";
 export * from "./auth";
 export * from "./stories";
 export * from "./videos";
+export * from "./blogSources";

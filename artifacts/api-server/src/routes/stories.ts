@@ -2,7 +2,13 @@ import { Router } from "express";
 import { db, storiesTable } from "@workspace/db";
 import { desc, eq, inArray, or } from "drizzle-orm";
 import crypto from "crypto";
-import { crawlStories } from "../lib/storyCrawler.js";
+import {
+  crawlStories,
+  listBlogSources,
+  addBlogSource,
+  deleteBlogSource,
+  toggleBlogSource,
+} from "../lib/storyCrawler.js";
 
 const router = Router();
 
@@ -33,6 +39,53 @@ router.get("/stories/all", async (req, res) => {
   }
 });
 
+// ─── 네이버 블로그 소스 관리 ─────────────────────────────────────────────────
+
+router.get("/stories/blogs", async (req, res) => {
+  try {
+    const blogs = await listBlogSources();
+    return res.json({ blogs });
+  } catch (err) {
+    req.log.error({ err }, "블로그 소스 조회 실패");
+    return res.status(500).json({ error: "블로그 소스 조회 실패" });
+  }
+});
+
+router.post("/stories/blogs", async (req, res) => {
+  try {
+    const { name, blogId } = req.body as { name?: string; blogId?: string };
+    if (!blogId) return res.status(400).json({ error: "blogId 필수" });
+    const row = await addBlogSource(name ?? "", blogId);
+    if (!row) return res.status(409).json({ error: "이미 등록된 블로그입니다" });
+    return res.json({ blog: row });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    req.log.error({ err }, "블로그 소스 추가 실패");
+    return res.status(500).json({ error: msg });
+  }
+});
+
+router.patch("/stories/blogs/:id/toggle", async (req, res) => {
+  try {
+    const { enabled } = req.body as { enabled: boolean };
+    await toggleBlogSource(req.params.id, enabled);
+    return res.json({ ok: true });
+  } catch (err) {
+    req.log.error({ err }, "블로그 소스 토글 실패");
+    return res.status(500).json({ error: "토글 실패" });
+  }
+});
+
+router.delete("/stories/blogs/:id", async (req, res) => {
+  try {
+    const ok = await deleteBlogSource(req.params.id);
+    return res.json({ ok });
+  } catch (err) {
+    req.log.error({ err }, "블로그 소스 삭제 실패");
+    return res.status(500).json({ error: "삭제 실패" });
+  }
+});
+
 // ─── 스토리 크롤링 ─────────────────────────────────────────────────────────
 router.post("/stories/crawl", async (req, res) => {
   try {
@@ -41,7 +94,6 @@ router.post("/stories/crawl", async (req, res) => {
       return res.json({ added: 0, skipped: 0, errors, message: "수집된 항목 없음" });
     }
 
-    // 중복 제거: 같은 id(sourceUrl MD5)가 이미 있으면 스킵
     const ids = crawled.map((s) => s.id);
     const existing = await db
       .select({ id: storiesTable.id })

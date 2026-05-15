@@ -1,8 +1,8 @@
 import { Router } from "express";
 import { db, videosTable } from "@workspace/db";
-import { desc, eq, or } from "drizzle-orm";
+import { desc, eq, inArray, or } from "drizzle-orm";
 import crypto from "crypto";
-import { fetchYoutubeInfo } from "../lib/youtube.js";
+import { fetchYoutubeInfo, crawlYoutubeVideos } from "../lib/youtube.js";
 
 const router = Router();
 
@@ -30,6 +30,57 @@ router.get("/videos/all", async (req, res) => {
   } catch (err) {
     req.log.error({ err }, "영상 목록 조회 실패");
     return res.status(500).json({ error: "영상 목록 조회 실패" });
+  }
+});
+
+// ─── YouTube 자동 수집 ────────────────────────────────────────────────────────
+router.post("/videos/crawl", async (req, res) => {
+  try {
+    const { query, channelId, maxResults } = req.body as {
+      query?: string; channelId?: string; maxResults?: number;
+    };
+    const { videos: crawled, error } = await crawlYoutubeVideos({
+      query: query ?? "강릉",
+      channelId,
+      maxResults: maxResults ?? 20,
+    });
+    if (error) return res.status(502).json({ error });
+    if (crawled.length === 0) return res.json({ added: 0, skipped: 0, message: "수집된 영상 없음" });
+
+    // 중복 제거: 같은 youtubeId가 이미 있으면 스킵
+    const youtubeIds = crawled.map((v) => v.youtubeId);
+    const existing = await db
+      .select({ youtubeId: videosTable.youtubeId })
+      .from(videosTable)
+      .where(inArray(videosTable.youtubeId, youtubeIds));
+    const existingSet = new Set(existing.map((r) => r.youtubeId));
+
+    const toInsert = crawled.filter((v) => !existingSet.has(v.youtubeId));
+    if (toInsert.length > 0) {
+      await db.insert(videosTable).values(
+        toInsert.map((v) => ({
+          id: crypto.randomUUID().replace(/-/g, "").slice(0, 16),
+          youtubeId: v.youtubeId,
+          title: v.title,
+          channelName: v.channelName,
+          thumbnailUrl: v.thumbnailUrl,
+          description: v.description,
+          embeddable: v.embeddable,
+          viewCount: v.viewCount,
+          status: "draft" as const,
+        })),
+      );
+    }
+
+    req.log.info({ added: toInsert.length, skipped: crawled.length - toInsert.length }, "YouTube 크롤링 저장 완료");
+    return res.json({
+      added: toInsert.length,
+      skipped: crawled.length - toInsert.length,
+      message: `${toInsert.length}개 새로 수집, ${crawled.length - toInsert.length}개 중복 스킵`,
+    });
+  } catch (err) {
+    req.log.error({ err }, "YouTube 크롤링 실패");
+    return res.status(500).json({ error: "YouTube 크롤링 실패" });
   }
 });
 

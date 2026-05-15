@@ -180,6 +180,10 @@ export default function Admin() {
   const [storyForm, setStoryForm] = useState({ title: "", body: "", imagesStr: "", sourceUrl: "", author: "", tagsStr: "" });
   const [showVideoDialog, setShowVideoDialog] = useState(false);
   const [videoForm, setVideoForm] = useState({ youtubeUrl: "", title: "", channelName: "", description: "" });
+  const [isCrawlingStories, setIsCrawlingStories] = useState(false);
+  const [isCrawlingVideos, setIsCrawlingVideos] = useState(false);
+  const [ytCrawlQuery, setYtCrawlQuery] = useState("강릉");
+  const [ytChannelId, setYtChannelId] = useState("");
   // inline draft editing: map of eventId → { caption, hashtagsStr }
   const [draftEdits, setDraftEdits] = useState<Record<string, { caption: string; hashtagsStr: string }>>({});
   const [, navigate] = useLocation();
@@ -1228,11 +1232,27 @@ export default function Admin() {
           {/* ══ 스토리 ════════════════════════════════════════════════════════ */}
           {activeNav === "stories" && (
             <div className="space-y-3">
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
                 <p className="text-xs text-muted-foreground">스토리 목록 <span className="font-semibold text-foreground">{storiesData?.stories?.length ?? 0}건</span></p>
-                <Button size="sm" onClick={() => setShowStoryDialog(true)} className="h-7 px-3 text-xs gap-1">
-                  <PlusCircle className="w-3 h-3" />새 스토리
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button size="sm" variant="outline" disabled={isCrawlingStories} className="h-7 px-3 text-xs gap-1"
+                    onClick={async () => {
+                      setIsCrawlingStories(true);
+                      try {
+                        const r = await fetch(`${BASE}/api/stories/crawl`, { method: "POST", credentials: "include" });
+                        const d = await r.json() as { message?: string; added?: number; errors?: string[] };
+                        toast({ description: d.message ?? "수집 완료" });
+                        refetchStories();
+                      } catch { toast({ description: "수집 실패", variant: "destructive" }); }
+                      finally { setIsCrawlingStories(false); }
+                    }}>
+                    {isCrawlingStories ? <RefreshCw className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                    {isCrawlingStories ? "수집 중..." : "자동 수집"}
+                  </Button>
+                  <Button size="sm" onClick={() => setShowStoryDialog(true)} className="h-7 px-3 text-xs gap-1">
+                    <PlusCircle className="w-3 h-3" />직접 등록
+                  </Button>
+                </div>
               </div>
               {storiesLoading ? <div className="py-16 text-center text-sm text-muted-foreground">불러오는 중...</div>
                 : !storiesData?.stories?.length ? (
@@ -1333,11 +1353,41 @@ export default function Admin() {
           {/* ══ 영상 ══════════════════════════════════════════════════════════ */}
           {activeNav === "videos" && (
             <div className="space-y-3">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-xs text-muted-foreground">영상 목록 <span className="font-semibold text-foreground">{videosData?.videos?.length ?? 0}건</span></p>
-                <Button size="sm" onClick={() => setShowVideoDialog(true)} className="h-7 px-3 text-xs gap-1">
-                  <PlusCircle className="w-3 h-3" />새 영상
-                </Button>
+              {/* 수집 컨트롤 */}
+              <div className="flex flex-col gap-2 p-3 bg-gray-50 rounded-lg border text-xs">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <span className="font-medium text-muted-foreground">YouTube 자동 수집</span>
+                  <p className="text-xs text-muted-foreground">영상 목록 <span className="font-semibold text-foreground">{videosData?.videos?.length ?? 0}건</span></p>
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  <Input className="h-7 text-xs flex-1 min-w-[120px]" placeholder="검색어 (예: 강릉 카페)" value={ytCrawlQuery}
+                    onChange={(e) => setYtCrawlQuery(e.target.value)} />
+                  <Input className="h-7 text-xs w-44" placeholder="채널 ID (선택)" value={ytChannelId}
+                    onChange={(e) => setYtChannelId(e.target.value)} />
+                  <Button size="sm" variant="outline" disabled={isCrawlingVideos} className="h-7 px-3 text-xs gap-1 shrink-0"
+                    onClick={async () => {
+                      setIsCrawlingVideos(true);
+                      try {
+                        const body: Record<string, string | number> = { maxResults: 20 };
+                        if (ytChannelId.trim()) body.channelId = ytChannelId.trim();
+                        else body.query = ytCrawlQuery.trim() || "강릉";
+                        const r = await fetch(`${BASE}/api/videos/crawl`, {
+                          method: "POST", headers: { "Content-Type": "application/json" },
+                          credentials: "include", body: JSON.stringify(body),
+                        });
+                        const d = await r.json() as { message?: string; error?: string };
+                        if (!r.ok) toast({ description: d.error ?? "수집 실패", variant: "destructive" });
+                        else { toast({ description: d.message ?? "수집 완료" }); refetchVideos(); }
+                      } catch { toast({ description: "수집 실패", variant: "destructive" }); }
+                      finally { setIsCrawlingVideos(false); }
+                    }}>
+                    {isCrawlingVideos ? <RefreshCw className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                    {isCrawlingVideos ? "수집 중..." : "수집"}
+                  </Button>
+                  <Button size="sm" onClick={() => setShowVideoDialog(true)} className="h-7 px-3 text-xs gap-1 shrink-0">
+                    <PlusCircle className="w-3 h-3" />직접 등록
+                  </Button>
+                </div>
               </div>
               {videosLoading ? <div className="py-16 text-center text-sm text-muted-foreground">불러오는 중...</div>
                 : !videosData?.videos?.length ? (

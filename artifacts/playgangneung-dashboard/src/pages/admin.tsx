@@ -1294,13 +1294,12 @@ export default function Admin() {
                   </span>
                 </div>
                 <div className="flex gap-2">
-                  <Input className="h-7 text-xs flex-1" placeholder="이름 (예: 강릉관광)" value={newBlogName}
-                    onChange={(e) => setNewBlogName(e.target.value)} />
-                  <Input className="h-7 text-xs flex-1" placeholder="블로그 ID 또는 URL (예: visitgangneung)" value={newBlogId}
-                    onChange={(e) => setNewBlogId(e.target.value)} />
+                  <Input className="h-7 text-xs flex-1" placeholder="블로그 ID (예: visitgangneung)" value={newBlogId}
+                    onChange={(e) => setNewBlogId(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter" && newBlogId.trim()) addBlogMutation.mutate({ name: "", blogId: newBlogId.trim() }); }} />
                   <Button size="sm" variant="outline" className="h-7 px-3 text-xs shrink-0"
                     disabled={!newBlogId.trim() || addBlogMutation.isPending}
-                    onClick={() => addBlogMutation.mutate({ name: newBlogName.trim(), blogId: newBlogId.trim() })}>
+                    onClick={() => addBlogMutation.mutate({ name: "", blogId: newBlogId.trim() })}>
                     <PlusCircle className="w-3 h-3 mr-1" />{addBlogMutation.isPending ? "추가 중..." : "추가"}
                   </Button>
                 </div>
@@ -1330,7 +1329,7 @@ export default function Admin() {
                     ))}
                   </div>
                 )}
-                <p className="text-[10px] text-muted-foreground">블로그를 추가하면 "자동 수집" 시 RSS로 글을 가져옵니다. 블로그 ID는 blog.naver.com/<strong>블로그ID</strong> 형식입니다.</p>
+                <p className="text-[10px] text-muted-foreground">blog.naver.com/<strong>블로그ID</strong> — ID를 입력하면 "자동 수집" 시 해당 블로그 글을 가져옵니다.</p>
               </div>
 
               <div className="flex items-center justify-between flex-wrap gap-2">

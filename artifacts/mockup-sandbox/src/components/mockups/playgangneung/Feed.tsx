@@ -54,7 +54,7 @@ export function Feed() {
       {/* Header */}
       <div style={{ background: "#fff", padding: "14px 16px 0", position: "sticky", top: 0, zIndex: 50, borderBottom: "1px solid #f0f0f0" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-          <img src="/logo2.png" alt="PLAY강릉" style={{ height: 28, objectFit: "contain" }} />
+          <img src="/logo2.png" alt="PLAY강릉" style={{ height: 34, objectFit: "contain" }} />
           <div style={{ display: "flex", gap: 12 }}>
             <button style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer" }}>🔍</button>
             <button style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer" }}>☰</button>

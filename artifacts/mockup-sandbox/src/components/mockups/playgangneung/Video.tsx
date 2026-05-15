@@ -64,10 +64,7 @@ export function Video() {
     <div style={{ fontFamily: "-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sans KR',sans-serif", background: "#0f0f0f", minHeight: "100vh", width: 390, margin: "0 auto" }}>
       {/* Header */}
       <div style={{ padding: "16px 16px 12px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div>
-          <div style={{ fontWeight: 800, fontSize: 18, color: "#fff", letterSpacing: "-0.5px" }}>강릉 영상</div>
-          <div style={{ fontSize: 12, color: "#666", marginTop: 2 }}>강릉의 모든 영상을 한 곳에</div>
-        </div>
+        <img src="/logo_transparent.png" alt="PLAY강릉" style={{ height: 34, objectFit: "contain" }} />
         <button style={{ background: "none", border: "none", fontSize: 20, color: "#888", cursor: "pointer" }}>🔍</button>
       </div>
 

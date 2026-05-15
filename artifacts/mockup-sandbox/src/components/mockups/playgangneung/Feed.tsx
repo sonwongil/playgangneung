@@ -69,7 +69,7 @@ export function Feed() {
         <div style={{ display: "flex", width: "100%" }}>
           {CATEGORIES.map((cat) => (
             <button key={cat} onClick={() => setActive(cat)}
-              style={{ flex: 1, background: "none", border: "none", padding: "10px 0", fontWeight: active === cat ? 700 : 500, fontSize: 14, color: active === cat ? "#2563eb" : "#888", cursor: "pointer", borderBottom: active === cat ? "2.5px solid #2563eb" : "2.5px solid transparent", whiteSpace: "nowrap", textAlign: "center" }}>
+              style={{ flex: 1, background: "none", border: "none", padding: "10px 0", fontWeight: active === cat ? 700 : 500, fontSize: 15.5, color: active === cat ? "#2563eb" : "#888", cursor: "pointer", borderBottom: active === cat ? "2.5px solid #2563eb" : "2.5px solid transparent", whiteSpace: "nowrap", textAlign: "center" }}>
               {cat}
             </button>
           ))}

@@ -2,13 +2,8 @@ import { Router } from "express";
 import { db, storiesTable } from "@workspace/db";
 import { desc, eq, inArray, or } from "drizzle-orm";
 import crypto from "crypto";
-import {
-  crawlStories,
-  listBlogSources,
-  addBlogSource,
-  deleteBlogSource,
-  toggleBlogSource,
-} from "../lib/storyCrawler.js";
+import { crawlStories } from "../lib/storyCrawler.js";
+import { searchNaverBlog } from "../lib/naverBlog.js";
 
 const router = Router();
 
@@ -39,54 +34,62 @@ router.get("/stories/all", async (req, res) => {
   }
 });
 
-// ─── 네이버 블로그 소스 관리 ─────────────────────────────────────────────────
+// ─── 네이버 블로그 키워드 검색 수집 ─────────────────────────────────────────
 
-router.get("/stories/blogs", async (req, res) => {
+router.post("/stories/naver-crawl", async (req, res) => {
   try {
-    const blogs = await listBlogSources();
-    return res.json({ blogs });
+    const { query, display } = req.body as { query?: string; display?: number };
+    if (!query?.trim()) return res.status(400).json({ error: "검색어(query) 필수" });
+
+    const { items, total, error } = await searchNaverBlog({
+      query: query.trim(),
+      display: display ?? 30,
+      sort: "date",
+    });
+
+    if (error) return res.status(500).json({ error });
+
+    if (items.length === 0) {
+      return res.json({ added: 0, skipped: 0, total, message: "검색 결과 없음" });
+    }
+
+    const ids = items.map((s) => s.id);
+    const existing = await db
+      .select({ id: storiesTable.id })
+      .from(storiesTable)
+      .where(inArray(storiesTable.id, ids));
+    const existingSet = new Set(existing.map((r) => r.id));
+
+    const toInsert = items.filter((s) => !existingSet.has(s.id));
+    if (toInsert.length > 0) {
+      await db.insert(storiesTable).values(
+        toInsert.map((s) => ({
+          id: s.id,
+          title: s.title,
+          body: s.body,
+          images: s.images,
+          sourceUrl: s.sourceUrl,
+          author: s.author,
+          tags: s.tags,
+          status: "draft" as const,
+        })),
+      );
+    }
+
+    req.log.info({ query, added: toInsert.length, total }, "네이버 블로그 수집 완료");
+    return res.json({
+      added: toInsert.length,
+      skipped: items.length - toInsert.length,
+      total,
+      message: `"${query}" — ${toInsert.length}개 새로 수집, ${items.length - toInsert.length}개 중복 스킵`,
+    });
   } catch (err) {
-    req.log.error({ err }, "블로그 소스 조회 실패");
-    return res.status(500).json({ error: "블로그 소스 조회 실패" });
+    req.log.error({ err }, "네이버 블로그 수집 실패");
+    return res.status(500).json({ error: "네이버 블로그 수집 실패" });
   }
 });
 
-router.post("/stories/blogs", async (req, res) => {
-  try {
-    const { name, blogId } = req.body as { name?: string; blogId?: string };
-    if (!blogId) return res.status(400).json({ error: "blogId 필수" });
-    const row = await addBlogSource(name ?? "", blogId);
-    if (!row) return res.status(409).json({ error: "이미 등록된 블로그입니다" });
-    return res.json({ blog: row });
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    req.log.error({ err }, "블로그 소스 추가 실패");
-    return res.status(500).json({ error: msg });
-  }
-});
-
-router.patch("/stories/blogs/:id/toggle", async (req, res) => {
-  try {
-    const { enabled } = req.body as { enabled: boolean };
-    await toggleBlogSource(req.params.id, enabled);
-    return res.json({ ok: true });
-  } catch (err) {
-    req.log.error({ err }, "블로그 소스 토글 실패");
-    return res.status(500).json({ error: "토글 실패" });
-  }
-});
-
-router.delete("/stories/blogs/:id", async (req, res) => {
-  try {
-    const ok = await deleteBlogSource(req.params.id);
-    return res.json({ ok });
-  } catch (err) {
-    req.log.error({ err }, "블로그 소스 삭제 실패");
-    return res.status(500).json({ error: "삭제 실패" });
-  }
-});
-
-// ─── 스토리 크롤링 ─────────────────────────────────────────────────────────
+// ─── 스토리 크롤링 (RSS) ──────────────────────────────────────────────────
 router.post("/stories/crawl", async (req, res) => {
   try {
     const { stories: crawled, errors } = await crawlStories();

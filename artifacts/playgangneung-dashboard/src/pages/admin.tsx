@@ -190,8 +190,8 @@ export default function Admin() {
   const [videoForm, setVideoForm] = useState({ youtubeUrl: "", title: "", channelName: "", description: "" });
   const [isCrawlingStories, setIsCrawlingStories] = useState(false);
   const [isCrawlingVideos, setIsCrawlingVideos] = useState(false);
-  const [newBlogName, setNewBlogName] = useState("");
-  const [newBlogId, setNewBlogId] = useState("");
+  const [naverQuery, setNaverQuery] = useState("강릉 맛집");
+  const [isNaverCrawling, setIsNaverCrawling] = useState(false);
   const [ytCrawlQuery, setYtCrawlQuery] = useState("강릉");
   const [ytChannelId, setYtChannelId] = useState("");
   // inline draft editing: map of eventId → { caption, hashtagsStr }
@@ -200,6 +200,21 @@ export default function Admin() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const deployedBuildTime = useRef<string | null>(null);
+
+  async function handleNaverCrawl() {
+    if (!naverQuery.trim() || isNaverCrawling) return;
+    setIsNaverCrawling(true);
+    try {
+      const r = await fetch(`${BASE}/api/stories/naver-crawl`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        credentials: "include", body: JSON.stringify({ query: naverQuery.trim(), display: 30 }),
+      });
+      const d = await r.json() as { message?: string; error?: string };
+      if (!r.ok) toast({ description: d.error ?? "수집 실패", variant: "destructive" });
+      else { toast({ description: d.message ?? "수집 완료" }); refetchStories(); }
+    } catch { toast({ description: "수집 실패", variant: "destructive" }); }
+    finally { setIsNaverCrawling(false); }
+  }
 
   useEffect(() => {
     async function checkVersion() {
@@ -284,15 +299,6 @@ export default function Admin() {
     enabled: activeNav === "stories",
   });
 
-  const { data: blogsData, refetch: refetchBlogs } = useQuery<{ blogs: BlogSource[] }>({
-    queryKey: ["admin-blogs"],
-    queryFn: async () => {
-      const r = await fetch(`${BASE}/api/stories/blogs`, { credentials: "include" });
-      if (!r.ok) throw new Error("블로그 소스 로드 실패");
-      return r.json();
-    },
-    enabled: activeNav === "stories",
-  });
 
   const { data: videosData, isLoading: videosLoading, refetch: refetchVideos } = useQuery<{ videos: AdminVideo[] }>({
     queryKey: ["admin-videos"],
@@ -574,38 +580,6 @@ export default function Admin() {
     onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
   });
 
-  const addBlogMutation = useMutation({
-    mutationFn: async ({ name, blogId }: { name: string; blogId: string }) => {
-      const r = await fetch(`${BASE}/api/stories/blogs`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        credentials: "include", body: JSON.stringify({ name, blogId }),
-      });
-      const d = await r.json(); if (!r.ok) throw new Error(d.error ?? "추가 실패"); return d;
-    },
-    onSuccess: () => { toast({ description: "블로그 소스 추가됐습니다." }); setNewBlogName(""); setNewBlogId(""); refetchBlogs(); },
-    onError: (e: Error) => toast({ description: e.message, variant: "destructive" }),
-  });
-
-  const deleteBlogMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const r = await fetch(`${BASE}/api/stories/blogs/${id}`, { method: "DELETE", credentials: "include" });
-      if (!r.ok) throw new Error("삭제 실패"); return r.json();
-    },
-    onSuccess: () => { toast({ description: "블로그 소스 삭제됐습니다." }); refetchBlogs(); },
-    onError: () => toast({ description: "삭제 실패", variant: "destructive" }),
-  });
-
-  const toggleBlogMutation = useMutation({
-    mutationFn: async ({ id, enabled }: { id: string; enabled: boolean }) => {
-      const r = await fetch(`${BASE}/api/stories/blogs/${id}/toggle`, {
-        method: "PATCH", headers: { "Content-Type": "application/json" },
-        credentials: "include", body: JSON.stringify({ enabled }),
-      });
-      if (!r.ok) throw new Error("토글 실패"); return r.json();
-    },
-    onSuccess: () => refetchBlogs(),
-    onError: () => toast({ description: "상태 변경 실패", variant: "destructive" }),
-  });
 
   const addSourceMutation = useMutation({
     mutationFn: async ({ name, url }: { name: string; url: string }) => {
@@ -1285,74 +1259,30 @@ export default function Admin() {
           {/* ══ 스토리 ════════════════════════════════════════════════════════ */}
           {activeNav === "stories" && (
             <div className="space-y-3">
-              {/* 네이버 블로그 소스 관리 */}
+              {/* 네이버 블로그 키워드 수집 */}
               <div className="p-3 bg-gray-50 rounded-lg border space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-muted-foreground flex items-center gap-1">
-                    <Rss className="w-3 h-3" />네이버 블로그 소스
-                    <span className="text-foreground font-semibold ml-1">{blogsData?.blogs?.length ?? 0}개</span>
-                  </span>
-                </div>
-                <div className="flex gap-2">
-                  <Input className="h-7 text-xs flex-1" placeholder="블로그 ID (예: visitgangneung)" value={newBlogId}
-                    onChange={(e) => setNewBlogId(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter" && newBlogId.trim()) addBlogMutation.mutate({ name: "", blogId: newBlogId.trim() }); }} />
-                  <Button size="sm" variant="outline" className="h-7 px-3 text-xs shrink-0"
-                    disabled={!newBlogId.trim() || addBlogMutation.isPending}
-                    onClick={() => addBlogMutation.mutate({ name: "", blogId: newBlogId.trim() })}>
-                    <PlusCircle className="w-3 h-3 mr-1" />{addBlogMutation.isPending ? "추가 중..." : "추가"}
+                <span className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                  <Rss className="w-3 h-3" />네이버 블로그 자동 수집
+                </span>
+                <div className="flex gap-2 flex-wrap">
+                  <Input className="h-7 text-xs flex-1 min-w-[140px]" placeholder="검색어 (예: 강릉 맛집, 강릉 카페)" value={naverQuery}
+                    onChange={(e) => setNaverQuery(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter" && naverQuery.trim() && !isNaverCrawling) handleNaverCrawl(); }} />
+                  <Button size="sm" variant="outline" className="h-7 px-3 text-xs gap-1 shrink-0"
+                    disabled={!naverQuery.trim() || isNaverCrawling}
+                    onClick={handleNaverCrawl}>
+                    {isNaverCrawling ? <RefreshCw className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                    {isNaverCrawling ? "수집 중..." : "수집"}
                   </Button>
                 </div>
-                {blogsData?.blogs && blogsData.blogs.length > 0 && (
-                  <div className="flex flex-col gap-1 mt-1">
-                    {blogsData.blogs.map((b) => (
-                      <div key={b.id} className="flex items-center justify-between bg-white rounded border px-2 py-1.5 text-xs">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${b.enabled ? "bg-green-500" : "bg-gray-300"}`} />
-                          <span className="font-medium truncate">{b.name}</span>
-                          <a href={`https://blog.naver.com/${b.blogId}`} target="_blank" rel="noopener noreferrer"
-                            className="text-blue-500 hover:underline shrink-0">@{b.blogId}</a>
-                        </div>
-                        <div className="flex items-center gap-1 shrink-0">
-                          <Button size="sm" variant="ghost" className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
-                            onClick={() => toggleBlogMutation.mutate({ id: b.id, enabled: !b.enabled })}
-                            disabled={toggleBlogMutation.isPending}>
-                            {b.enabled ? "비활성" : "활성"}
-                          </Button>
-                          <Button size="sm" variant="ghost" className="h-6 px-1.5 text-destructive hover:bg-destructive/10"
-                            onClick={() => { if (confirm(`"${b.name}" 블로그를 삭제하시겠습니까?`)) deleteBlogMutation.mutate(b.id); }}
-                            disabled={deleteBlogMutation.isPending}>
-                            <Trash2 className="w-3 h-3" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <p className="text-[10px] text-muted-foreground">blog.naver.com/<strong>블로그ID</strong> — ID를 입력하면 "자동 수집" 시 해당 블로그 글을 가져옵니다.</p>
+                <p className="text-[10px] text-muted-foreground">키워드로 네이버 블로그 전체에서 강릉 관련 글을 자동 수집합니다.</p>
               </div>
 
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <p className="text-xs text-muted-foreground">스토리 목록 <span className="font-semibold text-foreground">{storiesData?.stories?.length ?? 0}건</span></p>
-                <div className="flex items-center gap-2">
-                  <Button size="sm" variant="outline" disabled={isCrawlingStories} className="h-7 px-3 text-xs gap-1"
-                    onClick={async () => {
-                      setIsCrawlingStories(true);
-                      try {
-                        const r = await fetch(`${BASE}/api/stories/crawl`, { method: "POST", credentials: "include" });
-                        const d = await r.json() as { message?: string; added?: number; errors?: string[] };
-                        toast({ description: d.message ?? "수집 완료" });
-                        refetchStories();
-                      } catch { toast({ description: "수집 실패", variant: "destructive" }); }
-                      finally { setIsCrawlingStories(false); }
-                    }}>
-                    {isCrawlingStories ? <RefreshCw className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
-                    {isCrawlingStories ? "수집 중..." : "자동 수집"}
-                  </Button>
-                  <Button size="sm" onClick={() => setShowStoryDialog(true)} className="h-7 px-3 text-xs gap-1">
-                    <PlusCircle className="w-3 h-3" />직접 등록
-                  </Button>
-                </div>
+                <Button size="sm" onClick={() => setShowStoryDialog(true)} className="h-7 px-3 text-xs gap-1">
+                  <PlusCircle className="w-3 h-3" />직접 등록
+                </Button>
               </div>
               {storiesLoading ? <div className="py-16 text-center text-sm text-muted-foreground">불러오는 중...</div>
                 : !storiesData?.stories?.length ? (

@@ -1513,18 +1513,15 @@ export default function Admin() {
                 <div className="flex gap-2 flex-wrap">
                   <Input className="h-7 text-xs flex-1 min-w-[120px]" placeholder="검색어 (예: 강릉 카페)" value={ytCrawlQuery}
                     onChange={(e) => setYtCrawlQuery(e.target.value)} />
-                  <Input className="h-7 text-xs w-44" placeholder="채널 ID (선택)" value={ytChannelId}
-                    onChange={(e) => setYtChannelId(e.target.value)} />
                   <Button size="sm" variant="outline" disabled={isCrawlingVideos} className="h-7 px-3 text-xs gap-1 shrink-0"
                     onClick={async () => {
                       setIsCrawlingVideos(true);
                       try {
                         const body: Record<string, unknown> = {
-                          maxResults: 20,
+                          maxResults: 50,
                           period: { unit: ytPeriodUnit, value: ytPeriodValue },
+                          query: ytCrawlQuery.trim() || "강릉",
                         };
-                        if (ytChannelId.trim()) body.channelId = ytChannelId.trim();
-                        else body.query = ytCrawlQuery.trim() || "강릉";
                         const r = await fetch(`${BASE}/api/videos/crawl`, {
                           method: "POST", headers: { "Content-Type": "application/json" },
                           credentials: "include", body: JSON.stringify(body),

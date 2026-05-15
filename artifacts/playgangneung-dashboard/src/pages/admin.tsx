@@ -188,6 +188,8 @@ export default function Admin() {
   const [storyForm, setStoryForm] = useState({ title: "", body: "", imagesStr: "", sourceUrl: "", author: "", tagsStr: "" });
   const [showVideoDialog, setShowVideoDialog] = useState(false);
   const [videoForm, setVideoForm] = useState({ youtubeUrl: "", title: "", channelName: "", description: "" });
+  const [previewStory, setPreviewStory] = useState<AdminStory | null>(null);
+  const [previewVideo, setPreviewVideo] = useState<AdminVideo | null>(null);
   const [isCrawlingStories, setIsCrawlingStories] = useState(false);
   const [isCrawlingVideos, setIsCrawlingVideos] = useState(false);
   const [naverQuery, setNaverQuery] = useState("강릉 맛집");
@@ -1290,7 +1292,7 @@ export default function Admin() {
                 ) : storiesData.stories.map((s) => {
                   const sc = STATUS_CONFIG[s.status] ?? STATUS_CONFIG.draft;
                   return (
-                    <Card key={s.id}>
+                    <Card key={s.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setPreviewStory(s)}>
                       <CardContent className="p-4">
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex-1 min-w-0">
@@ -1302,7 +1304,7 @@ export default function Admin() {
                             {s.body && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{s.body}</p>}
                             <p className="text-xs text-muted-foreground mt-1">{new Date(s.createdAt).toLocaleDateString("ko-KR")}</p>
                           </div>
-                          <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
+                          <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end" onClick={(e) => e.stopPropagation()}>
                             {s.status === "draft" && (
                               <Button size="sm" variant="outline" className="h-7 px-2 text-xs text-green-700 border-green-200 hover:bg-green-50"
                                 onClick={async () => {

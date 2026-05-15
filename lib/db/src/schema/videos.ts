@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, index } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, index, boolean, integer } from "drizzle-orm/pg-core";
 
 export const videosTable = pgTable(
   "videos",
@@ -9,6 +9,8 @@ export const videosTable = pgTable(
     channelName: text("channel_name").notNull().default(""),
     thumbnailUrl: text("thumbnail_url"),
     description: text("description").notNull().default(""),
+    embeddable: boolean("embeddable"),
+    viewCount: integer("view_count"),
     status: text("status").notNull().default("draft"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),

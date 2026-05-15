@@ -120,6 +120,8 @@ interface AdminVideo {
   channelName: string;
   thumbnailUrl: string | null;
   description: string;
+  embeddable: boolean | null;
+  viewCount: number | null;
   status: string;
   createdAt: string;
   updatedAt: string;
@@ -1343,20 +1345,46 @@ export default function Admin() {
                 ) : videosData.videos.map((v) => {
                   const sc = STATUS_CONFIG[v.status] ?? STATUS_CONFIG.draft;
                   const thumb = v.thumbnailUrl ?? (v.youtubeId ? `https://img.youtube.com/vi/${v.youtubeId}/mqdefault.jpg` : null);
+                  const embedLabel = v.embeddable === null ? null : v.embeddable
+                    ? { text: "앱 내 재생 가능", cls: "bg-green-50 text-green-700 border-green-200" }
+                    : { text: "유튜브 이동만 가능", cls: "bg-orange-50 text-orange-700 border-orange-200" };
+                  const viewLabel = v.viewCount != null
+                    ? v.viewCount >= 10000
+                      ? `${(v.viewCount / 10000).toFixed(1)}만회`
+                      : `${v.viewCount.toLocaleString()}회`
+                    : null;
                   return (
                     <Card key={v.id}>
                       <CardContent className="p-4">
                         <div className="flex items-start gap-3">
-                          {thumb && <img src={thumb} alt="" className="w-20 h-14 object-cover rounded-lg shrink-0" />}
+                          {thumb && <img src={thumb} alt="" className="w-24 h-[54px] object-cover rounded-lg shrink-0" />}
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1 flex-wrap">
                               <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs border font-medium ${sc.cls}`}>{sc.icon}{sc.label}</span>
-                              {v.channelName && <span className="text-xs text-muted-foreground">{v.channelName}</span>}
+                              {embedLabel && (
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs border font-medium ${embedLabel.cls}`}>
+                                  {v.embeddable ? <CheckCircle className="w-3 h-3 mr-1" /> : <ExternalLink className="w-3 h-3 mr-1" />}
+                                  {embedLabel.text}
+                                </span>
+                              )}
                             </div>
                             <p className="font-semibold text-sm line-clamp-1">{v.title || v.youtubeId}</p>
-                            <p className="text-xs text-muted-foreground mt-1">{new Date(v.createdAt).toLocaleDateString("ko-KR")}</p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              {v.channelName && <span className="text-xs text-muted-foreground">{v.channelName}</span>}
+                              {viewLabel && <span className="text-xs text-muted-foreground">· 조회 {viewLabel}</span>}
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-0.5">{new Date(v.createdAt).toLocaleDateString("ko-KR")}</p>
                           </div>
                           <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
+                            <Button size="sm" variant="outline" className="h-7 px-2 text-xs"
+                              title="YouTube 정보 새로고침"
+                              onClick={async () => {
+                                await fetch(`${BASE}/api/videos/${v.id}/fetch`, { method: "POST", credentials: "include" });
+                                refetchVideos();
+                                toast({ description: "YouTube 정보를 업데이트했습니다." });
+                              }}>
+                              <RefreshCw className="w-3 h-3" />
+                            </Button>
                             {v.status === "draft" && (
                               <Button size="sm" variant="outline" className="h-7 px-2 text-xs text-green-700 border-green-200 hover:bg-green-50"
                                 onClick={async () => {

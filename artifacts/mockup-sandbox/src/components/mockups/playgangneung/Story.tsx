@@ -49,9 +49,7 @@ export function Story() {
       {/* Header */}
       <div style={{ padding: "16px 16px 8px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <div style={{ width: 28, height: 28, borderRadius: 8, background: "linear-gradient(135deg,#2563eb,#7c3aed)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <span style={{ color: "#fff", fontWeight: 900, fontSize: 12 }}>P</span>
-          </div>
+          <img src="/logo2.png" alt="PLAY강릉" style={{ height: 26, objectFit: "contain", filter: "brightness(0) invert(1)" }} />
           <span style={{ fontWeight: 800, fontSize: 16, color: "#fff", letterSpacing: "-0.5px" }}>스토리</span>
         </div>
         <button style={{ background: "linear-gradient(135deg,#2563eb,#7c3aed)", border: "none", borderRadius: 20, padding: "6px 14px", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>

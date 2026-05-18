@@ -138,6 +138,7 @@ interface AdminVideo {
   embeddable: boolean | null;
   viewCount: number | null;
   status: string;
+  socialCaption: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -196,6 +197,7 @@ export default function Admin() {
   const [showVideoDialog, setShowVideoDialog] = useState(false);
   const [videoForm, setVideoForm] = useState({ youtubeUrl: "", title: "", channelName: "", description: "" });
   const [videoIsFetching, setVideoIsFetching] = useState(false);
+  const [videoSnsCaption, setVideoSnsCaption] = useState("");
   const [previewStory, setPreviewStory] = useState<AdminStory | null>(null);
   const [previewVideo, setPreviewVideo] = useState<AdminVideo | null>(null);
   const [selectedStoryIds, setSelectedStoryIds] = useState<Set<string>>(new Set());
@@ -1662,7 +1664,7 @@ export default function Admin() {
                       : `${v.viewCount.toLocaleString()}회`
                     : null;
                   return (
-                    <Card key={v.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setPreviewVideo(v)}>
+                    <Card key={v.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => { setPreviewVideo(v); setVideoSnsCaption(v.socialCaption || ""); }}>
                       <CardContent className="p-4">
                         <div className="flex items-start gap-3">
                           <div className="flex items-center pt-1 shrink-0" onClick={(e) => e.stopPropagation()}>
@@ -1693,43 +1695,7 @@ export default function Admin() {
                             </div>
                             <p className="text-xs text-muted-foreground mt-0.5">{new Date(v.createdAt).toLocaleDateString("ko-KR")}</p>
                           </div>
-                          <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end" onClick={(e) => e.stopPropagation()}>
-                            <Button size="sm" variant="outline" className="h-7 px-2 text-xs"
-                              title="YouTube 정보 새로고침"
-                              onClick={async () => {
-                                await fetch(`${BASE}/api/videos/${v.id}/fetch`, { method: "POST", credentials: "include" });
-                                refetchVideos();
-                                toast({ description: "YouTube 정보를 업데이트했습니다." });
-                              }}>
-                              <RefreshCw className="w-3 h-3" />
-                            </Button>
-                            {v.status === "draft" && (
-                              <Button size="sm" variant="outline" className="h-7 px-2 text-xs text-green-700 border-green-200 hover:bg-green-50"
-                                onClick={async () => {
-                                  await fetch(`${BASE}/api/videos/${v.id}/status`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ status: "approved" }) });
-                                  refetchVideos();
-                                }}>
-                                <CheckCircle className="w-3 h-3" />승인
-                              </Button>
-                            )}
-                            {v.status === "approved" && (
-                              <Button size="sm" variant="outline" className="h-7 px-2 text-xs text-blue-700 border-blue-200"
-                                onClick={async () => {
-                                  await fetch(`${BASE}/api/videos/${v.id}/status`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ status: "published" }) });
-                                  refetchVideos();
-                                }}>
-                                <Send className="w-3 h-3" />발행
-                              </Button>
-                            )}
-                            {v.status !== "draft" && (
-                              <Button size="sm" variant="outline" className="h-7 px-2 text-xs"
-                                onClick={async () => {
-                                  await fetch(`${BASE}/api/videos/${v.id}/status`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ status: "draft" }) });
-                                  refetchVideos();
-                                }}>
-                                검토중
-                              </Button>
-                            )}
+                          <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
                             <Button size="sm" variant="ghost" className="h-7 px-2 text-destructive hover:bg-destructive/10"
                               onClick={async () => {
                                 if (!confirm("삭제하시겠습니까?")) return;
@@ -1804,16 +1770,19 @@ export default function Admin() {
               </Dialog>
 
               {/* 영상 미리보기 패널 */}
-              <Sheet open={!!previewVideo} onOpenChange={(o) => { if (!o) setPreviewVideo(null); }}>
+              <Sheet open={!!previewVideo} onOpenChange={(o) => { if (!o) { setPreviewVideo(null); setVideoSnsCaption(""); } }}>
                 <SheetContent side="right" className="w-full sm:max-w-lg flex flex-col p-0 overflow-hidden">
                   {previewVideo && (() => {
                     const v = previewVideo;
                     const sc = STATUS_CONFIG[v.status] ?? STATUS_CONFIG.draft;
+                    const isSnsMode = v.status === "approved" || v.status === "published";
+                    const isPublished = v.status === "published";
+
                     return (
                       <>
                         {/* YouTube embed */}
                         {v.youtubeId && (
-                          <div className="relative shrink-0 bg-black" style={{ paddingBottom: "56.25%" }}>
+                          <div className="relative shrink-0 bg-black" style={{ paddingBottom: isSnsMode ? "40%" : "56.25%" }}>
                             <iframe
                               className="absolute inset-0 w-full h-full"
                               src={`https://www.youtube.com/embed/${v.youtubeId}`}
@@ -1823,61 +1792,171 @@ export default function Admin() {
                             />
                           </div>
                         )}
-                        {/* 스크롤 영역 */}
-                        <div className="flex-1 overflow-y-auto p-5 space-y-3">
-                          <SheetHeader>
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs border font-medium ${sc.cls}`}>{sc.icon}{sc.label}</span>
-                              <span className="text-xs text-muted-foreground ml-auto">{new Date(v.createdAt).toLocaleDateString("ko-KR")}</span>
-                            </div>
-                            <SheetTitle className="text-base leading-snug mt-1">{v.title || v.youtubeId}</SheetTitle>
-                          </SheetHeader>
-                          {v.channelName && <p className="text-sm text-muted-foreground">{v.channelName}</p>}
-                          {v.description && <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">{v.description.slice(0, 400)}</p>}
+
+                        {/* 상태 헤더 */}
+                        <div className="px-5 pt-4 pb-2 flex items-center gap-2 border-b shrink-0">
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs border font-medium ${sc.cls}`}>{sc.icon}{sc.label}</span>
+                          <p className="font-semibold text-sm line-clamp-1 flex-1 min-w-0">{v.title || v.youtubeId}</p>
+                          <span className="text-xs text-muted-foreground shrink-0">{new Date(v.createdAt).toLocaleDateString("ko-KR")}</span>
                         </div>
-                        {/* 액션 푸터 */}
-                        <div className="border-t p-4 flex flex-col gap-2 shrink-0">
-                          <a href={`https://www.youtube.com/watch?v=${v.youtubeId}`} target="_blank" rel="noopener noreferrer"
-                            className="flex items-center justify-center gap-2 w-full h-9 rounded-md border text-sm font-medium hover:bg-gray-50 transition-colors">
-                            <ExternalLink className="w-4 h-4" />YouTube에서 보기
-                          </a>
-                          <div className="flex gap-2">
-                            {v.status === "draft" && (
-                              <Button className="flex-1 gap-1" size="sm" variant="outline"
-                                onClick={async () => {
-                                  await fetch(`${BASE}/api/videos/${v.id}/status`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ status: "approved" }) });
-                                  refetchVideos(); setPreviewVideo(null);
-                                }}>
-                                <CheckCircle className="w-4 h-4 text-green-600" />승인
-                              </Button>
+
+                        {/* ── 상세보기 뷰 (draft / rejected) ── */}
+                        {!isSnsMode && (
+                          <div className="flex-1 overflow-y-auto p-5 space-y-3">
+                            {v.channelName && <p className="text-xs text-muted-foreground font-medium">{v.channelName}</p>}
+                            {v.description && (
+                              <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">{v.description.slice(0, 500)}</p>
                             )}
-                            {v.status === "approved" && (
-                              <Button className="flex-1 gap-1" size="sm"
-                                onClick={async () => {
-                                  await fetch(`${BASE}/api/videos/${v.id}/status`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ status: "published" }) });
-                                  refetchVideos(); setPreviewVideo(null);
-                                }}>
-                                <Send className="w-4 h-4" />발행
-                              </Button>
-                            )}
-                            {v.status !== "draft" && (
-                              <Button className="flex-1" size="sm" variant="outline"
-                                onClick={async () => {
-                                  await fetch(`${BASE}/api/videos/${v.id}/status`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ status: "draft" }) });
-                                  refetchVideos(); setPreviewVideo(null);
-                                }}>
-                                검토중으로
-                              </Button>
-                            )}
-                            <Button size="sm" variant="ghost" className="text-destructive hover:bg-destructive/10 px-3"
-                              onClick={async () => {
-                                if (!confirm("삭제하시겠습니까?")) return;
-                                await fetch(`${BASE}/api/videos/${v.id}`, { method: "DELETE", credentials: "include" });
-                                refetchVideos(); setPreviewVideo(null);
-                              }}>
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
+                            <a href={`https://www.youtube.com/watch?v=${v.youtubeId}`} target="_blank" rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1.5 text-xs text-blue-600 hover:underline">
+                              <ExternalLink className="w-3 h-3" />YouTube에서 보기
+                            </a>
                           </div>
+                        )}
+
+                        {/* ── SNS 발행 뷰 (approved / published) ── */}
+                        {isSnsMode && (
+                          <div className="flex-1 overflow-y-auto p-5 space-y-3">
+                            <div>
+                              <Label className="text-xs font-semibold text-muted-foreground mb-1.5 block">SNS 발행 문구</Label>
+                              {isPublished ? (
+                                <p className="text-sm leading-relaxed whitespace-pre-line bg-gray-50 rounded-lg p-3 border">{videoSnsCaption || "(문구 없음)"}</p>
+                              ) : (
+                                <Textarea
+                                  rows={8}
+                                  className="text-sm leading-relaxed resize-none"
+                                  value={videoSnsCaption}
+                                  onChange={(e) => setVideoSnsCaption(e.target.value)}
+                                  placeholder={`예시)\n🎬 강릉 핫플레이스 영상\n\n강릉의 아름다운 곳을 소개합니다.\n\n#강릉 #플레이강릉 #강릉여행`}
+                                />
+                              )}
+                            </div>
+                            {!isPublished && (
+                              <Button size="sm" variant="outline" className="w-full text-xs"
+                                onClick={async () => {
+                                  await fetch(`${BASE}/api/videos/${v.id}/caption`, {
+                                    method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include",
+                                    body: JSON.stringify({ caption: videoSnsCaption }),
+                                  });
+                                  toast({ description: "문구가 저장됐습니다." });
+                                }}>
+                                문구 저장
+                              </Button>
+                            )}
+                            {isPublished && (
+                              <div className="flex items-center gap-2 bg-blue-50 rounded-lg p-3 border border-blue-200">
+                                <Send className="w-4 h-4 text-blue-600 shrink-0" />
+                                <p className="text-xs text-blue-700 font-medium">발행 완료된 영상입니다.</p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* 액션 푸터 */}
+                        <div className="border-t p-4 shrink-0 space-y-2">
+                          {/* 상세보기 푸터: 승인 + 삭제 */}
+                          {!isSnsMode && (
+                            <div className="flex gap-2">
+                              <Button className="flex-1 gap-1.5 bg-green-600 hover:bg-green-700 text-white" size="sm"
+                                onClick={async () => {
+                                  await fetch(`${BASE}/api/videos/${v.id}/status`, {
+                                    method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include",
+                                    body: JSON.stringify({ status: "approved" }),
+                                  });
+                                  const defaultCaption = `🎬 ${v.title}\n\n${v.description ? v.description.slice(0, 150) + (v.description.length > 150 ? "..." : "") : ""}\n\n👉 https://youtu.be/${v.youtubeId}\n\n#강릉 #플레이강릉 #강릉여행 #강릉핫플`;
+                                  setVideoSnsCaption(v.socialCaption || defaultCaption);
+                                  setPreviewVideo({ ...v, status: "approved" });
+                                  refetchVideos();
+                                }}>
+                                <CheckCircle className="w-4 h-4" />승인 — SNS 발행 준비
+                              </Button>
+                              <Button size="sm" variant="ghost" className="text-destructive hover:bg-destructive/10 px-3"
+                                onClick={async () => {
+                                  if (!confirm("삭제하시겠습니까?")) return;
+                                  await fetch(`${BASE}/api/videos/${v.id}`, { method: "DELETE", credentials: "include" });
+                                  refetchVideos(); setPreviewVideo(null); setVideoSnsCaption("");
+                                }}>
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          )}
+
+                          {/* SNS 발행 푸터: 플랫폼 버튼들 */}
+                          {isSnsMode && !isPublished && (
+                            <>
+                              <p className="text-xs text-muted-foreground font-medium">문구가 클립보드에 복사되며 해당 플랫폼이 열립니다</p>
+                              <div className="flex flex-wrap gap-2">
+                                <a href="https://www.facebook.com/profile.php?id=61589314617028&locale=ko_KR" target="_blank" rel="noopener noreferrer"
+                                  onClick={() => navigator.clipboard.writeText(videoSnsCaption)}>
+                                  <Button size="sm" className="h-8 px-3 text-xs text-white bg-[#1877F2] hover:bg-[#1565C0]">페이스북</Button>
+                                </a>
+                                <a href="https://www.instagram.com/playgangneung/" target="_blank" rel="noopener noreferrer"
+                                  onClick={() => navigator.clipboard.writeText(videoSnsCaption)}>
+                                  <Button size="sm" className="h-8 px-3 text-xs text-white bg-[#E1306C] hover:bg-[#C2185B]">인스타그램</Button>
+                                </a>
+                                <a href="https://business.facebook.com/latest/composer?asset_id=1135888279600983&business_id=1004678568916594&ir_qe_exposed=1&nav_ref=internal_nav&ref=biz_web_content_manager_calendar_view&context_ref=CONTENT_CALENDAR" target="_blank" rel="noopener noreferrer"
+                                  onClick={() => navigator.clipboard.writeText(videoSnsCaption)}>
+                                  <Button size="sm" className="h-8 px-3 text-xs text-white bg-[#3b5bdb] hover:bg-[#2f4ac4]">Meta Suite</Button>
+                                </a>
+                                <a href={`https://www.youtube.com/watch?v=${v.youtubeId}`} target="_blank" rel="noopener noreferrer">
+                                  <Button size="sm" className="h-8 px-3 text-xs text-white bg-[#FF0000] hover:bg-[#CC0000]">YouTube</Button>
+                                </a>
+                              </div>
+                              <div className="flex gap-2 pt-1">
+                                <Button size="sm" variant="outline" className="flex-1 text-xs"
+                                  onClick={async () => {
+                                    await fetch(`${BASE}/api/videos/${v.id}/status`, {
+                                      method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include",
+                                      body: JSON.stringify({ status: "draft" }),
+                                    });
+                                    setPreviewVideo({ ...v, status: "draft" });
+                                    refetchVideos();
+                                  }}>
+                                  검토중으로
+                                </Button>
+                                <Button size="sm" className="flex-1 gap-1.5 bg-gray-800 hover:bg-gray-900 text-white text-xs"
+                                  onClick={async () => {
+                                    await fetch(`${BASE}/api/videos/${v.id}/caption`, {
+                                      method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include",
+                                      body: JSON.stringify({ caption: videoSnsCaption }),
+                                    });
+                                    await fetch(`${BASE}/api/videos/${v.id}/status`, {
+                                      method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include",
+                                      body: JSON.stringify({ status: "published" }),
+                                    });
+                                    refetchVideos(); setPreviewVideo(null); setVideoSnsCaption("");
+                                    toast({ description: "발행 완료됐습니다." });
+                                  }}>
+                                  <Send className="w-3.5 h-3.5" />발행완료
+                                </Button>
+                              </div>
+                            </>
+                          )}
+
+                          {/* 발행완료 푸터 */}
+                          {isPublished && (
+                            <div className="flex gap-2">
+                              <Button size="sm" variant="outline" className="flex-1 text-xs"
+                                onClick={async () => {
+                                  await fetch(`${BASE}/api/videos/${v.id}/status`, {
+                                    method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include",
+                                    body: JSON.stringify({ status: "approved" }),
+                                  });
+                                  setPreviewVideo({ ...v, status: "approved" });
+                                  refetchVideos();
+                                }}>
+                                다시 편집
+                              </Button>
+                              <Button size="sm" variant="ghost" className="text-destructive hover:bg-destructive/10 px-3"
+                                onClick={async () => {
+                                  if (!confirm("삭제하시겠습니까?")) return;
+                                  await fetch(`${BASE}/api/videos/${v.id}`, { method: "DELETE", credentials: "include" });
+                                  refetchVideos(); setPreviewVideo(null); setVideoSnsCaption("");
+                                }}>
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          )}
                         </div>
                       </>
                     );

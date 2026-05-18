@@ -12,6 +12,7 @@ export const videosTable = pgTable(
     embeddable: boolean("embeddable"),
     viewCount: integer("view_count"),
     status: text("status").notNull().default("draft"),
+    socialCaption: text("social_caption"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },

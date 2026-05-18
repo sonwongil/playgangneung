@@ -186,6 +186,22 @@ router.post("/videos/:id/fetch", async (req, res) => {
   }
 });
 
+// ─── SNS 문구 저장 ────────────────────────────────────────────────────────────
+router.patch("/videos/:id/caption", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { caption } = req.body as { caption?: string };
+    const [updated] = await db.update(videosTable)
+      .set({ socialCaption: caption ?? null, updatedAt: new Date() })
+      .where(eq(videosTable.id, id))
+      .returning();
+    return res.json({ video: updated });
+  } catch (err) {
+    req.log.error({ err }, "SNS 문구 저장 실패");
+    return res.status(500).json({ error: "SNS 문구 저장 실패" });
+  }
+});
+
 router.patch("/videos/:id/status", async (req, res) => {
   try {
     const { id } = req.params;

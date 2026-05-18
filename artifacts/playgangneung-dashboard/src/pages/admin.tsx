@@ -195,6 +195,7 @@ export default function Admin() {
   const [storyForm, setStoryForm] = useState({ title: "", body: "", imagesStr: "", sourceUrl: "", author: "", tagsStr: "" });
   const [showVideoDialog, setShowVideoDialog] = useState(false);
   const [videoForm, setVideoForm] = useState({ youtubeUrl: "", title: "", channelName: "", description: "" });
+  const [videoIsFetching, setVideoIsFetching] = useState(false);
   const [previewStory, setPreviewStory] = useState<AdminStory | null>(null);
   const [previewVideo, setPreviewVideo] = useState<AdminVideo | null>(null);
   const [selectedStoryIds, setSelectedStoryIds] = useState<Set<string>>(new Set());
@@ -1745,33 +1746,53 @@ export default function Admin() {
                 })}
 
               {/* 새 영상 다이얼로그 */}
-              <Dialog open={showVideoDialog} onOpenChange={setShowVideoDialog}>
+              <Dialog open={showVideoDialog} onOpenChange={(o) => { if (!o) { setVideoForm({ youtubeUrl: "", title: "", channelName: "", description: "" }); setVideoIsFetching(false); } setShowVideoDialog(o); }}>
                 <DialogContent className="max-w-lg" onInteractOutside={(e) => e.preventDefault()}>
                   <DialogHeader><DialogTitle>새 영상 등록</DialogTitle></DialogHeader>
                   <div className="space-y-3 py-2">
                     <div>
                       <Label className="text-xs">YouTube URL 또는 영상 ID *</Label>
-                      <Input className="h-8 text-sm mt-1" value={videoForm.youtubeUrl}
-                        onChange={(e) => setVideoForm(f => ({ ...f, youtubeUrl: e.target.value }))}
-                        placeholder="https://youtu.be/xxxxx 또는 영상 ID" />
+                      <Input
+                        className="h-8 text-sm mt-1"
+                        value={videoForm.youtubeUrl}
+                        onChange={(e) => setVideoForm(f => ({ ...f, youtubeUrl: e.target.value, title: "", channelName: "", description: "" }))}
+                        onBlur={async () => {
+                          const raw = videoForm.youtubeUrl.trim();
+                          if (!raw) return;
+                          setVideoIsFetching(true);
+                          try {
+                            const r = await fetch(`${BASE}/api/videos/extract?url=${encodeURIComponent(raw)}`, { credentials: "include" });
+                            if (r.ok) {
+                              const info = await r.json() as { title?: string; channelName?: string; description?: string };
+                              setVideoForm(f => ({ ...f, title: info.title || "", channelName: info.channelName || "", description: info.description || "" }));
+                            }
+                          } finally {
+                            setVideoIsFetching(false);
+                          }
+                        }}
+                        placeholder="https://youtu.be/xxxxx 또는 영상 ID"
+                      />
+                      {videoIsFetching && <p className="text-xs text-muted-foreground mt-1 animate-pulse">영상 정보 불러오는 중...</p>}
                     </div>
-                    <div><Label className="text-xs">제목</Label><Input className="h-8 text-sm mt-1" value={videoForm.title} onChange={(e) => setVideoForm(f => ({ ...f, title: e.target.value }))} /></div>
-                    <div><Label className="text-xs">채널명</Label><Input className="h-8 text-sm mt-1" value={videoForm.channelName} onChange={(e) => setVideoForm(f => ({ ...f, channelName: e.target.value }))} /></div>
-                    <div><Label className="text-xs">설명</Label><Textarea className="text-sm mt-1 min-h-[60px]" value={videoForm.description} onChange={(e) => setVideoForm(f => ({ ...f, description: e.target.value }))} /></div>
+                    {(videoForm.title || videoForm.channelName || videoForm.description) && (
+                      <>
+                        <div><Label className="text-xs">제목</Label><Input className="h-8 text-sm mt-1" value={videoForm.title} onChange={(e) => setVideoForm(f => ({ ...f, title: e.target.value }))} /></div>
+                        <div><Label className="text-xs">채널명</Label><Input className="h-8 text-sm mt-1" value={videoForm.channelName} onChange={(e) => setVideoForm(f => ({ ...f, channelName: e.target.value }))} /></div>
+                        <div><Label className="text-xs">설명</Label><Textarea className="text-sm mt-1 min-h-[60px]" value={videoForm.description} onChange={(e) => setVideoForm(f => ({ ...f, description: e.target.value }))} /></div>
+                      </>
+                    )}
                   </div>
                   <DialogFooter>
-                    <Button variant="outline" size="sm" onClick={() => setShowVideoDialog(false)}>취소</Button>
-                    <Button size="sm" disabled={!videoForm.youtubeUrl} onClick={async () => {
-                      const raw = videoForm.youtubeUrl.trim();
-                      let youtubeId = raw;
-                      try {
-                        const u = new URL(raw);
-                        if (u.hostname.includes("youtu.be")) youtubeId = u.pathname.slice(1);
-                        else if (u.searchParams.get("v")) youtubeId = u.searchParams.get("v")!;
-                      } catch { /* raw is already an ID */ }
+                    <Button variant="outline" size="sm" onClick={() => { setVideoForm({ youtubeUrl: "", title: "", channelName: "", description: "" }); setShowVideoDialog(false); }}>취소</Button>
+                    <Button size="sm" disabled={!videoForm.youtubeUrl.trim() || videoIsFetching} onClick={async () => {
                       await fetch(`${BASE}/api/videos`, {
                         method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
-                        body: JSON.stringify({ youtubeId, title: videoForm.title, channelName: videoForm.channelName, description: videoForm.description }),
+                        body: JSON.stringify({
+                          youtubeUrl: videoForm.youtubeUrl.trim(),
+                          title: videoForm.title || undefined,
+                          channelName: videoForm.channelName || undefined,
+                          description: videoForm.description || undefined,
+                        }),
                       });
                       setVideoForm({ youtubeUrl: "", title: "", channelName: "", description: "" });
                       setShowVideoDialog(false);

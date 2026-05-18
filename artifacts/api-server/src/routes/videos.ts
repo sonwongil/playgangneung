@@ -33,6 +33,15 @@ router.get("/videos/all", async (req, res) => {
   }
 });
 
+// ─── YouTube 영상 정보 미리보기 추출 ─────────────────────────────────────────
+router.get("/videos/extract", async (req, res) => {
+  const { url } = req.query as { url?: string };
+  if (!url) return res.status(400).json({ error: "url 필수" });
+  const info = await fetchYoutubeInfo(url);
+  if (!info) return res.status(404).json({ error: "YouTube 정보 조회 실패" });
+  return res.json(info);
+});
+
 // ─── YouTube 자동 수집 ────────────────────────────────────────────────────────
 router.post("/videos/crawl", async (req, res) => {
   try {

@@ -1434,7 +1434,7 @@ export default function Admin() {
 
               {/* 새 스토리 다이얼로그 */}
               <Dialog open={showStoryDialog} onOpenChange={setShowStoryDialog}>
-                <DialogContent className="max-w-lg">
+                <DialogContent className="max-w-lg" onInteractOutside={(e) => e.preventDefault()}>
                   <DialogHeader><DialogTitle>새 스토리 등록</DialogTitle></DialogHeader>
                   <div className="space-y-3 py-2">
                     <div><Label className="text-xs">제목 *</Label><Input className="h-8 text-sm mt-1" value={storyForm.title} onChange={(e) => setStoryForm(f => ({ ...f, title: e.target.value }))} /></div>
@@ -1746,7 +1746,7 @@ export default function Admin() {
 
               {/* 새 영상 다이얼로그 */}
               <Dialog open={showVideoDialog} onOpenChange={setShowVideoDialog}>
-                <DialogContent className="max-w-lg">
+                <DialogContent className="max-w-lg" onInteractOutside={(e) => e.preventDefault()}>
                   <DialogHeader><DialogTitle>새 영상 등록</DialogTitle></DialogHeader>
                   <div className="space-y-3 py-2">
                     <div>
@@ -1963,7 +1963,7 @@ export default function Admin() {
     {/* ══ 이벤트 수정 다이얼로그 ════════════════════════════════════════════ */}
     {editingEvent && (
       <Dialog open onOpenChange={(o) => { if (!o) setEditingEvent(null); }}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto" onInteractOutside={(e) => e.preventDefault()}>
           <DialogHeader><DialogTitle className="flex items-center gap-2"><Pencil className="w-4 h-4 text-blue-600" />이벤트 수정</DialogTitle></DialogHeader>
           <form className="space-y-4 py-2" onSubmit={(e) => {
             e.preventDefault();
@@ -2016,7 +2016,7 @@ export default function Admin() {
     {/* ══ 광고 수정 다이얼로그 ══════════════════════════════════════════════ */}
     {editingAd && (
       <Dialog open onOpenChange={(o) => { if (!o) setEditingAd(null); }}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto" onInteractOutside={(e) => e.preventDefault()}>
           <DialogHeader><DialogTitle className="flex items-center gap-2"><Pencil className="w-4 h-4 text-blue-600" />광고 수정</DialogTitle></DialogHeader>
           <form className="space-y-4 py-2" onSubmit={(e) => {
             e.preventDefault();
@@ -2059,7 +2059,7 @@ export default function Admin() {
     )}
     {/* ══ 수동 피드 등록 다이얼로그 ══════════════════════════════════════════ */}
     <Dialog open={showManualDialog} onOpenChange={(o) => { if (!o) resetManualDialog(); }}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto" onInteractOutside={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <PlusCircle className="w-4 h-4 text-green-600" />새 피드 등록

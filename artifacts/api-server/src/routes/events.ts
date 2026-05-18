@@ -4,6 +4,7 @@ import fs from "fs/promises";
 import path from "path";
 import * as cheerio from "cheerio";
 import { crawlAll, crawlUrl } from "../lib/crawler.js";
+import { fetchYoutubeInfo } from "../lib/youtube.js";
 import {
   appendEvents,
   deduplicateExisting,
@@ -136,6 +137,25 @@ router.post("/events/extract-url", async (req, res) => {
   if (!url) return res.status(400).json({ error: "url 필드가 필요합니다." });
 
   try {
+    // ── YouTube URL은 Data API로 직접 조회 ──────────────────────────────────
+    const isYoutube = /youtube\.com\/watch|youtu\.be\/|youtube\.com\/shorts\//i.test(url);
+    if (isYoutube) {
+      const info = await fetchYoutubeInfo(url);
+      if (info) {
+        return res.json({
+          title: info.title,
+          description: info.description,
+          thumbnail: info.thumbnailUrl,
+          startDate: "",
+          endDate: "",
+          location: "",
+          link: url,
+          videoUrl: url,
+        });
+      }
+      // API 키 없거나 조회 실패 시 아래 HTML 스크래핑으로 폴백
+    }
+
     const response = await fetch(url, {
       headers: {
         "User-Agent": "Mozilla/5.0 (compatible; PlayGangneungBot/1.0)",

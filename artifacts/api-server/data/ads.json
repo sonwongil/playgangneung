@@ -1,5 +1,24 @@
 [
   {
+    "id": "4b487232-efaa-4376-bc2d-3081e7fd9f5b",
+    "businessName": "테스트",
+    "contactName": "",
+    "phone": "",
+    "email": "",
+    "category": "기타",
+    "title": "",
+    "description": "",
+    "date": "",
+    "location": "",
+    "url": "",
+    "imageUrl": null,
+    "plan": "basic",
+    "status": "pending",
+    "source": "광고접수",
+    "createdAt": "2026-05-20T01:10:33.069Z",
+    "isFreeAd": true
+  },
+  {
     "id": "602ddf22-a66c-4570-a8b5-c93dcd9ca53a",
     "businessName": "경포 커피로스터스",
     "contactName": "김강릉",

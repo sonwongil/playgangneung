@@ -24,6 +24,7 @@ export interface Ad {
   location: string;
   url: string;
   imageUrl: string | null;
+  extraImages?: string[];
   plan: AdPlan;
   status: AdStatus;
   source: "광고접수";
@@ -63,20 +64,22 @@ router.get("/ads", async (req, res) => {
 router.post("/ads", async (req, res) => {
   try {
     const body = req.body as Partial<Ad>;
+    const bodyWithExtras = body as Partial<Ad> & { extraImages?: string[] };
     const ad: Ad = {
       id: crypto.randomUUID(),
-      businessName: body.businessName ?? "",
-      contactName: body.contactName ?? "",
-      phone: body.phone ?? "",
-      email: body.email ?? "",
-      category: body.category ?? "기타",
-      title: body.title ?? "",
-      description: body.description ?? "",
-      date: body.date ?? "",
-      location: body.location ?? "",
-      url: body.url ?? "",
-      imageUrl: body.imageUrl ?? null,
-      plan: body.plan ?? "basic",
+      businessName: bodyWithExtras.businessName ?? "",
+      contactName: bodyWithExtras.contactName ?? "",
+      phone: bodyWithExtras.phone ?? "",
+      email: bodyWithExtras.email ?? "",
+      category: bodyWithExtras.category ?? "기타",
+      title: bodyWithExtras.title ?? "",
+      description: bodyWithExtras.description ?? "",
+      date: bodyWithExtras.date ?? "",
+      location: bodyWithExtras.location ?? "",
+      url: bodyWithExtras.url ?? "",
+      imageUrl: bodyWithExtras.imageUrl ?? null,
+      extraImages: Array.isArray(bodyWithExtras.extraImages) ? bodyWithExtras.extraImages : undefined,
+      plan: bodyWithExtras.plan ?? "basic",
       status: "pending",
       source: "광고접수",
       createdAt: new Date().toISOString(),

@@ -2210,6 +2210,16 @@ export default function Admin() {
                       ))}
                     </div>
 
+                    {/* 카드이미지 생성 — 항상 표시 */}
+                    <Button size="sm" variant="outline" className="w-full" onClick={async () => {
+                      const r = await fetch(`${BASE}/api/ads/${adId}/card`, { method: "POST", credentials: "include" });
+                      const j = await r.json() as { success: boolean; cardPath?: string };
+                      toast({ title: j.success ? "카드이미지 생성 완료" : "카드이미지 생성 실패" });
+                      if (j.success && j.cardPath) window.open(j.cardPath.startsWith("/") ? `${BASE}${j.cardPath}` : j.cardPath, "_blank");
+                    }}>
+                      <Send className="w-3 h-3 mr-1" />카드이미지 생성
+                    </Button>
+
                     <div className="border-t pt-3 space-y-2">
                       {!draft && !edit ? (
                         <Button size="sm" className="w-full" onClick={async () => {
@@ -2270,15 +2280,6 @@ export default function Admin() {
                               <RefreshCw className="w-3 h-3 mr-1" />재생성
                             </Button>
                           </div>
-                          <Button size="sm" variant="outline" className="w-full" onClick={async () => {
-                            const r = await fetch(`${BASE}/api/ads/${adId}/card`, { method: "POST", credentials: "include" });
-                            const j = await r.json() as { success: boolean; cardPath?: string };
-                            toast({ title: j.success ? "카드이미지 생성 완료" : "카드이미지 생성 실패" });
-                            if (j.success && j.cardPath) window.open(j.cardPath.startsWith("/") ? `${BASE}${j.cardPath}` : j.cardPath, "_blank");
-                          }}>
-                            <Send className="w-3 h-3 mr-1" />카드이미지 생성
-                          </Button>
-
                           {/* ── 발행 가이드 ─────────────────────────────── */}
                           <div className="space-y-2 pt-1">
                             {/* 페이스북 */}

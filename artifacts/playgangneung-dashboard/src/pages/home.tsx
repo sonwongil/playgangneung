@@ -160,6 +160,19 @@ function pickFallbackImage(id: string, category: string): string {
   return pool[hash % pool.length];
 }
 
+function extractYoutubeThumb(videoUrl?: string | null): string | null {
+  if (!videoUrl) return null;
+  try {
+    const u = new URL(videoUrl);
+    let id: string | null = null;
+    if (u.hostname.includes("youtu.be")) id = u.pathname.slice(1).split("?")[0];
+    else if (u.searchParams.get("v")) id = u.searchParams.get("v");
+    else { const m = u.pathname.match(/\/shorts\/([^/?]+)/); if (m) id = m[1]; }
+    if (id) return `https://img.youtube.com/vi/${id}/mqdefault.jpg`;
+  } catch { /* not a URL */ }
+  return null;
+}
+
 function AdBadge({ plan }: { plan: "basic" | "main" | "premium" }) {
   const cfg = AD_PLAN_CONFIG[plan];
   return (
@@ -180,8 +193,9 @@ function FeedCard({ item }: { item: FeedItem }) {
   const [copied, setCopied] = useState(false);
   const category = item.category ?? "지역소식";
   const colorClass = CATEGORY_COLORS[category] ?? "bg-gray-100 text-gray-700";
-  const hasThumbnail = !!item.thumbnail;
-  const thumbnail = item.thumbnail ?? pickFallbackImage(item.id, category);
+  const ytThumb = extractYoutubeThumb(item.videoUrl);
+  const hasThumbnail = !!(item.thumbnail || ytThumb);
+  const thumbnail = item.thumbnail ?? ytThumb ?? pickFallbackImage(item.id, category);
   const adCfg = item.isAd && item.adPlan ? AD_PLAN_CONFIG[item.adPlan] : null;
   const isToday = item.date === TODAY_STR;
   const gradient = CATEGORY_GRADIENT[category] ?? "from-gray-700 to-gray-900";

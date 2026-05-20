@@ -95,7 +95,18 @@ function buildAdDraft(ad: Ad): SocialDraft {
   const parts: string[] = [`${emoji} ${ad.title}`];
   if (ad.date) parts.push(`🗓️ ${ad.date}`);
   if (ad.location) parts.push(`📍 ${ad.location}`);
-  const rawDesc = ad.description.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+  const rawDesc = ad.description
+    .replace(/<br\s*\/?>/gi, " ")
+    .replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&[a-z]+;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
   if (rawDesc.length > 10) {
     parts.push("");
     parts.push(rawDesc.length > 200 ? rawDesc.slice(0, 200) + "…" : rawDesc);

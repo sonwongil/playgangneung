@@ -57,8 +57,8 @@ interface VideoItem {
   createdAt: string;
 }
 
-type HomeTab = "전체" | "행사" | "정보" | "스토리" | "영상";
-const HOME_TABS: HomeTab[] = ["전체", "행사", "정보", "스토리", "영상"];
+type HomeTab = "전체" | "행사" | "맛집" | "정보" | "스토리" | "영상";
+const HOME_TABS: HomeTab[] = ["전체", "행사", "맛집", "정보", "스토리", "영상"];
 
 const CATEGORY_COLORS: Record<string, string> = {
   행사: "bg-blue-100 text-blue-700",
@@ -547,7 +547,8 @@ export default function Home() {
 
   const tabBaseItems = useMemo(() => {
     if (activeTab === "행사") return allItems.filter(i => i.category === "행사");
-    if (activeTab === "정보") return allItems.filter(i => ["맛집", "핫플", "지역소식", "카페"].includes(i.category));
+    if (activeTab === "맛집") return allItems.filter(i => ["맛집", "카페"].includes(i.category));
+    if (activeTab === "정보") return allItems.filter(i => ["핫플", "지역소식"].includes(i.category));
     return allItems;
   }, [allItems, activeTab]);
 
@@ -589,7 +590,7 @@ export default function Home() {
     inputRef.current?.focus();
   }
 
-  const isEventTab = activeTab === "전체" || activeTab === "행사" || activeTab === "정보";
+  const isEventTab = activeTab === "전체" || activeTab === "행사" || activeTab === "맛집" || activeTab === "정보";
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">

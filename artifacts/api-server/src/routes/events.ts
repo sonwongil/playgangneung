@@ -259,6 +259,7 @@ router.post("/events/manual", async (req, res) => {
       location: location || "강릉",
       category: category || detectCategory(title, description || ""),
       thumbnail: thumbnail || null,
+      extraImages: null,
       videoUrl: videoUrl || null,
       link: link || `${siteUrl}/content/${eventId}`,
       source: source || "PLAY강릉",
@@ -448,12 +449,23 @@ router.post("/events/:id/upload-image", (req, res) => {
       return res.status(400).json({ success: false, error: "파일이 없습니다." });
     }
     const { id } = req.params;
+    const slot = Number(req.query["slot"] ?? "0");
     const imageUrl = `/api/uploads/${req.file.filename}`;
     try {
-      const updated = await updateEvent(id, { thumbnail: imageUrl });
-      if (!updated) return res.status(404).json({ success: false, error: "이벤트를 찾을 수 없습니다." });
-      req.log.info({ id, imageUrl }, "이미지 업로드 완료");
-      return res.json({ success: true, imageUrl });
+      if (slot === 0) {
+        const updated = await updateEvent(id, { thumbnail: imageUrl });
+        if (!updated) return res.status(404).json({ success: false, error: "이벤트를 찾을 수 없습니다." });
+      } else {
+        const events = await readEvents();
+        const event = events.find((e) => e.id === id);
+        if (!event) return res.status(404).json({ success: false, error: "이벤트를 찾을 수 없습니다." });
+        const extras: (string | null)[] = event.extraImages ? [...event.extraImages] : [];
+        while (extras.length < slot) extras.push(null);
+        extras[slot - 1] = imageUrl;
+        await updateEvent(id, { extraImages: extras.filter(Boolean) as string[] });
+      }
+      req.log.info({ id, imageUrl, slot }, "이미지 업로드 완료");
+      return res.json({ success: true, imageUrl, slot });
     } catch (e) {
       req.log.error({ e }, "이미지 업로드 후 저장 실패");
       return res.status(500).json({ success: false, error: "저장 실패" });

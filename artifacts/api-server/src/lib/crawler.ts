@@ -202,6 +202,7 @@ function buildEvent(
     location: locationHint || "강릉",
     category,
     thumbnail,
+    extraImages: null,
     videoUrl: null,
     link,
     source: sourceName,

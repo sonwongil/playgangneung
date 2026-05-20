@@ -31,6 +31,7 @@ interface Event {
   location?: string;
   category?: string;
   thumbnail?: string | null;
+  extraImages?: string[] | null;
   videoUrl?: string | null;
   socialDraft?: SocialDraft | null;
   status: string;
@@ -79,9 +80,11 @@ export default function AdminEventDetail() {
   const [editStartDate, setEditStartDate] = useState("");
   const [editEndDate, setEditEndDate] = useState("");
   const [editThumbnail, setEditThumbnail] = useState("");
+  const [editExtraImages, setEditExtraImages] = useState<[string, string]>(["", ""]);
   const [editVideoUrl, setEditVideoUrl] = useState("");
   const [inited, setInited] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
+  const [isUploadingSlot, setIsUploadingSlot] = useState<number | null>(null);
 
   // SNS 게시 패키지
   const [editCaption, setEditCaption] = useState("");
@@ -89,7 +92,7 @@ export default function AdminEventDetail() {
   const [isDraftDirty, setIsDraftDirty] = useState(false);
   const [copied, setCopied] = useState(false);
   const [imageTab, setImageTab] = useState<"url" | "upload">("url");
-  const [isUploading, setIsUploading] = useState(false);
+
   const [showEmoji, setShowEmoji] = useState(false);
   const [emojiTab, setEmojiTab] = useState(0);
   const editorRef = useRef<SnsEditorHandle>(null);
@@ -124,6 +127,10 @@ export default function AdminEventDetail() {
       setEditStartDate(event.startDate ?? event.date ?? "");
       setEditEndDate(event.endDate ?? "");
       setEditThumbnail(event.thumbnail ?? "");
+      setEditExtraImages([
+        event.extraImages?.[0] ?? "",
+        event.extraImages?.[1] ?? "",
+      ]);
       setEditVideoUrl(event.videoUrl ?? "");
       if (event.socialDraft) {
         setEditCaption(snsToHtml(event.socialDraft.caption));
@@ -205,27 +212,35 @@ export default function AdminEventDetail() {
   });
 
 
-  async function handleImageUpload(file: File) {
-    setIsUploading(true);
+  async function handleImageUpload(file: File, slot = 0) {
+    setIsUploadingSlot(slot);
     try {
       const formData = new FormData();
       formData.append("image", file);
-      const r = await fetch(`${BASE}/api/events/${eventId}/upload-image`, {
+      const r = await fetch(`${BASE}/api/events/${eventId}/upload-image?slot=${slot}`, {
         method: "POST",
         credentials: "include",
         body: formData,
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error ?? "업로드 실패");
-      setEditThumbnail(d.imageUrl);
+      if (slot === 0) {
+        setEditThumbnail(d.imageUrl);
+        setImageTab("url");
+      } else {
+        setEditExtraImages((prev) => {
+          const next: [string, string] = [...prev] as [string, string];
+          next[slot - 1] = d.imageUrl;
+          return next;
+        });
+      }
       setIsDirty(false);
       qc.invalidateQueries({ queryKey: ["admin-events"] });
-      toast({ title: "이미지 업로드 완료", description: "대표 이미지가 적용되었습니다." });
-      setImageTab("url");
+      toast({ title: "이미지 업로드 완료", description: slot === 0 ? "대표 이미지가 적용되었습니다." : `추가 이미지 ${slot}이 적용되었습니다.` });
     } catch (e: unknown) {
       toast({ title: "업로드 실패", description: e instanceof Error ? e.message : "다시 시도해 주세요.", variant: "destructive" });
     } finally {
-      setIsUploading(false);
+      setIsUploadingSlot(null);
     }
   }
 
@@ -523,9 +538,11 @@ export default function AdminEventDetail() {
           </div>
 
           {/* STEP 2 — 이미지 */}
-          <div className="space-y-2.5">
+          <div className="space-y-3">
             <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">② 사진</p>
-            {/* 탭 전환 */}
+
+            {/* 대표 이미지 */}
+            <p className="text-xs font-semibold text-gray-600">대표 이미지</p>
             <div className="flex gap-1 p-1 bg-gray-100 rounded-lg w-fit">
               <button
                 onClick={() => setImageTab("url")}
@@ -550,15 +567,15 @@ export default function AdminEventDetail() {
             ) : (
               <div
                 className="border-2 border-dashed border-border rounded-xl p-5 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50/50 transition-colors"
-                onClick={() => document.getElementById("img-file-input")?.click()}
+                onClick={() => document.getElementById("img-file-input-0")?.click()}
                 onDragOver={(e) => e.preventDefault()}
-                onDrop={(e) => { e.preventDefault(); const file = e.dataTransfer.files[0]; if (file) handleImageUpload(file); }}
+                onDrop={(e) => { e.preventDefault(); const file = e.dataTransfer.files[0]; if (file) handleImageUpload(file, 0); }}
               >
                 <input
-                  id="img-file-input" type="file" accept="image/*" className="hidden"
-                  onChange={(e) => { const file = e.target.files?.[0]; if (file) handleImageUpload(file); e.target.value = ""; }}
+                  id="img-file-input-0" type="file" accept="image/*" className="hidden"
+                  onChange={(e) => { const file = e.target.files?.[0]; if (file) handleImageUpload(file, 0); e.target.value = ""; }}
                 />
-                {isUploading ? (
+                {isUploadingSlot === 0 ? (
                   <div className="flex flex-col items-center gap-2">
                     <RefreshCw className="w-6 h-6 text-blue-500 animate-spin" />
                     <p className="text-sm text-muted-foreground">업로드 중...</p>
@@ -574,7 +591,7 @@ export default function AdminEventDetail() {
             )}
             {editThumbnail && (
               <div className="rounded-xl overflow-hidden border bg-gray-50 max-h-48">
-                <img src={editThumbnail} alt="미리보기" className="w-full h-full object-contain max-h-48"
+                <img src={editThumbnail} alt="대표 이미지" className="w-full h-full object-contain max-h-48"
                   onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
               </div>
             )}
@@ -587,6 +604,73 @@ export default function AdminEventDetail() {
                 <Download className="w-3.5 h-3.5" />대표 이미지 다운로드
               </a>
             )}
+
+            {/* 추가 이미지 */}
+            <div className="border-t border-dashed border-gray-200 pt-3 space-y-2">
+              <p className="text-xs font-semibold text-gray-600">추가 이미지 (최대 2장)</p>
+              <div className="grid grid-cols-2 gap-2">
+                {([1, 2] as const).map((slot) => (
+                  <div key={slot} className="space-y-1.5">
+                    <p className="text-[11px] text-muted-foreground font-medium">추가 {slot}</p>
+                    <div
+                      className="border-2 border-dashed border-gray-200 rounded-xl p-3 text-center cursor-pointer hover:border-violet-400 hover:bg-violet-50/50 transition-colors relative"
+                      onClick={() => document.getElementById(`img-file-input-${slot}`)?.click()}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={(e) => { e.preventDefault(); const file = e.dataTransfer.files[0]; if (file) handleImageUpload(file, slot); }}
+                    >
+                      <input
+                        id={`img-file-input-${slot}`} type="file" accept="image/*" className="hidden"
+                        onChange={(e) => { const file = e.target.files?.[0]; if (file) handleImageUpload(file, slot); e.target.value = ""; }}
+                      />
+                      {isUploadingSlot === slot ? (
+                        <RefreshCw className="w-5 h-5 text-violet-500 animate-spin mx-auto" />
+                      ) : editExtraImages[slot - 1] ? (
+                        <img
+                          src={editExtraImages[slot - 1]}
+                          alt={`추가 이미지 ${slot}`}
+                          className="w-full h-20 object-cover rounded-lg"
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                        />
+                      ) : (
+                        <div className="flex flex-col items-center gap-1 py-2">
+                          <Upload className="w-5 h-5 text-gray-300" />
+                          <p className="text-[11px] text-gray-400">클릭 또는 드래그</p>
+                        </div>
+                      )}
+                    </div>
+                    {editExtraImages[slot - 1] && (
+                      <div className="flex gap-1">
+                        <Input
+                          value={editExtraImages[slot - 1]}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setEditExtraImages((prev) => {
+                              const next: [string, string] = [...prev] as [string, string];
+                              next[slot - 1] = val;
+                              return next;
+                            });
+                            setIsDirty(true);
+                          }}
+                          className="text-[11px] h-7 flex-1"
+                          placeholder="URL"
+                        />
+                        <button
+                          onClick={() => {
+                            setEditExtraImages((prev) => {
+                              const next: [string, string] = [...prev] as [string, string];
+                              next[slot - 1] = "";
+                              return next;
+                            });
+                            setIsDirty(true);
+                          }}
+                          className="h-7 px-2 rounded-lg bg-red-50 hover:bg-red-100 text-red-500 text-xs font-bold transition-colors"
+                        >✕</button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
 
           {/* STEP 3 — 동영상 */}

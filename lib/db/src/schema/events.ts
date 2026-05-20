@@ -13,6 +13,7 @@ export const eventsTable = pgTable(
     location: text("location").notNull().default(""),
     category: text("category").notNull().default("지역소식"),
     thumbnail: text("thumbnail"),
+    extraImages: jsonb("extra_images").$type<string[]>(),
     videoUrl: text("video_url"),
     link: text("link").notNull().default(""),
     source: text("source").notNull().default(""),

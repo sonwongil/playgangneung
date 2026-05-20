@@ -23,6 +23,7 @@ export interface CrawledEvent {
   location: string;
   category: string;
   thumbnail: string | null;
+  extraImages: string[] | null;
   videoUrl: string | null;
   link: string;
   source: string;
@@ -45,6 +46,7 @@ function rowToEvent(row: typeof eventsTable.$inferSelect): CrawledEvent {
     location: row.location,
     category: row.category,
     thumbnail: row.thumbnail ?? null,
+    extraImages: (row.extraImages as string[] | null) ?? null,
     videoUrl: row.videoUrl ?? null,
     link: row.link,
     source: row.source,

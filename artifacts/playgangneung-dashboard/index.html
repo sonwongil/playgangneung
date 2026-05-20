@@ -3,9 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
-    <title>PLAY강릉 | 강릉 행사·맛집·핫플·지역소식</title>
-    <meta name="description" content="강릉의 행사·맛집·핫플·지역소식을 한눈에. 강릉 여행과 나들이 정보를 실시간으로 확인하세요." />
-    <meta name="keywords" content="강릉,강릉행사,강릉맛집,강릉핫플,강릉여행,강릉축제,강릉소식,강원도,PLAY강릉" />
+    <title>PLAY강릉 | 강릉 로컬 미디어 플랫폼</title>
+    <meta name="description" content="PLAY강릉은 강릉시청과 무관한 민간 지역 미디어 플랫폼입니다. 강릉의 행사·맛집·핫플·지역소식을 실시간으로 수집해 시민과 관광객에게 빠르게 전달합니다." />
+    <meta name="keywords" content="강릉,강릉행사,강릉맛집,강릉핫플,강릉여행,강릉축제,강릉소식,강릉로컬,PLAY강릉,강릉정보,강릉미디어" />
     <meta name="robots" content="index, follow" />
     <meta name="google-site-verification" content="google09b49bc845547974" />
     <meta name="naver-site-verification" content="naverfb2f736c67b78689fb34bfb5dddf8a96" />
@@ -33,8 +33,8 @@
     <!-- Open Graph -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="PLAY강릉" />
-    <meta property="og:title" content="PLAY강릉 | 강릉 행사·맛집·핫플·지역소식" />
-    <meta property="og:description" content="강릉의 행사·맛집·핫플·지역소식을 한눈에. 강릉 여행과 나들이 정보를 실시간으로 확인하세요." />
+    <meta property="og:title" content="PLAY강릉 | 강릉 로컬 미디어 플랫폼" />
+    <meta property="og:description" content="PLAY강릉은 강릉시청과 무관한 민간 지역 미디어 플랫폼입니다. 강릉의 행사·맛집·핫플·지역소식을 실시간으로 수집해 빠르게 전달합니다." />
     <meta property="og:image" content="https://playgangneung.com/opengraph.jpg" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
@@ -43,8 +43,8 @@
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="PLAY강릉 | 강릉 행사·맛집·핫플·지역소식" />
-    <meta name="twitter:description" content="강릉의 행사·맛집·핫플·지역소식을 한눈에." />
+    <meta name="twitter:title" content="PLAY강릉 | 강릉 로컬 미디어 플랫폼" />
+    <meta name="twitter:description" content="PLAY강릉은 강릉시청과 무관한 민간 지역 미디어 플랫폼입니다. 강릉의 행사·맛집·핫플·지역소식을 실시간으로 전달합니다." />
     <meta name="twitter:image" content="https://playgangneung.com/opengraph.jpg" />
 
     <!-- JSON-LD: WebSite 구조화 데이터 -->
@@ -56,8 +56,9 @@
           "@type": "WebSite",
           "@id": "https://playgangneung.com/#website",
           "name": "PLAY강릉",
+          "alternateName": "플레이강릉",
           "url": "https://playgangneung.com/",
-          "description": "강릉의 행사·맛집·핫플·지역소식을 한눈에",
+          "description": "강릉시청과 무관한 민간 지역 미디어 플랫폼. 강릉의 행사·맛집·핫플·지역소식을 실시간으로 수집해 시민과 관광객에게 빠르게 전달합니다.",
           "inLanguage": "ko",
           "potentialAction": {
             "@type": "SearchAction",
@@ -69,15 +70,26 @@
           }
         },
         {
-          "@type": "Organization",
+          "@type": "NewsMediaOrganization",
           "@id": "https://playgangneung.com/#organization",
-          "name": "플레이강릉",
+          "name": "PLAY강릉",
+          "alternateName": "플레이강릉",
           "url": "https://playgangneung.com/",
           "logo": "https://playgangneung.com/logo.png",
+          "description": "강릉시청·강릉시 공공기관과 무관한 민간 지역 미디어 플랫폼. 강릉의 로컬 정보를 실시간으로 수집·제공합니다.",
+          "foundingDate": "2024",
+          "areaServed": {
+            "@type": "City",
+            "name": "강릉시",
+            "containedInPlace": {
+              "@type": "AdministrativeArea",
+              "name": "강원특별자치도"
+            }
+          },
           "contactPoint": {
             "@type": "ContactPoint",
             "email": "event62@gmail.com",
-            "contactType": "customer service",
+            "contactType": "general",
             "areaServed": "KR"
           },
           "address": {
@@ -85,7 +97,10 @@
             "addressLocality": "강릉시",
             "addressRegion": "강원특별자치도",
             "addressCountry": "KR"
-          }
+          },
+          "sameAs": [
+            "https://www.instagram.com/playgangneung/"
+          ]
         }
       ]
     }

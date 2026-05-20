@@ -3,6 +3,21 @@ import fs from "fs/promises";
 import path from "path";
 import { FONTS_DIR, CARDS_DIR, ARTIFACT_ROOT } from "./paths.js";
 
+function stripHtml(raw: string): string {
+  return raw
+    .replace(/<br\s*\/?>/gi, " ")
+    .replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&[a-z]+;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 GlobalFonts.registerFromPath(path.join(FONTS_DIR, "NanumGothic-Regular.ttf"), "NanumGothic");
 GlobalFonts.registerFromPath(path.join(FONTS_DIR, "NanumGothic-Bold.ttf"), "NanumGothic");
 
@@ -109,7 +124,7 @@ export async function generateCardImage(event: {
   if (event.description) {
     ctx.fillStyle = "rgba(255,255,255,0.75)";
     ctx.font = "36px NanumGothic";
-    wrapText(ctx, event.description, 72, H - 190, W - 144, 50, 2);
+    wrapText(ctx, stripHtml(event.description), 72, H - 190, W - 144, 50, 2);
   }
 
   const dateStr = event.startDate ?? event.date ?? "";
@@ -119,10 +134,21 @@ export async function generateCardImage(event: {
     ctx.fillText(dateStr + (event.source ? `  ·  ${event.source}` : ""), 72, H - 110);
   }
 
-  ctx.fillStyle = "rgba(255,255,255,0.9)";
-  ctx.font = "bold 40px NanumGothic";
-  ctx.textAlign = "right";
-  ctx.fillText("PLAY강릉", W - 72, H - 60);
+  // ── 우하단 로고 워터마크 ──────────────────────────────────────────────
+  const LOGO_W = 220;
+  const dashboardPublic = path.join(ARTIFACT_ROOT, "..", "playgangneung-dashboard", "public");
+  try {
+    const logo = await loadImage(path.join(dashboardPublic, "logo2.png"));
+    const LOGO_H = Math.round(LOGO_W * logo.height / logo.width);
+    ctx.globalAlpha = 0.88;
+    ctx.drawImage(logo, W - LOGO_W - 60, H - LOGO_H - 48, LOGO_W, LOGO_H);
+    ctx.globalAlpha = 1.0;
+  } catch {
+    ctx.fillStyle = "rgba(255,255,255,0.9)";
+    ctx.font = "bold 40px NanumGothic";
+    ctx.textAlign = "right";
+    ctx.fillText("PLAY강릉", W - 72, H - 60);
+  }
 
   const filename = event.suffix ? `${event.id}-${event.suffix}.png` : `${event.id}.png`;
   const outPath = path.join(CARDS_DIR, filename);

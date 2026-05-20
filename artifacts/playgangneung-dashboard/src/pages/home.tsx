@@ -384,8 +384,17 @@ function FeedCard({ item }: { item: FeedItem }) {
               <span>{item.location || item.source}</span>
             </div>
           </div>
-
-
+          {item.isAd && (
+            <a
+              href="https://playgangneung.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="block w-full text-center bg-[#2563eb] hover:bg-[#1d4ed8] text-white rounded-xl py-2.5 font-semibold text-sm transition-colors"
+            >
+              🏠 PLAY강릉 바로가기
+            </a>
+          )}
         </CardContent>
       </Card>
     </div>

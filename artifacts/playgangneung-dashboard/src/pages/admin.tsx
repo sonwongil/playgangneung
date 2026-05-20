@@ -2278,6 +2278,65 @@ export default function Admin() {
                           }}>
                             <Send className="w-3 h-3 mr-1" />카드이미지 생성
                           </Button>
+
+                          {/* ── 발행 가이드 ─────────────────────────────── */}
+                          <div className="space-y-2 pt-1">
+                            {/* 페이스북 */}
+                            <div className="rounded-xl bg-blue-50 border border-blue-100 px-4 py-3 space-y-1.5">
+                              <p className="text-[11px] font-bold text-blue-700">📘 페이스북 — 링크 미리보기로 올리기</p>
+                              <p className="text-[11px] text-blue-600">1. 아래 "PLAY강릉 링크 복사" 클릭</p>
+                              <p className="text-[11px] text-blue-600">2. 페이스북 게시창에 링크 붙여넣기</p>
+                              <p className="text-[11px] text-blue-600">3. 미리보기 카드(사진+제목) 자동 생성 확인</p>
+                              <p className="text-[11px] text-blue-600">4. 링크 텍스트 지우고 문구 붙여넣기 → 게시</p>
+                              <p className="text-[11px] text-blue-500 italic">→ 독자가 사진 클릭 시 PLAY강릉 페이지로 이동!</p>
+                              <div className="flex gap-2 pt-0.5">
+                                <button
+                                  className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-lg text-[11px] font-bold text-white bg-violet-600 hover:bg-violet-700 transition-colors"
+                                  onClick={() => {
+                                    const url = `${window.location.origin}/content/${adId}`;
+                                    navigator.clipboard.writeText(url).then(() =>
+                                      toast({ title: "PLAY강릉 링크 복사됨", description: "페이스북 게시창에 붙여넣으세요." })
+                                    );
+                                  }}
+                                >🔗 PLAY강릉 링크 복사</button>
+                                <a href="https://www.facebook.com/profile.php?id=61589314617028&locale=ko_KR" target="_blank" rel="noopener noreferrer"
+                                  className="flex-1 flex items-center justify-center h-8 rounded-lg text-[11px] font-bold text-white bg-[#1877F2] hover:bg-[#1565C0] transition-colors">
+                                  페이스북 열기
+                                </a>
+                              </div>
+                            </div>
+                            {/* Meta Business Suite */}
+                            <div className="rounded-xl bg-[#f0f2ff] border border-[#c7ccf5] px-4 py-3 space-y-1.5">
+                              <p className="text-[11px] font-bold text-[#3b5bdb]">🏢 Meta Business Suite — 페북 + 인스타 한 번에</p>
+                              <p className="text-[11px] text-[#4c6ef5] font-semibold">✅ 가장 빠른 방법 (PC 권장):</p>
+                              <p className="text-[11px] text-[#4c6ef5]">1. 위 "문구 전체 복사" 클릭</p>
+                              <p className="text-[11px] text-[#4c6ef5]">2. 아래 버튼 클릭 → 게시물 작성 창 열림</p>
+                              <p className="text-[11px] text-[#4c6ef5]">3. 캡션 붙여넣기 + 이미지 첨부 → 페북·인스타 동시 게시</p>
+                              <a href="https://business.facebook.com/latest/composer?asset_id=1135888279600983&business_id=1004678568916594&ir_qe_exposed=1&nav_ref=internal_nav&ref=biz_web_content_manager_calendar_view&context_ref=CONTENT_CALENDAR"
+                                target="_blank" rel="noopener noreferrer"
+                                className="flex items-center justify-center h-8 rounded-lg text-[11px] font-bold text-white bg-[#3b5bdb] hover:bg-[#2f4ac4] transition-colors mt-1">
+                                Meta Business Suite 열기
+                              </a>
+                            </div>
+                            {/* 인스타그램 / 유튜브 */}
+                            <div className="rounded-xl bg-pink-50 border border-pink-100 px-4 py-3 space-y-1.5">
+                              <p className="text-[11px] font-bold text-pink-700">📸 인스타그램 — 앱에서 올리기 (모바일)</p>
+                              <p className="text-[11px] text-pink-600">1. 위 "대표 이미지 다운로드" → 갤러리에 보관</p>
+                              <p className="text-[11px] text-pink-600">2. "문구 전체 복사" 클릭 (링크 포함)</p>
+                              <p className="text-[11px] text-pink-600">3. 인스타 앱 → 새 게시물 → 대표 이미지 선택</p>
+                              <p className="text-[11px] text-pink-600">4. 캡션란에 붙여넣기(길게 누르기) → 게시</p>
+                              <div className="flex gap-2 pt-0.5">
+                                <a href="https://www.instagram.com/playgangneung/" target="_blank" rel="noopener noreferrer"
+                                  className="flex-1 flex items-center justify-center h-8 rounded-lg text-[11px] font-bold text-white bg-[#E1306C] hover:bg-[#C2185B] transition-colors">
+                                  인스타그램 열기
+                                </a>
+                                <a href="https://www.youtube.com/@playgangneung" target="_blank" rel="noopener noreferrer"
+                                  className="flex-1 flex items-center justify-center h-8 rounded-lg text-[11px] font-bold text-white bg-[#FF0000] hover:bg-[#CC0000] transition-colors">
+                                  유튜브 열기
+                                </a>
+                              </div>
+                            </div>
+                          </div>
                         </>
                       )}
                     </div>

@@ -183,6 +183,12 @@ function renderHtml(item: ContentItem, contentUrl: string, ogImageOverride?: str
   const hasPhone = !!(item.phone);
   const hasLink = !!(item.link) && item.sourceType !== "manual";
 
+  // 자세히보기: 원문 링크 (없으면 콘텐츠 URL)
+  const detailHref = (hasLink && item.link) ? item.link : contentUrl;
+  // 팔로우: SNS 계정 (JS로 referrer 감지 → Facebook or Instagram)
+  const FB_URL = "https://www.facebook.com/profile.php?id=61589314617028";
+  const IG_URL = "https://www.instagram.com/playgangneung/";
+
   const actionButtons: string[] = [];
   if (hasMap) actionButtons.push(`<a href="https://map.kakao.com/link/search/${encodeURIComponent(item.location!)}" class="btn btn-secondary">🗺️ 지도 보기</a>`);
   if (hasPhone) actionButtons.push(`<a href="tel:${item.phone}" class="btn btn-secondary">📞 전화하기</a>`);
@@ -284,11 +290,16 @@ a{text-decoration:none;color:inherit}
 .nav-btn-home{background:#dbeafe;color:#1d4ed8}
 .nav-sep{color:#cbd5e1;font-size:11px;flex-shrink:0}
 /* Bottom bar */
-.bottom-bar{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #e2e8f0;padding:10px 16px;display:flex;gap:8px;z-index:50;box-shadow:0 -2px 12px rgba(0,0,0,.08)}
+.bottom-bar{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #e2e8f0;padding:10px 16px;display:flex;gap:10px;z-index:50;box-shadow:0 -2px 12px rgba(0,0,0,.08)}
 .btn{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:11px 8px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;border:none;transition:opacity .15s}
 .btn:active{opacity:.75}
 .btn-primary{background:#2563eb;color:#fff}
 .btn-secondary{background:#f1f5f9;color:#1e293b}
+/* 버튼 이미지 링크 */
+.btn-img-wrap{flex:1;display:flex;align-items:center;justify-content:center}
+.btn-img-wrap:active{opacity:.75}
+.btn-img{width:100%;height:48px;object-fit:cover;object-position:center;border-radius:14px;display:block}
+@media(min-width:640px){.bottom-bar{max-width:680px;left:50%;transform:translateX(-50%);width:100%}}
 /* PLAY강릉 brand footer */
 .brand-footer{text-align:center;padding:16px 16px 6px;font-size:11px;color:#94a3b8}
 /* 동영상 */
@@ -375,8 +386,27 @@ a{text-decoration:none;color:inherit}
   </div>
 </div>
 
-<!-- Bottom action bar (full width) -->
-${actionButtons.length > 0 ? `<div class="bottom-bar">${actionButtons.join("")}</div>` : ""}
+<!-- Bottom action bar: 자세히보기 + 팔로우 버튼 이미지 링크 -->
+<div class="bottom-bar">
+  <a href="${escHtml(detailHref)}" target="_blank" rel="noopener noreferrer" class="btn-img-wrap">
+    <img src="/btn-jabochigi.png" alt="자세히보기" class="btn-img">
+  </a>
+  <a id="follow-link" href="${escHtml(IG_URL)}" target="_blank" rel="noopener noreferrer" class="btn-img-wrap">
+    <img src="/btn-follow.png" alt="팔로우" class="btn-img">
+  </a>
+</div>
+<script>
+(function(){
+  var ref = document.referrer || '';
+  var link = document.getElementById('follow-link');
+  if (!link) return;
+  if (ref.includes('facebook.com') || ref.includes('fb.com') || ref.includes('fb.me')) {
+    link.href = '${FB_URL}';
+  } else {
+    link.href = '${IG_URL}';
+  }
+})();
+</script>
 
 </body>
 </html>`;

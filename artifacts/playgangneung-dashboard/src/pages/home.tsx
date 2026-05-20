@@ -7,8 +7,13 @@ import {
   SheetContent,
 } from "@/components/ui/sheet";
 import {
+  Dialog,
+  DialogContent,
+} from "@/components/ui/dialog";
+import {
   CalendarDays, MapPin,
   Megaphone, Star, Pin, Search, X, ArrowUpDown, Play, Menu, Smartphone, ExternalLink,
+  ChevronLeft, ChevronRight,
 } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -196,8 +201,102 @@ function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
 }
 
+function ImageSlider({ images, onClickImage }: { images: string[]; onClickImage: (i: number) => void }) {
+  const [idx, setIdx] = useState(0);
+  if (images.length === 0) return null;
+  const prev = (e: React.MouseEvent) => { e.stopPropagation(); setIdx((i) => (i - 1 + images.length) % images.length); };
+  const next = (e: React.MouseEvent) => { e.stopPropagation(); setIdx((i) => (i + 1) % images.length); };
+  return (
+    <div className="relative w-full h-56 rounded-xl overflow-hidden mb-4 bg-black select-none">
+      <img
+        src={images[idx]}
+        alt={`사진 ${idx + 1}`}
+        className="w-full h-full object-cover cursor-zoom-in"
+        onClick={(e) => { e.stopPropagation(); onClickImage(idx); }}
+      />
+      {images.length > 1 && (
+        <>
+          <button
+            onClick={prev}
+            className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/40 hover:bg-black/60 flex items-center justify-center text-white transition-colors"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+          <button
+            onClick={next}
+            className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/40 hover:bg-black/60 flex items-center justify-center text-white transition-colors"
+          >
+            <ChevronRight className="w-5 h-5" />
+          </button>
+          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5">
+            {images.map((_, i) => (
+              <button
+                key={i}
+                onClick={(e) => { e.stopPropagation(); setIdx(i); }}
+                className={`w-1.5 h-1.5 rounded-full transition-all ${i === idx ? "bg-white scale-125" : "bg-white/50"}`}
+              />
+            ))}
+          </div>
+          <span className="absolute top-2 right-2 bg-black/40 text-white text-[11px] font-semibold rounded-full px-2 py-0.5">
+            {idx + 1} / {images.length}
+          </span>
+        </>
+      )}
+    </div>
+  );
+}
+
+function LightboxModal({ images, startIdx, open, onClose }: {
+  images: string[]; startIdx: number; open: boolean; onClose: () => void;
+}) {
+  const [idx, setIdx] = useState(startIdx);
+  useEffect(() => { setIdx(startIdx); }, [startIdx, open]);
+  const prev = () => setIdx((i) => (i - 1 + images.length) % images.length);
+  const next = () => setIdx((i) => (i + 1) % images.length);
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "ArrowLeft") prev();
+      if (e.key === "ArrowRight") next();
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [open, images.length]);
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-screen-md w-full p-0 bg-black border-none" aria-describedby={undefined}>
+        <div className="relative flex items-center justify-center min-h-[60vh]">
+          <img src={images[idx]} alt={`사진 ${idx + 1}`} className="max-h-[80vh] max-w-full object-contain" />
+          {images.length > 1 && (
+            <>
+              <button onClick={prev} className="absolute left-2 w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 flex items-center justify-center text-white">
+                <ChevronLeft className="w-6 h-6" />
+              </button>
+              <button onClick={next} className="absolute right-2 w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 flex items-center justify-center text-white">
+                <ChevronRight className="w-6 h-6" />
+              </button>
+              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-2">
+                {images.map((_, i) => (
+                  <button key={i} onClick={() => setIdx(i)}
+                    className={`w-2 h-2 rounded-full transition-all ${i === idx ? "bg-white scale-125" : "bg-white/40"}`} />
+                ))}
+              </div>
+              <span className="absolute top-3 right-3 bg-black/50 text-white text-xs font-semibold rounded-full px-2.5 py-1">
+                {idx + 1} / {images.length}
+              </span>
+            </>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function FeedCard({ item }: { item: FeedItem }) {
   const [showDetail, setShowDetail] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIdx, setLightboxIdx] = useState(0);
   const category = item.category ?? "지역소식";
   const colorClass = CATEGORY_COLORS[category] ?? "bg-gray-100 text-gray-700";
   const ytThumb = extractYoutubeThumb(item.videoUrl);
@@ -294,28 +393,15 @@ function FeedCard({ item }: { item: FeedItem }) {
     {item.isAd && (
       <Sheet open={showDetail} onOpenChange={setShowDetail}>
         <SheetContent side="bottom" className="rounded-t-2xl max-h-[85vh] overflow-y-auto">
-          {/* 이미지 갤러리 */}
+          {/* 이미지 슬라이더 */}
           {(() => {
             const allImgs = [item.thumbnail, ...(item.extraImages ?? [])].filter(Boolean) as string[];
             if (allImgs.length === 0) return null;
-            if (allImgs.length === 1) return (
-              <img src={allImgs[0]} alt={item.title} className="w-full rounded-xl object-cover h-56 mb-4" />
-            );
-            if (allImgs.length === 2) return (
-              <div className="flex gap-1.5 mb-4 h-52">
-                {allImgs.map((src, i) => (
-                  <img key={i} src={src} alt={`사진 ${i+1}`} className="flex-1 rounded-xl object-cover" />
-                ))}
-              </div>
-            );
             return (
-              <div className="flex gap-1.5 mb-4 h-56">
-                <img src={allImgs[0]} alt="사진 1" className="flex-[2] rounded-xl object-cover" />
-                <div className="flex flex-col gap-1.5 flex-1">
-                  <img src={allImgs[1]} alt="사진 2" className="flex-1 rounded-xl object-cover w-full" />
-                  <img src={allImgs[2]} alt="사진 3" className="flex-1 rounded-xl object-cover w-full" />
-                </div>
-              </div>
+              <ImageSlider
+                images={allImgs}
+                onClickImage={(i) => { setLightboxIdx(i); setLightboxOpen(true); }}
+              />
             );
           })()}
           <div className="flex items-center gap-2 mb-3">
@@ -362,6 +448,17 @@ function FeedCard({ item }: { item: FeedItem }) {
         </SheetContent>
       </Sheet>
     )}
+    {lightboxOpen && (() => {
+      const allImgs = [item.thumbnail, ...(item.extraImages ?? [])].filter(Boolean) as string[];
+      return (
+        <LightboxModal
+          images={allImgs}
+          startIdx={lightboxIdx}
+          open={lightboxOpen}
+          onClose={() => setLightboxOpen(false)}
+        />
+      );
+    })()}
     </>
   );
 }

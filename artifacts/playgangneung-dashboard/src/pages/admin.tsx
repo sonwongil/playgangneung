@@ -994,20 +994,13 @@ export default function Admin() {
                                   onChange={(e) => { initDraftEdit(ev); setDraftCaption(ev.id, e.target.value); }}
                                 />
                                 <div className="border-t border-input flex">
-                                  <button
-                                    type="button"
-                                    onClick={() => copyUrl(`${window.location.origin}/content/${ev.id}`)}
+                                  <a
+                                    href={`${window.location.origin}/content/${ev.id}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
                                     className="flex-1 flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold py-2.5 transition-colors"
                                   >
                                     🔗 자세히 보기
-                                  </button>
-                                  <a
-                                    href="https://www.instagram.com/playgangneung/"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="flex-1 flex items-center justify-center gap-1.5 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white text-xs font-semibold py-2.5 transition-colors"
-                                  >
-                                    ➕ 팔로우
                                   </a>
                                 </div>
                               </div>
@@ -1045,6 +1038,14 @@ export default function Admin() {
                                 onClick={() => copyText(ev)}
                               >
                                 <Copy className="w-3 h-3" />문구 복사
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="gap-1.5"
+                                onClick={() => copyUrl(`${window.location.origin}/content/${ev.id}`)}
+                              >
+                                <Copy className="w-3 h-3" />링크 복사
                               </Button>
                             </div>
                           </>
@@ -2351,20 +2352,13 @@ export default function Admin() {
                               onChange={(e) => setAdDraftEdits((p) => ({ ...p, [adId]: { caption: e.target.value, hashtagsStr: edit?.hashtagsStr ?? (draft?.hashtags ?? []).map((h: string) => `#${h}`).join(" ") } }))}
                             />
                             <div className="border-t border-input flex">
-                              <button
-                                type="button"
-                                onClick={() => copyUrl(`${window.location.origin}/content/${adId}`)}
+                              <a
+                                href={`${window.location.origin}/content/${adId}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
                                 className="flex-1 flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold py-2.5 transition-colors"
                               >
                                 🔗 자세히 보기
-                              </button>
-                              <a
-                                href="https://www.instagram.com/playgangneung/"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex-1 flex items-center justify-center gap-1.5 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white text-xs font-semibold py-2.5 transition-colors"
-                              >
-                                ➕ 팔로우
                               </a>
                             </div>
                           </div>
@@ -2396,7 +2390,10 @@ export default function Admin() {
                               });
                             }}>
                               {adCopied ? <Check className="w-3 h-3 mr-1 text-green-600" /> : <Copy className="w-3 h-3 mr-1" />}
-                              {adCopied ? "복사됨" : "복사"}
+                              {adCopied ? "복사됨" : "문구 복사"}
+                            </Button>
+                            <Button size="sm" variant="outline" className="flex-1 gap-1.5" onClick={() => copyUrl(`${window.location.origin}/content/${adId}`)}>
+                              <Copy className="w-3 h-3" />링크 복사
                             </Button>
                             <Button size="sm" variant="outline" onClick={async () => {
                               const r = await fetch(`${BASE}/api/ads/${adId}/draft`, { method: "POST", credentials: "include" });

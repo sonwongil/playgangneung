@@ -1,5 +1,7 @@
 import { Router } from "express";
 import { readEvents } from "../lib/storage.js";
+import { db, adsTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
 import fs from "fs/promises";
 import path from "path";
 
@@ -98,7 +100,24 @@ async function findContent(id: string): Promise<ContentItem | null> {
     }
   } catch {}
 
-  // Check ads
+  // Check ads from DB
+  try {
+    const rows = await db.select().from(adsTable).where(eq(adsTable.id, id)).limit(1);
+    const ad = rows[0];
+    if (ad) {
+      return {
+        id: ad.id, type: "ad",
+        title: ad.title, description: ad.description,
+        date: ad.date, source: ad.businessName ?? "광고", contact: ad.phone ?? "", link: ad.url ?? "",
+        category: ad.category ?? "광고",
+        thumbnail: ad.imageUrl ?? THUMBNAIL_MAP["광고"],
+        hasThumbnail: !!ad.imageUrl,
+        phone: ad.phone ?? undefined, location: ad.location ?? undefined, businessName: ad.businessName,
+      };
+    }
+  } catch {}
+
+  // Fallback: Check ads from JSON file (legacy)
   try {
     const raw = await fs.readFile(ADS_FILE, "utf-8");
     const ads = JSON.parse(raw) as any[];

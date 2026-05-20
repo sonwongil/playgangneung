@@ -189,8 +189,13 @@ const CATEGORY_GRADIENT: Record<string, string> = {
   지역소식: "from-emerald-600 to-teal-900",
 };
 
+function stripHtml(html: string): string {
+  return html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+}
+
 function FeedCard({ item }: { item: FeedItem }) {
   const [copied, setCopied] = useState(false);
+  const [showDetail, setShowDetail] = useState(false);
   const category = item.category ?? "지역소식";
   const colorClass = CATEGORY_COLORS[category] ?? "bg-gray-100 text-gray-700";
   const ytThumb = extractYoutubeThumb(item.videoUrl);
@@ -204,6 +209,10 @@ function FeedCard({ item }: { item: FeedItem }) {
   const contentUrl = `${window.location.origin}/content/${item.id}`;
 
   function openCard() {
+    if (item.isAd) {
+      setShowDetail(true);
+      return;
+    }
     window.open(href, "_blank", "noopener,noreferrer");
   }
 
@@ -238,6 +247,7 @@ function FeedCard({ item }: { item: FeedItem }) {
   }
 
   return (
+    <>
     <div onClick={openCard} className="block cursor-pointer">
       <Card className={`overflow-hidden hover:shadow-lg transition-shadow duration-300 group ${adCfg?.ring ?? ""}`}>
         {adCfg && (item.adPlan === "premium" || item.adPlan === "main") && (
@@ -293,7 +303,7 @@ function FeedCard({ item }: { item: FeedItem }) {
           <h3 className="font-semibold text-base leading-snug mb-1.5 line-clamp-2 group-hover:text-primary transition-colors">
             {item.title}
           </h3>
-          <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{item.description}</p>
+          <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{stripHtml(item.description)}</p>
           <div className="flex items-center justify-between text-xs text-muted-foreground mb-3">
             <div className="flex items-center gap-1">
               <CalendarDays className="w-3.5 h-3.5" />
@@ -329,6 +339,45 @@ function FeedCard({ item }: { item: FeedItem }) {
         </CardContent>
       </Card>
     </div>
+
+    {/* 광고 상세 Sheet */}
+    {item.isAd && (
+      <Sheet open={showDetail} onOpenChange={setShowDetail}>
+        <SheetContent side="bottom" className="rounded-t-2xl max-h-[85vh] overflow-y-auto">
+          {item.thumbnail && (
+            <img src={item.thumbnail} alt={item.title} className="w-full rounded-xl object-cover max-h-52 mb-4" />
+          )}
+          <div className="flex items-center gap-2 mb-3">
+            {item.adPlan && <AdBadge plan={item.adPlan} />}
+            <span className="text-sm text-muted-foreground">{item.businessName}</span>
+            <span className="ml-auto text-xs text-muted-foreground bg-gray-100 rounded-full px-2 py-0.5">{category}</span>
+          </div>
+          <h2 className="font-bold text-lg leading-snug mb-3">{item.title}</h2>
+          {item.description && (
+            <div
+              className="prose prose-sm max-w-none text-gray-700 mb-4 leading-relaxed"
+              dangerouslySetInnerHTML={{ __html: item.description }}
+            />
+          )}
+          {item.location && (
+            <div className="flex items-center gap-1.5 text-sm text-muted-foreground mb-4">
+              <MapPin className="w-4 h-4" />{item.location}
+            </div>
+          )}
+          {href && (
+            <a
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block w-full text-center bg-primary text-primary-foreground rounded-xl py-3 font-semibold text-sm"
+            >
+              자세히 보기 →
+            </a>
+          )}
+        </SheetContent>
+      </Sheet>
+    )}
+    </>
   );
 }
 

@@ -58,7 +58,7 @@ interface FormData {
 }
 
 /** 브라우저 Canvas로 이미지 자동 리사이즈 (최대 1200px, JPEG 85%) */
-async function resizeImage(file: File, maxPx = 1200, quality = 0.85): Promise<string> {
+async function resizeImage(file: File, maxPx = 800, quality = 0.70): Promise<string> {
   return new Promise((resolve) => {
     const img = new Image();
     const objectUrl = URL.createObjectURL(file);

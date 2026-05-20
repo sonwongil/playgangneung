@@ -31,6 +31,7 @@ export interface FeedItem {
   businessName?: string;
   phone?: string;
   email?: string;
+  extraImages?: string[];
 }
 
 const CATEGORY_THUMBNAILS: Record<string, string> = {
@@ -121,6 +122,7 @@ function adToFeedItem(ad: Ad): FeedItem {
     businessName: ad.businessName,
     phone: ad.phone || undefined,
     email: ad.email || undefined,
+    extraImages: ad.extraImages && ad.extraImages.length > 0 ? ad.extraImages : undefined,
   };
 }
 

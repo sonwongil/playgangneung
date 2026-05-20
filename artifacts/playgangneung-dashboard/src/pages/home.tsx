@@ -33,6 +33,7 @@ interface FeedItem {
   businessName?: string;
   phone?: string;
   email?: string;
+  extraImages?: string[];
   location?: string;
 }
 
@@ -346,9 +347,22 @@ function FeedCard({ item }: { item: FeedItem }) {
     {item.isAd && (
       <Sheet open={showDetail} onOpenChange={setShowDetail}>
         <SheetContent side="bottom" className="rounded-t-2xl max-h-[85vh] overflow-y-auto">
-          {item.thumbnail && (
-            <img src={item.thumbnail} alt={item.title} className="w-full rounded-xl object-cover max-h-52 mb-4" />
-          )}
+          {/* 이미지 갤러리 */}
+          {(() => {
+            const allImgs = [item.thumbnail, ...(item.extraImages ?? [])].filter(Boolean) as string[];
+            if (allImgs.length === 0) return null;
+            if (allImgs.length === 1) return (
+              <img src={allImgs[0]} alt={item.title} className="w-full rounded-xl object-cover max-h-60 mb-4" />
+            );
+            return (
+              <div className="grid grid-cols-3 gap-1.5 mb-4">
+                {allImgs.map((src, i) => (
+                  <img key={i} src={src} alt={`사진 ${i+1}`}
+                    className={`rounded-xl object-cover w-full ${i === 0 ? "col-span-2 row-span-2 h-48" : "h-[90px]"}`} />
+                ))}
+              </div>
+            );
+          })()}
           <div className="flex items-center gap-2 mb-3">
             {item.adPlan && <AdBadge plan={item.adPlan} />}
             <span className="text-sm text-muted-foreground">{item.businessName}</span>

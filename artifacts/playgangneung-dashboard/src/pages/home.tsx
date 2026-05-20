@@ -31,6 +31,8 @@ interface FeedItem {
   adPlan?: "basic" | "main" | "premium";
   adWeight?: number;
   businessName?: string;
+  phone?: string;
+  email?: string;
   location?: string;
 }
 
@@ -360,8 +362,22 @@ function FeedCard({ item }: { item: FeedItem }) {
             />
           )}
           {item.location && (
-            <div className="flex items-center gap-1.5 text-sm text-muted-foreground mb-4">
+            <div className="flex items-center gap-1.5 text-sm text-muted-foreground mb-2">
               <MapPin className="w-4 h-4" />{item.location}
+            </div>
+          )}
+          {(item.phone || item.email) && (
+            <div className="space-y-1 mb-4 mt-2 border rounded-xl p-3 bg-gray-50 text-sm">
+              {item.phone && (
+                <a href={`tel:${item.phone}`} className="flex items-center gap-2 text-blue-600 font-medium">
+                  📞 {item.phone}
+                </a>
+              )}
+              {item.email && (
+                <a href={`mailto:${item.email}`} className="flex items-center gap-2 text-blue-600">
+                  ✉️ {item.email}
+                </a>
+              )}
             </div>
           )}
           {href && (

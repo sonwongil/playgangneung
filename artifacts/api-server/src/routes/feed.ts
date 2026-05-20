@@ -29,6 +29,8 @@ export interface FeedItem {
   adPlan?: "basic" | "main" | "premium";
   adWeight?: number;
   businessName?: string;
+  phone?: string;
+  email?: string;
 }
 
 const CATEGORY_THUMBNAILS: Record<string, string> = {
@@ -117,6 +119,8 @@ function adToFeedItem(ad: Ad): FeedItem {
     adPlan: ad.plan,
     adWeight: PLAN_WEIGHT[ad.plan] ?? 1,
     businessName: ad.businessName,
+    phone: ad.phone || undefined,
+    email: ad.email || undefined,
   };
 }
 

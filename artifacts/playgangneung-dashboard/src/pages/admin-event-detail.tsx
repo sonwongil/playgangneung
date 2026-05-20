@@ -246,7 +246,8 @@ export default function AdminEventDetail() {
 
   function copyAll() {
     const hashtags = editHashtagsStr.split(/[\s,]+/).map((h) => h.startsWith("#") ? h : `#${h}`).filter(Boolean);
-    const text = `${htmlToSns(editCaption)}\n\n${hashtags.join(" ")}\n\n${FIXED_CTA}`;
+    const contentUrl = `${window.location.origin}/content/${eventId}`;
+    const text = `${htmlToSns(editCaption)}\n\n🔗 자세히 보기 → ${contentUrl}\n\n${hashtags.join(" ")}\n\n${FIXED_CTA}`;
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true);
       toast({ title: "캡션 복사 완료", description: "인스타·페북 게시창에 붙여넣으세요." });
@@ -507,6 +508,24 @@ export default function AdminEventDetail() {
               placeholder="#강릉 #강릉여행 #PLAY강릉 #강릉맛집 ..."
               onChange={(e) => { setEditHashtagsStr(e.target.value); setIsDraftDirty(true); }}
             />
+
+            {/* 자세히보기 버튼 미리보기 */}
+            <div className="rounded-xl border border-blue-100 bg-blue-50/40 p-3 space-y-1.5">
+              <span className="text-[11px] font-bold text-blue-700">🔗 자세히보기 링크 (복사 시 자동 포함)</span>
+              <a
+                href={`${window.location.origin}/content/${eventId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block w-fit"
+              >
+                <img
+                  src="/btn-jabochigi.png"
+                  alt="자세히보기"
+                  className="h-10 object-contain hover:opacity-80 transition-opacity"
+                />
+              </a>
+              <p className="text-[10px] text-blue-400">클릭하면 콘텐츠 상세 페이지로 이동합니다.</p>
+            </div>
 
             {/* CTA 고정 미리보기 */}
             <div className="rounded-xl border border-violet-100 bg-violet-50/50 p-3 space-y-1.5">

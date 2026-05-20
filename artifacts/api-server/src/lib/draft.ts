@@ -95,9 +95,6 @@ export function generateSocialDraft(event: CrawledEvent): SocialDraft {
     descBlock = desc;
   }
 
-  // PLAY강릉 콘텐츠 링크 (Facebook OG 미리보기 카드 생성용)
-  const contentLink = `${SITE_URL}/content/${event.id}`;
-
   // 본문 조합
   const parts: string[] = [titleLine];
   if (dateStr) parts.push(dateStr);
@@ -106,8 +103,6 @@ export function generateSocialDraft(event: CrawledEvent): SocialDraft {
     parts.push("");
     parts.push(descBlock);
   }
-  parts.push("");
-  parts.push(`🔗 자세히 보기 → ${contentLink}`);
 
   const caption = parts.join("\n").trim();
 

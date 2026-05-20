@@ -299,14 +299,22 @@ function FeedCard({ item }: { item: FeedItem }) {
             const allImgs = [item.thumbnail, ...(item.extraImages ?? [])].filter(Boolean) as string[];
             if (allImgs.length === 0) return null;
             if (allImgs.length === 1) return (
-              <img src={allImgs[0]} alt={item.title} className="w-full rounded-xl object-cover max-h-60 mb-4" />
+              <img src={allImgs[0]} alt={item.title} className="w-full rounded-xl object-cover h-56 mb-4" />
+            );
+            if (allImgs.length === 2) return (
+              <div className="flex gap-1.5 mb-4 h-52">
+                {allImgs.map((src, i) => (
+                  <img key={i} src={src} alt={`사진 ${i+1}`} className="flex-1 rounded-xl object-cover" />
+                ))}
+              </div>
             );
             return (
-              <div className="grid grid-cols-3 gap-1.5 mb-4">
-                {allImgs.map((src, i) => (
-                  <img key={i} src={src} alt={`사진 ${i+1}`}
-                    className={`rounded-xl object-cover w-full ${i === 0 ? "col-span-2 row-span-2 h-48" : "h-[90px]"}`} />
-                ))}
+              <div className="flex gap-1.5 mb-4 h-56">
+                <img src={allImgs[0]} alt="사진 1" className="flex-[2] rounded-xl object-cover" />
+                <div className="flex flex-col gap-1.5 flex-1">
+                  <img src={allImgs[1]} alt="사진 2" className="flex-1 rounded-xl object-cover w-full" />
+                  <img src={allImgs[2]} alt="사진 3" className="flex-1 rounded-xl object-cover w-full" />
+                </div>
               </div>
             );
           })()}

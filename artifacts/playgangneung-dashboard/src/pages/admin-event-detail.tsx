@@ -596,13 +596,22 @@ export default function AdminEventDetail() {
               </div>
             )}
             {editThumbnail && (
-              <a
-                href={editThumbnail.startsWith("/api/") ? `${BASE}${editThumbnail}` : `${BASE}/api/proxy/download?url=${encodeURIComponent(editThumbnail)}`}
-                download
+              <button
                 className="flex items-center justify-center gap-1.5 w-full h-9 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold transition-colors"
+                onClick={async () => {
+                  const src = editThumbnail.startsWith("/api/") ? `${BASE}${editThumbnail}` : editThumbnail;
+                  try {
+                    const r = await fetch(src, { credentials: "include" });
+                    const blob = await r.blob();
+                    const blobUrl = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = blobUrl; a.download = "photo-대표.jpg"; a.click();
+                    setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+                  } catch { window.open(src, "_blank"); }
+                }}
               >
                 <Download className="w-3.5 h-3.5" />대표 이미지 저장
-              </a>
+              </button>
             )}
 
             {/* 추가 이미지 */}
@@ -667,13 +676,23 @@ export default function AdminEventDetail() {
                             className="h-7 px-2 rounded-lg bg-red-50 hover:bg-red-100 text-red-500 text-xs font-bold transition-colors"
                           >✕</button>
                         </div>
-                        <a
-                          href={editExtraImages[slot - 1].startsWith("/api/") ? `${BASE}${editExtraImages[slot - 1]}` : `${BASE}/api/proxy/download?url=${encodeURIComponent(editExtraImages[slot - 1])}`}
-                          download
+                        <button
                           className="flex items-center justify-center gap-1 w-full h-7 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-[11px] font-bold transition-colors"
+                          onClick={async () => {
+                            const imgUrl = editExtraImages[slot - 1];
+                            const src = imgUrl.startsWith("/api/") ? `${BASE}${imgUrl}` : imgUrl;
+                            try {
+                              const r = await fetch(src, { credentials: "include" });
+                              const blob = await r.blob();
+                              const blobUrl = URL.createObjectURL(blob);
+                              const a = document.createElement("a");
+                              a.href = blobUrl; a.download = `photo-추가${slot}.jpg`; a.click();
+                              setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+                            } catch { window.open(src, "_blank"); }
+                          }}
                         >
                           <Download className="w-3 h-3" />추가 {slot} 저장
-                        </a>
+                        </button>
                       </div>
                     )}
                   </div>

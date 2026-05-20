@@ -2216,22 +2216,27 @@ export default function Admin() {
                       { label: "대표", url: selectedAd.imageUrl },
                       { label: "추가 1", url: selectedAd.extraImages?.[0] },
                       { label: "추가 2", url: selectedAd.extraImages?.[1] },
-                    ].filter(({ url }) => !!url).map(({ label, url }, i) => {
-                      const href = url!.startsWith("/api/")
-                        ? `${BASE}${url}`
-                        : `${BASE}/api/proxy/download?url=${encodeURIComponent(url!)}`;
-                      const ext = url!.split(".").pop()?.split("?")[0] ?? "jpg";
-                      return (
-                        <a
-                          key={i}
-                          href={href}
-                          download={`photo-${label}.${ext}`}
-                          className="flex items-center justify-center gap-1.5 w-full h-9 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold transition-colors"
-                        >
-                          <Download className="w-3.5 h-3.5" />{label} 사진 저장
-                        </a>
-                      );
-                    })}
+                    ].filter(({ url }) => !!url).map(({ label, url }, i) => (
+                      <button
+                        key={i}
+                        className="flex items-center justify-center gap-1.5 w-full h-9 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold transition-colors"
+                        onClick={async () => {
+                          const src = url!.startsWith("/api/") ? `${BASE}${url}` : url!;
+                          try {
+                            const r = await fetch(src, { credentials: "include" });
+                            const blob = await r.blob();
+                            const blobUrl = URL.createObjectURL(blob);
+                            const a = document.createElement("a");
+                            a.href = blobUrl;
+                            a.download = `photo-${label}.jpg`;
+                            a.click();
+                            setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+                          } catch { window.open(src, "_blank"); }
+                        }}
+                      >
+                        <Download className="w-3.5 h-3.5" />{label} 사진 저장
+                      </button>
+                    ))}
 
                     <div className="border-t pt-3 space-y-2">
                       {!draft && !edit ? (

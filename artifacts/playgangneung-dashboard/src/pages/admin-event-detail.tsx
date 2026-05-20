@@ -85,8 +85,6 @@ export default function AdminEventDetail() {
   const [inited, setInited] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const [isUploadingSlot, setIsUploadingSlot] = useState<number | null>(null);
-  const [cardResults, setCardResults] = useState<string[]>([]);
-  const [isGeneratingCard, setIsGeneratingCard] = useState(false);
 
   // SNS 게시 패키지
   const [editCaption, setEditCaption] = useState("");
@@ -599,11 +597,11 @@ export default function AdminEventDetail() {
             )}
             {editThumbnail && (
               <a
-                href={`${BASE}/api/proxy/download?url=${encodeURIComponent(editThumbnail)}`}
+                href={editThumbnail.startsWith("/api/") ? `${BASE}${editThumbnail}` : `${BASE}/api/proxy/download?url=${encodeURIComponent(editThumbnail)}`}
                 download
                 className="flex items-center justify-center gap-1.5 w-full h-9 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold transition-colors"
               >
-                <Download className="w-3.5 h-3.5" />대표 이미지 다운로드
+                <Download className="w-3.5 h-3.5" />대표 이미지 저장
               </a>
             )}
 
@@ -641,32 +639,41 @@ export default function AdminEventDetail() {
                       )}
                     </div>
                     {editExtraImages[slot - 1] && (
-                      <div className="flex gap-1">
-                        <Input
-                          value={editExtraImages[slot - 1]}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setEditExtraImages((prev) => {
-                              const next: [string, string] = [...prev] as [string, string];
-                              next[slot - 1] = val;
-                              return next;
-                            });
-                            setIsDirty(true);
-                          }}
-                          className="text-[11px] h-7 flex-1"
-                          placeholder="URL"
-                        />
-                        <button
-                          onClick={() => {
-                            setEditExtraImages((prev) => {
-                              const next: [string, string] = [...prev] as [string, string];
-                              next[slot - 1] = "";
-                              return next;
-                            });
-                            setIsDirty(true);
-                          }}
-                          className="h-7 px-2 rounded-lg bg-red-50 hover:bg-red-100 text-red-500 text-xs font-bold transition-colors"
-                        >✕</button>
+                      <div className="space-y-1">
+                        <div className="flex gap-1">
+                          <Input
+                            value={editExtraImages[slot - 1]}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setEditExtraImages((prev) => {
+                                const next: [string, string] = [...prev] as [string, string];
+                                next[slot - 1] = val;
+                                return next;
+                              });
+                              setIsDirty(true);
+                            }}
+                            className="text-[11px] h-7 flex-1"
+                            placeholder="URL"
+                          />
+                          <button
+                            onClick={() => {
+                              setEditExtraImages((prev) => {
+                                const next: [string, string] = [...prev] as [string, string];
+                                next[slot - 1] = "";
+                                return next;
+                              });
+                              setIsDirty(true);
+                            }}
+                            className="h-7 px-2 rounded-lg bg-red-50 hover:bg-red-100 text-red-500 text-xs font-bold transition-colors"
+                          >✕</button>
+                        </div>
+                        <a
+                          href={editExtraImages[slot - 1].startsWith("/api/") ? `${BASE}${editExtraImages[slot - 1]}` : `${BASE}/api/proxy/download?url=${encodeURIComponent(editExtraImages[slot - 1])}`}
+                          download
+                          className="flex items-center justify-center gap-1 w-full h-7 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-[11px] font-bold transition-colors"
+                        >
+                          <Download className="w-3 h-3" />추가 {slot} 저장
+                        </a>
                       </div>
                     )}
                   </div>
@@ -675,74 +682,9 @@ export default function AdminEventDetail() {
             </div>
           </div>
 
-          {/* 카드이미지 생성 */}
+          {/* STEP 3 — 동영상 */}
           <div className="space-y-2.5">
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">③ 카드이미지 생성</p>
-            <button
-              disabled={isGeneratingCard}
-              onClick={async () => {
-                setIsGeneratingCard(true);
-                try {
-                  const r = await fetch(`${BASE}/api/events/${eventId}/card`, { method: "POST", credentials: "include" });
-                  const j = await r.json() as { success: boolean; cardUrls?: string[] };
-                  if (j.success && j.cardUrls?.length) {
-                    setCardResults(j.cardUrls);
-                    toast({ title: `카드이미지 ${j.cardUrls.length}장 생성 완료` });
-                  } else {
-                    toast({ title: "카드이미지 생성 실패", variant: "destructive" });
-                  }
-                } finally {
-                  setIsGeneratingCard(false);
-                }
-              }}
-              className="w-full flex items-center justify-center gap-1.5 h-9 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-bold transition-colors"
-            >
-              {isGeneratingCard ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-              {isGeneratingCard ? "생성 중..." : "카드이미지 생성 (업로드 사진 전체)"}
-            </button>
-            {cardResults.length > 0 && (
-              <div className="space-y-1.5">
-                <p className="text-[11px] font-semibold text-muted-foreground">생성된 카드이미지 {cardResults.length}장</p>
-                <div className="grid grid-cols-3 gap-1.5">
-                  {cardResults.map((url, i) => {
-                    const full = url.startsWith("/") ? `${BASE}${url}` : url;
-                    return (
-                      <div key={i} className="relative group rounded-lg overflow-hidden border border-gray-200">
-                        <img src={full} alt={`카드 ${i + 1}`} className="w-full aspect-square object-cover" />
-                        <a
-                          href={`${BASE}/api/proxy/download?url=${encodeURIComponent(full)}`}
-                          download={`card-${i + 1}.png`}
-                          className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 text-white text-[10px] font-bold"
-                        >
-                          <Download className="w-4 h-4" />다운로드
-                        </a>
-                      </div>
-                    );
-                  })}
-                </div>
-                <div className="flex gap-1 flex-wrap">
-                  {cardResults.map((url, i) => {
-                    const full = url.startsWith("/") ? `${BASE}${url}` : url;
-                    return (
-                      <a
-                        key={i}
-                        href={`${BASE}/api/proxy/download?url=${encodeURIComponent(full)}`}
-                        download={`card-${i + 1}.png`}
-                        className="flex-1 flex items-center justify-center gap-1 h-8 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-[11px] font-bold transition-colors"
-                      >
-                        <Download className="w-3 h-3" />카드 {i + 1} 저장
-                      </a>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-            <p className="text-[11px] text-muted-foreground">업로드된 사진(대표+추가) 각각 1080×1080 카드이미지로 생성됩니다.</p>
-          </div>
-
-          {/* STEP 4 — 동영상 */}
-          <div className="space-y-2.5">
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">④ 동영상</p>
+            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">③ 동영상</p>
             <Input
               value={editVideoUrl}
               onChange={(e) => { setEditVideoUrl(e.target.value); setIsDirty(true); }}

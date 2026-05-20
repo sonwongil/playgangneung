@@ -20,10 +20,7 @@ function nodeToText(node: Node): string {
   if (tag === "li") return "• " + inner() + "\n";
   if (tag === "ul" || tag === "ol") return inner();
   if (tag === "blockquote") return inner() + "\n";
-  if (tag === "a") {
-    // <a> 태그는 링크 텍스트만 반환 (URL 제외 — 복사 텍스트에서도 URL 숨김)
-    return inner();
-  }
+  if (tag === "a") return inner();
   return inner();
 }
 
@@ -33,36 +30,36 @@ export function htmlToSns(html: string): string {
   const div = document.createElement("div");
   div.innerHTML = html;
   return nodeToText(div)
-    .replace(/\u00A0/g, " ")   // TipTap이 &nbsp;로 변환한 non-breaking space → 일반 공백
+    .replace(/\u00A0/g, " ")    // non-breaking space (TipTap &nbsp; 파싱 결과)
+    .replace(/&nbsp;/gi, " ")   // 리터럴 &nbsp; 텍스트 (이중 인코딩 잔재)
+    .replace(/&amp;/gi, "&")    // 리터럴 &amp; 텍스트
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/[ \t]+/g, " ")    // 연속 공백 정규화
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
 
-/** HTML 엔티티 디코딩 (크롤러에서 저장된 &nbsp; 등 처리) */
+/** 브라우저 파서로 HTML 엔티티 완전 디코딩 + 공백 정규화 */
 function decodeEntities(text: string): string {
-  return text
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">")
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;/gi, "'")
-    .replace(/&[a-z]+;/gi, " ")
-    .replace(/[ \t]+/g, " ");
+  const div = document.createElement("div");
+  div.innerHTML = text;
+  return (div.textContent ?? text)
+    .replace(/\u00A0/g, " ")   // non-breaking space → 일반 공백
+    .replace(/&nbsp;/gi, " ")  // 리터럴 &nbsp; 잔재 제거
+    .replace(/[ \t]+/g, " ");  // 연속 공백 정규화
 }
 
 /** DB plain text → TipTap 초기 HTML
- *  - HTML 엔티티(&nbsp; 등) 자동 디코딩
+ *  - HTML 엔티티(&nbsp; 등) 브라우저 파서로 완전 디코딩
  *  - "🔗 자세히 보기 → https://..." 패턴은 <a> 하이퍼링크로 변환 (URL 숨김)
  */
 export function snsToHtml(text: string): string {
   if (!text) return "<p></p>";
-  // 엔티티 디코딩 후 연속 공백 정규화 — TipTap이 다시 &nbsp;로 변환하는 것을 방지
-  const decoded = decodeEntities(text).replace(/[ \t\u00A0]+/g, " ");
+  const decoded = decodeEntities(text);
   return decoded
     .split("\n")
     .map((l) => {
-      // "🔗 자세히 보기 → URL" 패턴 → <a> 링크 (URL 숨김)
       const linkMatch = l.match(/^(.*?)🔗\s*자세히 보기\s*→\s*(https?:\/\/\S+)\s*$/);
       if (linkMatch) {
         const prefix = linkMatch[1].replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");

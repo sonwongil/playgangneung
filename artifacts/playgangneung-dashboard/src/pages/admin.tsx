@@ -694,9 +694,16 @@ export default function Admin() {
     return str.split(/[\s,]+/).map((h) => h.replace(/^#/, "").trim()).filter(Boolean);
   }
   function copyText(ev: Event) {
-    const text = ev.socialDraft
-      ? `${ev.socialDraft.caption}\n\n${ev.socialDraft.hashtags.map((h) => `#${h}`).join(" ")}`
-      : "";
+    if (!ev.socialDraft) return;
+    const contentUrl = `${window.location.origin}/content/${ev.id}`;
+    const text = [
+      cleanCaption(ev.socialDraft.caption),
+      "",
+      `🔗 자세히 보기 → ${contentUrl}`,
+      `➕ 팔로우 → https://www.instagram.com/playgangneung/`,
+      "",
+      ev.socialDraft.hashtags.map((h) => `#${h}`).join(" "),
+    ].join("\n");
     navigator.clipboard.writeText(text).then(() => toast({ title: "복사 완료" }));
   }
 

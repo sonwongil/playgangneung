@@ -32,7 +32,10 @@ export function htmlToSns(html: string): string {
   if (!html) return "";
   const div = document.createElement("div");
   div.innerHTML = html;
-  return nodeToText(div).replace(/\n{3,}/g, "\n\n").trim();
+  return nodeToText(div)
+    .replace(/\u00A0/g, " ")   // TipTap이 &nbsp;로 변환한 non-breaking space → 일반 공백
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 /** HTML 엔티티 디코딩 (크롤러에서 저장된 &nbsp; 등 처리) */
@@ -54,7 +57,8 @@ function decodeEntities(text: string): string {
  */
 export function snsToHtml(text: string): string {
   if (!text) return "<p></p>";
-  const decoded = decodeEntities(text);
+  // 엔티티 디코딩 후 연속 공백 정규화 — TipTap이 다시 &nbsp;로 변환하는 것을 방지
+  const decoded = decodeEntities(text).replace(/[ \t\u00A0]+/g, " ");
   return decoded
     .split("\n")
     .map((l) => {

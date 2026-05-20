@@ -112,8 +112,6 @@ function buildAdDraft(ad: Ad): SocialDraft {
     parts.push(rawDesc.length > 200 ? rawDesc.slice(0, 200) + "…" : rawDesc);
   }
   parts.push("");
-  parts.push(`🔗 자세히 보기 → ${contentLink}`);
-  parts.push(`🏠 PLAY강릉 → https://playgangneung.com`);
   return {
     title: ad.title,
     caption: parts.join("\n").trim(),

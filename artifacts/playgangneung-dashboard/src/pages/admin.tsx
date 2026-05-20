@@ -989,6 +989,25 @@ export default function Admin() {
                                 onChange={(e) => { initDraftEdit(ev); setDraftHashtagsStr(ev.id, e.target.value); }}
                               />
                             </div>
+                            {/* 링크 버튼 */}
+                            <div className="flex gap-2">
+                              <a
+                                href={`${window.location.origin}/content/${ev.id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold py-2.5 transition-colors"
+                              >
+                                🔗 자세히 보기
+                              </a>
+                              <a
+                                href="https://www.instagram.com/playgangneung/"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white text-xs font-semibold py-2.5 transition-colors"
+                              >
+                                ➕ 팔로우
+                              </a>
+                            </div>
                             {/* Action buttons */}
                             <div className="flex items-center gap-2 flex-wrap">
                               <Button
@@ -2321,6 +2340,25 @@ export default function Admin() {
                             value={hashtagsStr}
                             onChange={(e) => setAdDraftEdits((p) => ({ ...p, [adId]: { caption: edit?.caption ?? draft?.caption ?? "", hashtagsStr: e.target.value } }))}
                           />
+                          {/* 링크 버튼 */}
+                          <div className="flex gap-2">
+                            <a
+                              href={`${window.location.origin}/content/${adId}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold py-2.5 transition-colors"
+                            >
+                              🔗 자세히 보기
+                            </a>
+                            <a
+                              href="https://www.instagram.com/playgangneung/"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white text-xs font-semibold py-2.5 transition-colors"
+                            >
+                              ➕ 팔로우
+                            </a>
+                          </div>
                           <div className="flex gap-2 flex-wrap">
                             {isDirty && (
                               <Button size="sm" variant="default" className="flex-1" onClick={async () => {

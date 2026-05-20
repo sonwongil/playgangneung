@@ -1,7 +1,7 @@
 import { createCanvas, loadImage, GlobalFonts } from "@napi-rs/canvas";
 import fs from "fs/promises";
 import path from "path";
-import { FONTS_DIR, CARDS_DIR } from "./paths.js";
+import { FONTS_DIR, CARDS_DIR, ARTIFACT_ROOT } from "./paths.js";
 
 GlobalFonts.registerFromPath(path.join(FONTS_DIR, "NanumGothic-Regular.ttf"), "NanumGothic");
 GlobalFonts.registerFromPath(path.join(FONTS_DIR, "NanumGothic-Bold.ttf"), "NanumGothic");
@@ -100,8 +100,8 @@ export async function generateCardImage(event: {
   ctx.textBaseline = "middle";
   ctx.fillText(badgeText, 72 + badgePad, badgeY + badgeH / 2);
 
-  // ── 텍스트 영역 (하단 CTA 바 96px 고려해서 위로 올림) ──────────────────
-  const CTA_H = 96; // 하단 CTA 바 높이
+  // ── 텍스트 영역 (하단 버튼 바 140px 고려해서 위로 올림) ─────────────────
+  const CTA_H = 140; // 하단 버튼 바 높이
 
   ctx.fillStyle = "#ffffff";
   ctx.font = "bold 72px NanumGothic";
@@ -127,25 +127,58 @@ export async function generateCardImage(event: {
   ctx.textAlign = "right";
   ctx.fillText("PLAY강릉", W - 72, H - 60 - CTA_H);
 
-  // ── 하단 "자세히보기" CTA 바 ────────────────────────────────────────────
+  // ── 하단 버튼 이미지 바 (자세히보기 + 팔로우) ─────────────────────────
   const ctaY = H - CTA_H;
 
   // 배경: 흰색 불투명 바
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, ctaY, W, CTA_H);
 
-  // 왼쪽: "자세히보기 →" 텍스트
-  ctx.fillStyle = "#1e293b";
-  ctx.font = "bold 42px NanumGothic";
-  ctx.textAlign = "left";
-  ctx.textBaseline = "middle";
-  ctx.fillText("자세히보기  →", 72, ctaY + CTA_H / 2);
+  // 버튼 이미지 경로
+  const dashboardPublic = path.join(ARTIFACT_ROOT, "..", "playgangneung-dashboard", "public");
+  const BTN_W = 420;  // 두 버튼 동일 크기
+  const BTN_H = 100;
+  const BTN_Y = ctaY + (CTA_H - BTN_H) / 2;
+  const gap = W - 72 * 2 - BTN_W * 2;  // 남은 간격
+  const btn1X = 72;
+  const btn2X = 72 + BTN_W + gap;
 
-  // 오른쪽: 도메인 브랜딩
-  ctx.fillStyle = "#2563eb";
-  ctx.font = "bold 32px NanumGothic";
-  ctx.textAlign = "right";
-  ctx.fillText("playgangneung.com", W - 72, ctaY + CTA_H / 2);
+  // object-cover 방식: 이미지 중앙 부분만 크롭해서 동일 비율로 렌더
+  // scale by width → rendered_h = SRC_H * BTN_W / SRC_W = 1024*420/1536 = 280px
+  // 그 중 BTN_H(100px)만 중앙 크롭
+  const SRC_W = 1536;
+  const SRC_H = 1024;
+  const renderedH = (SRC_H * BTN_W) / SRC_W;
+  const sy = Math.round(((renderedH - BTN_H) / 2) * (SRC_H / renderedH));
+  const sh = Math.round(BTN_H * (SRC_H / renderedH));
+
+  try {
+    const btnJabo = await loadImage(path.join(dashboardPublic, "btn-jabochigi.png"));
+    ctx.drawImage(btnJabo, 0, sy, SRC_W, sh, btn1X, BTN_Y, BTN_W, BTN_H);
+  } catch { /* 이미지 없으면 텍스트 폴백 */
+    ctx.fillStyle = "#2563eb";
+    roundRect(ctx, btn1X, BTN_Y, BTN_W, BTN_H, 20);
+    ctx.fill();
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 36px NanumGothic";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("자세히보기 →", btn1X + BTN_W / 2, BTN_Y + BTN_H / 2);
+  }
+
+  try {
+    const btnFollow = await loadImage(path.join(dashboardPublic, "btn-follow.png"));
+    ctx.drawImage(btnFollow, 0, sy, SRC_W, sh, btn2X, BTN_Y, BTN_W, BTN_H);
+  } catch { /* 이미지 없으면 텍스트 폴백 */
+    ctx.fillStyle = "#2563eb";
+    roundRect(ctx, btn2X, BTN_Y, BTN_W, BTN_H, 20);
+    ctx.fill();
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 36px NanumGothic";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("팔로우", btn2X + BTN_W / 2, BTN_Y + BTN_H / 2);
+  }
 
   const filename = event.suffix ? `${event.id}-${event.suffix}.png` : `${event.id}.png`;
   const outPath = path.join(CARDS_DIR, filename);

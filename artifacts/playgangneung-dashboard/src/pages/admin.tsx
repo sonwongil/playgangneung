@@ -191,6 +191,7 @@ export default function Admin() {
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [editThumbnailUrl, setEditThumbnailUrl] = useState("");
   const [editingAd, setEditingAd] = useState<Ad | null>(null);
+  const [selectedAd, setSelectedAd] = useState<Ad | null>(null);
   const [showManualDialog, setShowManualDialog] = useState(false);
   const [manualThumbnail, setManualThumbnail] = useState("");
   const [urlInput, setUrlInput] = useState("");

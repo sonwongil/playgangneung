@@ -693,18 +693,24 @@ export default function Admin() {
   function parseHashtags(str: string): string[] {
     return str.split(/[\s,]+/).map((h) => h.replace(/^#/, "").trim()).filter(Boolean);
   }
-  function copyText(ev: Event) {
+  async function copyText(ev: Event) {
     if (!ev.socialDraft) return;
     const contentUrl = `${window.location.origin}/content/${ev.id}`;
-    const text = [
-      cleanCaption(ev.socialDraft.caption),
-      "",
-      `🔗 자세히 보기 → ${contentUrl}`,
-      `➕ 팔로우 → https://www.instagram.com/playgangneung/`,
-      "",
-      ev.socialDraft.hashtags.map((h) => `#${h}`).join(" "),
-    ].join("\n");
-    navigator.clipboard.writeText(text).then(() => toast({ title: "복사 완료" }));
+    const igUrl = "https://www.instagram.com/playgangneung/";
+    const clean = cleanCaption(ev.socialDraft.caption);
+    const hashtags = ev.socialDraft.hashtags.map((h) => `#${h}`).join(" ");
+    const htmlLines = clean.split("\n").map((l) => `<p>${l || "&nbsp;"}</p>`).join("");
+    const html = `${htmlLines}<p>&nbsp;</p><p><a href="${contentUrl}">🔗 자세히 보기</a> &nbsp;&nbsp; <a href="${igUrl}">➕ 팔로우</a></p><p>&nbsp;</p><p>${hashtags}</p>`;
+    const plain = `${clean}\n\n🔗 자세히 보기 → ${contentUrl}\n➕ 팔로우 → ${igUrl}\n\n${hashtags}`;
+    try {
+      await navigator.clipboard.write([new ClipboardItem({
+        "text/html": new Blob([html], { type: "text/html" }),
+        "text/plain": new Blob([plain], { type: "text/plain" }),
+      })]);
+    } catch {
+      await navigator.clipboard.writeText(plain);
+    }
+    toast({ title: "복사 완료 — HTML 하이퍼링크 포함" });
   }
 
   // ── Sidebar ──────────────────────────────────────────────────────────────────

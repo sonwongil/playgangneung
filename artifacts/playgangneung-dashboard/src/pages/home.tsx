@@ -197,7 +197,6 @@ function stripHtml(html: string): string {
 }
 
 function FeedCard({ item }: { item: FeedItem }) {
-  const [copied, setCopied] = useState(false);
   const [showDetail, setShowDetail] = useState(false);
   const category = item.category ?? "지역소식";
   const colorClass = CATEGORY_COLORS[category] ?? "bg-gray-100 text-gray-700";
@@ -209,7 +208,6 @@ function FeedCard({ item }: { item: FeedItem }) {
   const gradient = CATEGORY_GRADIENT[category] ?? "from-gray-700 to-gray-900";
 
   const href = item.isAd ? item.link : (item.sourceUrl || item.link);
-  const contentUrl = `${window.location.origin}/content/${item.id}`;
 
   function openCard() {
     if (item.isAd) {
@@ -217,36 +215,6 @@ function FeedCard({ item }: { item: FeedItem }) {
       return;
     }
     window.open(href, "_blank", "noopener,noreferrer");
-  }
-
-  function copyLink(e: React.MouseEvent) {
-    e.stopPropagation();
-    navigator.clipboard.writeText(contentUrl).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  }
-
-  function shareFacebook(e: React.MouseEvent) {
-    e.stopPropagation();
-    window.open(
-      `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(contentUrl)}`,
-      "_blank"
-    );
-  }
-
-  async function shareInstagram(e: React.MouseEvent) {
-    e.stopPropagation();
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: item.title, url: contentUrl });
-      } catch {
-        // 사용자가 취소한 경우 무시
-      }
-    } else {
-      await navigator.clipboard.writeText(contentUrl);
-      window.open("https://www.instagram.com/playgangneung/", "_blank");
-    }
   }
 
   return (
@@ -318,27 +286,6 @@ function FeedCard({ item }: { item: FeedItem }) {
             </div>
           </div>
 
-          <div className="flex gap-1.5" onClick={(e) => e.stopPropagation()}>
-            <button
-              onClick={copyLink}
-              className={`flex-1 flex items-center justify-center gap-1 h-7 rounded-lg text-[11px] font-semibold transition-colors
-                ${copied ? "bg-green-100 text-green-700" : "bg-gray-100 hover:bg-gray-200 text-gray-600"}`}
-            >
-              {copied ? "✓ 복사됨" : "🔗 링크복사"}
-            </button>
-            <button
-              onClick={shareFacebook}
-              className="flex-1 flex items-center justify-center gap-1 h-7 rounded-lg text-[11px] font-semibold bg-[#1877F2] hover:bg-[#1565C0] text-white transition-colors"
-            >
-              📘 페북
-            </button>
-            <button
-              onClick={shareInstagram}
-              className="flex-1 flex items-center justify-center gap-1 h-7 rounded-lg text-[11px] font-semibold bg-[#E1306C] hover:bg-[#C2185B] text-white transition-colors"
-            >
-              📸 인스타
-            </button>
-          </div>
         </CardContent>
       </Card>
     </div>

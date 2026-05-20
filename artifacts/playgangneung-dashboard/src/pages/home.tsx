@@ -388,11 +388,11 @@ function FeedCard({ item }: { item: FeedItem }) {
           <div className="flex items-center justify-between gap-2" onClick={(e) => e.stopPropagation()}>
             {item.isAd ? (
               <button onClick={() => setShowDetail(true)}>
-                <img src={`${BASE}/btn-jabochigi.png`} alt="자세히보기" className="h-12 object-contain hover:opacity-80 transition-opacity" />
+                <img src={`${BASE}/btn-jabochigi.png`} alt="자세히보기" className="h-10 w-36 object-cover object-center rounded-xl hover:opacity-80 transition-opacity" />
               </button>
             ) : (
               <a href={`${BASE}/content/${item.id}`} target="_blank" rel="noopener noreferrer">
-                <img src={`${BASE}/btn-jabochigi.png`} alt="자세히보기" className="h-12 object-contain hover:opacity-80 transition-opacity" />
+                <img src={`${BASE}/btn-jabochigi.png`} alt="자세히보기" className="h-10 w-36 object-cover object-center rounded-xl hover:opacity-80 transition-opacity" />
               </a>
             )}
             <a
@@ -400,7 +400,7 @@ function FeedCard({ item }: { item: FeedItem }) {
               target="_blank"
               rel="noopener noreferrer"
             >
-              <img src={`${BASE}/btn-follow.png`} alt="팔로우" className="h-12 object-contain hover:opacity-80 transition-opacity" />
+              <img src={`${BASE}/btn-follow.png`} alt="팔로우" className="h-10 w-36 object-cover object-center rounded-xl hover:opacity-80 transition-opacity" />
             </a>
           </div>
 
@@ -523,14 +523,14 @@ function StoryCard({ item }: { item: StoryItem }) {
 
           <div className="flex items-center justify-between gap-2 mt-3" onClick={(e) => e.stopPropagation()}>
             <button onClick={() => setOpen(true)}>
-              <img src={`${BASE}/btn-jabochigi.png`} alt="자세히보기" className="h-12 object-contain hover:opacity-80 transition-opacity" />
+              <img src={`${BASE}/btn-jabochigi.png`} alt="자세히보기" className="h-10 w-36 object-cover object-center rounded-xl hover:opacity-80 transition-opacity" />
             </button>
             <a
               href="https://www.instagram.com/playgangneung/"
               target="_blank"
               rel="noopener noreferrer"
             >
-              <img src={`${BASE}/btn-follow.png`} alt="팔로우" className="h-12 object-contain hover:opacity-80 transition-opacity" />
+              <img src={`${BASE}/btn-follow.png`} alt="팔로우" className="h-10 w-36 object-cover object-center rounded-xl hover:opacity-80 transition-opacity" />
             </a>
           </div>
         </div>
@@ -640,14 +640,14 @@ function VideoCard({ item }: { item: VideoItem }) {
             target="_blank"
             rel="noopener noreferrer"
           >
-            <img src={`${BASE}/btn-jabochigi.png`} alt="자세히보기" className="h-12 object-contain hover:opacity-80 transition-opacity" />
+            <img src={`${BASE}/btn-jabochigi.png`} alt="자세히보기" className="h-10 w-36 object-cover object-center rounded-xl hover:opacity-80 transition-opacity" />
           </a>
           <a
             href="https://www.youtube.com/@playgangneung?sub_confirmation=1"
             target="_blank"
             rel="noopener noreferrer"
           >
-            <img src={`${BASE}/btn-follow.png`} alt="팔로우" className="h-12 object-contain hover:opacity-80 transition-opacity" />
+            <img src={`${BASE}/btn-follow.png`} alt="팔로우" className="h-10 w-36 object-cover object-center rounded-xl hover:opacity-80 transition-opacity" />
           </a>
         </div>
       </div>

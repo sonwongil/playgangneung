@@ -385,6 +385,25 @@ function FeedCard({ item }: { item: FeedItem }) {
             </div>
           </div>
 
+          <div className="flex items-center justify-between gap-2">
+            <a
+              href={`${BASE}/content/${item.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <img src={`${BASE}/btn-jabochigi.png`} alt="자세히보기" className="h-9 object-contain hover:opacity-80 transition-opacity" />
+            </a>
+            <a
+              href="https://www.instagram.com/playgangneung/"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <img src={`${BASE}/btn-follow.png`} alt="팔로우" className="h-9 object-contain hover:opacity-80 transition-opacity" />
+            </a>
+          </div>
+
         </CardContent>
       </Card>
     </div>
@@ -602,6 +621,16 @@ function VideoCard({ item }: { item: VideoItem }) {
         {item.description && (
           <p className="text-gray-500 text-xs mt-1 line-clamp-2">{item.description}</p>
         )}
+        <div className="flex justify-end mt-2">
+          <a
+            href="https://www.youtube.com/@playgangneung?sub_confirmation=1"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img src={`${BASE}/btn-follow.png`} alt="팔로우" className="h-9 object-contain hover:opacity-80 transition-opacity" />
+          </a>
+        </div>
       </div>
     </div>
   );
@@ -922,6 +951,25 @@ export default function Home() {
       <footer className="bg-gray-900 text-gray-400 py-8">
         <div className="max-w-6xl mx-auto px-4 text-center">
           <img src={`${BASE}/logo_transparent.png`} alt="PLAY강릉" className="h-10 object-contain mx-auto mb-3" />
+
+          {/* SNS 팔로우 버튼 */}
+          <div className="flex items-center justify-center gap-4 mb-5">
+            <a href="https://www.instagram.com/playgangneung/" target="_blank" rel="noopener noreferrer"
+              className="flex flex-col items-center gap-1 group">
+              <img src={`${BASE}/btn-follow.png`} alt="인스타 팔로우" className="h-10 object-contain group-hover:opacity-80 transition-opacity" />
+              <span className="text-[10px] text-gray-500">Instagram</span>
+            </a>
+            <a href="https://www.facebook.com/profile.php?id=61589314617028" target="_blank" rel="noopener noreferrer"
+              className="flex flex-col items-center gap-1 group">
+              <img src={`${BASE}/btn-follow.png`} alt="페이스북 팔로우" className="h-10 object-contain group-hover:opacity-80 transition-opacity" />
+              <span className="text-[10px] text-gray-500">Facebook</span>
+            </a>
+            <a href="https://www.youtube.com/@playgangneung?sub_confirmation=1" target="_blank" rel="noopener noreferrer"
+              className="flex flex-col items-center gap-1 group">
+              <img src={`${BASE}/btn-follow.png`} alt="유튜브 구독" className="h-10 object-contain group-hover:opacity-80 transition-opacity" />
+              <span className="text-[10px] text-gray-500">YouTube</span>
+            </a>
+          </div>
 
           <div className="text-[11px] leading-relaxed space-y-0.5 text-gray-500">
             <p>

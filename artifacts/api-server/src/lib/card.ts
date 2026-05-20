@@ -138,7 +138,7 @@ export async function generateCardImage(event: {
   const LOGO_W = 220;
   const dashboardPublic = path.join(ARTIFACT_ROOT, "..", "playgangneung-dashboard", "public");
   try {
-    const logo = await loadImage(path.join(dashboardPublic, "logo2.png"));
+    const logo = await loadImage(path.join(dashboardPublic, "logo2_nobg.png"));
     const LOGO_H = Math.round(LOGO_W * logo.height / logo.width);
     ctx.globalAlpha = 0.88;
     ctx.drawImage(logo, W - LOGO_W - 60, H - LOGO_H - 48, LOGO_W, LOGO_H);

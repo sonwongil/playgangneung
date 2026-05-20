@@ -239,17 +239,19 @@ router.post("/ads/:id/card", async (req, res) => {
     if (!row) return res.status(404).json({ error: "광고를 찾을 수 없습니다" });
     const ad = rowToAd(row);
     await fs.mkdir(CARDS_DIR, { recursive: true });
-    const cardPath = await generateCardImage({
-      id: ad.id,
-      title: ad.title,
-      description: ad.description.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim(),
-      category: ad.category,
-      thumbnail: ad.imageUrl ?? undefined,
-      source: ad.businessName || "광고",
-      date: ad.date,
-    });
-    req.log.info({ id, cardPath }, "광고 카드이미지 생성");
-    return res.json({ success: true, cardPath });
+    const desc = ad.description.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+    const base = { id: ad.id, title: ad.title, description: desc, category: ad.category, source: ad.businessName || "광고", date: ad.date };
+    const allImages = [ad.imageUrl, ...(ad.extraImages ?? [])].filter(Boolean) as string[];
+    const cardUrls: string[] = [];
+    if (allImages.length === 0) {
+      cardUrls.push(await generateCardImage({ ...base, thumbnail: undefined }));
+    } else {
+      for (let i = 0; i < allImages.length; i++) {
+        cardUrls.push(await generateCardImage({ ...base, thumbnail: allImages[i], suffix: i === 0 ? "thumb" : `extra${i}` }));
+      }
+    }
+    req.log.info({ id, count: cardUrls.length }, "광고 카드이미지 생성");
+    return res.json({ success: true, cardUrls });
   } catch (err) {
     req.log.error({ err }, "광고 카드이미지 생성 실패");
     return res.status(500).json({ error: "카드이미지 생성 실패" });

@@ -49,6 +49,7 @@ import {
   Check,
   BookOpen,
   Video,
+  Download,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -233,6 +234,7 @@ export default function Admin() {
   // 광고 SNS 초안 편집
   const [adDraftEdits, setAdDraftEdits] = useState<Record<string, { caption: string; hashtagsStr: string }>>({});
   const [adCopied, setAdCopied] = useState(false);
+  const [adCardResults, setAdCardResults] = useState<Record<string, string[]>>({});
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -2213,12 +2215,53 @@ export default function Admin() {
                     {/* 카드이미지 생성 — 항상 표시 */}
                     <Button size="sm" variant="outline" className="w-full" onClick={async () => {
                       const r = await fetch(`${BASE}/api/ads/${adId}/card`, { method: "POST", credentials: "include" });
-                      const j = await r.json() as { success: boolean; cardPath?: string };
-                      toast({ title: j.success ? "카드이미지 생성 완료" : "카드이미지 생성 실패" });
-                      if (j.success && j.cardPath) window.open(j.cardPath.startsWith("/") ? `${BASE}${j.cardPath}` : j.cardPath, "_blank");
+                      const j = await r.json() as { success: boolean; cardUrls?: string[] };
+                      if (j.success && j.cardUrls?.length) {
+                        setAdCardResults((p) => ({ ...p, [adId]: j.cardUrls! }));
+                        toast({ title: `카드이미지 ${j.cardUrls.length}장 생성 완료` });
+                      } else {
+                        toast({ title: "카드이미지 생성 실패", variant: "destructive" });
+                      }
                     }}>
                       <Send className="w-3 h-3 mr-1" />카드이미지 생성
                     </Button>
+                    {(adCardResults[adId] ?? []).length > 0 && (
+                      <div className="space-y-1.5">
+                        <p className="text-[11px] font-semibold text-muted-foreground">생성된 카드이미지 — 길게 눌러 저장</p>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          {(adCardResults[adId] ?? []).map((url, i) => {
+                            const full = url.startsWith("/") ? `${BASE}${url}` : url;
+                            return (
+                              <div key={i} className="relative group rounded-lg overflow-hidden border border-gray-200">
+                                <img src={full} alt={`카드 ${i + 1}`} className="w-full aspect-square object-cover" />
+                                <a
+                                  href={`${BASE}/api/proxy/download?url=${encodeURIComponent(full)}`}
+                                  download={`card-${i + 1}.png`}
+                                  className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1 text-white text-[10px] font-bold"
+                                >
+                                  <Download className="w-3.5 h-3.5" />다운로드
+                                </a>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <div className="flex gap-1 flex-wrap">
+                          {(adCardResults[adId] ?? []).map((url, i) => {
+                            const full = url.startsWith("/") ? `${BASE}${url}` : url;
+                            return (
+                              <a
+                                key={i}
+                                href={`${BASE}/api/proxy/download?url=${encodeURIComponent(full)}`}
+                                download={`card-${i + 1}.png`}
+                                className="flex-1 flex items-center justify-center gap-1 h-8 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-[11px] font-bold transition-colors"
+                              >
+                                <Download className="w-3 h-3" />카드 {i + 1}
+                              </a>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
 
                     <div className="border-t pt-3 space-y-2">
                       {!draft && !edit ? (

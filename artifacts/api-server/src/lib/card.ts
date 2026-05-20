@@ -53,6 +53,7 @@ export async function generateCardImage(event: {
   source: string;
   startDate?: string;
   date?: string;
+  suffix?: string;
 }): Promise<string> {
   await fs.mkdir(CARDS_DIR, { recursive: true });
 
@@ -146,9 +147,10 @@ export async function generateCardImage(event: {
   ctx.textAlign = "right";
   ctx.fillText("playgangneung.com", W - 72, ctaY + CTA_H / 2);
 
-  const outPath = path.join(CARDS_DIR, `${event.id}.png`);
+  const filename = event.suffix ? `${event.id}-${event.suffix}.png` : `${event.id}.png`;
+  const outPath = path.join(CARDS_DIR, filename);
   await fs.writeFile(outPath, canvas.toBuffer("image/png"));
-  return `/api/cards/${event.id}.png`;
+  return `/api/cards/${filename}`;
 }
 
 function drawGradientBg(

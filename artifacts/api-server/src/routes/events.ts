@@ -355,18 +355,19 @@ router.post("/events/:id/card", async (req, res) => {
     const events = await readEvents();
     const event = events.find((e) => e.id === id);
     if (!event) return res.status(404).json({ success: false, error: "이벤트를 찾을 수 없습니다." });
-    const cardUrl = await generateCardImage({
-      id: event.id,
-      title: event.title,
-      description: event.description,
-      category: event.category,
-      thumbnail: event.thumbnail,
-      source: event.source,
-      startDate: event.startDate,
-      date: event.date,
-    });
-    req.log.info({ id }, "카드이미지 생성 완료");
-    return res.json({ success: true, id, cardUrl });
+    const allImages: (string | null | undefined)[] = [event.thumbnail, ...(event.extraImages ?? [])];
+    const validImages = allImages.filter(Boolean) as string[];
+    const base = { id: event.id, title: event.title, description: event.description, category: event.category, source: event.source, startDate: event.startDate, date: event.date };
+    const cardUrls: string[] = [];
+    if (validImages.length === 0) {
+      cardUrls.push(await generateCardImage({ ...base, thumbnail: undefined }));
+    } else {
+      for (let i = 0; i < validImages.length; i++) {
+        cardUrls.push(await generateCardImage({ ...base, thumbnail: validImages[i], suffix: i === 0 ? "thumb" : `extra${i}` }));
+      }
+    }
+    req.log.info({ id, count: cardUrls.length }, "카드이미지 생성 완료");
+    return res.json({ success: true, id, cardUrls });
   } catch (err) {
     req.log.error({ err }, "카드이미지 생성 실패");
     return res.status(500).json({ success: false, error: String(err) });

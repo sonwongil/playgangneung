@@ -802,7 +802,7 @@ export default function Home() {
             <div className="flex items-center justify-between mb-3 min-h-[28px]">
               {isSearching ? (
                 <p className="text-xs text-muted-foreground">
-                  {filtered.filter(i => !i.isAd).length}건의 결과
+                  {filtered.length}건의 결과
                   <span className="ml-1 font-medium text-blue-600">· &ldquo;{searchQuery}&rdquo;</span>
                   <button onClick={clearSearch} className="ml-2 underline text-gray-400 hover:text-gray-600">초기화</button>
                 </p>
@@ -833,7 +833,7 @@ export default function Home() {
             </div>
 
             {/* Cards Grid */}
-            {filtered.filter(i => !i.isAd).length === 0 && isSearching ? (
+            {filtered.length === 0 && isSearching ? (
               <div className="flex flex-col items-center justify-center py-24 text-muted-foreground">
                 <Search className="w-12 h-12 mb-3 opacity-15" />
                 <p className="text-base font-semibold text-gray-600">검색 결과가 없습니다.</p>
@@ -842,7 +842,7 @@ export default function Home() {
                   전체 보기
                 </Button>
               </div>
-            ) : filtered.filter(i => !i.isAd).length === 0 && !isSearching ? (
+            ) : filtered.length === 0 && !isSearching ? (
               <div className="flex flex-col items-center justify-center py-24 text-muted-foreground">
                 <p className="text-base font-semibold text-gray-500">아직 등록된 콘텐츠가 없습니다.</p>
               </div>

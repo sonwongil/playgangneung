@@ -520,6 +520,19 @@ function StoryCard({ item }: { item: StoryItem }) {
           <p className="text-xs text-gray-600 mt-3">
             {new Date(item.createdAt).toLocaleDateString("ko-KR")}
           </p>
+
+          <div className="flex items-center justify-between gap-2 mt-3" onClick={(e) => e.stopPropagation()}>
+            <button onClick={() => setOpen(true)}>
+              <img src={`${BASE}/btn-jabochigi.png`} alt="자세히보기" className="h-9 object-contain hover:opacity-80 transition-opacity" />
+            </button>
+            <a
+              href="https://www.instagram.com/playgangneung/"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <img src={`${BASE}/btn-follow.png`} alt="팔로우" className="h-9 object-contain hover:opacity-80 transition-opacity" />
+            </a>
+          </div>
         </div>
       </div>
 
@@ -621,12 +634,18 @@ function VideoCard({ item }: { item: VideoItem }) {
         {item.description && (
           <p className="text-gray-500 text-xs mt-1 line-clamp-2">{item.description}</p>
         )}
-        <div className="flex justify-end mt-2">
+        <div className="flex items-center justify-between gap-2 mt-2" onClick={(e) => e.stopPropagation()}>
+          <a
+            href={item.youtubeId ? `https://www.youtube.com/watch?v=${item.youtubeId}` : `https://www.youtube.com/@playgangneung`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <img src={`${BASE}/btn-jabochigi.png`} alt="자세히보기" className="h-9 object-contain hover:opacity-80 transition-opacity" />
+          </a>
           <a
             href="https://www.youtube.com/@playgangneung?sub_confirmation=1"
             target="_blank"
             rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
           >
             <img src={`${BASE}/btn-follow.png`} alt="팔로우" className="h-9 object-contain hover:opacity-80 transition-opacity" />
           </a>

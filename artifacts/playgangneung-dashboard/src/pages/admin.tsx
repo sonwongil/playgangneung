@@ -2126,7 +2126,12 @@ export default function Admin() {
                 <div className="flex gap-3"><span className="w-20 shrink-0 text-muted-foreground font-medium">업체명</span><span className="font-semibold">{selectedAd.businessName}</span></div>
                 <div className="flex gap-3"><span className="w-20 shrink-0 text-muted-foreground font-medium">카테고리</span><span>{selectedAd.category}</span></div>
                 {selectedAd.title && <div className="flex gap-3"><span className="w-20 shrink-0 text-muted-foreground font-medium">광고 제목</span><span>{selectedAd.title}</span></div>}
-                {selectedAd.description && <div className="flex gap-3"><span className="w-20 shrink-0 text-muted-foreground font-medium">내용</span><span className="whitespace-pre-wrap">{selectedAd.description}</span></div>}
+                {selectedAd.description && (
+                  <div className="flex flex-col gap-1">
+                    <span className="text-muted-foreground font-medium">소개글</span>
+                    <div className="prose prose-sm max-w-none rounded-md border p-3 bg-muted/30 text-sm leading-relaxed" dangerouslySetInnerHTML={{ __html: selectedAd.description }} />
+                  </div>
+                )}
                 {selectedAd.contactName && <div className="flex gap-3"><span className="w-20 shrink-0 text-muted-foreground font-medium">담당자</span><span>{selectedAd.contactName}</span></div>}
                 {selectedAd.phone && <div className="flex gap-3"><span className="w-20 shrink-0 text-muted-foreground font-medium">연락처</span><a href={`tel:${selectedAd.phone}`} className="text-blue-600">{selectedAd.phone}</a></div>}
                 {selectedAd.email && <div className="flex gap-3"><span className="w-20 shrink-0 text-muted-foreground font-medium">이메일</span><a href={`mailto:${selectedAd.email}`} className="text-blue-600">{selectedAd.email}</a></div>}

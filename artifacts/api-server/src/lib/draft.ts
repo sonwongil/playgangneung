@@ -24,6 +24,22 @@ const DEFAULT_EMOJI = ["📍", "✨", "🌊", "🏔️", "🌿"];
 
 // ─── 유틸 ────────────────────────────────────────────────────────────────────
 
+/** HTML 태그와 엔티티를 plain text로 변환 */
+function stripHtml(html: string): string {
+  return html
+    .replace(/<br\s*\/?>/gi, " ")
+    .replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&[a-z]+;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function pick<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
@@ -68,10 +84,10 @@ export function generateSocialDraft(event: CrawledEvent): SocialDraft {
     ? `📍 ${event.location}`
     : "📍 강릉시";
 
-  // 설명 — 최대 200자, 잘릴 경우 문장 경계에서 자름
+  // 설명 — HTML 태그/엔티티 제거 후 최대 200자, 잘릴 경우 문장 경계에서 자름
   let descBlock = "";
   if (event.description && event.description.trim().length > 10) {
-    let desc = event.description.trim();
+    let desc = stripHtml(event.description.trim());
     if (desc.length > 200) {
       const cut = desc.lastIndexOf(".", 200);
       desc = cut > 50 ? desc.slice(0, cut + 1) : desc.slice(0, 200) + "…";

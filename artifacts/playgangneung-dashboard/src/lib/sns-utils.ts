@@ -20,6 +20,11 @@ function nodeToText(node: Node): string {
   if (tag === "li") return "• " + inner() + "\n";
   if (tag === "ul" || tag === "ol") return inner();
   if (tag === "blockquote") return inner() + "\n";
+  if (tag === "a") {
+    const href = el.getAttribute("href") ?? "";
+    const text = inner();
+    return href ? `${text} → ${href}` : text;
+  }
   return inner();
 }
 
@@ -31,11 +36,22 @@ export function htmlToSns(html: string): string {
   return nodeToText(div).replace(/\n{3,}/g, "\n\n").trim();
 }
 
-/** DB plain text → TipTap 초기 HTML */
+/** DB plain text → TipTap 초기 HTML
+ *  - "🔗 자세히 보기 → https://..." 패턴은 <a> 하이퍼링크로 변환 (URL 숨김)
+ */
 export function snsToHtml(text: string): string {
   if (!text) return "<p></p>";
   return text
     .split("\n")
-    .map((l) => `<p>${l.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;") || "<br>"}</p>`)
+    .map((l) => {
+      const linkMatch = l.match(/^(.*?)🔗\s*자세히 보기\s*→\s*(https?:\/\/\S+)\s*$/);
+      if (linkMatch) {
+        const prefix = linkMatch[1].replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        const url = linkMatch[2];
+        return `<p>${prefix}<a href="${url}" target="_blank" rel="noopener noreferrer">🔗 자세히 보기</a></p>`;
+      }
+      const escaped = l.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      return `<p>${escaped || "<br>"}</p>`;
+    })
     .join("");
 }

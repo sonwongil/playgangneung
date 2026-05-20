@@ -181,7 +181,7 @@ export default function AdminEventDetail() {
       return d as { socialDraft: SocialDraft };
     },
     onSuccess: (d) => {
-      setEditCaption(d.socialDraft.caption);
+      setEditCaption(snsToHtml(d.socialDraft.caption));
       setEditHashtagsStr(d.socialDraft.hashtags.join(" "));
       setIsDraftDirty(false);
       toast({ title: "SNS 문구 자동 생성 완료" });

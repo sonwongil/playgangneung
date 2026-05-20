@@ -1,5 +1,6 @@
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
+import Link from "@tiptap/extension-link";
 import { forwardRef, useImperativeHandle, useEffect, useRef } from "react";
 
 export interface SnsEditorHandle {
@@ -53,6 +54,14 @@ const SnsEditor = forwardRef<SnsEditorHandle, Props>(
           horizontalRule: false,
           dropcursor: false,
           gapcursor: false,
+        }),
+        Link.configure({
+          openOnClick: true,
+          HTMLAttributes: {
+            class: "text-blue-600 underline cursor-pointer",
+            target: "_blank",
+            rel: "noopener noreferrer",
+          },
         }),
       ],
       content: value || "<p></p>",

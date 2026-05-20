@@ -698,9 +698,8 @@ export default function Admin() {
     const clean = cleanCaption(ev.socialDraft.caption);
     const hashtags = ev.socialDraft.hashtags.map((h) => `#${h}`).join(" ");
     const url = `${window.location.origin}/content/${ev.id}`;
-    const ig = "https://www.instagram.com/playgangneung/";
     navigator.clipboard.writeText(
-      `${clean}\n\n${hashtags}\n\n🔗 자세히 보기 → ${url}\n🏠 PLAY강릉 바로가기 → ${ig}`
+      `${clean}\n\n${hashtags}\n\n🔗 자세히 보기 → ${url}\n🏠 PLAY강릉 바로가기 → https://playgangneung.com`
     ).then(() => toast({ title: "복사됨" }));
   }
 
@@ -1001,7 +1000,7 @@ export default function Admin() {
                                     🔗 자세히 보기
                                   </a>
                                   <a
-                                    href="https://www.instagram.com/playgangneung/"
+                                    href="https://playgangneung.com"
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="flex-1 flex items-center justify-center gap-1.5 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white text-xs font-semibold py-2.5 transition-colors"
@@ -2359,7 +2358,7 @@ export default function Admin() {
                                 🔗 자세히 보기
                               </a>
                               <a
-                                href="https://www.instagram.com/playgangneung/"
+                                href="https://playgangneung.com"
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="flex-1 flex items-center justify-center gap-1.5 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white text-xs font-semibold py-2.5 transition-colors"
@@ -2391,9 +2390,8 @@ export default function Admin() {
                             )}
                             <Button size="sm" variant="outline" className="flex-1" onClick={() => {
                               const url = `${window.location.origin}/content/${adId}`;
-                              const ig = "https://www.instagram.com/playgangneung/";
                               navigator.clipboard.writeText(
-                                `${caption}\n\n${hashtagsStr}\n\n🔗 자세히 보기 → ${url}\n🏠 PLAY강릉 바로가기 → ${ig}`
+                                `${caption}\n\n${hashtagsStr}\n\n🔗 자세히 보기 → ${url}\n🏠 PLAY강릉 바로가기 → https://playgangneung.com`
                               ).then(() => { setAdCopied(true); setTimeout(() => setAdCopied(false), 2000); toast({ title: "복사됨" }); });
                             }}>
                               {adCopied ? <Check className="w-3 h-3 mr-1 text-green-600" /> : <Copy className="w-3 h-3 mr-1" />}

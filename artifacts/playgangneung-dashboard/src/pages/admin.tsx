@@ -562,7 +562,7 @@ export default function Admin() {
 
   const adStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      const r = await fetch(`${BASE}/api/ads/${id}/status`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
+      const r = await fetch(`${BASE}/api/ads/${id}/status`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ status }) });
       if (!r.ok) throw new Error(); return r.json();
     },
     onSuccess: () => { toast({ title: "상태 변경 완료" }); qc.invalidateQueries({ queryKey: ["admin-ads"] }); },
@@ -571,7 +571,7 @@ export default function Admin() {
 
   const adDeleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const r = await fetch(`${BASE}/api/ads/${id}`, { method: "DELETE" }); if (!r.ok) throw new Error(); return r.json();
+      const r = await fetch(`${BASE}/api/ads/${id}`, { method: "DELETE", credentials: "include" }); if (!r.ok) throw new Error(); return r.json();
     },
     onSuccess: () => { toast({ title: "삭제 완료" }); qc.invalidateQueries({ queryKey: ["admin-ads"] }); },
     onError: () => toast({ title: "삭제 실패", variant: "destructive" }),
@@ -579,7 +579,7 @@ export default function Admin() {
 
   const adEditMutation = useMutation({
     mutationFn: async ({ id, patch }: { id: string; patch: Partial<Ad> }) => {
-      const r = await fetch(`${BASE}/api/ads/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) });
+      const r = await fetch(`${BASE}/api/ads/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify(patch) });
       if (!r.ok) throw new Error(); return r.json();
     },
     onSuccess: () => { toast({ title: "수정 완료" }); qc.invalidateQueries({ queryKey: ["admin-ads"] }); setEditingAd(null); },

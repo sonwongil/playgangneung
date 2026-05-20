@@ -697,12 +697,15 @@ export default function Admin() {
     if (!ev.socialDraft) return;
     const clean = cleanCaption(ev.socialDraft.caption);
     const hashtags = ev.socialDraft.hashtags.map((h) => `#${h}`).join(" ");
-    navigator.clipboard.writeText(`${clean}\n\n${hashtags}`).then(() => toast({ title: "문구 복사됨" }));
+    const url = `${window.location.origin}/content/${ev.id}`;
+    navigator.clipboard.writeText(`${clean}\n\n${hashtags}\n\n${url}`).then(() =>
+      toast({ title: "복사됨", description: "붙여넣기 후 맨 아래 URL 줄만 지우세요" })
+    );
   }
 
   function copyUrl(url: string) {
     navigator.clipboard.writeText(url).then(() =>
-      toast({ title: "링크 복사됨", description: "페이스북/인스타에 붙여넣기하세요" })
+      toast({ title: "링크 복사됨" })
     );
   }
 
@@ -2384,13 +2387,14 @@ export default function Admin() {
                               }}>저장</Button>
                             )}
                             <Button size="sm" variant="outline" className="flex-1" onClick={() => {
-                              navigator.clipboard.writeText(`${caption}\n\n${hashtagsStr}`).then(() => {
+                              const url = `${window.location.origin}/content/${adId}`;
+                              navigator.clipboard.writeText(`${caption}\n\n${hashtagsStr}\n\n${url}`).then(() => {
                                 setAdCopied(true); setTimeout(() => setAdCopied(false), 2000);
-                                toast({ title: "문구 복사됨" });
+                                toast({ title: "복사됨", description: "붙여넣기 후 맨 아래 URL 줄만 지우세요" });
                               });
                             }}>
                               {adCopied ? <Check className="w-3 h-3 mr-1 text-green-600" /> : <Copy className="w-3 h-3 mr-1" />}
-                              {adCopied ? "복사됨" : "문구 복사"}
+                              {adCopied ? "복사됨" : "복사"}
                             </Button>
                             <Button size="sm" variant="outline" className="flex-1 gap-1.5" onClick={() => copyUrl(`${window.location.origin}/content/${adId}`)}>
                               <Copy className="w-3 h-3" />링크 복사

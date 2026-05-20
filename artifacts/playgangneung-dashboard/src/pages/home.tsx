@@ -546,8 +546,8 @@ export default function Home() {
   const videos: VideoItem[] = videosData?.videos ?? [];
 
   const tabBaseItems = useMemo(() => {
-    if (activeTab === "행사") return allItems.filter(i => !i.isAd && i.category === "행사");
-    if (activeTab === "정보") return allItems.filter(i => !i.isAd && ["맛집", "핫플", "지역소식"].includes(i.category));
+    if (activeTab === "행사") return allItems.filter(i => i.category === "행사");
+    if (activeTab === "정보") return allItems.filter(i => ["맛집", "핫플", "지역소식", "카페"].includes(i.category));
     return allItems;
   }, [allItems, activeTab]);
 

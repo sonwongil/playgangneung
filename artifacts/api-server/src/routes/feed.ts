@@ -81,6 +81,7 @@ async function readAds(): Promise<Ad[]> {
       url: row.url,
       imageUrl: row.imageUrl ?? null,
       extraImages: (row.extraImages as string[] | null) ?? undefined,
+      socialDraft: (row.socialDraft as Ad["socialDraft"]) ?? null,
       plan: (row.plan as Ad["plan"]) ?? "basic",
       status: (row.status as Ad["status"]) ?? "pending",
       source: "광고접수" as const,

@@ -94,6 +94,8 @@ interface Ad {
   location: string;
   url: string;
   imageUrl: string | null;
+  extraImages?: string[];
+  socialDraft: SocialDraft | null;
   plan: "basic" | "main" | "premium";
   status: "pending" | "approved" | "scheduled" | "published" | "rejected";
   createdAt: string;
@@ -228,6 +230,9 @@ export default function Admin() {
   const [ytPeriodValue, setYtPeriodValue] = useState(3);
   // inline draft editing: map of eventId → { caption, hashtagsStr }
   const [draftEdits, setDraftEdits] = useState<Record<string, { caption: string; hashtagsStr: string }>>({});
+  // 광고 SNS 초안 편집
+  const [adDraftEdits, setAdDraftEdits] = useState<Record<string, { caption: string; hashtagsStr: string }>>({});
+  const [adCopied, setAdCopied] = useState(false);
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -2140,6 +2145,145 @@ export default function Admin() {
                 {selectedAd.url && <div className="flex gap-3"><span className="w-20 shrink-0 text-muted-foreground font-medium">링크</span><a href={selectedAd.url} target="_blank" rel="noreferrer" className="text-blue-600 break-all">{selectedAd.url}</a></div>}
                 <div className="flex gap-3"><span className="w-20 shrink-0 text-muted-foreground font-medium">접수일</span><span>{selectedAd.createdAt?.slice(0, 10)}</span></div>
               </div>
+
+              {/* ── SNS 패키지 ─────────────────────────────────────── */}
+              {(() => {
+                const adId = selectedAd.id;
+                const draft = selectedAd.socialDraft;
+                const edit = adDraftEdits[adId];
+                const caption = edit?.caption ?? draft?.caption ?? "";
+                const hashtagsStr = edit?.hashtagsStr ?? (draft?.hashtags ?? []).map((h: string) => `#${h}`).join(" ");
+                const isDirty = !!adDraftEdits[adId];
+                return (
+                  <div className="border rounded-xl p-4 mb-4 space-y-3 bg-muted/30">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">② SNS 패키지</p>
+
+                    {/* 사진 슬롯 */}
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold text-muted-foreground">사진</Label>
+                      {[
+                        { label: "대표", slot: 0, url: selectedAd.imageUrl },
+                        { label: "추가 1", slot: 1, url: selectedAd.extraImages?.[0] },
+                        { label: "추가 2", slot: 2, url: selectedAd.extraImages?.[1] },
+                      ].map(({ label, slot, url }) => (
+                        <div key={slot} className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground w-12 shrink-0">{label}</span>
+                          {url ? (
+                            <div className="relative group flex-1">
+                              <img src={url} alt={label} className="w-full h-20 object-cover rounded-lg" />
+                              <button
+                                className="absolute top-1 right-1 bg-black/50 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                                onClick={async () => {
+                                  if (slot === 0) {
+                                    await fetch(`${BASE}/api/ads/${adId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ imageUrl: null }) });
+                                    setSelectedAd({ ...selectedAd, imageUrl: null });
+                                  } else {
+                                    const newExtras = (selectedAd.extraImages ?? []).filter((_, i) => i !== slot - 1);
+                                    await fetch(`${BASE}/api/ads/${adId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ extraImages: newExtras }) });
+                                    setSelectedAd({ ...selectedAd, extraImages: newExtras });
+                                  }
+                                  qc.invalidateQueries({ queryKey: ["admin-ads"] });
+                                }}
+                              ><X className="w-3 h-3" /></button>
+                            </div>
+                          ) : (
+                            <label className="flex-1 border-2 border-dashed rounded-lg h-20 flex items-center justify-center cursor-pointer hover:border-primary/60 transition-colors">
+                              <span className="text-xs text-muted-foreground">파일 선택</span>
+                              <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                                const file = e.target.files?.[0]; if (!file) return;
+                                const fd = new FormData(); fd.append("image", file);
+                                const r = await fetch(`${BASE}/api/ads/${adId}/upload-image?slot=${slot}`, { method: "POST", credentials: "include", body: fd });
+                                const j = await r.json() as { success: boolean; imageUrl?: string };
+                                if (j.success && j.imageUrl) {
+                                  if (slot === 0) setSelectedAd({ ...selectedAd, imageUrl: j.imageUrl });
+                                  else {
+                                    const extras = [...(selectedAd.extraImages ?? [])];
+                                    extras[slot - 1] = j.imageUrl;
+                                    setSelectedAd({ ...selectedAd, extraImages: extras });
+                                  }
+                                  qc.invalidateQueries({ queryKey: ["admin-ads"] });
+                                }
+                              }} />
+                            </label>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="border-t pt-3 space-y-2">
+                      {!draft && !edit ? (
+                        <Button size="sm" className="w-full" onClick={async () => {
+                          const r = await fetch(`${BASE}/api/ads/${adId}/draft`, { method: "POST", credentials: "include" });
+                          const j = await r.json() as { success: boolean; draft?: SocialDraft };
+                          if (j.success && j.draft) {
+                            setSelectedAd({ ...selectedAd, socialDraft: j.draft });
+                            toast({ title: "SNS 초안 생성 완료" });
+                          }
+                        }}>
+                          <MessageSquare className="w-3.5 h-3.5 mr-1.5" />SNS 초안 생성
+                        </Button>
+                      ) : (
+                        <>
+                          <Label className="text-xs font-semibold text-muted-foreground">SNS 문구</Label>
+                          <Textarea
+                            className="text-sm min-h-[120px] font-mono leading-relaxed"
+                            value={caption}
+                            onChange={(e) => setAdDraftEdits((p) => ({ ...p, [adId]: { caption: e.target.value, hashtagsStr: edit?.hashtagsStr ?? (draft?.hashtags ?? []).map((h: string) => `#${h}`).join(" ") } }))}
+                          />
+                          <Label className="text-xs font-semibold text-muted-foreground">해시태그</Label>
+                          <Input
+                            className="text-sm"
+                            value={hashtagsStr}
+                            onChange={(e) => setAdDraftEdits((p) => ({ ...p, [adId]: { caption: edit?.caption ?? draft?.caption ?? "", hashtagsStr: e.target.value } }))}
+                          />
+                          <div className="flex gap-2 flex-wrap">
+                            {isDirty && (
+                              <Button size="sm" variant="default" className="flex-1" onClick={async () => {
+                                const newDraft: SocialDraft = {
+                                  title: selectedAd.title,
+                                  caption,
+                                  hashtags: hashtagsStr.split(/[\s,]+/).filter(Boolean).map((h: string) => h.replace(/^#/, "")),
+                                  createdAt: draft?.createdAt ?? new Date().toISOString(),
+                                };
+                                await fetch(`${BASE}/api/ads/${adId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ socialDraft: newDraft }) });
+                                setSelectedAd({ ...selectedAd, socialDraft: newDraft });
+                                setAdDraftEdits((p) => { const n = { ...p }; delete n[adId]; return n; });
+                                toast({ title: "저장 완료" });
+                              }}>저장</Button>
+                            )}
+                            <Button size="sm" variant="outline" className="flex-1" onClick={() => {
+                              const text = `${caption}\n\n${hashtagsStr}`;
+                              navigator.clipboard.writeText(text).then(() => { setAdCopied(true); setTimeout(() => setAdCopied(false), 2000); });
+                            }}>
+                              {adCopied ? <Check className="w-3 h-3 mr-1 text-green-600" /> : <Copy className="w-3 h-3 mr-1" />}
+                              {adCopied ? "복사됨" : "복사"}
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={async () => {
+                              const r = await fetch(`${BASE}/api/ads/${adId}/draft`, { method: "POST", credentials: "include" });
+                              const j = await r.json() as { success: boolean; draft?: SocialDraft };
+                              if (j.success && j.draft) {
+                                setSelectedAd({ ...selectedAd, socialDraft: j.draft });
+                                setAdDraftEdits((p) => { const n = { ...p }; delete n[adId]; return n; });
+                                toast({ title: "재생성 완료" });
+                              }
+                            }}>
+                              <RefreshCw className="w-3 h-3 mr-1" />재생성
+                            </Button>
+                          </div>
+                          <Button size="sm" variant="outline" className="w-full" onClick={async () => {
+                            const r = await fetch(`${BASE}/api/ads/${adId}/card`, { method: "POST", credentials: "include" });
+                            const j = await r.json() as { success: boolean; cardPath?: string };
+                            toast({ title: j.success ? "카드이미지 생성 완료" : "카드이미지 생성 실패" });
+                            if (j.success && j.cardPath) window.open(j.cardPath.startsWith("/") ? `${BASE}${j.cardPath}` : j.cardPath, "_blank");
+                          }}>
+                            <Send className="w-3 h-3 mr-1" />카드이미지 생성
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* 액션 버튼 */}
               <div className="space-y-2">

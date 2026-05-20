@@ -1,12 +1,35 @@
 import { Router } from "express";
 import crypto from "crypto";
+import multer from "multer";
+import path from "path";
+import fs from "fs/promises";
 import { db, adsTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
+import { generateCardImage } from "../lib/card.js";
+import { UPLOADS_DIR, CARDS_DIR } from "../lib/paths.js";
+
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, UPLOADS_DIR),
+    filename: (_req, file, cb) => {
+      const ext = path.extname(file.originalname);
+      cb(null, `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`);
+    },
+  }),
+  limits: { fileSize: 10 * 1024 * 1024 },
+});
 
 const router = Router();
 
 export type AdStatus = "pending" | "approved" | "scheduled" | "published" | "rejected";
 export type AdPlan = "basic" | "main" | "premium";
+
+export interface SocialDraft {
+  title: string;
+  caption: string;
+  hashtags: string[];
+  createdAt: string;
+}
 
 export interface Ad {
   id: string;
@@ -22,6 +45,7 @@ export interface Ad {
   url: string;
   imageUrl: string | null;
   extraImages?: string[];
+  socialDraft: SocialDraft | null;
   plan: AdPlan;
   status: AdStatus;
   source: "광고접수";
@@ -45,12 +69,44 @@ function rowToAd(row: typeof adsTable.$inferSelect): Ad {
     url: row.url,
     imageUrl: row.imageUrl ?? null,
     extraImages: (row.extraImages as string[] | null) ?? undefined,
+    socialDraft: (row.socialDraft as SocialDraft | null) ?? null,
     plan: (row.plan as AdPlan) ?? "basic",
     status: (row.status as AdStatus) ?? "pending",
     source: "광고접수",
     createdAt: row.createdAt.toISOString(),
     approvedAt: row.approvedAt?.toISOString(),
     isFreeAd: true,
+  };
+}
+
+function buildAdDraft(ad: Ad): SocialDraft {
+  const SITE_URL = process.env["SITE_URL"] ?? "https://play-gangneung-dashboard.replit.app";
+  const EMOJI_MAP: Record<string, string> = { 맛집: "🍽️", 행사: "🎉", 핫플: "📍", 지역소식: "📢" };
+  const HASHTAG_MAP: Record<string, string[]> = {
+    맛집:    ["PLAY강릉", "강릉맛집", "강릉", "강릉여행", "강릉카페", "강원도맛집", "강릉핫플", "맛스타그램"],
+    행사:    ["PLAY강릉", "강릉", "강릉행사", "강릉축제", "강릉여행", "강원도", "국내여행", "강릉나들이"],
+    핫플:   ["PLAY강릉", "강릉핫플", "강릉", "강릉여행", "강릉명소", "강원도여행", "국내여행", "여행스타그램"],
+    지역소식: ["PLAY강릉", "강릉", "강릉소식", "강릉시", "강원도", "강릉정보"],
+  };
+  const cat = ad.category ?? "기타";
+  const emoji = EMOJI_MAP[cat] ?? "✨";
+  const hashtags = (HASHTAG_MAP[cat] ?? ["PLAY강릉", "강릉"]);
+  const contentLink = `${SITE_URL}/content/${ad.id}`;
+  const parts: string[] = [`${emoji} ${ad.title}`];
+  if (ad.date) parts.push(`🗓️ ${ad.date}`);
+  if (ad.location) parts.push(`📍 ${ad.location}`);
+  const rawDesc = ad.description.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+  if (rawDesc.length > 10) {
+    parts.push("");
+    parts.push(rawDesc.length > 200 ? rawDesc.slice(0, 200) + "…" : rawDesc);
+  }
+  parts.push("");
+  parts.push(`🔗 자세히 보기 → ${contentLink}`);
+  return {
+    title: ad.title,
+    caption: parts.join("\n").trim(),
+    hashtags: hashtags.sort(() => Math.random() - 0.5).slice(0, 8),
+    createdAt: new Date().toISOString(),
   };
 }
 
@@ -133,6 +189,7 @@ router.patch("/ads/:id", async (req, res) => {
     if ("url" in body) patch.url = body.url;
     if ("imageUrl" in body) patch.imageUrl = body.imageUrl;
     if ("extraImages" in body) patch.extraImages = body.extraImages ?? null;
+    if ("socialDraft" in body) patch.socialDraft = body.socialDraft ?? null;
     if ("plan" in body) patch.plan = body.plan;
     await db.update(adsTable).set(patch).where(eq(adsTable.id, id));
     const [row] = await db.select().from(adsTable).where(eq(adsTable.id, id));
@@ -155,6 +212,76 @@ router.delete("/ads/:id", async (req, res) => {
     req.log.error({ err }, "광고 삭제 실패");
     return res.status(500).json({ error: "삭제 실패" });
   }
+});
+
+// ─── SNS 초안 생성 ────────────────────────────────────────────────────────────
+router.post("/ads/:id/draft", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [row] = await db.select().from(adsTable).where(eq(adsTable.id, id));
+    if (!row) return res.status(404).json({ error: "광고를 찾을 수 없습니다" });
+    const ad = rowToAd(row);
+    const draft = buildAdDraft(ad);
+    await db.update(adsTable).set({ socialDraft: draft }).where(eq(adsTable.id, id));
+    req.log.info({ id }, "광고 SNS 초안 생성");
+    return res.json({ success: true, draft });
+  } catch (err) {
+    req.log.error({ err }, "광고 SNS 초안 생성 실패");
+    return res.status(500).json({ error: "초안 생성 실패" });
+  }
+});
+
+// ─── 카드이미지 생성 ───────────────────────────────────────────────────────────
+router.post("/ads/:id/card", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [row] = await db.select().from(adsTable).where(eq(adsTable.id, id));
+    if (!row) return res.status(404).json({ error: "광고를 찾을 수 없습니다" });
+    const ad = rowToAd(row);
+    await fs.mkdir(CARDS_DIR, { recursive: true });
+    const cardPath = await generateCardImage({
+      id: ad.id,
+      title: ad.title,
+      description: ad.description.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim(),
+      category: ad.category,
+      thumbnail: ad.imageUrl ?? undefined,
+      source: ad.businessName || "광고",
+      date: ad.date,
+    });
+    req.log.info({ id, cardPath }, "광고 카드이미지 생성");
+    return res.json({ success: true, cardPath });
+  } catch (err) {
+    req.log.error({ err }, "광고 카드이미지 생성 실패");
+    return res.status(500).json({ error: "카드이미지 생성 실패" });
+  }
+});
+
+// ─── 이미지 업로드 ─────────────────────────────────────────────────────────────
+router.post("/ads/:id/upload-image", (req, res) => {
+  upload.single("image")(req, res, async (err) => {
+    if (err) return res.status(400).json({ success: false, error: err instanceof Error ? err.message : "업로드 실패" });
+    if (!req.file) return res.status(400).json({ success: false, error: "파일이 없습니다." });
+    const { id } = req.params;
+    const slot = Number(req.query["slot"] ?? "0");
+    const imageUrl = `/api/uploads/${req.file.filename}`;
+    try {
+      const [row] = await db.select().from(adsTable).where(eq(adsTable.id, id));
+      if (!row) return res.status(404).json({ success: false, error: "광고를 찾을 수 없습니다." });
+      if (slot === 0) {
+        await db.update(adsTable).set({ imageUrl }).where(eq(adsTable.id, id));
+      } else {
+        const extras: (string | null)[] = Array.isArray(row.extraImages) ? [...(row.extraImages as string[])] : [];
+        while (extras.length < slot) extras.push(null);
+        extras[slot - 1] = imageUrl;
+        await db.update(adsTable).set({ extraImages: extras.filter(Boolean) as string[] }).where(eq(adsTable.id, id));
+      }
+      req.log.info({ id, imageUrl, slot }, "광고 이미지 업로드 완료");
+      return res.json({ success: true, imageUrl, slot });
+    } catch (e) {
+      req.log.error({ e }, "광고 이미지 업로드 후 저장 실패");
+      return res.status(500).json({ success: false, error: "저장 실패" });
+    }
+  });
 });
 
 export default router;

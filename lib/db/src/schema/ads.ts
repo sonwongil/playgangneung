@@ -14,6 +14,7 @@ export const adsTable = pgTable("ads", {
   url: text("url").notNull().default(""),
   imageUrl: text("image_url"),
   extraImages: jsonb("extra_images").$type<string[]>(),
+  socialDraft: jsonb("social_draft"),
   plan: text("plan").notNull().default("basic"),
   status: text("status").notNull().default("pending"),
   approvedAt: timestamp("approved_at"),

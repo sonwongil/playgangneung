@@ -1127,50 +1127,19 @@ export default function Admin() {
               ) : ads.map((ad) => {
                 const sc = AD_STATUS[ad.status] ?? AD_STATUS.pending;
                 return (
-                  <Card key={ad.id}>
+                  <Card key={ad.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setSelectedAd(ad)}>
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1 flex-wrap">
                             <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs border font-medium ${sc.cls}`}>{sc.label}</span>
                             <span className="text-xs font-medium text-muted-foreground">{ad.businessName}</span>
+                            <span className="text-xs text-muted-foreground">{ad.category}</span>
                           </div>
-                          <p className="font-semibold text-sm">{ad.title}</p>
+                          <p className="font-semibold text-sm">{ad.title || ad.businessName}</p>
                           <p className="text-xs text-muted-foreground mt-0.5">{ad.phone} · {ad.createdAt?.slice(0, 10)}</p>
                         </div>
-                        <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
-                          {ad.status === "pending" && (
-                            <Button size="sm" variant="outline" className="h-7 px-2 text-xs text-green-700 border-green-200 hover:bg-green-50"
-                              onClick={() => adStatusMutation.mutate({ id: ad.id, status: "approved" })} disabled={adStatusMutation.isPending}>
-                              <CheckCircle className="w-3 h-3" />승인
-                            </Button>
-                          )}
-                          {ad.status === "approved" && (
-                            <Button size="sm" variant="outline" className="h-7 px-2 text-xs text-blue-700 border-blue-200"
-                              onClick={() => adStatusMutation.mutate({ id: ad.id, status: "scheduled" })} disabled={adStatusMutation.isPending}>
-                              발행예정
-                            </Button>
-                          )}
-                          {ad.status === "scheduled" && (
-                            <Button size="sm" variant="outline" className="h-7 px-2 text-xs"
-                              onClick={() => adStatusMutation.mutate({ id: ad.id, status: "published" })} disabled={adStatusMutation.isPending}>
-                              발행완료
-                            </Button>
-                          )}
-                          {!["rejected","published"].includes(ad.status) && (
-                            <Button size="sm" variant="outline" className="h-7 px-2 text-xs text-red-700 border-red-200"
-                              onClick={() => adStatusMutation.mutate({ id: ad.id, status: "rejected" })} disabled={adStatusMutation.isPending}>
-                              <XCircle className="w-3 h-3" />제외
-                            </Button>
-                          )}
-                          <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => setEditingAd(ad)}>
-                            <Pencil className="w-3 h-3" />
-                          </Button>
-                          <Button size="sm" variant="ghost" className="h-7 px-2 text-destructive hover:bg-destructive/10"
-                            onClick={() => adDeleteMutation.mutate(ad.id)} disabled={adDeleteMutation.isPending}>
-                            <Trash2 className="w-3 h-3" />
-                          </Button>
-                        </div>
+                        <div className="text-xs text-muted-foreground shrink-0">상세보기 →</div>
                       </div>
                     </CardContent>
                   </Card>
@@ -2126,6 +2095,88 @@ export default function Admin() {
         </DialogContent>
       </Dialog>
     )}
+
+    {/* ══ 광고 상세보기 Sheet ═════════════════════════════════════════════ */}
+    <Sheet open={!!selectedAd} onOpenChange={(o) => { if (!o) setSelectedAd(null); }}>
+      <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
+        {selectedAd && (() => {
+          const sc = AD_STATUS[selectedAd.status] ?? AD_STATUS.pending;
+          return (
+            <>
+              <SheetHeader className="mb-4">
+                <SheetTitle className="flex items-center gap-2">
+                  <Megaphone className="w-4 h-4" />
+                  광고 상세
+                </SheetTitle>
+              </SheetHeader>
+
+              {/* 이미지 */}
+              {selectedAd.imageUrl && (
+                <img src={selectedAd.imageUrl} alt="광고 이미지" className="w-full rounded-lg object-cover max-h-56 mb-4" />
+              )}
+
+              {/* 상태 뱃지 */}
+              <div className="flex items-center gap-2 mb-4">
+                <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs border font-medium ${sc.cls}`}>{sc.label}</span>
+                <span className="text-sm text-muted-foreground">{selectedAd.plan === "basic" ? "기본" : selectedAd.plan === "main" ? "메인" : "프리미엄"} 플랜</span>
+              </div>
+
+              {/* 정보 테이블 */}
+              <div className="space-y-3 text-sm mb-6">
+                <div className="flex gap-3"><span className="w-20 shrink-0 text-muted-foreground font-medium">업체명</span><span className="font-semibold">{selectedAd.businessName}</span></div>
+                <div className="flex gap-3"><span className="w-20 shrink-0 text-muted-foreground font-medium">카테고리</span><span>{selectedAd.category}</span></div>
+                {selectedAd.title && <div className="flex gap-3"><span className="w-20 shrink-0 text-muted-foreground font-medium">광고 제목</span><span>{selectedAd.title}</span></div>}
+                {selectedAd.description && <div className="flex gap-3"><span className="w-20 shrink-0 text-muted-foreground font-medium">내용</span><span className="whitespace-pre-wrap">{selectedAd.description}</span></div>}
+                {selectedAd.contactName && <div className="flex gap-3"><span className="w-20 shrink-0 text-muted-foreground font-medium">담당자</span><span>{selectedAd.contactName}</span></div>}
+                {selectedAd.phone && <div className="flex gap-3"><span className="w-20 shrink-0 text-muted-foreground font-medium">연락처</span><a href={`tel:${selectedAd.phone}`} className="text-blue-600">{selectedAd.phone}</a></div>}
+                {selectedAd.email && <div className="flex gap-3"><span className="w-20 shrink-0 text-muted-foreground font-medium">이메일</span><a href={`mailto:${selectedAd.email}`} className="text-blue-600">{selectedAd.email}</a></div>}
+                {selectedAd.location && <div className="flex gap-3"><span className="w-20 shrink-0 text-muted-foreground font-medium">위치</span><span>{selectedAd.location}</span></div>}
+                {selectedAd.date && <div className="flex gap-3"><span className="w-20 shrink-0 text-muted-foreground font-medium">기간</span><span>{selectedAd.date}</span></div>}
+                {selectedAd.url && <div className="flex gap-3"><span className="w-20 shrink-0 text-muted-foreground font-medium">링크</span><a href={selectedAd.url} target="_blank" rel="noreferrer" className="text-blue-600 break-all">{selectedAd.url}</a></div>}
+                <div className="flex gap-3"><span className="w-20 shrink-0 text-muted-foreground font-medium">접수일</span><span>{selectedAd.createdAt?.slice(0, 10)}</span></div>
+              </div>
+
+              {/* 액션 버튼 */}
+              <div className="space-y-2">
+                {selectedAd.status === "pending" && (
+                  <Button className="w-full bg-green-600 hover:bg-green-700 text-white" disabled={adStatusMutation.isPending}
+                    onClick={() => { adStatusMutation.mutate({ id: selectedAd.id, status: "approved" }); setSelectedAd({ ...selectedAd, status: "approved" }); }}>
+                    <CheckCircle className="w-4 h-4 mr-2" />승인
+                  </Button>
+                )}
+                {selectedAd.status === "approved" && (
+                  <Button className="w-full" variant="outline" disabled={adStatusMutation.isPending}
+                    onClick={() => { adStatusMutation.mutate({ id: selectedAd.id, status: "scheduled" }); setSelectedAd({ ...selectedAd, status: "scheduled" }); }}>
+                    발행예정으로 변경
+                  </Button>
+                )}
+                {selectedAd.status === "scheduled" && (
+                  <Button className="w-full" variant="outline" disabled={adStatusMutation.isPending}
+                    onClick={() => { adStatusMutation.mutate({ id: selectedAd.id, status: "published" }); setSelectedAd({ ...selectedAd, status: "published" }); }}>
+                    발행완료로 변경
+                  </Button>
+                )}
+                {!["rejected", "published"].includes(selectedAd.status) && (
+                  <Button className="w-full" variant="outline" disabled={adStatusMutation.isPending}
+                    onClick={() => { adStatusMutation.mutate({ id: selectedAd.id, status: "rejected" }); setSelectedAd({ ...selectedAd, status: "rejected" }); }}>
+                    <XCircle className="w-4 h-4 mr-2 text-red-500" />제외
+                  </Button>
+                )}
+                <div className="flex gap-2 pt-1">
+                  <Button className="flex-1" variant="outline" onClick={() => { setEditingAd(selectedAd); setSelectedAd(null); }}>
+                    <Pencil className="w-3 h-3 mr-1" />수정
+                  </Button>
+                  <Button className="flex-1" variant="outline" disabled={adDeleteMutation.isPending}
+                    onClick={() => { adDeleteMutation.mutate(selectedAd.id); setSelectedAd(null); }}>
+                    <Trash2 className="w-3 h-3 mr-1 text-red-500" />삭제
+                  </Button>
+                </div>
+              </div>
+            </>
+          );
+        })()}
+      </SheetContent>
+    </Sheet>
 
     {/* ══ 광고 수정 다이얼로그 ══════════════════════════════════════════════ */}
     {editingAd && (

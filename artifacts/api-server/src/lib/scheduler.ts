@@ -1,4 +1,4 @@
-import cron from "node-cron";
+import * as cron from "node-cron";
 import fs from "fs/promises";
 import path from "path";
 import { crawlAll } from "./crawler.js";

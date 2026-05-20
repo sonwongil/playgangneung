@@ -14,7 +14,7 @@ router.post("/auth/login", async (req, res) => {
     res.status(401).json({ error: "비밀번호가 올바르지 않습니다" });
     return;
   }
-  req.session.isAdmin = true;
+  req.session!.isAdmin = true;
   res.json({ ok: true });
 });
 
@@ -24,11 +24,11 @@ router.post("/auth/logout", (req, res) => {
 });
 
 router.get("/auth/me", (req, res) => {
-  res.json({ isAdmin: req.session.isAdmin === true });
+  res.json({ isAdmin: req.session?.isAdmin === true });
 });
 
 router.post("/auth/change-password", async (req, res) => {
-  if (!req.session.isAdmin) {
+  if (!req.session?.isAdmin) {
     res.status(401).json({ error: "로그인이 필요합니다" });
     return;
   }

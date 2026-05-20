@@ -9,7 +9,7 @@ router.get("/schedule", async (_req, res) => {
 });
 
 router.post("/schedule", async (req, res) => {
-  if (!req.session.isAdmin) {
+  if (!req.session?.isAdmin) {
     res.status(401).json({ success: false, error: "로그인이 필요합니다" });
     return;
   }

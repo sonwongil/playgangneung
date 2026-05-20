@@ -202,11 +202,12 @@ function buildEvent(
     location: locationHint || "강릉",
     category,
     thumbnail,
+    videoUrl: null,
     link,
     source: sourceName,
     contact: contact || "",
     sourceType,
-    status: "pending",
+    status: "draft" as const,
     socialDraft: null,
     crawledAt: new Date().toISOString(),
   };

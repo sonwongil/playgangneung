@@ -693,36 +693,17 @@ export default function Admin() {
   function parseHashtags(str: string): string[] {
     return str.split(/[\s,]+/).map((h) => h.replace(/^#/, "").trim()).filter(Boolean);
   }
-  async function copyText(ev: Event) {
+  function copyText(ev: Event) {
     if (!ev.socialDraft) return;
-    const contentUrl = `${window.location.origin}/content/${ev.id}`;
-    const igUrl = "https://www.instagram.com/playgangneung/";
     const clean = cleanCaption(ev.socialDraft.caption);
     const hashtags = ev.socialDraft.hashtags.map((h) => `#${h}`).join(" ");
-    await copyAsStyledHtml(contentUrl, igUrl, clean, hashtags);
+    navigator.clipboard.writeText(`${clean}\n\n${hashtags}`).then(() => toast({ title: "문구 복사됨" }));
   }
 
-  async function copyAsStyledHtml(contentUrl: string, igUrl: string, captionText: string, hashtags: string) {
-    const b1 = "background-color:#2563eb;color:#fff;padding:10px 24px;border-radius:8px;font-weight:bold;font-size:14px;text-decoration:none;display:inline-block;margin-right:10px;";
-    const b2 = "background:linear-gradient(135deg,#a855f7,#ec4899);color:#fff;padding:10px 24px;border-radius:8px;font-weight:bold;font-size:14px;text-decoration:none;display:inline-block;";
-    const lines = captionText.split("\n").map((l) => `<p style="margin:2px 0">${l || "<br>"}</p>`).join("");
-    const html = `<div style="font-family:sans-serif;font-size:14px;line-height:1.7;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;max-width:480px;">`
-      + `<div style="padding:14px 16px">${lines}</div>`
-      + `<div style="border-top:1px solid #e5e7eb;display:flex;">`
-      + `<a href="${contentUrl}" style="${b1}border-radius:0;margin:0;flex:1;text-align:center;">🔗 자세히 보기</a>`
-      + `<a href="${igUrl}" style="${b2}border-radius:0;flex:1;text-align:center;">➕ 팔로우</a>`
-      + `</div></div>`
-      + `<p style="font-size:13px;color:#6b7280;margin-top:8px">${hashtags}</p>`;
-    const plain = `${captionText}\n\n${hashtags}`;
-    try {
-      await navigator.clipboard.write([new ClipboardItem({
-        "text/html": new Blob([html], { type: "text/html" }),
-        "text/plain": new Blob([plain], { type: "text/plain" }),
-      })]);
-    } catch {
-      await navigator.clipboard.writeText(plain);
-    }
-    toast({ title: "복사 완료" });
+  function copyUrl(url: string) {
+    navigator.clipboard.writeText(url).then(() =>
+      toast({ title: "링크 복사됨", description: "페이스북/인스타에 붙여넣기하세요" })
+    );
   }
 
   // ── Sidebar ──────────────────────────────────────────────────────────────────
@@ -1013,14 +994,13 @@ export default function Admin() {
                                   onChange={(e) => { initDraftEdit(ev); setDraftCaption(ev.id, e.target.value); }}
                                 />
                                 <div className="border-t border-input flex">
-                                  <a
-                                    href={`${window.location.origin}/content/${ev.id}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
+                                  <button
+                                    type="button"
+                                    onClick={() => copyUrl(`${window.location.origin}/content/${ev.id}`)}
                                     className="flex-1 flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold py-2.5 transition-colors"
                                   >
                                     🔗 자세히 보기
-                                  </a>
+                                  </button>
                                   <a
                                     href="https://www.instagram.com/playgangneung/"
                                     target="_blank"
@@ -2371,14 +2351,13 @@ export default function Admin() {
                               onChange={(e) => setAdDraftEdits((p) => ({ ...p, [adId]: { caption: e.target.value, hashtagsStr: edit?.hashtagsStr ?? (draft?.hashtags ?? []).map((h: string) => `#${h}`).join(" ") } }))}
                             />
                             <div className="border-t border-input flex">
-                              <a
-                                href={`${window.location.origin}/content/${adId}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
+                              <button
+                                type="button"
+                                onClick={() => copyUrl(`${window.location.origin}/content/${adId}`)}
                                 className="flex-1 flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold py-2.5 transition-colors"
                               >
                                 🔗 자세히 보기
-                              </a>
+                              </button>
                               <a
                                 href="https://www.instagram.com/playgangneung/"
                                 target="_blank"
@@ -2410,14 +2389,11 @@ export default function Admin() {
                                 toast({ title: "저장 완료" });
                               }}>저장</Button>
                             )}
-                            <Button size="sm" variant="outline" className="flex-1" onClick={async () => {
-                              await copyAsHtml(
-                                `${window.location.origin}/content/${adId}`,
-                                "https://www.instagram.com/playgangneung/",
-                                caption,
-                                hashtagsStr,
-                              );
-                              setAdCopied(true); setTimeout(() => setAdCopied(false), 2000);
+                            <Button size="sm" variant="outline" className="flex-1" onClick={() => {
+                              navigator.clipboard.writeText(`${caption}\n\n${hashtagsStr}`).then(() => {
+                                setAdCopied(true); setTimeout(() => setAdCopied(false), 2000);
+                                toast({ title: "문구 복사됨" });
+                              });
                             }}>
                               {adCopied ? <Check className="w-3 h-3 mr-1 text-green-600" /> : <Copy className="w-3 h-3 mr-1" />}
                               {adCopied ? "복사됨" : "복사"}

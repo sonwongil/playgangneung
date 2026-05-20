@@ -693,15 +693,13 @@ export default function Admin() {
   function parseHashtags(str: string): string[] {
     return str.split(/[\s,]+/).map((h) => h.replace(/^#/, "").trim()).filter(Boolean);
   }
-  async function copyText(ev: Event) {
-    if (!ev.socialDraft) return;
-    const contentUrl = `${window.location.origin}/content/${ev.id}`;
-    const igUrl = "https://www.instagram.com/playgangneung/";
-    const clean = cleanCaption(ev.socialDraft.caption);
-    const hashtags = ev.socialDraft.hashtags.map((h) => `#${h}`).join(" ");
-    const htmlLines = clean.split("\n").map((l) => `<p>${l || "&nbsp;"}</p>`).join("");
-    const html = `${htmlLines}<p>&nbsp;</p><p><a href="${contentUrl}">🔗 자세히 보기</a> &nbsp;&nbsp; <a href="${igUrl}">➕ 팔로우</a></p><p>&nbsp;</p><p>${hashtags}</p>`;
-    const plain = `${clean}\n\n🔗 자세히 보기 → ${contentUrl}\n➕ 팔로우 → ${igUrl}\n\n${hashtags}`;
+  async function copyAsHtml(contentUrl: string, igUrl: string, captionText: string, hashtags: string) {
+    const btnBase = "display:inline-block;padding:10px 28px;border-radius:10px;font-weight:bold;font-size:14px;text-decoration:none;color:#ffffff;";
+    const btnBlue = `${btnBase}background-color:#2563eb;`;
+    const btnPink = `${btnBase}background:linear-gradient(to right,#a855f7,#ec4899);`;
+    const htmlLines = captionText.split("\n").map((l) => `<p style="margin:4px 0;">${l || "&nbsp;"}</p>`).join("");
+    const html = `<div style="font-family:sans-serif;font-size:14px;line-height:1.6;">${htmlLines}<p>&nbsp;</p><table><tr><td style="padding-right:10px;"><a href="${contentUrl}" style="${btnBlue}">🔗 자세히 보기</a></td><td><a href="${igUrl}" style="${btnPink}">➕ 팔로우</a></td></tr></table><p>&nbsp;</p><p style="color:#555;">${hashtags}</p></div>`;
+    const plain = `${captionText}\n\n🔗 자세히 보기 → ${contentUrl}\n➕ 팔로우 → ${igUrl}\n\n${hashtags}`;
     try {
       await navigator.clipboard.write([new ClipboardItem({
         "text/html": new Blob([html], { type: "text/html" }),
@@ -710,7 +708,17 @@ export default function Admin() {
     } catch {
       await navigator.clipboard.writeText(plain);
     }
-    toast({ title: "복사 완료 — HTML 하이퍼링크 포함" });
+    toast({ title: "복사 완료" });
+  }
+
+  async function copyText(ev: Event) {
+    if (!ev.socialDraft) return;
+    await copyAsHtml(
+      `${window.location.origin}/content/${ev.id}`,
+      "https://www.instagram.com/playgangneung/",
+      cleanCaption(ev.socialDraft.caption),
+      ev.socialDraft.hashtags.map((h) => `#${h}`).join(" "),
+    );
   }
 
   // ── Sidebar ──────────────────────────────────────────────────────────────────
@@ -2398,9 +2406,14 @@ export default function Admin() {
                                 toast({ title: "저장 완료" });
                               }}>저장</Button>
                             )}
-                            <Button size="sm" variant="outline" className="flex-1" onClick={() => {
-                              const text = `${caption}\n\n${hashtagsStr}`;
-                              navigator.clipboard.writeText(text).then(() => { setAdCopied(true); setTimeout(() => setAdCopied(false), 2000); });
+                            <Button size="sm" variant="outline" className="flex-1" onClick={async () => {
+                              await copyAsHtml(
+                                `${window.location.origin}/content/${adId}`,
+                                "https://www.instagram.com/playgangneung/",
+                                caption,
+                                hashtagsStr,
+                              );
+                              setAdCopied(true); setTimeout(() => setAdCopied(false), 2000);
                             }}>
                               {adCopied ? <Check className="w-3 h-3 mr-1 text-green-600" /> : <Copy className="w-3 h-3 mr-1" />}
                               {adCopied ? "복사됨" : "복사"}

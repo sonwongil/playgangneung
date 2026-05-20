@@ -654,10 +654,19 @@ export default function Admin() {
   });
 
   // ── Draft edit helpers ───────────────────────────────────────────────────────
+  function cleanCaption(raw: string): string {
+    return raw
+      .split("\n")
+      .filter((l) => !/^🔗|^🏠 PLAY강릉/.test(l.trim()))
+      .join("\n")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+  }
+
   function getDraftEdit(ev: Event) {
     if (draftEdits[ev.id]) return draftEdits[ev.id];
     return {
-      caption: ev.socialDraft?.caption ?? "",
+      caption: cleanCaption(ev.socialDraft?.caption ?? ""),
       hashtagsStr: ev.socialDraft?.hashtags.join(" ") ?? "",
     };
   }
@@ -675,7 +684,7 @@ export default function Admin() {
       setDraftEdits((p) => ({
         ...p,
         [ev.id]: {
-          caption: ev.socialDraft?.caption ?? "",
+          caption: cleanCaption(ev.socialDraft?.caption ?? ""),
           hashtagsStr: ev.socialDraft?.hashtags.join(" ") ?? "",
         },
       }));
@@ -2173,7 +2182,7 @@ export default function Admin() {
                 const adId = selectedAd.id;
                 const draft = selectedAd.socialDraft;
                 const edit = adDraftEdits[adId];
-                const caption = edit?.caption ?? draft?.caption ?? "";
+                const caption = edit?.caption ?? cleanCaption(draft?.caption ?? "");
                 const hashtagsStr = edit?.hashtagsStr ?? (draft?.hashtags ?? []).map((h: string) => `#${h}`).join(" ");
                 const isDirty = !!adDraftEdits[adId];
                 return (

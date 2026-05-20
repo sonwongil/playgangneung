@@ -1,14 +1,11 @@
 import { Router } from "express";
-import fs from "fs/promises";
-import path from "path";
 import type { Ad } from "./ads.js";
 import { readEvents, type CrawledEvent } from "../lib/storage.js";
 import { detectCategory } from "../lib/dateParser.js";
+import { db, adsTable } from "@workspace/db";
+import { desc } from "drizzle-orm";
 
 const router = Router();
-
-const DATA_DIR = path.resolve(process.cwd(), "data");
-const ADS_FILE = path.join(DATA_DIR, "ads.json");
 
 const PLAN_DAYS: Record<string, number> = { basic: 1, main: 3, premium: 5 };
 const PLAN_WEIGHT: Record<string, number> = { basic: 1, main: 3, premium: 5 };
@@ -65,8 +62,30 @@ function tomorrowStr() {
 
 
 async function readAds(): Promise<Ad[]> {
-  try { return JSON.parse(await fs.readFile(ADS_FILE, "utf-8")) as Ad[]; }
-  catch { return []; }
+  try {
+    const rows = await db.select().from(adsTable).orderBy(desc(adsTable.createdAt));
+    return rows.map((row) => ({
+      id: row.id,
+      businessName: row.businessName,
+      contactName: row.contactName,
+      phone: row.phone,
+      email: row.email,
+      category: row.category,
+      title: row.title,
+      description: row.description,
+      date: row.date,
+      location: row.location,
+      url: row.url,
+      imageUrl: row.imageUrl ?? null,
+      extraImages: (row.extraImages as string[] | null) ?? undefined,
+      plan: (row.plan as Ad["plan"]) ?? "basic",
+      status: (row.status as Ad["status"]) ?? "pending",
+      source: "광고접수" as const,
+      createdAt: row.createdAt.toISOString(),
+      approvedAt: row.approvedAt?.toISOString(),
+      isFreeAd: true as const,
+    }));
+  } catch { return []; }
 }
 
 

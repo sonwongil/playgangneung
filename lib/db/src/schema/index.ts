@@ -4,3 +4,4 @@ export * from "./auth";
 export * from "./stories";
 export * from "./videos";
 export * from "./blogSources";
+export * from "./ads";

@@ -234,6 +234,8 @@ export default function Admin() {
   // 광고 SNS 초안 편집
   const [adDraftEdits, setAdDraftEdits] = useState<Record<string, { caption: string; hashtagsStr: string }>>({});
   const [adCopied, setAdCopied] = useState(false);
+  const [adCardUrls, setAdCardUrls] = useState<Record<string, string[]>>({});
+  const [adCardLoading, setAdCardLoading] = useState<Record<string, boolean>>({});
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -2237,6 +2239,61 @@ export default function Admin() {
                         <Download className="w-3.5 h-3.5" />{label} 사진 저장
                       </button>
                     ))}
+
+                    {/* ── 카드이미지 생성 ── */}
+                    <div className="border-t pt-3 space-y-2">
+                      <p className="text-xs font-semibold text-muted-foreground">카드이미지 (1080×1080)</p>
+                      {adCardUrls[adId] && adCardUrls[adId].length > 0 ? (
+                        <div className="space-y-2">
+                          {adCardUrls[adId].map((url, i) => (
+                            <div key={i} className="space-y-1">
+                              <img src={`${BASE}${url}`} alt={`카드이미지 ${i + 1}`} className="w-full rounded-lg border" />
+                              <button
+                                className="flex items-center justify-center gap-1.5 w-full h-9 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold transition-colors"
+                                onClick={async () => {
+                                  try {
+                                    const r = await fetch(`${BASE}${url}`, { credentials: "include" });
+                                    const blob = await r.blob();
+                                    const blobUrl = URL.createObjectURL(blob);
+                                    const a = document.createElement("a");
+                                    a.href = blobUrl;
+                                    a.download = `card-${adId}-${i + 1}.png`;
+                                    a.click();
+                                    setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+                                  } catch { window.open(`${BASE}${url}`, "_blank"); }
+                                }}
+                              >⬇ 카드이미지 {i + 1} 저장</button>
+                            </div>
+                          ))}
+                          <button
+                            className="flex items-center justify-center gap-1.5 w-full h-9 rounded-xl bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm font-bold transition-colors"
+                            disabled={adCardLoading[adId]}
+                            onClick={async () => {
+                              setAdCardLoading((p) => ({ ...p, [adId]: true }));
+                              try {
+                                const r = await fetch(`${BASE}/api/ads/${adId}/card`, { method: "POST", credentials: "include" });
+                                const j = await r.json() as { success: boolean; cardUrls?: string[] };
+                                if (j.success && j.cardUrls) setAdCardUrls((p) => ({ ...p, [adId]: j.cardUrls! }));
+                              } finally { setAdCardLoading((p) => ({ ...p, [adId]: false })); }
+                            }}
+                          >{adCardLoading[adId] ? "생성 중..." : "🔄 재생성"}</button>
+                        </div>
+                      ) : (
+                        <button
+                          className="flex items-center justify-center gap-1.5 w-full h-9 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold transition-colors disabled:opacity-50"
+                          disabled={adCardLoading[adId]}
+                          onClick={async () => {
+                            setAdCardLoading((p) => ({ ...p, [adId]: true }));
+                            try {
+                              const r = await fetch(`${BASE}/api/ads/${adId}/card`, { method: "POST", credentials: "include" });
+                              const j = await r.json() as { success: boolean; cardUrls?: string[] };
+                              if (j.success && j.cardUrls) setAdCardUrls((p) => ({ ...p, [adId]: j.cardUrls! }));
+                              else toast({ title: "카드이미지 생성 실패", variant: "destructive" });
+                            } finally { setAdCardLoading((p) => ({ ...p, [adId]: false })); }
+                          }}
+                        >{adCardLoading[adId] ? "생성 중..." : "🖼 카드이미지 생성"}</button>
+                      )}
+                    </div>
 
                     <div className="border-t pt-3 space-y-2">
                       {!draft && !edit ? (

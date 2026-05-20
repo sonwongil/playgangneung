@@ -693,32 +693,11 @@ export default function Admin() {
   function parseHashtags(str: string): string[] {
     return str.split(/[\s,]+/).map((h) => h.replace(/^#/, "").trim()).filter(Boolean);
   }
-  async function copyAsHtml(contentUrl: string, igUrl: string, captionText: string, hashtags: string) {
-    const btnBase = "display:inline-block;padding:10px 28px;border-radius:10px;font-weight:bold;font-size:14px;text-decoration:none;color:#ffffff;";
-    const btnBlue = `${btnBase}background-color:#2563eb;`;
-    const btnPink = `${btnBase}background:linear-gradient(to right,#a855f7,#ec4899);`;
-    const htmlLines = captionText.split("\n").map((l) => `<p style="margin:4px 0;">${l || "&nbsp;"}</p>`).join("");
-    const html = `<div style="font-family:sans-serif;font-size:14px;line-height:1.6;">${htmlLines}<p>&nbsp;</p><table><tr><td style="padding-right:10px;"><a href="${contentUrl}" style="${btnBlue}">🔗 자세히 보기</a></td><td><a href="${igUrl}" style="${btnPink}">➕ 팔로우</a></td></tr></table><p>&nbsp;</p><p style="color:#555;">${hashtags}</p></div>`;
-    const plain = `${captionText}\n\n🔗 자세히 보기 → ${contentUrl}\n➕ 팔로우 → ${igUrl}\n\n${hashtags}`;
-    try {
-      await navigator.clipboard.write([new ClipboardItem({
-        "text/html": new Blob([html], { type: "text/html" }),
-        "text/plain": new Blob([plain], { type: "text/plain" }),
-      })]);
-    } catch {
-      await navigator.clipboard.writeText(plain);
-    }
-    toast({ title: "복사 완료" });
-  }
-
-  async function copyText(ev: Event) {
+  function copyText(ev: Event) {
     if (!ev.socialDraft) return;
-    await copyAsHtml(
-      `${window.location.origin}/content/${ev.id}`,
-      "https://www.instagram.com/playgangneung/",
-      cleanCaption(ev.socialDraft.caption),
-      ev.socialDraft.hashtags.map((h) => `#${h}`).join(" "),
-    );
+    const clean = cleanCaption(ev.socialDraft.caption);
+    const hashtags = ev.socialDraft.hashtags.map((h) => `#${h}`).join(" ");
+    navigator.clipboard.writeText(`${clean}\n\n${hashtags}`).then(() => toast({ title: "복사 완료" }));
   }
 
   // ── Sidebar ──────────────────────────────────────────────────────────────────

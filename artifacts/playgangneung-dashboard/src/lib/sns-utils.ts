@@ -21,9 +21,8 @@ function nodeToText(node: Node): string {
   if (tag === "ul" || tag === "ol") return inner();
   if (tag === "blockquote") return inner() + "\n";
   if (tag === "a") {
-    const href = el.getAttribute("href") ?? "";
-    const text = inner();
-    return href ? `${text} → ${href}` : text;
+    // <a> 태그는 링크 텍스트만 반환 (URL 제외 — 복사 텍스트에서도 URL 숨김)
+    return inner();
   }
   return inner();
 }
@@ -36,14 +35,30 @@ export function htmlToSns(html: string): string {
   return nodeToText(div).replace(/\n{3,}/g, "\n\n").trim();
 }
 
+/** HTML 엔티티 디코딩 (크롤러에서 저장된 &nbsp; 등 처리) */
+function decodeEntities(text: string): string {
+  return text
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&[a-z]+;/gi, " ")
+    .replace(/[ \t]+/g, " ");
+}
+
 /** DB plain text → TipTap 초기 HTML
+ *  - HTML 엔티티(&nbsp; 등) 자동 디코딩
  *  - "🔗 자세히 보기 → https://..." 패턴은 <a> 하이퍼링크로 변환 (URL 숨김)
  */
 export function snsToHtml(text: string): string {
   if (!text) return "<p></p>";
-  return text
+  const decoded = decodeEntities(text);
+  return decoded
     .split("\n")
     .map((l) => {
+      // "🔗 자세히 보기 → URL" 패턴 → <a> 링크 (URL 숨김)
       const linkMatch = l.match(/^(.*?)🔗\s*자세히 보기\s*→\s*(https?:\/\/\S+)\s*$/);
       if (linkMatch) {
         const prefix = linkMatch[1].replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");

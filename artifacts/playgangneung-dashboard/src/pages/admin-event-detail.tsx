@@ -246,8 +246,7 @@ export default function AdminEventDetail() {
 
   function copyAll() {
     const hashtags = editHashtagsStr.split(/[\s,]+/).map((h) => h.startsWith("#") ? h : `#${h}`).filter(Boolean);
-    const contentUrl = `${window.location.origin}/content/${eventId}`;
-    const text = `${htmlToSns(editCaption)}\n\n🔗 자세히 보기 → ${contentUrl}\n\n${hashtags.join(" ")}\n\n${FIXED_CTA}`;
+    const text = `${htmlToSns(editCaption)}\n\n${hashtags.join(" ")}\n\n${FIXED_CTA}`;
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true);
       toast({ title: "캡션 복사 완료", description: "인스타·페북 게시창에 붙여넣으세요." });

@@ -13,7 +13,7 @@
     "url": "https://example.com",
     "imageUrl": null,
     "plan": "main",
-    "status": "approved",
+    "status": "pending",
     "source": "광고접수",
     "createdAt": "2026-05-06T07:18:14.974Z",
     "isFreeAd": true,

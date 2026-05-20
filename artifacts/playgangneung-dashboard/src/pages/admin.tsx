@@ -693,11 +693,36 @@ export default function Admin() {
   function parseHashtags(str: string): string[] {
     return str.split(/[\s,]+/).map((h) => h.replace(/^#/, "").trim()).filter(Boolean);
   }
-  function copyText(ev: Event) {
+  async function copyText(ev: Event) {
     if (!ev.socialDraft) return;
+    const contentUrl = `${window.location.origin}/content/${ev.id}`;
+    const igUrl = "https://www.instagram.com/playgangneung/";
     const clean = cleanCaption(ev.socialDraft.caption);
     const hashtags = ev.socialDraft.hashtags.map((h) => `#${h}`).join(" ");
-    navigator.clipboard.writeText(`${clean}\n\n${hashtags}`).then(() => toast({ title: "복사 완료" }));
+    await copyAsStyledHtml(contentUrl, igUrl, clean, hashtags);
+  }
+
+  async function copyAsStyledHtml(contentUrl: string, igUrl: string, captionText: string, hashtags: string) {
+    const b1 = "background-color:#2563eb;color:#fff;padding:10px 24px;border-radius:8px;font-weight:bold;font-size:14px;text-decoration:none;display:inline-block;margin-right:10px;";
+    const b2 = "background:linear-gradient(135deg,#a855f7,#ec4899);color:#fff;padding:10px 24px;border-radius:8px;font-weight:bold;font-size:14px;text-decoration:none;display:inline-block;";
+    const lines = captionText.split("\n").map((l) => `<p style="margin:2px 0">${l || "<br>"}</p>`).join("");
+    const html = `<div style="font-family:sans-serif;font-size:14px;line-height:1.7;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;max-width:480px;">`
+      + `<div style="padding:14px 16px">${lines}</div>`
+      + `<div style="border-top:1px solid #e5e7eb;display:flex;">`
+      + `<a href="${contentUrl}" style="${b1}border-radius:0;margin:0;flex:1;text-align:center;">🔗 자세히 보기</a>`
+      + `<a href="${igUrl}" style="${b2}border-radius:0;flex:1;text-align:center;">➕ 팔로우</a>`
+      + `</div></div>`
+      + `<p style="font-size:13px;color:#6b7280;margin-top:8px">${hashtags}</p>`;
+    const plain = `${captionText}\n\n${hashtags}`;
+    try {
+      await navigator.clipboard.write([new ClipboardItem({
+        "text/html": new Blob([html], { type: "text/html" }),
+        "text/plain": new Blob([plain], { type: "text/plain" }),
+      })]);
+    } catch {
+      await navigator.clipboard.writeText(plain);
+    }
+    toast({ title: "복사 완료" });
   }
 
   // ── Sidebar ──────────────────────────────────────────────────────────────────

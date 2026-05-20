@@ -976,16 +976,36 @@ export default function Admin() {
                           </div>
                         ) : (
                           <>
-                            {/* Editable caption */}
+                            {/* SNS 문구 + 링크 버튼 통합 박스 */}
                             <div>
                               <Label className="text-xs font-semibold text-muted-foreground mb-1.5 block">SNS 문구</Label>
-                              <Textarea
-                                rows={5}
-                                value={edit.caption}
-                                className="text-sm resize-none"
-                                onClick={() => initDraftEdit(ev)}
-                                onChange={(e) => { initDraftEdit(ev); setDraftCaption(ev.id, e.target.value); }}
-                              />
+                              <div className="rounded-md border border-input overflow-hidden focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-1">
+                                <textarea
+                                  rows={5}
+                                  value={edit.caption}
+                                  className="w-full text-sm resize-none p-3 outline-none bg-background leading-relaxed"
+                                  onClick={() => initDraftEdit(ev)}
+                                  onChange={(e) => { initDraftEdit(ev); setDraftCaption(ev.id, e.target.value); }}
+                                />
+                                <div className="border-t border-input flex">
+                                  <a
+                                    href={`${window.location.origin}/content/${ev.id}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex-1 flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold py-2.5 transition-colors"
+                                  >
+                                    🔗 자세히 보기
+                                  </a>
+                                  <a
+                                    href="https://www.instagram.com/playgangneung/"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex-1 flex items-center justify-center gap-1.5 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white text-xs font-semibold py-2.5 transition-colors"
+                                  >
+                                    ➕ 팔로우
+                                  </a>
+                                </div>
+                              </div>
                             </div>
                             {/* Editable hashtags */}
                             <div>
@@ -997,25 +1017,6 @@ export default function Admin() {
                                 onClick={() => initDraftEdit(ev)}
                                 onChange={(e) => { initDraftEdit(ev); setDraftHashtagsStr(ev.id, e.target.value); }}
                               />
-                            </div>
-                            {/* 링크 버튼 */}
-                            <div className="flex gap-2">
-                              <a
-                                href={`${window.location.origin}/content/${ev.id}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold py-2.5 transition-colors"
-                              >
-                                🔗 자세히 보기
-                              </a>
-                              <a
-                                href="https://www.instagram.com/playgangneung/"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white text-xs font-semibold py-2.5 transition-colors"
-                              >
-                                ➕ 팔로우
-                              </a>
                             </div>
                             {/* Action buttons */}
                             <div className="flex items-center gap-2 flex-wrap">
@@ -2338,36 +2339,37 @@ export default function Admin() {
                       ) : (
                         <>
                           <Label className="text-xs font-semibold text-muted-foreground">SNS 문구</Label>
-                          <Textarea
-                            className="text-sm min-h-[120px] font-mono leading-relaxed"
-                            value={caption}
-                            onChange={(e) => setAdDraftEdits((p) => ({ ...p, [adId]: { caption: e.target.value, hashtagsStr: edit?.hashtagsStr ?? (draft?.hashtags ?? []).map((h: string) => `#${h}`).join(" ") } }))}
-                          />
+                          <div className="rounded-md border border-input overflow-hidden focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-1">
+                            <textarea
+                              className="w-full text-sm resize-none p-3 outline-none bg-background leading-relaxed min-h-[120px]"
+                              value={caption}
+                              onChange={(e) => setAdDraftEdits((p) => ({ ...p, [adId]: { caption: e.target.value, hashtagsStr: edit?.hashtagsStr ?? (draft?.hashtags ?? []).map((h: string) => `#${h}`).join(" ") } }))}
+                            />
+                            <div className="border-t border-input flex">
+                              <a
+                                href={`${window.location.origin}/content/${adId}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex-1 flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold py-2.5 transition-colors"
+                              >
+                                🔗 자세히 보기
+                              </a>
+                              <a
+                                href="https://www.instagram.com/playgangneung/"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex-1 flex items-center justify-center gap-1.5 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white text-xs font-semibold py-2.5 transition-colors"
+                              >
+                                ➕ 팔로우
+                              </a>
+                            </div>
+                          </div>
                           <Label className="text-xs font-semibold text-muted-foreground">해시태그</Label>
                           <Input
                             className="text-sm"
                             value={hashtagsStr}
                             onChange={(e) => setAdDraftEdits((p) => ({ ...p, [adId]: { caption: edit?.caption ?? draft?.caption ?? "", hashtagsStr: e.target.value } }))}
                           />
-                          {/* 링크 버튼 */}
-                          <div className="flex gap-2">
-                            <a
-                              href={`${window.location.origin}/content/${adId}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold py-2.5 transition-colors"
-                            >
-                              🔗 자세히 보기
-                            </a>
-                            <a
-                              href="https://www.instagram.com/playgangneung/"
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white text-xs font-semibold py-2.5 transition-colors"
-                            >
-                              ➕ 팔로우
-                            </a>
-                          </div>
                           <div className="flex gap-2 flex-wrap">
                             {isDirty && (
                               <Button size="sm" variant="default" className="flex-1" onClick={async () => {

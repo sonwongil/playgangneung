@@ -3,8 +3,24 @@ import { useParams, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Eye, MousePointerClick, TrendingUp, CircleDollarSign, BarChart2 } from "lucide-react";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+interface DailyChartPoint {
+  date: string;
+  impressions: number;
+  clicks: number;
+}
 
 interface PublicReportData {
   adTitle: string;
@@ -21,6 +37,7 @@ interface PublicReportData {
     totalBudget?: number;
   };
   hasSufficientData: boolean;
+  dailyChart?: DailyChartPoint[];
 }
 
 function fmt(n: number) {
@@ -41,6 +58,12 @@ function StatusBadge({ status }: { status: string }) {
       {s.label}
     </span>
   );
+}
+
+function shortDate(d: string) {
+  const parts = d.split("-");
+  if (parts.length === 3) return `${parts[1]}/${parts[2]}`;
+  return d;
 }
 
 export default function AdReport() {
@@ -90,6 +113,8 @@ export default function AdReport() {
 
   const p = data.performance;
   const dateRange = `${data.since} ~ ${data.until}`;
+  const chartData = (data.dailyChart ?? []).map((d) => ({ ...d, date: shortDate(d.date) }));
+  const hasChart = chartData.length > 0;
 
   const metrics = [
     {
@@ -196,6 +221,59 @@ export default function AdReport() {
             <p className="text-xs text-gray-400">
               ₩{fmt(p.totalSpend)} / ₩{fmt(p.totalBudget)} 소진
             </p>
+          </div>
+        )}
+
+        {/* 일별 성과 차트 */}
+        {hasChart && (
+          <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
+            <p className="text-sm font-semibold text-gray-700">일별 성과 추이</p>
+            <ResponsiveContainer width="100%" height={220}>
+              <LineChart data={chartData} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis
+                  dataKey="date"
+                  tick={{ fontSize: 10, fill: "#9ca3af" }}
+                  tickLine={false}
+                  axisLine={false}
+                  interval="preserveStartEnd"
+                />
+                <YAxis
+                  tick={{ fontSize: 10, fill: "#9ca3af" }}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)}
+                />
+                <Tooltip
+                  contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e5e7eb" }}
+                  formatter={(value: number, name: string) => [
+                    fmt(value),
+                    name === "impressions" ? "노출수" : "클릭수",
+                  ]}
+                  labelFormatter={(label: string) => `날짜: ${label}`}
+                />
+                <Legend
+                  wrapperStyle={{ fontSize: 12, paddingTop: 8 }}
+                  formatter={(value: string) => value === "impressions" ? "노출수" : "클릭수"}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="impressions"
+                  stroke="#3b82f6"
+                  strokeWidth={2}
+                  dot={false}
+                  activeDot={{ r: 4 }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="clicks"
+                  stroke="#22c55e"
+                  strokeWidth={2}
+                  dot={false}
+                  activeDot={{ r: 4 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
           </div>
         )}
 

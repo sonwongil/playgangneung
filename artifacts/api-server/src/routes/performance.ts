@@ -512,6 +512,17 @@ router.get("/public/report/:token", async (req, res) => {
     const totalBudget = poolRow?.totalBudget ?? 0;
     const budgetUsedPct = totalBudget > 0 ? Number(((totalSpend / totalBudget) * 100).toFixed(1)) : null;
 
+    const byDate: Record<string, { impressions: number; clicks: number }> = {};
+    for (const r of rows) {
+      const d = r.date;
+      if (!byDate[d]) byDate[d] = { impressions: 0, clicks: 0 };
+      byDate[d].impressions += r.impressions;
+      byDate[d].clicks += r.clicks;
+    }
+    const dailyChart = Object.entries(byDate)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, v]) => ({ date, impressions: v.impressions, clicks: v.clicks }));
+
     return res.json({
       adTitle: ad.title,
       businessName: ad.businessName,
@@ -520,6 +531,7 @@ router.get("/public/report/:token", async (req, res) => {
       until,
       performance: { totalImpressions, totalClicks, totalSpend, ctr, totalBudget, budgetUsedPct },
       hasSufficientData: rows.length > 0,
+      dailyChart,
     });
   } catch (err) {
     req.log.error({ err }, "공개 리포트 조회 실패");

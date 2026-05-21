@@ -2354,10 +2354,10 @@ export default function Admin() {
                                     <div className="mt-2 text-[11px] space-y-0.5">
                                       <p className="text-green-700 flex items-center gap-1">
                                         <CheckCircle className="w-3 h-3" />
-                                        Meta 연동됨 — 캠페인 ID: <code className="bg-green-50 px-1 rounded font-mono">{pool.metaCampaignId}</code>
+                                        캠페인 생성 완료 — ID: <code className="bg-green-50 px-1 rounded font-mono">{pool.metaCampaignId}</code>
                                       </p>
                                       {pool.metaAdSetId && (
-                                        <p className="text-green-600">광고세트 ID: <code className="bg-green-50 px-1 rounded font-mono">{pool.metaAdSetId}</code></p>
+                                        <p className="text-green-600 flex items-center gap-1"><CheckCircle className="w-3 h-3" />광고세트 생성 완료</p>
                                       )}
                                       {pool.metaSyncedAt && (
                                         <p className="text-muted-foreground">마지막 동기화: {new Date(pool.metaSyncedAt).toLocaleString("ko-KR")}</p>
@@ -2370,23 +2370,31 @@ export default function Admin() {
                                   )}
                                 </div>
                                 <div className="flex flex-col gap-2 shrink-0">
-                                  <Button
-                                    size="sm"
-                                    variant={pool.metaCampaignId ? "outline" : "default"}
-                                    className={`text-xs ${!pool.metaCampaignId ? "bg-blue-600 hover:bg-blue-700" : ""}`}
-                                    disabled={metaPushLoading === pool.id}
-                                    onClick={async () => {
+                                  {(() => {
+                                    type AdResult = { adId: string; adName: string; metaAdId: string; metaCreativeId: string; metaImageHash: string; skipped: boolean; skipReason?: string; imageStep: string };
+                                    type PushResult = { success?: boolean; error?: string; hint?: string; missingEnv?: string[]; metaCampaignId?: string; adsCreated?: number; adsSkipped?: number; adResults?: AdResult[]; steps?: { campaign?: { ok: boolean; id: string }; adSets?: { ok: boolean; count: number }; ads?: { created: number; skipped: number } }; failedStep?: string };
+                                    const doPush = async (force = false) => {
                                       setMetaPushLoading(pool.id);
                                       try {
-                                        const r = await fetch(`${BASE}/api/ad-pools/${pool.id}/push-to-meta`, {
-                                          method: "POST", credentials: "include",
-                                        });
-                                        const d = await r.json() as { success?: boolean; error?: string; hint?: string; metaCampaignId?: string };
+                                        const url = `${BASE}/api/ad-pools/${pool.id}/push-to-meta${force ? "?force=true" : ""}`;
+                                        const r = await fetch(url, { method: "POST", credentials: "include" });
+                                        const d = await r.json() as PushResult;
                                         if (!r.ok) {
                                           toast({ description: d.error ?? "Meta 반영 실패", variant: "destructive" });
-                                          if (d.hint) toast({ description: d.hint });
+                                          if (d.hint) toast({ description: `💡 ${d.hint}` });
+                                          if (d.missingEnv) toast({ description: `누락 환경변수: ${d.missingEnv.join(", ")}`, variant: "destructive" });
                                         } else {
-                                          toast({ description: `Meta 캠페인 생성 완료 (${d.metaCampaignId})` });
+                                          const steps = d.steps;
+                                          const lines: string[] = [];
+                                          if (steps?.campaign?.ok) lines.push(`✅ 캠페인 생성 (${steps.campaign.id.slice(-8)})`);
+                                          if (steps?.adSets?.ok) lines.push(`✅ 광고세트 ${steps.adSets.count}개 생성`);
+                                          if (d.adsCreated !== undefined) lines.push(`✅ 광고 ${d.adsCreated}개 생성 완료`);
+                                          if (d.adsSkipped && d.adsSkipped > 0) lines.push(`⏭ ${d.adsSkipped}개 스킵`);
+                                          if (d.adResults) {
+                                            const skipped = d.adResults.filter(a => a.skipped);
+                                            skipped.forEach(a => toast({ description: `⚠️ [${a.adName}] ${a.skipReason}`, variant: "destructive" }));
+                                          }
+                                          toast({ description: lines.join(" | ") || "Meta 반영 완료" });
                                           refetchPools();
                                         }
                                       } catch {
@@ -2394,32 +2402,54 @@ export default function Admin() {
                                       } finally {
                                         setMetaPushLoading(null);
                                       }
-                                    }}
-                                  >
-                                    {metaPushLoading === pool.id ? <RefreshCw className="w-3 h-3 animate-spin mr-1" /> : <Send className="w-3 h-3 mr-1" />}
-                                    {pool.metaCampaignId ? "재동기화" : "Meta에 반영"}
-                                  </Button>
-                                  {pool.metaCampaignId && (
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      className="text-xs"
-                                      onClick={async () => {
-                                        try {
-                                          const r = await fetch(`${BASE}/api/ad-pools/${pool.id}/collect-performance`, {
-                                            method: "POST", credentials: "include",
-                                          });
-                                          const d = await r.json() as { success?: boolean; error?: string; saved?: number };
-                                          if (!r.ok) toast({ description: d.error ?? "수집 실패", variant: "destructive" });
-                                          else toast({ description: `성과 ${d.saved ?? 0}건 수집 완료` });
-                                        } catch {
-                                          toast({ description: "수집 실패", variant: "destructive" });
-                                        }
-                                      }}
-                                    >
-                                      <RefreshCw className="w-3 h-3 mr-1" />성과 수집
-                                    </Button>
-                                  )}
+                                    };
+                                    return (
+                                      <>
+                                        <Button
+                                          size="sm"
+                                          variant={pool.metaCampaignId ? "outline" : "default"}
+                                          className={`text-xs ${!pool.metaCampaignId ? "bg-blue-600 hover:bg-blue-700" : ""}`}
+                                          disabled={metaPushLoading === pool.id}
+                                          onClick={() => doPush(false)}
+                                        >
+                                          {metaPushLoading === pool.id ? <RefreshCw className="w-3 h-3 animate-spin mr-1" /> : <Send className="w-3 h-3 mr-1" />}
+                                          {pool.metaCampaignId ? "재동기화" : "Meta에 반영"}
+                                        </Button>
+                                        {pool.metaCampaignId && (
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="text-xs text-orange-600 border-orange-200 hover:bg-orange-50"
+                                            disabled={metaPushLoading === pool.id}
+                                            onClick={() => doPush(true)}
+                                          >
+                                            <RefreshCw className="w-3 h-3 mr-1" />Meta 광고 재생성
+                                          </Button>
+                                        )}
+                                        {pool.metaCampaignId && (
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="text-xs"
+                                            onClick={async () => {
+                                              try {
+                                                const r = await fetch(`${BASE}/api/ad-pools/${pool.id}/collect-performance`, {
+                                                  method: "POST", credentials: "include",
+                                                });
+                                                const d = await r.json() as { success?: boolean; error?: string; saved?: number };
+                                                if (!r.ok) toast({ description: d.error ?? "수집 실패", variant: "destructive" });
+                                                else toast({ description: `성과 ${d.saved ?? 0}건 수집 완료` });
+                                              } catch {
+                                                toast({ description: "수집 실패", variant: "destructive" });
+                                              }
+                                            }}
+                                          >
+                                            <RefreshCw className="w-3 h-3 mr-1" />성과 수집
+                                          </Button>
+                                        )}
+                                      </>
+                                    );
+                                  })()}
                                 </div>
                               </div>
                             </CardContent>

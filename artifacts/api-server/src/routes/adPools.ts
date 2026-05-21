@@ -1,7 +1,10 @@
 import { Router } from "express";
 import crypto from "crypto";
+import fs from "fs/promises";
+import path from "path";
 import { db, adsTable, adPoolsTable, rotationRulesTable } from "@workspace/db";
 import { eq, desc, inArray } from "drizzle-orm";
+import { CARDS_DIR } from "../lib/paths.js";
 
 // lazy import — 서버 시작 시 크래시 방지 (환경변수 없는 경우 대비)
 async function getOpenAI() {
@@ -422,32 +425,64 @@ JSON 배열만 반환 (설명 없이):
   }
 });
 
-// ─── Meta에 반영 (캠페인 → 전략별 광고세트 → 광고 자동 생성) ─────────────────────
+// ─── 카드 이미지 공개 URL 조회 헬퍼 ─────────────────────────────────────────────
+async function resolveCardImageUrl(adId: string, imageUrl: string | null): Promise<string | null> {
+  const SITE_URL = process.env["SITE_URL"] ?? "https://play-gangneung-dashboard.replit.app";
+  // 1) 생성된 카드이미지 우선 (thumb → 기본)
+  for (const suffix of [`${adId}-thumb.png`, `${adId}.png`]) {
+    try {
+      await fs.access(path.join(CARDS_DIR, suffix));
+      return `${SITE_URL}/api/cards/${suffix}`;
+    } catch { /* 파일 없음 */ }
+  }
+  // 2) 원본 이미지 URL 폴백 (공개 URL이어야 Meta가 다운로드 가능)
+  return imageUrl ?? null;
+}
+
+// ─── Meta에 반영 (캠페인 → 광고세트 → 이미지업로드 → Creative → Ad) ─────────────
 router.post("/ad-pools/:id/push-to-meta", async (req, res) => {
   if (!req.session?.isAdmin) return res.status(401).json({ error: "로그인이 필요합니다" });
-  const { isConfigured, createCampaign, createAdSet, createAd } = await import("../lib/metaApi.js");
-  if (!isConfigured()) {
+
+  // 환경변수 사전 점검
+  const missingEnv: string[] = [];
+  if (!process.env["META_ACCESS_TOKEN"]) missingEnv.push("META_ACCESS_TOKEN");
+  if (!process.env["META_AD_ACCOUNT_ID"]) missingEnv.push("META_AD_ACCOUNT_ID");
+  if (!process.env["META_PAGE_ID"]) missingEnv.push("META_PAGE_ID");
+  if (missingEnv.length > 0) {
     return res.status(503).json({
-      error: "Meta API 환경변수 미설정",
-      hint: "META_ACCESS_TOKEN 과 META_AD_ACCOUNT_ID 환경변수를 설정하세요.",
+      error: `Meta API 환경변수 미설정: ${missingEnv.join(", ")}`,
+      hint: `${missingEnv.join(", ")} 환경변수를 설정하세요.`,
+      missingEnv,
       configured: false,
     });
   }
+
+  const { isConfigured, createCampaign, createAdSet, createAd, uploadAdImage } = await import("../lib/metaApi.js");
+  if (!isConfigured()) {
+    return res.status(503).json({ error: "Meta API 환경변수 미설정", configured: false });
+  }
+
   try {
     const { id } = req.params;
+    const force = req.query["force"] === "true";
+    const SITE_URL = process.env["SITE_URL"] ?? "https://play-gangneung-dashboard.replit.app";
+    const pageId = process.env["META_PAGE_ID"] as string;
+
     const [pool] = await db.select().from(adPoolsTable).where(eq(adPoolsTable.id, id));
     if (!pool) return res.status(404).json({ error: "묶음을 찾을 수 없습니다" });
 
     const adIdList = (pool.adIds as string[]) ?? [];
     if (adIdList.length === 0) return res.status(400).json({ error: "풀에 광고가 없습니다" });
 
-    // 1. 캠페인 생성
+    // ── STEP 1. 캠페인 생성 ─────────────────────────────────────────────────────
     const campaignRes = await createCampaign({
       name: `[PLAY강릉] ${pool.name}`,
       objective: pool.objective,
       status: "PAUSED",
     });
-    if (!campaignRes.ok) return res.status(502).json({ error: `캠페인 생성 실패: ${campaignRes.error}` });
+    if (!campaignRes.ok) {
+      return res.status(502).json({ error: `캠페인 생성 실패: ${campaignRes.error}`, failedStep: "campaign" });
+    }
     const metaCampaignId = (campaignRes as { ok: true; data: { id: string } }).data.id;
 
     const aiMode = pool.aiMode as AdPoolAiMode;
@@ -455,24 +490,16 @@ router.post("/ad-pools/:id/push-to-meta", async (req, res) => {
     const startTime = new Date(`${pool.startDate}T00:00:00+09:00`).toISOString();
     const endTime = new Date(`${pool.endDate}T23:59:59+09:00`).toISOString();
 
-    // 2. 전략별 광고세트 생성
-    // - performance  → 광고별 개별 광고세트 (성과 측정 격리)
-    // - new_ad_boost → 카테고리별 광고세트 (카테고리 경쟁 최소화)
-    // - overexposure_prevention → 기간(날짜 월) 별 광고세트 (과노출 방지)
-    // - equal/manual → 풀 단위 단일 광고세트
+    // ── STEP 2. 전략별 광고세트 생성 ──────────────────────────────────────────────
     let firstAdSetId = "";
     const adAdSetMap: Record<string, string> = {};
 
     if (aiMode === "performance") {
-      // 광고별 개별 광고세트
       const budgetPerAd = Math.max(Math.round(dailyBudgetPerDay / adIdList.length), 100);
       for (const adId of adIdList) {
         const setRes = await createAdSet({
           name: `[PLAY강릉] ${pool.name} - 광고 ${adId.slice(-6)}`,
-          campaignId: metaCampaignId,
-          dailyBudget: budgetPerAd,
-          startTime,
-          endTime,
+          campaignId: metaCampaignId, dailyBudget: budgetPerAd, startTime, endTime,
         });
         if (setRes.ok) {
           const setId = (setRes as { ok: true; data: { id: string } }).data.id;
@@ -481,22 +508,17 @@ router.post("/ad-pools/:id/push-to-meta", async (req, res) => {
         }
       }
     } else if (aiMode === "new_ad_boost") {
-      // 카테고리별 광고세트 — 동일 카테고리 광고끼리 묶어 노출 다양성 확보
       const adsForCategory = await db.select().from(adsTable).where(inArray(adsTable.id, adIdList));
       const byCategory: Record<string, string[]> = {};
       for (const a of adsForCategory) {
         const cat = a.category || "기타";
         byCategory[cat] = [...(byCategory[cat] ?? []), a.id];
       }
-      const cats = Object.keys(byCategory);
-      const budgetPerCat = Math.max(Math.round(dailyBudgetPerDay / Math.max(cats.length, 1)), 100);
+      const budgetPerCat = Math.max(Math.round(dailyBudgetPerDay / Math.max(Object.keys(byCategory).length, 1)), 100);
       for (const [cat, catAdIds] of Object.entries(byCategory)) {
         const setRes = await createAdSet({
           name: `[PLAY강릉] ${pool.name} - ${cat}`,
-          campaignId: metaCampaignId,
-          dailyBudget: budgetPerCat,
-          startTime,
-          endTime,
+          campaignId: metaCampaignId, dailyBudget: budgetPerCat, startTime, endTime,
         });
         if (setRes.ok) {
           const setId = (setRes as { ok: true; data: { id: string } }).data.id;
@@ -505,22 +527,17 @@ router.post("/ad-pools/:id/push-to-meta", async (req, res) => {
         }
       }
     } else if (aiMode === "overexposure_prevention") {
-      // 기간별 광고세트 — adsTable.date 기준 월(YYYY-MM)로 그룹핑하여 과노출 방지
       const adsForPeriod = await db.select().from(adsTable).where(inArray(adsTable.id, adIdList));
       const byPeriod: Record<string, string[]> = {};
       for (const a of adsForPeriod) {
         const month = (a.date ?? "").slice(0, 7) || "기타";
         byPeriod[month] = [...(byPeriod[month] ?? []), a.id];
       }
-      const periods = Object.keys(byPeriod);
-      const budgetPerPeriod = Math.max(Math.round(dailyBudgetPerDay / Math.max(periods.length, 1)), 100);
+      const budgetPerPeriod = Math.max(Math.round(dailyBudgetPerDay / Math.max(Object.keys(byPeriod).length, 1)), 100);
       for (const [period, periodAdIds] of Object.entries(byPeriod)) {
         const setRes = await createAdSet({
           name: `[PLAY강릉] ${pool.name} - ${period}`,
-          campaignId: metaCampaignId,
-          dailyBudget: budgetPerPeriod,
-          startTime,
-          endTime,
+          campaignId: metaCampaignId, dailyBudget: budgetPerPeriod, startTime, endTime,
         });
         if (setRes.ok) {
           const setId = (setRes as { ok: true; data: { id: string } }).data.id;
@@ -529,56 +546,129 @@ router.post("/ad-pools/:id/push-to-meta", async (req, res) => {
         }
       }
     } else {
-      // 단일 광고세트 (equal / manual)
       const adSetRes = await createAdSet({
         name: `[PLAY강릉] ${pool.name} 광고세트`,
-        campaignId: metaCampaignId,
-        dailyBudget: dailyBudgetPerDay,
-        startTime,
-        endTime,
+        campaignId: metaCampaignId, dailyBudget: dailyBudgetPerDay, startTime, endTime,
       });
-      if (!adSetRes.ok) return res.status(502).json({ error: `광고세트 생성 실패: ${adSetRes.error}` });
+      if (!adSetRes.ok) {
+        return res.status(502).json({ error: `광고세트 생성 실패: ${adSetRes.error}`, failedStep: "adset" });
+      }
       firstAdSetId = (adSetRes as { ok: true; data: { id: string } }).data.id;
       for (const adId of adIdList) adAdSetMap[adId] = firstAdSetId;
     }
 
-    // 전략별 adset 생성 결과 검증 — 1개도 없으면 synced 표시 금지
     const createdAdSetIds = [...new Set(Object.values(adAdSetMap))].filter(Boolean);
     if (!firstAdSetId || createdAdSetIds.length === 0) {
-      return res.status(502).json({ error: "광고세트 생성에 모두 실패했습니다. Meta 연결 설정을 확인해주세요." });
+      return res.status(502).json({ error: "광고세트 생성에 모두 실패했습니다. Meta 연결 설정을 확인해주세요.", failedStep: "adset" });
     }
 
-    // 3. 광고 소재 생성 + metaAdId 저장
-    const pageId = process.env["META_PAGE_ID"] ?? "";
-    const createdAds: { adId: string; metaAdId: string }[] = [];
+    // ── STEP 3. 광고별 이미지업로드 → Creative → Ad ────────────────────────────
+    type SocialDraftShape = { caption?: string; title?: string; hashtags?: string[] };
+    type AdResult = {
+      adId: string;
+      adName: string;
+      metaAdId: string;
+      metaCreativeId: string;
+      metaImageHash: string;
+      skipped: boolean;
+      skipReason?: string;
+      imageStep: "card" | "original" | "none";
+    };
+    const adResults: AdResult[] = [];
 
-    if (adIdList.length > 0) {
-      const adsRows = await db.select().from(adsTable).where(inArray(adsTable.id, adIdList));
-      for (const adRow of adsRows) {
-        const adSetId = adAdSetMap[adRow.id] ?? firstAdSetId;
-        if (!adSetId || !pageId) {
-          // pageId 미설정 시 광고 소재 생성 생략 — 광고세트까지만 연동
-          createdAds.push({ adId: adRow.id, metaAdId: "" });
-          continue;
-        }
-        const adRes = await createAd({
-          name: `[PLAY강릉] ${adRow.title}`,
-          adSetId,
-          pageId,
-          title: adRow.title,
-          body: adRow.description,
-          imageUrl: adRow.imageUrl ?? undefined,
-          linkUrl: adRow.url ?? undefined,
+    const adsRows = await db.select().from(adsTable).where(inArray(adsTable.id, adIdList));
+
+    for (const adRow of adsRows) {
+      const adSetId = adAdSetMap[adRow.id] ?? firstAdSetId;
+
+      // 중복 방지: metaAdId가 이미 있으면 force가 아닌 한 스킵
+      if (adRow.metaAdId && !force) {
+        adResults.push({
+          adId: adRow.id, adName: adRow.title,
+          metaAdId: adRow.metaAdId, metaCreativeId: adRow.metaCreativeId ?? "",
+          metaImageHash: adRow.metaImageHash ?? "", skipped: true,
+          skipReason: "이미 Meta Ad가 생성됨 (재생성하려면 재생성 버튼 사용)",
+          imageStep: "none",
         });
-        if (adRes.ok) {
-          const metaAdId = (adRes as { ok: true; data: { id: string } }).data.id;
-          await db.update(adsTable).set({ metaAdId } as any).where(eq(adsTable.id, adRow.id));
-          createdAds.push({ adId: adRow.id, metaAdId });
+        continue;
+      }
+
+      // Pre-flight: socialDraft 필수
+      const draft = adRow.socialDraft as SocialDraftShape | null;
+      if (!draft?.caption) {
+        adResults.push({
+          adId: adRow.id, adName: adRow.title,
+          metaAdId: "", metaCreativeId: "", metaImageHash: "", skipped: true,
+          skipReason: "SNS 초안(socialDraft)이 없습니다. 먼저 SNS 초안을 생성하세요.",
+          imageStep: "none",
+        });
+        continue;
+      }
+
+      // 광고 문구: caption + hashtags 조합
+      const adBody = [draft.caption, ...(draft.hashtags?.map((t) => `#${t.replace(/^#/, "")}`) ?? [])].join("\n");
+      const adTitle = draft.title ?? adRow.title;
+
+      // 랜딩 URL: SITE_URL/content/{id} 우선
+      const landingUrl = `${SITE_URL}/content/${adRow.id}`;
+
+      // 이미지: 카드이미지 > 원본 이미지 > 없음
+      const resolvedImageUrl = await resolveCardImageUrl(adRow.id, adRow.imageUrl);
+      const imageStep: AdResult["imageStep"] = resolvedImageUrl
+        ? (resolvedImageUrl.includes("/api/cards/") ? "card" : "original")
+        : "none";
+
+      // Meta 이미지 업로드
+      let imageHash: string | undefined;
+      if (resolvedImageUrl) {
+        const imgRes = await uploadAdImage(resolvedImageUrl);
+        if (imgRes.ok) {
+          imageHash = imgRes.data.hash;
+          req.log.info({ adId: adRow.id, hash: imageHash, imageStep }, "Meta 이미지 업로드 완료");
+        } else {
+          req.log.warn({ adId: adRow.id, err: imgRes.error }, "Meta 이미지 업로드 실패");
         }
+      }
+
+      // Creative + Ad 생성
+      const adRes = await createAd({
+        name: `[PLAY강릉] ${adRow.title}`,
+        adSetId,
+        pageId,
+        title: adTitle,
+        body: adBody,
+        imageHash,
+        imageUrl: imageHash ? undefined : (resolvedImageUrl ?? undefined),
+        linkUrl: landingUrl,
+      });
+
+      if (adRes.ok) {
+        const { id: metaAdId, creativeId: metaCreativeId } = (adRes as { ok: true; data: { id: string; creativeId: string } }).data;
+        // DB 저장: metaAdId, metaCreativeId, metaImageHash, metaStatus
+        await db.update(adsTable).set({
+          metaAdId,
+          metaCreativeId,
+          metaImageHash: imageHash ?? null,
+          metaStatus: "PAUSED",
+        } as any).where(eq(adsTable.id, adRow.id));
+
+        adResults.push({
+          adId: adRow.id, adName: adRow.title,
+          metaAdId, metaCreativeId, metaImageHash: imageHash ?? "", skipped: false, imageStep,
+        });
+        req.log.info({ adId: adRow.id, metaAdId, metaCreativeId, imageStep }, "Meta 광고 소재+Ad 생성 완료");
+      } else {
+        const errMsg = (adRes as { ok: false; error: string }).error ?? "알 수 없는 오류";
+        adResults.push({
+          adId: adRow.id, adName: adRow.title,
+          metaAdId: "", metaCreativeId: "", metaImageHash: "", skipped: true,
+          skipReason: `광고 생성 실패: ${errMsg}`, imageStep,
+        });
+        req.log.warn({ adId: adRow.id, err: errMsg }, "Meta 광고 소재 생성 실패");
       }
     }
 
-    // 4. 풀 DB 저장
+    // ── STEP 4. 풀 DB 저장 ────────────────────────────────────────────────────
     await db.update(adPoolsTable).set({
       metaCampaignId,
       metaAdSetId: firstAdSetId,
@@ -587,15 +677,28 @@ router.post("/ad-pools/:id/push-to-meta", async (req, res) => {
       updatedAt: new Date(),
     }).where(eq(adPoolsTable.id, id));
 
-    req.log.info({ poolId: id, metaCampaignId, adSetCount: Object.keys(adAdSetMap).length, adCount: createdAds.length }, "Meta 캠페인 반영 완료");
+    const created = adResults.filter((r) => !r.skipped);
+    const skipped = adResults.filter((r) => r.skipped);
+
+    req.log.info({
+      poolId: id, metaCampaignId,
+      adSetCount: createdAdSetIds.length,
+      adsCreated: created.length,
+      adsSkipped: skipped.length,
+    }, "Meta 캠페인 전체 반영 완료");
+
     return res.json({
       success: true,
+      steps: {
+        campaign: { ok: true, id: metaCampaignId },
+        adSets: { ok: true, count: createdAdSetIds.length, strategy: aiMode },
+        ads: { created: created.length, skipped: skipped.length },
+      },
       metaCampaignId,
       metaAdSetId: firstAdSetId,
-      strategy: aiMode === "performance" ? "per-ad-adset" : "single-adset",
-      adSetsCreated: [...new Set(Object.values(adAdSetMap))].length,
-      adsCreated: createdAds.filter((a) => a.metaAdId).length,
-      note: !pageId ? "META_PAGE_ID 미설정 — 광고 소재 생성 생략 (캠페인/광고세트만 생성)" : undefined,
+      adsCreated: created.length,
+      adsSkipped: skipped.length,
+      adResults,
     });
   } catch (err) {
     req.log.error({ err }, "Meta 반영 실패");

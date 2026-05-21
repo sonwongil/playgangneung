@@ -23,6 +23,9 @@ export const adsTable = pgTable("ads", {
   aiScore: integer("ai_score"),
   aiNote: text("ai_note"),
   metaAdId: text("meta_ad_id"),
+  metaCreativeId: text("meta_creative_id"),
+  metaImageHash: text("meta_image_hash"),
+  metaStatus: text("meta_status"),
   reportToken: text("report_token"),
 });
 

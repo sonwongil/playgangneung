@@ -140,6 +140,31 @@ export async function createAdSet(opts: CreateAdSetOptions) {
   });
 }
 
+// ─── 광고 이미지 업로드 (Meta Image API) ─────────────────────────────────────────
+/**
+ * 이미지 URL을 Meta Image API에 업로드하고 image_hash를 반환합니다.
+ * creative의 image_hash 필드에 사용됩니다.
+ */
+export async function uploadAdImage(imageUrl: string): Promise<MetaResult<{ hash: string; url: string }>> {
+  const creds = getCredentials();
+  if (!creds) return { ok: false, error: "META_ACCESS_TOKEN / META_AD_ACCOUNT_ID 환경변수가 설정되지 않았습니다" };
+  const res = await metaPost<{ images: Record<string, { hash: string; url: string }> }>(
+    `act_${creds.adAccountId}/adimages`,
+    { url: imageUrl },
+  );
+  if (!res.ok) return res;
+  // Meta는 { images: { original: { hash, url } } } 또는 { images: { "<filename>": { hash, url } } } 형식으로 반환
+  const images = res.data.images;
+  const firstKey = Object.keys(images ?? {})[0];
+  const img = firstKey ? images[firstKey] : undefined;
+  if (!img?.hash) {
+    logger.warn({ imageUrl }, "Meta Image API 업로드 성공했으나 hash 없음");
+    return { ok: false, error: "이미지 업로드 응답에 hash가 없습니다" };
+  }
+  logger.info({ imageUrl, hash: img.hash }, "Meta 이미지 업로드 완료");
+  return { ok: true, data: { hash: img.hash, url: img.url } };
+}
+
 // ─── 광고 소재 생성 ──────────────────────────────────────────────────────────────
 export interface CreateAdOptions {
   name: string;
@@ -147,6 +172,9 @@ export interface CreateAdOptions {
   pageId: string;
   title: string;
   body: string;
+  /** imageHash: Meta Image API 업로드 후 받은 해시 (우선 사용) */
+  imageHash?: string;
+  /** imageUrl: imageHash 없을 때 picture URL로 직접 전달 (폴백) */
   imageUrl?: string;
   linkUrl?: string;
 }
@@ -154,6 +182,14 @@ export interface CreateAdOptions {
 export async function createAd(opts: CreateAdOptions) {
   const creds = getCredentials();
   if (!creds) return { ok: false as const, error: "미설정" };
+
+  // 이미지: image_hash 우선, 없으면 picture URL 폴백
+  const imageField: Record<string, unknown> = opts.imageHash
+    ? { image_hash: opts.imageHash }
+    : opts.imageUrl
+      ? { picture: opts.imageUrl }
+      : {};
+
   const creative: Record<string, unknown> = {
     name: `${opts.name} 소재`,
     object_story_spec: {
@@ -162,20 +198,25 @@ export async function createAd(opts: CreateAdOptions) {
         message: opts.body,
         name: opts.title,
         link: opts.linkUrl ?? `https://play-gangneung-dashboard.replit.app`,
-        ...(opts.imageUrl ? { picture: opts.imageUrl } : {}),
+        call_to_action: { type: "LEARN_MORE" },
+        ...imageField,
       },
     },
   };
-  // 소재 먼저 생성
+  // 소재(Creative) 먼저 생성
   const creativeRes = await metaPost<{ id: string }>(`act_${creds.adAccountId}/adcreatives`, creative);
   if (!creativeRes.ok) return creativeRes;
 
-  return metaPost<{ id: string }>(`act_${creds.adAccountId}/ads`, {
+  const creativeId = creativeRes.data.id;
+  const adRes = await metaPost<{ id: string }>(`act_${creds.adAccountId}/ads`, {
     name: opts.name,
     adset_id: opts.adSetId,
-    creative: { creative_id: creativeRes.data.id },
+    creative: { creative_id: creativeId },
     status: "PAUSED",
   });
+  if (!adRes.ok) return adRes;
+
+  return { ok: true, data: { id: adRes.data.id, creativeId } };
 }
 
 // ─── 성과 인사이트 조회 ──────────────────────────────────────────────────────────

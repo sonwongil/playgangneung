@@ -205,11 +205,31 @@ interface MetaRateLimit {
   warning: string | null;
 }
 
+interface AdProduct {
+  id: string;
+  name: string;
+  description: string;
+  amount: number;
+  adDurationDays: number | null;
+  productType: string;
+  isActive: boolean;
+  sortOrder: number;
+  marginRate: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 interface AdPayment {
   id: string;
   orderId: string;
   paymentKey: string | null;
   adId: string | null;
+  productId: string | null;
+  productNameSnapshot: string | null;
+  productPriceSnapshot: number | null;
+  marginRateSnapshot: number | null;
+  adDurationDaysSnapshot: number | null;
+  productTypeSnapshot: string | null;
   plan: string;
   amount: number;
   status: string;
@@ -550,6 +570,10 @@ export default function Admin() {
   const [manualLoading, setManualLoading] = useState(false);
   const [metaPushLoading, setMetaPushLoading] = useState<string | null>(null);
   const [billingExpireLoading, setBillingExpireLoading] = useState(false);
+  const [showProductForm, setShowProductForm] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<AdProduct | null>(null);
+  const [productForm, setProductForm] = useState({ name: "", description: "", amount: "", adDurationDays: "", productType: "ad_run", isActive: true, sortOrder: "0", marginRate: "30" });
+  const [productFormLoading, setProductFormLoading] = useState(false);
 
   const { data: poolPerfData, isLoading: poolPerfLoading, refetch: refetchPoolPerf } = useQuery<PoolPerformance>({
     queryKey: ["pool-performance", perfPoolId, perfSince, perfUntil],
@@ -571,11 +595,21 @@ export default function Admin() {
     enabled: !!(activeNav === "adCenter" && adCenterTab === "billing"),
   });
 
-  const { data: paymentOrdersData, isLoading: paymentOrdersLoading } = useQuery<{ orders: AdPayment[] }>({
+  const { data: paymentOrdersData, isLoading: paymentOrdersLoading, refetch: refetchPaymentOrders } = useQuery<{ orders: AdPayment[] }>({
     queryKey: ["payment-orders"],
     queryFn: async () => {
       const r = await fetch(`${BASE}/api/payment/orders`, { credentials: "include" });
       if (!r.ok) throw new Error("결제 내역 로드 실패");
+      return r.json();
+    },
+    enabled: !!(activeNav === "adCenter" && adCenterTab === "billing"),
+  });
+
+  const { data: adminProductsData, isLoading: adminProductsLoading, refetch: refetchAdminProducts } = useQuery<{ products: AdProduct[] }>({
+    queryKey: ["admin-ad-products"],
+    queryFn: async () => {
+      const r = await fetch(`${BASE}/api/admin/ad-products`, { credentials: "include" });
+      if (!r.ok) throw new Error("광고 상품 로드 실패");
       return r.json();
     },
     enabled: !!(activeNav === "adCenter" && adCenterTab === "billing"),
@@ -2842,8 +2876,208 @@ export default function Admin() {
                   const expired = items.filter((i) => i.isExpired);
                   const active = items.filter((i) => i.status === "active" && !i.isExpired);
                   const others = items.filter((i) => i.status !== "active");
+
+                  const PRODUCT_TYPE_OPTS = [
+                    { value: "ad_run",       label: "광고집행형" },
+                    { value: "image_create", label: "이미지제작형" },
+                    { value: "coverage",     label: "취재포함형" },
+                    { value: "etc",          label: "기타" },
+                  ];
+                  const ptLabel = (v: string) => PRODUCT_TYPE_OPTS.find((o) => o.value === v)?.label ?? v;
+
+                  async function saveProduct(e: React.FormEvent) {
+                    e.preventDefault();
+                    if (!productForm.name.trim()) { toast({ description: "상품명을 입력해주세요.", variant: "destructive" }); return; }
+                    const amt = Number(productForm.amount);
+                    if (!amt || amt <= 0) { toast({ description: "가격을 올바르게 입력해주세요.", variant: "destructive" }); return; }
+                    setProductFormLoading(true);
+                    try {
+                      const body = {
+                        name: productForm.name.trim(),
+                        description: productForm.description.trim(),
+                        amount: amt,
+                        adDurationDays: productForm.adDurationDays ? Number(productForm.adDurationDays) : null,
+                        productType: productForm.productType,
+                        isActive: productForm.isActive,
+                        sortOrder: Number(productForm.sortOrder) || 0,
+                        marginRate: Number(productForm.marginRate) / 100,
+                      };
+                      const url = editingProduct
+                        ? `${BASE}/api/admin/ad-products/${editingProduct.id}`
+                        : `${BASE}/api/admin/ad-products`;
+                      const r = await fetch(url, {
+                        method: editingProduct ? "PATCH" : "POST",
+                        headers: { "Content-Type": "application/json" },
+                        credentials: "include",
+                        body: JSON.stringify(body),
+                      });
+                      if (!r.ok) {
+                        const d = await r.json() as { error?: string };
+                        toast({ description: d.error ?? "저장 실패", variant: "destructive" });
+                        return;
+                      }
+                      toast({ description: editingProduct ? "상품이 수정되었습니다." : "상품이 추가되었습니다." });
+                      setShowProductForm(false);
+                      setEditingProduct(null);
+                      setProductForm({ name: "", description: "", amount: "", adDurationDays: "", productType: "ad_run", isActive: true, sortOrder: "0", marginRate: "30" });
+                      void refetchAdminProducts();
+                    } finally {
+                      setProductFormLoading(false);
+                    }
+                  }
+
+                  async function toggleActive(p: AdProduct) {
+                    await fetch(`${BASE}/api/admin/ad-products/${p.id}`, {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      credentials: "include",
+                      body: JSON.stringify({ isActive: !p.isActive }),
+                    });
+                    void refetchAdminProducts();
+                  }
+
+                  async function deleteProduct(p: AdProduct) {
+                    if (!window.confirm(`"${p.name}" 상품을 삭제하시겠습니까?`)) return;
+                    const r = await fetch(`${BASE}/api/admin/ad-products/${p.id}`, { method: "DELETE", credentials: "include" });
+                    if (r.ok) { toast({ description: "삭제되었습니다." }); void refetchAdminProducts(); }
+                    else toast({ description: "삭제 실패", variant: "destructive" });
+                  }
+
+                  function startEdit(p: AdProduct) {
+                    setEditingProduct(p);
+                    setProductForm({
+                      name: p.name,
+                      description: p.description,
+                      amount: String(p.amount),
+                      adDurationDays: p.adDurationDays != null ? String(p.adDurationDays) : "",
+                      productType: p.productType,
+                      isActive: p.isActive,
+                      sortOrder: String(p.sortOrder),
+                      marginRate: String(Math.round(p.marginRate * 100)),
+                    });
+                    setShowProductForm(true);
+                  }
+
+                  const productFormEl = (showProductForm || editingProduct) ? (
+                    <Card className="border-blue-200 bg-blue-50/40">
+                      <CardContent className="p-4">
+                        <p className="text-sm font-semibold text-blue-800 mb-3">{editingProduct ? "상품 수정" : "새 상품 추가"}</p>
+                        <form onSubmit={(e) => void saveProduct(e)} className="space-y-3">
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="col-span-2">
+                              <label className="text-[11px] text-gray-600 font-medium">상품명 *</label>
+                              <Input value={productForm.name} onChange={(e) => setProductForm((f) => ({ ...f, name: e.target.value }))} placeholder="예: 3일 광고" className="mt-0.5 h-8 text-sm" />
+                            </div>
+                            <div className="col-span-2">
+                              <label className="text-[11px] text-gray-600 font-medium">상품 설명</label>
+                              <Input value={productForm.description} onChange={(e) => setProductForm((f) => ({ ...f, description: e.target.value }))} placeholder="간단한 설명" className="mt-0.5 h-8 text-sm" />
+                            </div>
+                            <div>
+                              <label className="text-[11px] text-gray-600 font-medium">판매가격 (원) *</label>
+                              <Input type="number" min="0" value={productForm.amount} onChange={(e) => setProductForm((f) => ({ ...f, amount: e.target.value }))} placeholder="40000" className="mt-0.5 h-8 text-sm" />
+                            </div>
+                            <div>
+                              <label className="text-[11px] text-gray-600 font-medium">광고 기간 (일)</label>
+                              <Input type="number" min="0" value={productForm.adDurationDays} onChange={(e) => setProductForm((f) => ({ ...f, adDurationDays: e.target.value }))} placeholder="비우면 해당없음" className="mt-0.5 h-8 text-sm" />
+                            </div>
+                            <div>
+                              <label className="text-[11px] text-gray-600 font-medium">상품 유형</label>
+                              <select value={productForm.productType} onChange={(e) => setProductForm((f) => ({ ...f, productType: e.target.value }))} className="mt-0.5 h-8 text-sm w-full border rounded-md px-2 bg-white">
+                                {PRODUCT_TYPE_OPTS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                              </select>
+                            </div>
+                            <div>
+                              <label className="text-[11px] text-gray-600 font-medium">마진율 (%)</label>
+                              <Input type="number" min="0" max="100" value={productForm.marginRate} onChange={(e) => setProductForm((f) => ({ ...f, marginRate: e.target.value }))} placeholder="30" className="mt-0.5 h-8 text-sm" />
+                            </div>
+                            <div>
+                              <label className="text-[11px] text-gray-600 font-medium">노출 순서</label>
+                              <Input type="number" value={productForm.sortOrder} onChange={(e) => setProductForm((f) => ({ ...f, sortOrder: e.target.value }))} placeholder="0" className="mt-0.5 h-8 text-sm" />
+                            </div>
+                            <div className="flex items-center gap-2 pt-3">
+                              <input type="checkbox" id="isActiveCheck" checked={productForm.isActive} onChange={(e) => setProductForm((f) => ({ ...f, isActive: e.target.checked }))} className="rounded" />
+                              <label htmlFor="isActiveCheck" className="text-[11px] text-gray-600 font-medium select-none cursor-pointer">활성화 (결제 화면에 표시)</label>
+                            </div>
+                          </div>
+                          <div className="flex gap-2 pt-1">
+                            <Button type="submit" size="sm" className="bg-blue-600 hover:bg-blue-700 text-white" disabled={productFormLoading}>
+                              {productFormLoading ? <RefreshCw className="w-3 h-3 animate-spin mr-1" /> : null}
+                              {editingProduct ? "수정 완료" : "추가"}
+                            </Button>
+                            <Button type="button" size="sm" variant="outline" onClick={() => { setShowProductForm(false); setEditingProduct(null); setProductForm({ name: "", description: "", amount: "", adDurationDays: "", productType: "ad_run", isActive: true, sortOrder: "0", marginRate: "30" }); }}>
+                              취소
+                            </Button>
+                          </div>
+                        </form>
+                      </CardContent>
+                    </Card>
+                  ) : null;
+
                   return (
                     <div className="space-y-4">
+
+                      {/* ── 광고 상품 관리 ──────────────────────────────────────── */}
+                      <div className="border rounded-xl overflow-hidden">
+                        <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b">
+                          <p className="text-sm font-semibold text-gray-800 flex items-center gap-1.5">
+                            <CircleDollarSign className="w-4 h-4 text-blue-600" />광고 상품 관리
+                          </p>
+                          {!showProductForm && !editingProduct && (
+                            <Button size="sm" className="h-7 text-xs bg-blue-600 hover:bg-blue-700 text-white" onClick={() => setShowProductForm(true)}>
+                              + 상품 추가
+                            </Button>
+                          )}
+                        </div>
+                        <div className="p-4 space-y-3">
+                          {productFormEl}
+                          {adminProductsLoading && <p className="text-xs text-muted-foreground py-4 text-center"><RefreshCw className="w-3 h-3 animate-spin inline mr-1" />로딩 중...</p>}
+                          {!adminProductsLoading && (adminProductsData?.products ?? []).length === 0 && !showProductForm && (
+                            <p className="text-xs text-muted-foreground py-6 text-center">등록된 광고 상품이 없습니다. 상품을 추가해주세요.</p>
+                          )}
+                          {!adminProductsLoading && (adminProductsData?.products ?? []).length > 0 && (
+                            <div className="overflow-x-auto rounded-lg border">
+                              <table className="w-full text-xs">
+                                <thead className="bg-gray-50 border-b">
+                                  <tr>
+                                    {["순서", "상품명", "유형", "가격", "기간", "마진율", "상태", ""].map((h) => (
+                                      <th key={h} className="px-3 py-2 text-left text-gray-600 font-medium whitespace-nowrap">{h}</th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {(adminProductsData?.products ?? []).map((p) => (
+                                    <tr key={p.id} className={`border-b ${!p.isActive ? "opacity-50" : ""}`}>
+                                      <td className="px-3 py-2 text-gray-400">{p.sortOrder}</td>
+                                      <td className="px-3 py-2">
+                                        <div className="font-medium text-gray-800">{p.name}</div>
+                                        {p.description && <div className="text-[10px] text-gray-400 mt-0.5">{p.description}</div>}
+                                      </td>
+                                      <td className="px-3 py-2 whitespace-nowrap">
+                                        <span className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 text-[10px]">{ptLabel(p.productType)}</span>
+                                      </td>
+                                      <td className="px-3 py-2 font-bold text-gray-800 whitespace-nowrap">₩{p.amount.toLocaleString()}</td>
+                                      <td className="px-3 py-2 whitespace-nowrap text-gray-500">{p.adDurationDays != null ? `${p.adDurationDays}일` : "—"}</td>
+                                      <td className="px-3 py-2 whitespace-nowrap text-gray-600">{Math.round(p.marginRate * 100)}%</td>
+                                      <td className="px-3 py-2 whitespace-nowrap">
+                                        <button onClick={() => void toggleActive(p)} className={`px-1.5 py-0.5 rounded text-[10px] font-medium cursor-pointer border ${p.isActive ? "bg-green-50 text-green-700 border-green-200" : "bg-gray-50 text-gray-500 border-gray-200"}`}>
+                                          {p.isActive ? "활성" : "비활성"}
+                                        </button>
+                                      </td>
+                                      <td className="px-3 py-2 whitespace-nowrap">
+                                        <div className="flex gap-1">
+                                          <Button size="sm" variant="outline" className="h-6 px-2 text-[10px]" onClick={() => startEdit(p)}>수정</Button>
+                                          <Button size="sm" variant="outline" className="h-6 px-2 text-[10px] text-red-500 hover:text-red-600 hover:border-red-300" onClick={() => void deleteProduct(p)}>삭제</Button>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
                       {/* 기간 만료 자동 처리 버튼 */}
                       {expired.length > 0 && (
                         <Card className="border-red-200 bg-red-50">
@@ -2984,11 +3218,16 @@ export default function Admin() {
                         </div>
                       )}
 
-                      {/* ── 토스페이먼츠 결제 내역 ───────────────────────────── */}
+                      {/* ── 결제 내역 (정산 기준) ────────────────────────────── */}
                       <div className="mt-6 border-t pt-5">
-                        <p className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-1.5">
-                          <CircleDollarSign className="w-4 h-4 text-blue-600" />결제 내역
-                        </p>
+                        <div className="flex items-center justify-between mb-3">
+                          <p className="text-sm font-semibold text-gray-800 flex items-center gap-1.5">
+                            <CircleDollarSign className="w-4 h-4 text-blue-600" />결제 내역
+                          </p>
+                          <Button size="sm" variant="outline" className="h-6 text-[10px]" onClick={() => void refetchPaymentOrders()}>
+                            <RefreshCw className="w-3 h-3 mr-1" />새로고침
+                          </Button>
+                        </div>
                         {paymentOrdersLoading && (
                           <div className="py-6 text-center text-sm text-muted-foreground">
                             <RefreshCw className="w-4 h-4 animate-spin mx-auto mb-1 text-blue-400" />로딩 중...
@@ -3002,39 +3241,45 @@ export default function Admin() {
                             <table className="w-full text-xs">
                               <thead className="bg-gray-50 border-b">
                                 <tr>
-                                  {["주문번호", "상품", "금액", "구매자", "수단", "상태", "결제일"].map((h) => (
+                                  {["상품명", "결제금액", "마진율", "운영마진", "광고집행 기준액", "구매자", "수단", "상태", "결제일"].map((h) => (
                                     <th key={h} className="px-3 py-2 text-left text-gray-600 font-medium whitespace-nowrap">{h}</th>
                                   ))}
                                 </tr>
                               </thead>
                               <tbody>
-                                {(paymentOrdersData?.orders ?? []).map((o) => (
-                                  <tr key={o.id} className="border-b hover:bg-gray-50">
-                                    <td className="px-3 py-2 font-mono text-[10px] text-gray-500 whitespace-nowrap">{o.orderId}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap">
-                                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                                        o.plan === "premium" ? "bg-purple-50 text-purple-700" :
-                                        o.plan === "main" ? "bg-blue-50 text-blue-700" : "bg-gray-50 text-gray-600"
-                                      }`}>{o.plan}</span>
-                                    </td>
-                                    <td className="px-3 py-2 font-bold text-gray-800 whitespace-nowrap">₩{o.amount.toLocaleString()}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap">
-                                      <div>{o.customerName}</div>
-                                      <div className="text-gray-400">{o.customerEmail}</div>
-                                    </td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-gray-500">{o.method ?? "—"}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap">
-                                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                                        o.status === "paid" ? "bg-green-50 text-green-700" :
-                                        o.status === "failed" ? "bg-red-50 text-red-600" :
-                                        "bg-yellow-50 text-yellow-700"
-                                      }`}>{o.status === "paid" ? "완료" : o.status === "failed" ? "실패" : "대기"}</span>
-                                    </td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-gray-400">
-                                      {o.paidAt ? new Date(o.paidAt).toLocaleDateString("ko-KR") : new Date(o.createdAt).toLocaleDateString("ko-KR")}
-                                    </td>
-                                  </tr>
-                                ))}
+                                {(paymentOrdersData?.orders ?? []).map((o) => {
+                                  const rate = o.marginRateSnapshot ?? 0;
+                                  const price = o.productPriceSnapshot ?? o.amount;
+                                  const margin = Math.round(price * rate);
+                                  const adExec = price - margin;
+                                  return (
+                                    <tr key={o.id} className="border-b hover:bg-gray-50">
+                                      <td className="px-3 py-2">
+                                        <div className="font-medium text-gray-800">{o.productNameSnapshot ?? o.plan ?? "—"}</div>
+                                        {o.adDurationDaysSnapshot && <div className="text-[10px] text-gray-400">{o.adDurationDaysSnapshot}일</div>}
+                                      </td>
+                                      <td className="px-3 py-2 font-bold text-gray-800 whitespace-nowrap">₩{o.amount.toLocaleString()}</td>
+                                      <td className="px-3 py-2 whitespace-nowrap text-gray-600">{Math.round(rate * 100)}%</td>
+                                      <td className="px-3 py-2 whitespace-nowrap text-orange-600 font-medium">₩{margin.toLocaleString()}</td>
+                                      <td className="px-3 py-2 whitespace-nowrap text-blue-700 font-medium">₩{adExec.toLocaleString()}</td>
+                                      <td className="px-3 py-2 whitespace-nowrap">
+                                        <div className="text-gray-700">{o.customerName}</div>
+                                        <div className="text-[10px] text-gray-400">{o.customerEmail}</div>
+                                      </td>
+                                      <td className="px-3 py-2 whitespace-nowrap text-gray-500">{o.method ?? "—"}</td>
+                                      <td className="px-3 py-2 whitespace-nowrap">
+                                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                                          o.status === "paid"   ? "bg-green-50 text-green-700" :
+                                          o.status === "failed" ? "bg-red-50 text-red-600" :
+                                          "bg-yellow-50 text-yellow-700"
+                                        }`}>{o.status === "paid" ? "완료" : o.status === "failed" ? "실패" : "대기"}</span>
+                                      </td>
+                                      <td className="px-3 py-2 whitespace-nowrap text-gray-400">
+                                        {o.paidAt ? new Date(o.paidAt).toLocaleDateString("ko-KR") : new Date(o.createdAt).toLocaleDateString("ko-KR")}
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
                               </tbody>
                             </table>
                           </div>

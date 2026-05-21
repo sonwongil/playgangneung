@@ -7,3 +7,4 @@ export * from "./blogSources";
 export * from "./ads";
 export * from "./adPools";
 export * from "./payments";
+export * from "./adProducts";

@@ -414,4 +414,57 @@ JSON 배열만 반환 (설명 없이):
   }
 });
 
+// ─── Meta에 반영 (캠페인 → 광고세트 → 광고 자동 생성) ─────────────────────────────
+router.post("/:id/push-to-meta", async (req, res) => {
+  if (!req.session?.isAdmin) return res.status(401).json({ error: "로그인이 필요합니다" });
+  const { isConfigured, createCampaign, createAdSet } = await import("../lib/metaApi.js");
+  if (!isConfigured()) {
+    return res.status(503).json({
+      error: "Meta API 환경변수 미설정",
+      hint: "META_ACCESS_TOKEN 과 META_AD_ACCOUNT_ID 환경변수를 설정하세요.",
+      configured: false,
+    });
+  }
+  try {
+    const { id } = req.params;
+    const [pool] = await db.select().from(adPoolsTable).where(eq(adPoolsTable.id, id));
+    if (!pool) return res.status(404).json({ error: "묶음을 찾을 수 없습니다" });
+
+    // 캠페인 생성
+    const campaignRes = await createCampaign({
+      name: `[PLAY강릉] ${pool.name}`,
+      objective: pool.objective,
+      status: "PAUSED",
+    });
+    if (!campaignRes.ok) return res.status(502).json({ error: `캠페인 생성 실패: ${campaignRes.error}` });
+    const metaCampaignId = (campaignRes as { ok: true; data: { id: string } }).data.id;
+
+    // 광고세트 생성
+    const adSetRes = await createAdSet({
+      name: `[PLAY강릉] ${pool.name} 광고세트`,
+      campaignId: metaCampaignId,
+      dailyBudget: Math.round(pool.totalBudget / 30),
+      startTime: new Date(`${pool.startDate}T00:00:00+09:00`).toISOString(),
+      endTime: new Date(`${pool.endDate}T23:59:59+09:00`).toISOString(),
+    });
+    if (!adSetRes.ok) return res.status(502).json({ error: `광고세트 생성 실패: ${adSetRes.error}` });
+    const metaAdSetId = (adSetRes as { ok: true; data: { id: string } }).data.id;
+
+    // DB 저장
+    await db.update(adPoolsTable).set({
+      metaCampaignId,
+      metaAdSetId,
+      metaSyncedAt: new Date(),
+      metaSyncStatus: "synced",
+      updatedAt: new Date(),
+    }).where(eq(adPoolsTable.id, id));
+
+    req.log.info({ poolId: id, metaCampaignId, metaAdSetId }, "Meta 캠페인 반영 완료");
+    return res.json({ success: true, metaCampaignId, metaAdSetId });
+  } catch (err) {
+    req.log.error({ err }, "Meta 반영 실패");
+    return res.status(500).json({ error: "Meta 반영 실패" });
+  }
+});
+
 export default router;

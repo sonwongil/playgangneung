@@ -22,6 +22,7 @@ export const adsTable = pgTable("ads", {
   isFreeAd: boolean("is_free_ad").notNull().default(true),
   aiScore: integer("ai_score"),
   aiNote: text("ai_note"),
+  metaAdId: text("meta_ad_id"),
 });
 
 export type AdRow = typeof adsTable.$inferSelect;

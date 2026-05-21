@@ -1,9 +1,13 @@
 import * as cron from "node-cron";
 import fs from "fs/promises";
 import path from "path";
+import crypto from "crypto";
 import { crawlAll } from "./crawler.js";
 import { appendEvents } from "./storage.js";
 import { logger } from "./logger.js";
+import { db, adPoolsTable, adPerformancesTable } from "@workspace/db";
+import { eq, sql } from "drizzle-orm";
+import { getCampaignInsights, isConfigured } from "./metaApi.js";
 
 const CONFIG_FILE = path.resolve(process.cwd(), "data/config.json");
 
@@ -46,7 +50,48 @@ async function runCrawl() {
   }
 }
 
+// ─── Meta 성과 수집 (매일 오전 08:00 KST) ────────────────────────────────────────
+async function collectMetaPerformance() {
+  if (!isConfigured()) return;
+  logger.info("Meta 성과 자동 수집 시작");
+  try {
+    const activePools = await db
+      .select()
+      .from(adPoolsTable)
+      .where(sql`${adPoolsTable.status} = 'active' AND ${adPoolsTable.metaCampaignId} IS NOT NULL`);
+
+    let total = 0;
+    for (const pool of activePools) {
+      if (!pool.metaCampaignId) continue;
+      const insights = await getCampaignInsights(pool.metaCampaignId, "yesterday");
+      if (!insights.ok) {
+        logger.warn({ poolId: pool.id, error: insights.error }, "Meta 성과 수집 실패");
+        continue;
+      }
+      const rows = (insights.data as { data: { date_start: string; impressions?: string; clicks?: string; spend?: string; reach?: string }[] }).data ?? [];
+      for (const row of rows) {
+        await db.insert(adPerformancesTable).values({
+          id: crypto.randomUUID(),
+          adId: ((pool.adIds as string[]) ?? [])[0] ?? pool.id,
+          poolId: pool.id,
+          date: row.date_start,
+          impressions: Number(row.impressions ?? 0),
+          clicks: Number(row.clicks ?? 0),
+          spend: Math.round(Number(row.spend ?? 0) * 100),
+          reach: Number(row.reach ?? 0),
+          source: "meta",
+        }).onConflictDoNothing();
+        total++;
+      }
+    }
+    logger.info({ pools: activePools.length, total }, "Meta 성과 자동 수집 완료");
+  } catch (err) {
+    logger.error({ err }, "Meta 성과 자동 수집 오류");
+  }
+}
+
 let currentTask: cron.ScheduledTask | null = null;
+let performanceTask: cron.ScheduledTask | null = null;
 
 function applySchedule(hour: number, minute: number) {
   if (currentTask) { currentTask.stop(); currentTask = null; }
@@ -58,6 +103,10 @@ function applySchedule(hour: number, minute: number) {
 export async function startScheduler() {
   const cfg = await readScheduleConfig();
   applySchedule(cfg.crawlHour, cfg.crawlMinute);
+  // 매일 오전 08:00 KST Meta 성과 수집
+  if (performanceTask) { performanceTask.stop(); }
+  performanceTask = cron.schedule("0 8 * * *", collectMetaPerformance, { timezone: "Asia/Seoul" });
+  logger.info("Meta 성과 수집 스케줄 등록 완료 (매일 08:00 KST)");
 }
 
 export async function reschedule(hour: number, minute: number) {

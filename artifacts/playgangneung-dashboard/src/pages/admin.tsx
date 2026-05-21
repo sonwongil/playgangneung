@@ -61,6 +61,9 @@ import {
   Sparkles,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import {
+  BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+} from "recharts";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -131,8 +134,50 @@ interface AdPool {
   endDate: string;
   aiMode: "equal" | "performance" | "overexposure_prevention" | "new_ad_boost" | "manual";
   status: "draft" | "active" | "paused" | "ended";
+  metaCampaignId?: string | null;
+  metaAdSetId?: string | null;
+  metaSyncedAt?: string | null;
+  metaSyncStatus?: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+interface PoolPerformanceSummary {
+  totalImpressions: number;
+  totalClicks: number;
+  totalSpend: number;
+  totalReach: number;
+  ctr: number;
+  cpc: number;
+  budgetUsedPct: number;
+}
+
+interface PoolPerformance {
+  pool: { id: string; name: string; totalBudget: number; metaCampaignId?: string | null };
+  summary: PoolPerformanceSummary;
+  dailyChart: { date: string; impressions: number; clicks: number; spend: number; ctr: number }[];
+  since: string;
+  until: string;
+}
+
+interface BillingSummaryItem {
+  id: string;
+  name: string;
+  status: string;
+  startDate: string;
+  endDate: string;
+  totalBudget: number;
+  totalSpend: number;
+  spendPct: number;
+  elapsedPct: number;
+  isExpired: boolean;
+  adCount: number;
+  metaSynced: boolean;
+}
+
+interface BillingSummary {
+  summaries: BillingSummaryItem[];
+  today: string;
 }
 
 interface AdCenterStats {
@@ -448,6 +493,32 @@ export default function Admin() {
       return r.json();
     },
     enabled: !!(activeNav === "adCenter" && selectedPoolId),
+  });
+
+  const [perfPoolId, setPerfPoolId] = useState<string | null>(null);
+  const [perfSince, setPerfSince] = useState(() => new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10));
+  const [perfUntil, setPerfUntil] = useState(() => new Date().toISOString().slice(0, 10));
+  const [metaPushLoading, setMetaPushLoading] = useState<string | null>(null);
+  const [billingExpireLoading, setBillingExpireLoading] = useState(false);
+
+  const { data: poolPerfData, isLoading: poolPerfLoading, refetch: refetchPoolPerf } = useQuery<PoolPerformance>({
+    queryKey: ["pool-performance", perfPoolId, perfSince, perfUntil],
+    queryFn: async () => {
+      const r = await fetch(`${BASE}/api/ad-pools/${perfPoolId}/performance?since=${perfSince}&until=${perfUntil}`, { credentials: "include" });
+      if (!r.ok) throw new Error("성과 로드 실패");
+      return r.json();
+    },
+    enabled: !!(activeNav === "adCenter" && adCenterTab === "performance" && perfPoolId),
+  });
+
+  const { data: billingSummaryData, isLoading: billingLoading, refetch: refetchBilling } = useQuery<BillingSummary>({
+    queryKey: ["billing-summary"],
+    queryFn: async () => {
+      const r = await fetch(`${BASE}/api/billing/summary`, { credentials: "include" });
+      if (!r.ok) throw new Error("정산 현황 로드 실패");
+      return r.json();
+    },
+    enabled: !!(activeNav === "adCenter" && adCenterTab === "billing"),
   });
 
   const { data: storiesData, isLoading: storiesLoading, refetch: refetchStories } = useQuery<{ stories: AdminStory[] }>({
@@ -1461,10 +1532,10 @@ export default function Admin() {
               { key: "applications",  label: "신청목록",   icon: <Megaphone className="w-3.5 h-3.5" />,        stub: false },
               { key: "createPool",    label: "묶음만들기", icon: <Layers className="w-3.5 h-3.5" />,           stub: false },
               { key: "rotation",      label: "순환편성표", icon: <CalendarClock className="w-3.5 h-3.5" />,    stub: false },
-              { key: "meta",          label: "Meta연동",   icon: <ExternalLink className="w-3.5 h-3.5" />,     stub: true  },
+              { key: "meta",          label: "Meta연동",   icon: <ExternalLink className="w-3.5 h-3.5" />,     stub: false },
               { key: "aiSettings",    label: "AI설정",     icon: <Settings className="w-3.5 h-3.5" />,         stub: false },
-              { key: "performance",   label: "성과리포트", icon: <TrendingUp className="w-3.5 h-3.5" />,       stub: true  },
-              { key: "billing",       label: "정산관리",   icon: <CircleDollarSign className="w-3.5 h-3.5" />, stub: true  },
+              { key: "performance",   label: "성과리포트", icon: <TrendingUp className="w-3.5 h-3.5" />,       stub: false },
+              { key: "billing",       label: "정산관리",   icon: <CircleDollarSign className="w-3.5 h-3.5" />, stub: false },
             ] as const;
 
             return (
@@ -2129,31 +2200,416 @@ export default function Admin() {
                   </div>
                 )}
 
-                {/* ─ 준비중 stub 탭들 ─ */}
-                {(adCenterTab === "meta" || adCenterTab === "performance" || adCenterTab === "billing") && (
-                  <div className="py-20 flex flex-col items-center gap-3 text-center">
-                    <div className="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center">
-                      {adCenterTab === "meta" && <ExternalLink className="w-6 h-6 text-gray-400" />}
-                      {adCenterTab === "performance" && <TrendingUp className="w-6 h-6 text-gray-400" />}
-                      {adCenterTab === "billing" && <CircleDollarSign className="w-6 h-6 text-gray-400" />}
+                {/* ─ Meta 연동 탭 ─ */}
+                {adCenterTab === "meta" && (() => {
+                  const pools = adPoolsData?.pools ?? [];
+                  return (
+                    <div className="space-y-4">
+                      {/* 환경변수 상태 배너 */}
+                      <Card className="border-blue-200 bg-blue-50">
+                        <CardContent className="p-4">
+                          <p className="text-sm font-semibold text-blue-800 flex items-center gap-2">
+                            <ExternalLink className="w-4 h-4" />Meta Marketing API 연동
+                          </p>
+                          <p className="text-xs text-blue-700 mt-1">
+                            환경변수 <code className="bg-blue-100 px-1 rounded">META_ACCESS_TOKEN</code>과{" "}
+                            <code className="bg-blue-100 px-1 rounded">META_AD_ACCOUNT_ID</code>를 설정하면 Meta 광고 캠페인을 자동 생성합니다.
+                            미설정 시에도 관리 기능은 모두 사용 가능합니다.
+                          </p>
+                        </CardContent>
+                      </Card>
+
+                      {/* 풀별 Meta 연동 현황 */}
+                      <div className="space-y-3">
+                        <p className="text-sm font-semibold">광고 묶음별 Meta 연동 현황</p>
+                        {pools.length === 0 && (
+                          <p className="text-xs text-muted-foreground py-6 text-center">등록된 광고 묶음이 없습니다. 먼저 묶음을 만드세요.</p>
+                        )}
+                        {pools.map((pool) => (
+                          <Card key={pool.id}>
+                            <CardContent className="p-4">
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="font-medium text-sm truncate">{pool.name}</span>
+                                    <Badge className={`text-[10px] ${
+                                      pool.status === "active" ? "bg-green-100 text-green-700 border-green-200"
+                                      : pool.status === "paused" ? "bg-yellow-100 text-yellow-700 border-yellow-200"
+                                      : pool.status === "ended" ? "bg-red-100 text-red-600 border-red-200"
+                                      : "bg-gray-100 text-gray-600 border-gray-200"
+                                    }`}>
+                                      {pool.status === "active" ? "운영중" : pool.status === "paused" ? "일시정지" : pool.status === "ended" ? "종료" : "초안"}
+                                    </Badge>
+                                  </div>
+                                  <p className="text-[11px] text-muted-foreground mt-1">
+                                    {pool.startDate} ~ {pool.endDate} · 예산 {pool.totalBudget.toLocaleString()}원 · 광고 {pool.adIds.length}개
+                                  </p>
+                                  {pool.metaCampaignId ? (
+                                    <div className="mt-2 text-[11px] space-y-0.5">
+                                      <p className="text-green-700 flex items-center gap-1">
+                                        <CheckCircle className="w-3 h-3" />
+                                        Meta 연동됨 — 캠페인 ID: <code className="bg-green-50 px-1 rounded font-mono">{pool.metaCampaignId}</code>
+                                      </p>
+                                      {pool.metaAdSetId && (
+                                        <p className="text-green-600">광고세트 ID: <code className="bg-green-50 px-1 rounded font-mono">{pool.metaAdSetId}</code></p>
+                                      )}
+                                      {pool.metaSyncedAt && (
+                                        <p className="text-muted-foreground">마지막 동기화: {new Date(pool.metaSyncedAt).toLocaleString("ko-KR")}</p>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <p className="mt-2 text-[11px] text-muted-foreground flex items-center gap-1">
+                                      <AlertTriangle className="w-3 h-3 text-yellow-500" />Meta 미연동
+                                    </p>
+                                  )}
+                                </div>
+                                <div className="flex flex-col gap-2 shrink-0">
+                                  <Button
+                                    size="sm"
+                                    variant={pool.metaCampaignId ? "outline" : "default"}
+                                    className={`text-xs ${!pool.metaCampaignId ? "bg-blue-600 hover:bg-blue-700" : ""}`}
+                                    disabled={metaPushLoading === pool.id}
+                                    onClick={async () => {
+                                      setMetaPushLoading(pool.id);
+                                      try {
+                                        const r = await fetch(`${BASE}/api/ad-pools/${pool.id}/push-to-meta`, {
+                                          method: "POST", credentials: "include",
+                                        });
+                                        const d = await r.json() as { success?: boolean; error?: string; hint?: string; metaCampaignId?: string };
+                                        if (!r.ok) {
+                                          toast({ description: d.error ?? "Meta 반영 실패", variant: "destructive" });
+                                          if (d.hint) toast({ description: d.hint });
+                                        } else {
+                                          toast({ description: `Meta 캠페인 생성 완료 (${d.metaCampaignId})` });
+                                          refetchPools();
+                                        }
+                                      } catch {
+                                        toast({ description: "Meta 반영 실패", variant: "destructive" });
+                                      } finally {
+                                        setMetaPushLoading(null);
+                                      }
+                                    }}
+                                  >
+                                    {metaPushLoading === pool.id ? <RefreshCw className="w-3 h-3 animate-spin mr-1" /> : <Send className="w-3 h-3 mr-1" />}
+                                    {pool.metaCampaignId ? "재동기화" : "Meta에 반영"}
+                                  </Button>
+                                  {pool.metaCampaignId && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="text-xs"
+                                      onClick={async () => {
+                                        try {
+                                          const r = await fetch(`${BASE}/api/ad-pools/${pool.id}/collect-performance`, {
+                                            method: "POST", credentials: "include",
+                                          });
+                                          const d = await r.json() as { success?: boolean; error?: string; saved?: number };
+                                          if (!r.ok) toast({ description: d.error ?? "수집 실패", variant: "destructive" });
+                                          else toast({ description: `성과 ${d.saved ?? 0}건 수집 완료` });
+                                        } catch {
+                                          toast({ description: "수집 실패", variant: "destructive" });
+                                        }
+                                      }}
+                                    >
+                                      <RefreshCw className="w-3 h-3 mr-1" />성과 수집
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+
+                      {/* Rate limit 안내 */}
+                      <Card className="border-gray-200">
+                        <CardContent className="p-4">
+                          <p className="text-xs font-semibold text-gray-700 flex items-center gap-1.5 mb-2">
+                            <Bell className="w-3.5 h-3.5" />Meta API Rate Limit 안내
+                          </p>
+                          <ul className="text-[11px] text-muted-foreground space-y-1">
+                            <li>• 성과 데이터는 매일 오전 8시 자동 수집됩니다 (Meta Business Basic tier: 200회/시간)</li>
+                            <li>• 한도 초과 시 다음 수집 주기에 자동 재시도합니다</li>
+                            <li>• 즉시 수집이 필요하면 "성과 수집" 버튼을 클릭하세요</li>
+                          </ul>
+                        </CardContent>
+                      </Card>
                     </div>
-                    <div>
-                      <p className="font-semibold text-sm">
-                        {adCenterTab === "meta" && "Meta 광고 API 연동"}
-                        {adCenterTab === "performance" && "성과 리포트"}
-                        {adCenterTab === "billing" && "정산 관리"}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {adCenterTab === "meta" && "Phase 3에서 Meta Marketing API 실제 연동 및 캠페인 자동 생성이 구현됩니다."}
-                        {adCenterTab === "performance" && "Phase 3에서 노출·클릭·지출 성과 데이터 리포트가 제공됩니다."}
-                        {adCenterTab === "billing" && "Phase 3에서 광고주별 예산 집행 및 정산 관리가 구현됩니다."}
-                      </p>
+                  );
+                })()}
+
+                {/* ─ 성과 리포트 탭 ─ */}
+                {adCenterTab === "performance" && (() => {
+                  const pools = adPoolsData?.pools ?? [];
+                  const perf = poolPerfData;
+                  return (
+                    <div className="space-y-4">
+                      {/* 풀 선택 + 기간 필터 */}
+                      <Card>
+                        <CardContent className="p-4">
+                          <div className="flex flex-wrap items-end gap-3">
+                            <div className="flex-1 min-w-[160px]">
+                              <label className="text-xs text-muted-foreground mb-1 block">광고 묶음 선택</label>
+                              <select
+                                className="w-full border rounded-md px-3 py-1.5 text-sm bg-white"
+                                value={perfPoolId ?? ""}
+                                onChange={(e) => setPerfPoolId(e.target.value || null)}
+                              >
+                                <option value="">-- 선택 --</option>
+                                {pools.map((p) => (
+                                  <option key={p.id} value={p.id}>{p.name}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <label className="text-xs text-muted-foreground mb-1 block">시작일</label>
+                              <Input type="date" value={perfSince} onChange={(e) => setPerfSince(e.target.value)} className="w-36 text-sm" />
+                            </div>
+                            <div>
+                              <label className="text-xs text-muted-foreground mb-1 block">종료일</label>
+                              <Input type="date" value={perfUntil} onChange={(e) => setPerfUntil(e.target.value)} className="w-36 text-sm" />
+                            </div>
+                            <Button size="sm" onClick={() => refetchPoolPerf()} disabled={!perfPoolId || poolPerfLoading} className="bg-blue-600 hover:bg-blue-700">
+                              {poolPerfLoading ? <RefreshCw className="w-3 h-3 animate-spin" /> : <TrendingUp className="w-3 h-3" />}
+                              <span className="ml-1">조회</span>
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {!perfPoolId && (
+                        <div className="py-16 text-center text-muted-foreground text-sm">
+                          <TrendingUp className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                          광고 묶음을 선택하면 성과 데이터를 확인할 수 있습니다.
+                        </div>
+                      )}
+
+                      {perfPoolId && !poolPerfLoading && perf && (
+                        <>
+                          {/* 요약 카드 */}
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            {[
+                              { label: "총 노출수", value: perf.summary.totalImpressions.toLocaleString(), sub: "회", cls: "text-blue-700" },
+                              { label: "총 클릭수", value: perf.summary.totalClicks.toLocaleString(), sub: "회", cls: "text-green-700" },
+                              { label: "클릭률(CTR)", value: `${perf.summary.ctr}%`, sub: "", cls: "text-purple-700" },
+                              { label: "예산 소진율", value: `${perf.summary.budgetUsedPct}%`, sub: `₩${perf.summary.totalSpend.toLocaleString()} 사용`, cls: perf.summary.budgetUsedPct >= 90 ? "text-red-600" : "text-orange-600" },
+                            ].map((c) => (
+                              <Card key={c.label}>
+                                <CardContent className="p-4">
+                                  <p className="text-xs text-muted-foreground">{c.label}</p>
+                                  <p className={`text-2xl font-bold mt-1 ${c.cls}`}>{c.value}</p>
+                                  {c.sub && <p className="text-[10px] text-muted-foreground">{c.sub}</p>}
+                                </CardContent>
+                              </Card>
+                            ))}
+                          </div>
+
+                          {/* 일별 노출·클릭 막대그래프 */}
+                          {perf.dailyChart.length > 0 ? (
+                            <Card>
+                              <CardContent className="p-4">
+                                <p className="text-sm font-semibold mb-3">일별 노출 / 클릭 추이</p>
+                                <ResponsiveContainer width="100%" height={220}>
+                                  <BarChart data={perf.dailyChart} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                                    <XAxis dataKey="date" tick={{ fontSize: 10 }} tickFormatter={(v: string) => v.slice(5)} />
+                                    <YAxis tick={{ fontSize: 10 }} />
+                                    <Tooltip formatter={(v: number, name: string) => [v.toLocaleString(), name === "impressions" ? "노출" : "클릭"]} labelFormatter={(l: string) => `날짜: ${l}`} />
+                                    <Legend formatter={(v: string) => v === "impressions" ? "노출수" : "클릭수"} wrapperStyle={{ fontSize: 11 }} />
+                                    <Bar dataKey="impressions" fill="#3b82f6" radius={[2, 2, 0, 0]} />
+                                    <Bar dataKey="clicks" fill="#10b981" radius={[2, 2, 0, 0]} />
+                                  </BarChart>
+                                </ResponsiveContainer>
+                              </CardContent>
+                            </Card>
+                          ) : (
+                            <Card>
+                              <CardContent className="p-8 text-center text-muted-foreground text-sm">
+                                해당 기간에 성과 데이터가 없습니다.<br />
+                                <span className="text-xs">Meta 연동 후 "성과 수집"을 실행하거나, 수동으로 데이터를 입력하세요.</span>
+                              </CardContent>
+                            </Card>
+                          )}
+
+                          {/* CTR 선그래프 */}
+                          {perf.dailyChart.length > 1 && (
+                            <Card>
+                              <CardContent className="p-4">
+                                <p className="text-sm font-semibold mb-3">일별 CTR(클릭률) 추이</p>
+                                <ResponsiveContainer width="100%" height={160}>
+                                  <LineChart data={perf.dailyChart} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                                    <XAxis dataKey="date" tick={{ fontSize: 10 }} tickFormatter={(v: string) => v.slice(5)} />
+                                    <YAxis tick={{ fontSize: 10 }} unit="%" domain={[0, "auto"]} />
+                                    <Tooltip formatter={(v: number) => [`${v}%`, "CTR"]} labelFormatter={(l: string) => `날짜: ${l}`} />
+                                    <Line type="monotone" dataKey="ctr" stroke="#8b5cf6" strokeWidth={2} dot={false} />
+                                  </LineChart>
+                                </ResponsiveContainer>
+                              </CardContent>
+                            </Card>
+                          )}
+                        </>
+                      )}
+
+                      {perfPoolId && poolPerfLoading && (
+                        <div className="py-12 text-center text-muted-foreground text-sm">
+                          <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-400" />로딩 중...
+                        </div>
+                      )}
                     </div>
-                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs bg-blue-50 text-blue-600 border border-blue-200 font-medium">
-                      Phase 3 예정
-                    </span>
-                  </div>
-                )}
+                  );
+                })()}
+
+                {/* ─ 정산 관리 탭 ─ */}
+                {adCenterTab === "billing" && (() => {
+                  const items = billingSummaryData?.summaries ?? [];
+                  const expired = items.filter((i) => i.isExpired);
+                  const active = items.filter((i) => i.status === "active" && !i.isExpired);
+                  const others = items.filter((i) => i.status !== "active");
+                  return (
+                    <div className="space-y-4">
+                      {/* 기간 만료 자동 처리 버튼 */}
+                      {expired.length > 0 && (
+                        <Card className="border-red-200 bg-red-50">
+                          <CardContent className="p-4 flex items-center justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-semibold text-red-700 flex items-center gap-1.5">
+                                <AlertTriangle className="w-4 h-4" />기간 만료 묶음 {expired.length}개
+                              </p>
+                              <p className="text-xs text-red-600 mt-0.5">종료일이 지난 운영중 묶음이 있습니다. 자동 종료 처리하세요.</p>
+                            </div>
+                            <Button
+                              size="sm"
+                              className="bg-red-600 hover:bg-red-700 text-white shrink-0"
+                              disabled={billingExpireLoading}
+                              onClick={async () => {
+                                setBillingExpireLoading(true);
+                                try {
+                                  const r = await fetch(`${BASE}/api/billing/expire-pools`, { method: "POST", credentials: "include" });
+                                  const d = await r.json() as { success?: boolean; expired?: number; error?: string };
+                                  if (!r.ok) toast({ description: d.error ?? "처리 실패", variant: "destructive" });
+                                  else { toast({ description: `${d.expired ?? 0}개 묶음을 종료 처리했습니다` }); refetchBilling(); }
+                                } catch {
+                                  toast({ description: "처리 실패", variant: "destructive" });
+                                } finally {
+                                  setBillingExpireLoading(false);
+                                }
+                              }}
+                            >
+                              {billingExpireLoading ? <RefreshCw className="w-3 h-3 animate-spin mr-1" /> : <Check className="w-3 h-3 mr-1" />}
+                              일괄 종료 처리
+                            </Button>
+                          </CardContent>
+                        </Card>
+                      )}
+
+                      {/* 요약 통계 */}
+                      <div className="grid grid-cols-3 gap-3">
+                        {[
+                          { label: "운영중 묶음", value: active.length, cls: "text-green-700" },
+                          { label: "만료 처리 필요", value: expired.length, cls: expired.length > 0 ? "text-red-600" : "text-gray-400" },
+                          { label: "총 예산 (운영중)", value: `₩${active.reduce((s, i) => s + i.totalBudget, 0).toLocaleString()}`, cls: "text-blue-700" },
+                        ].map((c) => (
+                          <Card key={c.label}>
+                            <CardContent className="p-3">
+                              <p className="text-[11px] text-muted-foreground">{c.label}</p>
+                              <p className={`text-lg font-bold mt-0.5 ${c.cls}`}>{c.value}</p>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+
+                      {/* 운영중 묶음 예산 현황 */}
+                      {active.length > 0 && (
+                        <div className="space-y-2">
+                          <p className="text-sm font-semibold">운영중 예산 집행 현황</p>
+                          {active.map((item) => (
+                            <Card key={item.id}>
+                              <CardContent className="p-4">
+                                <div className="flex items-start justify-between gap-2 mb-2">
+                                  <div>
+                                    <span className="font-medium text-sm">{item.name}</span>
+                                    <span className={`ml-2 text-[10px] px-1.5 py-0.5 rounded-full border ${item.metaSynced ? "bg-blue-50 text-blue-600 border-blue-200" : "bg-gray-50 text-gray-400 border-gray-200"}`}>
+                                      {item.metaSynced ? "Meta연동" : "미연동"}
+                                    </span>
+                                  </div>
+                                  <span className="text-[11px] text-muted-foreground shrink-0">{item.startDate} ~ {item.endDate}</span>
+                                </div>
+                                <div className="space-y-1.5">
+                                  <div>
+                                    <div className="flex justify-between text-[11px] mb-0.5">
+                                      <span className="text-muted-foreground">예산 집행</span>
+                                      <span className={item.spendPct >= 90 ? "text-red-600 font-semibold" : "text-gray-700"}>
+                                        ₩{item.totalSpend.toLocaleString()} / ₩{item.totalBudget.toLocaleString()} ({item.spendPct}%)
+                                      </span>
+                                    </div>
+                                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                      <div
+                                        className={`h-full rounded-full ${item.spendPct >= 90 ? "bg-red-500" : item.spendPct >= 70 ? "bg-yellow-500" : "bg-blue-500"}`}
+                                        style={{ width: `${Math.min(100, item.spendPct)}%` }}
+                                      />
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <div className="flex justify-between text-[11px] mb-0.5">
+                                      <span className="text-muted-foreground">기간 경과</span>
+                                      <span className="text-gray-700">{item.elapsedPct}%</span>
+                                    </div>
+                                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                      <div
+                                        className="h-full rounded-full bg-gray-400"
+                                        style={{ width: `${Math.min(100, item.elapsedPct)}%` }}
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+                                <p className="text-[10px] text-muted-foreground mt-2">광고 {item.adCount}개 포함</p>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* 기타 묶음 목록 */}
+                      {others.length > 0 && (
+                        <details className="group">
+                          <summary className="cursor-pointer text-xs text-muted-foreground hover:text-gray-700 select-none">
+                            종료/초안 묶음 {others.length}개 보기 ▾
+                          </summary>
+                          <div className="mt-2 space-y-2">
+                            {others.map((item) => (
+                              <Card key={item.id} className="opacity-60">
+                                <CardContent className="p-3 flex items-center justify-between">
+                                  <div>
+                                    <span className="text-sm font-medium">{item.name}</span>
+                                    <span className="ml-2 text-xs text-muted-foreground">{item.startDate} ~ {item.endDate}</span>
+                                  </div>
+                                  <div className="text-right text-xs text-muted-foreground">
+                                    <div>₩{item.totalSpend.toLocaleString()} 집행</div>
+                                    <div>/ ₩{item.totalBudget.toLocaleString()}</div>
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            ))}
+                          </div>
+                        </details>
+                      )}
+
+                      {billingLoading && (
+                        <div className="py-10 text-center text-sm text-muted-foreground">
+                          <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-blue-400" />로딩 중...
+                        </div>
+                      )}
+
+                      {!billingLoading && items.length === 0 && (
+                        <div className="py-12 text-center text-muted-foreground text-sm">
+                          <CircleDollarSign className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                          등록된 광고 묶음이 없습니다.
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             );
           })()}

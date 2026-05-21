@@ -10,6 +10,10 @@ export const adPoolsTable = pgTable("ad_pools", {
   endDate: text("end_date").notNull().default(""),
   aiMode: text("ai_mode").notNull().default("equal"),
   status: text("status").notNull().default("draft"),
+  metaCampaignId: text("meta_campaign_id"),
+  metaAdSetId: text("meta_ad_set_id"),
+  metaSyncedAt: timestamp("meta_synced_at"),
+  metaSyncStatus: text("meta_sync_status"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

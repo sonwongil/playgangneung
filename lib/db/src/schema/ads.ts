@@ -1,4 +1,4 @@
-import { pgTable, text, jsonb, timestamp, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, jsonb, timestamp, boolean, integer, real } from "drizzle-orm/pg-core";
 
 export const adsTable = pgTable("ads", {
   id: text("id").primaryKey(),
@@ -20,6 +20,8 @@ export const adsTable = pgTable("ads", {
   approvedAt: timestamp("approved_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   isFreeAd: boolean("is_free_ad").notNull().default(true),
+  aiScore: integer("ai_score"),
+  aiNote: text("ai_note"),
 });
 
 export type AdRow = typeof adsTable.$inferSelect;

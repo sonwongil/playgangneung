@@ -88,6 +88,8 @@ async function readAds(): Promise<Ad[]> {
       createdAt: row.createdAt.toISOString(),
       approvedAt: row.approvedAt?.toISOString(),
       isFreeAd: true as const,
+      aiScore: row.aiScore ?? null,
+      aiNote: row.aiNote ?? null,
     }));
   } catch { return []; }
 }

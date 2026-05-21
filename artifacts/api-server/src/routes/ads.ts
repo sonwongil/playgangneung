@@ -52,6 +52,8 @@ export interface Ad {
   createdAt: string;
   approvedAt?: string;
   isFreeAd: true;
+  aiScore: number | null;
+  aiNote: string | null;
 }
 
 function rowToAd(row: typeof adsTable.$inferSelect): Ad {
@@ -76,6 +78,8 @@ function rowToAd(row: typeof adsTable.$inferSelect): Ad {
     createdAt: row.createdAt.toISOString(),
     approvedAt: row.approvedAt?.toISOString(),
     isFreeAd: true,
+    aiScore: row.aiScore ?? null,
+    aiNote: row.aiNote ?? null,
   };
 }
 
@@ -158,6 +162,26 @@ router.post("/ads", async (req, res) => {
   } catch (err) {
     req.log.error({ err }, "광고 접수 실패");
     return res.status(500).json({ error: "접수 실패" });
+  }
+});
+
+router.patch("/ads/:id/ai-note", async (req, res) => {
+  if (!req.session?.isAdmin) return res.status(401).json({ error: "인증 필요" });
+  try {
+    const { id } = req.params;
+    const body = req.body as { aiScore?: number | null; aiNote?: string | null };
+    const updates: Partial<typeof adsTable.$inferInsert> = {};
+    if ("aiScore" in body) updates.aiScore = body.aiScore ?? null;
+    if ("aiNote" in body) updates.aiNote = body.aiNote ?? null;
+    if (Object.keys(updates).length === 0) return res.status(400).json({ error: "변경할 항목이 없습니다" });
+    await db.update(adsTable).set(updates).where(eq(adsTable.id, id));
+    const [row] = await db.select().from(adsTable).where(eq(adsTable.id, id));
+    if (!row) return res.status(404).json({ error: "광고를 찾을 수 없습니다" });
+    req.log.info({ id, aiScore: body.aiScore, aiNote: body.aiNote }, "광고 AI 검수 저장");
+    return res.json({ success: true, ad: rowToAd(row) });
+  } catch (err) {
+    req.log.error({ err }, "광고 AI 검수 저장 실패");
+    return res.status(500).json({ error: "저장 실패" });
   }
 });
 

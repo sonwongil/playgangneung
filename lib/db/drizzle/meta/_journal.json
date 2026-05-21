@@ -8,6 +8,13 @@
       "when": 1778828904729,
       "tag": "0000_blog_sources",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1748476800000,
+      "tag": "0001_ad_pools_and_ai_fields",
+      "breakpoints": true
     }
   ]
 }

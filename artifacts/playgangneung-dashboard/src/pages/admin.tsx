@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
@@ -51,6 +51,14 @@ import {
   Video,
   Download,
   ImageIcon,
+  BarChart2,
+  BriefcaseBusiness,
+  Layers,
+  CalendarClock,
+  Bell,
+  TrendingUp,
+  CircleDollarSign,
+  Sparkles,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -101,6 +109,8 @@ interface Ad {
   plan: "basic" | "main" | "premium";
   status: "pending" | "approved" | "scheduled" | "published" | "rejected";
   createdAt: string;
+  aiScore: number | null;
+  aiNote: string | null;
 }
 
 interface Source {
@@ -109,6 +119,45 @@ interface Source {
   url: string;
   enabled: boolean;
   createdAt: string;
+}
+
+interface AdPool {
+  id: string;
+  name: string;
+  objective: "awareness" | "conversion" | "traffic" | "engagement";
+  adIds: string[];
+  totalBudget: number;
+  startDate: string;
+  endDate: string;
+  aiMode: "equal" | "performance" | "manual";
+  status: "draft" | "active" | "paused" | "ended";
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface AdCenterStats {
+  total: number;
+  active: number;
+  pending: number;
+  needsReview: number;
+  todayBudget: number;
+  activePools: number;
+  draftPools: number;
+}
+
+interface AdCenterAlert {
+  type: string;
+  level: "info" | "warning" | "error";
+  message: string;
+  adId?: string;
+}
+
+interface RotationSlot {
+  hour: number;
+  adId: string | null;
+  adName: string | null;
+  weight: number;
+  status: string;
 }
 
 interface BlogSource {
@@ -147,11 +196,12 @@ interface AdminVideo {
   updatedAt: string;
 }
 
-type NavKey = "dashboard" | "ads" | "stories" | "videos" | "sources" | "settings";
+type NavKey = "dashboard" | "ads" | "adCenter" | "stories" | "videos" | "sources" | "settings";
 
 const NAV_ITEMS: { icon: React.ReactNode; label: string; key: NavKey }[] = [
   { icon: <LayoutDashboard className="w-4 h-4" />, label: "대시보드", key: "dashboard" },
   { icon: <Megaphone className="w-4 h-4" />, label: "광고접수", key: "ads" },
+  { icon: <BriefcaseBusiness className="w-4 h-4" />, label: "광고센터", key: "adCenter" },
   { icon: <BookOpen className="w-4 h-4" />, label: "스토리", key: "stories" },
   { icon: <Video className="w-4 h-4" />, label: "영상", key: "videos" },
   { icon: <Rss className="w-4 h-4" />, label: "크롤링 소스", key: "sources" },
@@ -237,6 +287,15 @@ export default function Admin() {
   const [adCopied, setAdCopied] = useState(false);
   const [adCardUrls, setAdCardUrls] = useState<Record<string, string[]>>({});
   const [adCardLoading, setAdCardLoading] = useState<Record<string, boolean>>({});
+  const [adCenterTab, setAdCenterTab] = useState<"overview" | "applications" | "createPool" | "rotation" | "meta" | "aiSettings" | "performance" | "billing">("overview");
+  const [selectedPoolId, setSelectedPoolId] = useState<string | null>(null);
+  const [poolForm, setPoolForm] = useState({
+    name: "", objective: "awareness" as AdPool["objective"],
+    selectedAdIds: [] as string[], totalBudget: 0,
+    startDate: new Date().toISOString().slice(0, 10),
+    endDate: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10),
+    aiMode: "equal" as AdPool["aiMode"],
+  });
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -312,7 +371,7 @@ export default function Admin() {
       if (!r.ok) throw new Error("광고 로드 실패");
       return r.json();
     },
-    enabled: activeNav === "ads",
+    enabled: activeNav === "ads" || activeNav === "adCenter",
   });
 
   const { data: sourcesData, isLoading: sourcesLoading } = useQuery<{ sources: Source[] }>({
@@ -334,6 +393,47 @@ export default function Admin() {
     enabled: activeNav === "settings",
     onSuccess: (d: { crawlHour: number; crawlMinute: number }) => { setScheduleHour(d.crawlHour); setScheduleMinute(d.crawlMinute); },
   } as any);
+
+  const { data: adCenterStatsData } = useQuery<{ stats: AdCenterStats }>({
+    queryKey: ["ad-center-stats"],
+    queryFn: async () => {
+      const r = await fetch(`${BASE}/api/ad-center/stats`, { credentials: "include" });
+      if (!r.ok) throw new Error("통계 로드 실패");
+      return r.json();
+    },
+    enabled: activeNav === "adCenter",
+    refetchInterval: activeNav === "adCenter" ? 30000 : false,
+  } as any);
+
+  const { data: adCenterAlertsData } = useQuery<{ alerts: AdCenterAlert[] }>({
+    queryKey: ["ad-center-alerts"],
+    queryFn: async () => {
+      const r = await fetch(`${BASE}/api/ad-center/alerts`, { credentials: "include" });
+      if (!r.ok) throw new Error("알림 로드 실패");
+      return r.json();
+    },
+    enabled: activeNav === "adCenter",
+  } as any);
+
+  const { data: adPoolsData, isLoading: poolsLoading, refetch: refetchPools } = useQuery<{ pools: AdPool[]; total: number }>({
+    queryKey: ["ad-pools"],
+    queryFn: async () => {
+      const r = await fetch(`${BASE}/api/ad-pools`, { credentials: "include" });
+      if (!r.ok) throw new Error("묶음 로드 실패");
+      return r.json();
+    },
+    enabled: activeNav === "adCenter",
+  });
+
+  const { data: rotationData } = useQuery<{ slots: RotationSlot[]; pool: AdPool }>({
+    queryKey: ["ad-pool-rotation", selectedPoolId],
+    queryFn: async () => {
+      const r = await fetch(`${BASE}/api/ad-pools/${selectedPoolId}/rotation`, { credentials: "include" });
+      if (!r.ok) throw new Error("편성표 로드 실패");
+      return r.json();
+    },
+    enabled: !!(activeNav === "adCenter" && selectedPoolId),
+  });
 
   const { data: storiesData, isLoading: storiesLoading, refetch: refetchStories } = useQuery<{ stories: AdminStory[] }>({
     queryKey: ["admin-stories"],
@@ -569,6 +669,46 @@ export default function Admin() {
     onError: (e: Error) => toast({ title: "등록 실패", description: e.message, variant: "destructive" }),
   });
 
+  const createPoolMutation = useMutation({
+    mutationFn: async (body: Omit<AdPool, "id" | "createdAt" | "updatedAt" | "status">) => {
+      const r = await fetch(`${BASE}/api/ad-pools`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(body),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error ?? "생성 실패");
+      return d as { success: boolean; pool: AdPool };
+    },
+    onSuccess: (d) => {
+      toast({ title: "묶음 생성 완료", description: d.pool.name });
+      qc.invalidateQueries({ queryKey: ["ad-pools"] });
+      qc.invalidateQueries({ queryKey: ["ad-center-stats"] });
+      setAdCenterTab("rotation");
+      setSelectedPoolId(d.pool.id);
+      setPoolForm({
+        name: "", objective: "awareness", selectedAdIds: [], totalBudget: 0,
+        startDate: new Date().toISOString().slice(0, 10),
+        endDate: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10),
+        aiMode: "equal",
+      });
+    },
+    onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
+  });
+
+  const poolStatusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: AdPool["status"] }) => {
+      const r = await fetch(`${BASE}/api/ad-pools/${id}/status`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include",
+        body: JSON.stringify({ status }),
+      });
+      const d = await r.json(); if (!r.ok) throw new Error(d.error ?? "실패"); return d;
+    },
+    onSuccess: () => { toast({ title: "상태 변경 완료" }); qc.invalidateQueries({ queryKey: ["ad-pools"] }); qc.invalidateQueries({ queryKey: ["ad-center-stats"] }); },
+    onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
+  });
+
   const adStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
       const r = await fetch(`${BASE}/api/ads/${id}/status`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ status }) });
@@ -576,6 +716,16 @@ export default function Admin() {
     },
     onSuccess: () => { toast({ title: "상태 변경 완료" }); qc.invalidateQueries({ queryKey: ["admin-ads"] }); },
     onError: () => toast({ title: "상태 변경 실패", variant: "destructive" }),
+  });
+
+  const [aiNoteEdit, setAiNoteEdit] = useState<{ adId: string; score: string; note: string } | null>(null);
+  const aiNoteMutation = useMutation({
+    mutationFn: async ({ id, aiScore, aiNote }: { id: string; aiScore: number | null; aiNote: string }) => {
+      const r = await fetch(`${BASE}/api/ads/${id}/ai-note`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ aiScore, aiNote }) });
+      if (!r.ok) throw new Error(); return r.json();
+    },
+    onSuccess: () => { toast({ title: "AI 검수 저장 완료" }); qc.invalidateQueries({ queryKey: ["admin-ads"] }); setAiNoteEdit(null); },
+    onError: () => toast({ title: "AI 검수 저장 실패", variant: "destructive" }),
   });
 
   const adDeleteMutation = useMutation({
@@ -1200,6 +1350,617 @@ export default function Admin() {
               })}
             </div>
           )}
+
+          {/* ══ 광고센터 ════════════════════════════════════════════════════ */}
+          {activeNav === "adCenter" && (() => {
+            const stats = adCenterStatsData?.stats;
+            const alerts = adCenterAlertsData?.alerts ?? [];
+            const pools = adPoolsData?.pools ?? [];
+            const approvedAds = ads.filter((a) => a.status === "approved" || a.status === "pending" || a.status === "scheduled" || a.status === "published");
+
+            const POOL_STATUS_CFG: Record<string, { label: string; cls: string }> = {
+              draft:  { label: "초안", cls: "bg-gray-100 text-gray-600 border-gray-200" },
+              active: { label: "운영중", cls: "bg-green-100 text-green-700 border-green-200" },
+              paused: { label: "일시정지", cls: "bg-yellow-100 text-yellow-700 border-yellow-200" },
+              ended:  { label: "종료", cls: "bg-red-100 text-red-600 border-red-200" },
+            };
+            const OBJECTIVE_LABEL: Record<string, string> = {
+              awareness: "브랜드 인지도",
+              conversion: "전환/신청",
+              traffic: "방문 유도",
+              engagement: "참여/반응",
+            };
+            const AI_MODE_LABEL: Record<string, string> = {
+              equal: "균등 분배",
+              performance: "성과 기반",
+              manual: "수동",
+            };
+
+            const SUB_TABS = [
+              { key: "overview",      label: "대시보드",   icon: <BarChart2 className="w-3.5 h-3.5" />,        stub: false },
+              { key: "applications",  label: "신청목록",   icon: <Megaphone className="w-3.5 h-3.5" />,        stub: false },
+              { key: "createPool",    label: "묶음만들기", icon: <Layers className="w-3.5 h-3.5" />,           stub: false },
+              { key: "rotation",      label: "순환편성표", icon: <CalendarClock className="w-3.5 h-3.5" />,    stub: false },
+              { key: "meta",          label: "Meta연동",   icon: <ExternalLink className="w-3.5 h-3.5" />,     stub: true  },
+              { key: "aiSettings",    label: "AI설정",     icon: <Settings className="w-3.5 h-3.5" />,         stub: true  },
+              { key: "performance",   label: "성과리포트", icon: <TrendingUp className="w-3.5 h-3.5" />,       stub: true  },
+              { key: "billing",       label: "정산관리",   icon: <CircleDollarSign className="w-3.5 h-3.5" />, stub: true  },
+            ] as const;
+
+            return (
+              <div className="space-y-4">
+                {/* 서브탭 */}
+                <div className="flex items-center gap-1 flex-wrap border-b pb-3">
+                  {SUB_TABS.map((t) => (
+                    <button
+                      key={t.key}
+                      onClick={() => setAdCenterTab(t.key)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                        adCenterTab === t.key
+                          ? "bg-blue-600 text-white"
+                          : t.stub
+                          ? "bg-gray-50 text-gray-400 border border-dashed border-gray-300 hover:bg-gray-100"
+                          : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                      }`}
+                    >
+                      {t.icon}{t.label}
+                      {t.stub && <span className="text-[9px] ml-0.5 opacity-60">준비중</span>}
+                    </button>
+                  ))}
+                </div>
+
+                {/* ─ 대시보드 ─ */}
+                {adCenterTab === "overview" && (
+                  <div className="space-y-4">
+                    {/* 통계 카드 5개 */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      {[
+                        { label: "총 광고 수", value: stats?.total ?? 0, icon: <Megaphone className="w-4 h-4 text-blue-500" />, cls: "text-blue-700" },
+                        { label: "운영중", value: stats?.active ?? 0, icon: <TrendingUp className="w-4 h-4 text-green-500" />, cls: "text-green-700" },
+                        { label: "접수대기", value: stats?.pending ?? 0, icon: <Clock className="w-4 h-4 text-yellow-500" />, cls: "text-yellow-700" },
+                        { label: "검수필요", value: stats?.needsReview ?? 0, icon: <AlertTriangle className="w-4 h-4 text-red-500" />, cls: "text-red-700" },
+                      ].map((c) => (
+                        <Card key={c.label}>
+                          <CardContent className="p-4 flex items-center gap-3">
+                            <div className="shrink-0">{c.icon}</div>
+                            <div>
+                              <p className="text-xs text-muted-foreground">{c.label}</p>
+                              <p className={`text-2xl font-bold ${c.cls}`}>{c.value}</p>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                    {/* 예산 + 풀 현황 */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <Card>
+                        <CardContent className="p-4 flex items-center gap-3">
+                          <CircleDollarSign className="w-5 h-5 text-indigo-500 shrink-0" />
+                          <div>
+                            <p className="text-xs text-muted-foreground">오늘 운영 예산 합계</p>
+                            <p className="text-xl font-bold text-indigo-700">{((stats?.todayBudget ?? 0) / 10000).toFixed(0)}만원</p>
+                          </div>
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardContent className="p-4 flex items-center gap-3">
+                          <Layers className="w-5 h-5 text-purple-500 shrink-0" />
+                          <div>
+                            <p className="text-xs text-muted-foreground">운영중 캠페인 묶음</p>
+                            <p className="text-xl font-bold text-purple-700">{stats?.activePools ?? 0}개</p>
+                          </div>
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardContent className="p-4 flex items-center gap-3">
+                          <BarChart2 className="w-5 h-5 text-orange-500 shrink-0" />
+                          <div>
+                            <p className="text-xs text-muted-foreground">준비 중 묶음</p>
+                            <p className="text-xl font-bold text-orange-700">{stats?.draftPools ?? 0}개</p>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+
+                    {/* AI 알림 패널 */}
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Bell className="w-4 h-4 text-blue-600" />
+                        <p className="font-semibold text-sm">AI 알림</p>
+                        {alerts.length > 0 && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] bg-red-100 text-red-700 font-bold border border-red-200">{alerts.length}</span>
+                        )}
+                      </div>
+                      {alerts.length === 0 ? (
+                        <div className="py-8 text-center text-sm text-muted-foreground border rounded-xl bg-gray-50">
+                          <Check className="w-6 h-6 mx-auto mb-1 text-green-500" />알림이 없습니다
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {alerts.map((a, i) => (
+                            <div key={i} className={`flex items-start gap-2.5 p-3 rounded-lg border text-sm ${
+                              a.level === "error" ? "bg-red-50 border-red-200 text-red-800" :
+                              a.level === "warning" ? "bg-yellow-50 border-yellow-200 text-yellow-800" :
+                              "bg-blue-50 border-blue-200 text-blue-800"
+                            }`}>
+                              {a.level === "error" ? <XCircle className="w-4 h-4 shrink-0 mt-0.5" /> :
+                               a.level === "warning" ? <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" /> :
+                               <Bell className="w-4 h-4 shrink-0 mt-0.5" />}
+                              <span>{a.message}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 공동캠페인 상태 카드 */}
+                    {pools.length > 0 && (
+                      <div>
+                        <p className="font-semibold text-sm mb-2 flex items-center gap-2"><Layers className="w-4 h-4 text-purple-500" />캠페인 묶음</p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                          {pools.slice(0, 6).map((pool) => {
+                            const sc = POOL_STATUS_CFG[pool.status] ?? POOL_STATUS_CFG.draft;
+                            return (
+                              <Card key={pool.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => { setSelectedPoolId(pool.id); setAdCenterTab("rotation"); }}>
+                                <CardContent className="p-3 flex items-center gap-3">
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 mb-0.5">
+                                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] border font-medium ${sc.cls}`}>{sc.label}</span>
+                                      <span className="text-[10px] text-muted-foreground">{OBJECTIVE_LABEL[pool.objective] ?? pool.objective}</span>
+                                    </div>
+                                    <p className="font-semibold text-sm line-clamp-1">{pool.name}</p>
+                                    <p className="text-xs text-muted-foreground">{pool.startDate} ~ {pool.endDate} · {pool.adIds.length}개 광고</p>
+                                  </div>
+                                  <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                                </CardContent>
+                              </Card>
+                            );
+                          })}
+                        </div>
+                        {pools.length > 6 && (
+                          <button onClick={() => setAdCenterTab("rotation")} className="mt-2 text-xs text-blue-600 hover:underline w-full text-center">
+                            전체 {pools.length}개 보기 →
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* ─ 신청목록 ─ */}
+                {adCenterTab === "applications" && (
+                  <div className="space-y-2">
+                    <p className="text-xs text-muted-foreground mb-3">
+                      광고 신청 목록 <span className="font-semibold text-foreground">{ads.length}건</span>
+                    </p>
+                    {adsLoading ? (
+                      <div className="py-16 text-center text-sm text-muted-foreground">불러오는 중...</div>
+                    ) : ads.length === 0 ? (
+                      <div className="py-16 text-center text-sm text-muted-foreground">
+                        <Megaphone className="w-8 h-8 mx-auto mb-2 opacity-30" />접수된 광고가 없습니다.
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto rounded-xl border">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b bg-gray-50 text-xs text-muted-foreground">
+                              <th className="px-3 py-2.5 text-left font-medium">업체명</th>
+                              <th className="px-3 py-2.5 text-left font-medium hidden md:table-cell">카테고리</th>
+                              <th className="px-3 py-2.5 text-left font-medium hidden md:table-cell">기간</th>
+                              <th className="px-3 py-2.5 text-left font-medium">상태</th>
+                              <th className="px-3 py-2.5 text-left font-medium hidden lg:table-cell">AI점검</th>
+                              <th className="px-3 py-2.5 text-right font-medium">액션</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y">
+                            {ads.map((ad) => {
+                              const sc = AD_STATUS[ad.status] ?? AD_STATUS.pending;
+                              const isEditingAiNote = aiNoteEdit?.adId === ad.id;
+                              return (
+                                <React.Fragment key={ad.id}>
+                                <tr className="hover:bg-gray-50 transition-colors">
+                                  <td className="px-3 py-2.5">
+                                    <div>
+                                      <p className="font-medium line-clamp-1">{ad.businessName || "—"}</p>
+                                      <p className="text-xs text-muted-foreground line-clamp-1">{ad.title}</p>
+                                    </div>
+                                  </td>
+                                  <td className="px-3 py-2.5 hidden md:table-cell">
+                                    <Badge variant="outline" className="text-xs">{ad.category}</Badge>
+                                  </td>
+                                  <td className="px-3 py-2.5 hidden md:table-cell">
+                                    <span className="text-xs text-muted-foreground">{ad.date || "—"}</span>
+                                  </td>
+                                  <td className="px-3 py-2.5">
+                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs border font-medium ${sc.cls}`}>{sc.label}</span>
+                                  </td>
+                                  <td className="px-3 py-2.5 hidden lg:table-cell">
+                                    {ad.aiScore !== null && ad.aiScore !== undefined ? (
+                                      <div className="flex items-center gap-1">
+                                        <span className={`text-xs font-bold ${ad.aiScore >= 80 ? "text-green-600" : ad.aiScore >= 60 ? "text-yellow-600" : "text-red-600"}`}>{ad.aiScore}점</span>
+                                        {ad.aiNote && <span className="text-[10px] text-muted-foreground line-clamp-1 max-w-[100px]" title={ad.aiNote}>{ad.aiNote}</span>}
+                                      </div>
+                                    ) : (
+                                      <span className="text-xs text-muted-foreground">미검수</span>
+                                    )}
+                                  </td>
+                                  <td className="px-3 py-2.5">
+                                    <div className="flex items-center gap-1 justify-end flex-wrap">
+                                      {ad.status === "pending" && (
+                                        <>
+                                          <Button size="sm" variant="outline" className="h-7 px-2 text-xs text-green-700 border-green-200"
+                                            onClick={() => adStatusMutation.mutate({ id: ad.id, status: "approved" })}>
+                                            <CheckCircle className="w-3 h-3" />승인
+                                          </Button>
+                                          <Button size="sm" variant="outline" className="h-7 px-2 text-xs text-red-600 border-red-200"
+                                            onClick={() => adStatusMutation.mutate({ id: ad.id, status: "rejected" })}>
+                                            <XCircle className="w-3 h-3" />반려
+                                          </Button>
+                                        </>
+                                      )}
+                                      <Button size="sm" variant="outline" className="h-7 px-2 text-xs text-blue-700 border-blue-200"
+                                        onClick={() => setAiNoteEdit(isEditingAiNote ? null : { adId: ad.id, score: String(ad.aiScore ?? ""), note: ad.aiNote ?? "" })}>
+                                        <Sparkles className="w-3 h-3" />AI문구수정
+                                      </Button>
+                                      {ad.status === "approved" && (
+                                        <Button size="sm" variant="outline" className="h-7 px-2 text-xs text-purple-700 border-purple-200"
+                                          onClick={() => {
+                                            setPoolForm((p) => ({
+                                              ...p,
+                                              selectedAdIds: p.selectedAdIds.includes(ad.id) ? p.selectedAdIds : [...p.selectedAdIds, ad.id],
+                                            }));
+                                            setAdCenterTab("createPool");
+                                            toast({ description: `${ad.businessName} 을 묶음 만들기에 추가했습니다.` });
+                                          }}>
+                                          <Layers className="w-3 h-3" />공동광고추가
+                                        </Button>
+                                      )}
+                                      <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setSelectedAd(ad)}>
+                                        상세
+                                      </Button>
+                                    </div>
+                                  </td>
+                                </tr>
+                                {isEditingAiNote && (
+                                  <tr className="bg-blue-50 border-b">
+                                    <td colSpan={6} className="px-4 py-3">
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        <span className="text-xs font-medium text-blue-700 flex items-center gap-1"><Sparkles className="w-3 h-3" />AI 검수 점수 · 문구 입력</span>
+                                        <input
+                                          type="number" min={0} max={100} placeholder="점수 (0-100)"
+                                          value={aiNoteEdit.score}
+                                          onChange={(e) => setAiNoteEdit((p) => p ? { ...p, score: e.target.value } : p)}
+                                          className="w-24 h-7 px-2 rounded border text-xs border-blue-200 bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+                                        />
+                                        <input
+                                          type="text" placeholder="AI 검수 코멘트 (선택)"
+                                          value={aiNoteEdit.note}
+                                          onChange={(e) => setAiNoteEdit((p) => p ? { ...p, note: e.target.value } : p)}
+                                          className="flex-1 min-w-[200px] h-7 px-2 rounded border text-xs border-blue-200 bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+                                        />
+                                        <Button size="sm" className="h-7 px-3 text-xs bg-blue-600 hover:bg-blue-700 text-white"
+                                          disabled={aiNoteMutation.isPending}
+                                          onClick={() => aiNoteMutation.mutate({ id: aiNoteEdit.adId, aiScore: aiNoteEdit.score !== "" ? Number(aiNoteEdit.score) : null, aiNote: aiNoteEdit.note })}>
+                                          저장
+                                        </Button>
+                                        <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setAiNoteEdit(null)}>취소</Button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )}
+                                </React.Fragment>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* ─ 묶음 만들기 ─ */}
+                {adCenterTab === "createPool" && (
+                  <div className="max-w-2xl space-y-4">
+                    <Card>
+                      <CardContent className="p-5 space-y-4">
+                        <p className="font-semibold text-sm flex items-center gap-2">
+                          <Layers className="w-4 h-4 text-purple-600" />새 공동광고 묶음 만들기
+                        </p>
+
+                        {/* 묶음 이름 */}
+                        <div className="space-y-1">
+                          <Label className="text-xs font-medium">묶음 이름 *</Label>
+                          <Input
+                            placeholder="예: 강릉 맛집 5월 공동광고"
+                            value={poolForm.name}
+                            onChange={(e) => setPoolForm((p) => ({ ...p, name: e.target.value }))}
+                          />
+                        </div>
+
+                        {/* 광고 목적 */}
+                        <div className="space-y-1">
+                          <Label className="text-xs font-medium">광고 목적</Label>
+                          <div className="flex gap-2 flex-wrap">
+                            {([
+                              { value: "awareness", label: "브랜드 인지도" },
+                              { value: "traffic", label: "방문 유도" },
+                              { value: "conversion", label: "전환/신청" },
+                              { value: "engagement", label: "참여/반응" },
+                            ] as const).map((o) => (
+                              <label key={o.value} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs cursor-pointer transition-colors ${poolForm.objective === o.value ? "bg-purple-600 text-white border-purple-600" : "border-gray-200 hover:border-purple-300"}`}>
+                                <input type="radio" name="objective" value={o.value} className="hidden" checked={poolForm.objective === o.value} onChange={() => setPoolForm((p) => ({ ...p, objective: o.value }))} />
+                                {o.label}
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* 참여 광고 체크박스 */}
+                        <div className="space-y-1">
+                          <Label className="text-xs font-medium">참여 광고 선택</Label>
+                          {approvedAds.length === 0 ? (
+                            <p className="text-xs text-muted-foreground py-2">승인된 광고가 없습니다. 먼저 광고를 승인하세요.</p>
+                          ) : (
+                            <div className="border rounded-lg divide-y max-h-48 overflow-y-auto">
+                              {approvedAds.map((ad) => (
+                                <label key={ad.id} className="flex items-center gap-2.5 px-3 py-2 hover:bg-gray-50 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    className="w-3.5 h-3.5 accent-purple-600"
+                                    checked={poolForm.selectedAdIds.includes(ad.id)}
+                                    onChange={(e) => {
+                                      setPoolForm((p) => ({
+                                        ...p,
+                                        selectedAdIds: e.target.checked
+                                          ? [...p.selectedAdIds, ad.id]
+                                          : p.selectedAdIds.filter((id) => id !== ad.id),
+                                      }));
+                                    }}
+                                  />
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium line-clamp-1">{ad.businessName || ad.title}</p>
+                                    <p className="text-[11px] text-muted-foreground">{ad.category} · {AD_STATUS[ad.status]?.label}</p>
+                                  </div>
+                                </label>
+                              ))}
+                            </div>
+                          )}
+                          {poolForm.selectedAdIds.length > 0 && (
+                            <p className="text-xs text-purple-700 font-medium">{poolForm.selectedAdIds.length}개 선택됨</p>
+                          )}
+                        </div>
+
+                        {/* 공동예산 */}
+                        <div className="space-y-1">
+                          <Label className="text-xs font-medium">공동 예산 (원)</Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            step={10000}
+                            placeholder="예: 500000"
+                            value={poolForm.totalBudget || ""}
+                            onChange={(e) => setPoolForm((p) => ({ ...p, totalBudget: parseInt(e.target.value) || 0 }))}
+                          />
+                          {poolForm.totalBudget > 0 && (
+                            <p className="text-xs text-muted-foreground">= {(poolForm.totalBudget / 10000).toFixed(1)}만원</p>
+                          )}
+                        </div>
+
+                        {/* 운영 기간 */}
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <Label className="text-xs font-medium">시작일</Label>
+                            <Input type="date" value={poolForm.startDate} onChange={(e) => setPoolForm((p) => ({ ...p, startDate: e.target.value }))} />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs font-medium">종료일</Label>
+                            <Input type="date" value={poolForm.endDate} onChange={(e) => setPoolForm((p) => ({ ...p, endDate: e.target.value }))} />
+                          </div>
+                        </div>
+
+                        {/* AI 편성 방식 */}
+                        <div className="space-y-1">
+                          <Label className="text-xs font-medium">AI 편성 방식</Label>
+                          <div className="flex gap-2 flex-wrap">
+                            {([
+                              { value: "equal", label: "균등 분배", desc: "광고를 시간대별로 균등 배분" },
+                              { value: "performance", label: "성과 기반", desc: "AI가 실적에 따라 자동 조정 (Phase 2)" },
+                              { value: "manual", label: "수동", desc: "직접 편성표 설정" },
+                            ] as const).map((m) => (
+                              <label key={m.value} className={`flex items-start gap-2 px-3 py-2 rounded-lg border text-xs cursor-pointer transition-colors ${poolForm.aiMode === m.value ? "bg-blue-50 border-blue-300" : "border-gray-200 hover:border-blue-200"}`}>
+                                <input type="radio" name="aiMode" value={m.value} className="mt-0.5 accent-blue-600" checked={poolForm.aiMode === m.value} onChange={() => setPoolForm((p) => ({ ...p, aiMode: m.value }))} />
+                                <div>
+                                  <p className="font-medium">{m.label}</p>
+                                  <p className="text-muted-foreground">{m.desc}</p>
+                                </div>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+
+                        <Button
+                          className="w-full bg-purple-600 hover:bg-purple-700 gap-2"
+                          disabled={!poolForm.name.trim() || poolForm.selectedAdIds.length === 0 || createPoolMutation.isPending}
+                          onClick={() => createPoolMutation.mutate({
+                            name: poolForm.name,
+                            objective: poolForm.objective,
+                            adIds: poolForm.selectedAdIds,
+                            totalBudget: poolForm.totalBudget,
+                            startDate: poolForm.startDate,
+                            endDate: poolForm.endDate,
+                            aiMode: poolForm.aiMode,
+                          })}
+                        >
+                          <Layers className="w-4 h-4" />
+                          {createPoolMutation.isPending ? "생성 중..." : "묶음 저장"}
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
+
+                {/* ─ 순환편성표 ─ */}
+                {adCenterTab === "rotation" && (
+                  <div className="space-y-4">
+                    {/* 묶음 선택 */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs text-muted-foreground shrink-0">묶음 선택:</span>
+                      {poolsLoading ? (
+                        <span className="text-xs text-muted-foreground">불러오는 중...</span>
+                      ) : pools.length === 0 ? (
+                        <span className="text-xs text-muted-foreground">생성된 묶음이 없습니다. &ldquo;묶음 만들기&rdquo; 탭에서 먼저 생성하세요.</span>
+                      ) : pools.map((pool) => {
+                        const sc = POOL_STATUS_CFG[pool.status] ?? POOL_STATUS_CFG.draft;
+                        return (
+                          <button
+                            key={pool.id}
+                            onClick={() => setSelectedPoolId(pool.id)}
+                            className={`flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-medium transition-colors ${selectedPoolId === pool.id ? "bg-purple-600 text-white border-purple-600" : "border-gray-200 hover:border-purple-300"}`}
+                          >
+                            <span className={`inline-block w-1.5 h-1.5 rounded-full ${sc.cls.includes("green") ? "bg-green-500" : sc.cls.includes("yellow") ? "bg-yellow-500" : sc.cls.includes("red") ? "bg-red-500" : "bg-gray-400"}`} />
+                            {pool.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {selectedPoolId && rotationData ? (() => {
+                      const pool = rotationData.pool;
+                      const slots = rotationData.slots;
+                      const sc = POOL_STATUS_CFG[pool.status] ?? POOL_STATUS_CFG.draft;
+                      const adIds = pool.adIds;
+                      const poolAds = ads.filter((a) => adIds.includes(a.id));
+
+                      return (
+                        <div className="space-y-4">
+                          {/* 묶음 정보 */}
+                          <Card>
+                            <CardContent className="p-4">
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs border font-medium ${sc.cls}`}>{sc.label}</span>
+                                    <span className="text-xs text-muted-foreground">{OBJECTIVE_LABEL[pool.objective]}</span>
+                                    <span className="text-xs text-muted-foreground">·</span>
+                                    <span className="text-xs text-muted-foreground">AI: {AI_MODE_LABEL[pool.aiMode]}</span>
+                                  </div>
+                                  <p className="font-semibold">{pool.name}</p>
+                                  <p className="text-xs text-muted-foreground">{pool.startDate} ~ {pool.endDate} · 예산 {(pool.totalBudget / 10000).toFixed(1)}만원 · {adIds.length}개 광고</p>
+                                </div>
+                                <div className="flex gap-1 shrink-0">
+                                  {pool.status !== "active" && (
+                                    <Button size="sm" variant="outline" className="h-7 px-2 text-xs text-green-700 border-green-200"
+                                      onClick={() => poolStatusMutation.mutate({ id: pool.id, status: "active" })}>
+                                      운영 시작
+                                    </Button>
+                                  )}
+                                  {pool.status === "active" && (
+                                    <Button size="sm" variant="outline" className="h-7 px-2 text-xs text-yellow-700 border-yellow-200"
+                                      onClick={() => poolStatusMutation.mutate({ id: pool.id, status: "paused" })}>
+                                      일시정지
+                                    </Button>
+                                  )}
+                                  {pool.status !== "draft" && (
+                                    <Button size="sm" variant="outline" className="h-7 px-2 text-xs"
+                                      onClick={() => poolStatusMutation.mutate({ id: pool.id, status: "draft" })}>
+                                      초안으로
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* 참여 광고 */}
+                              {poolAds.length > 0 && (
+                                <div className="mt-3 pt-3 border-t flex flex-wrap gap-1">
+                                  {poolAds.map((a) => (
+                                    <span key={a.id} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-purple-50 text-purple-700 border border-purple-200">
+                                      {a.businessName || a.title}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </CardContent>
+                          </Card>
+
+                          {/* 24시간 편성표 */}
+                          <div>
+                            <p className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1.5">
+                              <CalendarClock className="w-3.5 h-3.5" />24시간 순환 편성표 (균등 분배 기본값)
+                            </p>
+                            <div className="grid grid-cols-4 md:grid-cols-6 gap-1.5">
+                              {slots.map((slot) => {
+                                const isActive = slot.status === "active";
+                                const hasAd = !!slot.adId;
+                                return (
+                                  <div
+                                    key={slot.hour}
+                                    className={`rounded-lg border p-2 text-center ${hasAd && isActive ? "bg-purple-50 border-purple-200" : "bg-gray-50 border-gray-200"}`}
+                                  >
+                                    <p className="text-xs font-bold text-muted-foreground">{String(slot.hour).padStart(2, "0")}시</p>
+                                    {hasAd ? (
+                                      <>
+                                        <p className="text-[10px] font-medium text-purple-700 line-clamp-2 mt-0.5">{slot.adName}</p>
+                                        <span className={`inline-block mt-0.5 px-1 py-0.5 rounded text-[9px] font-semibold ${
+                                          isActive ? "bg-green-100 text-green-700"
+                                          : slot.status === "scheduled" ? "bg-blue-50 text-blue-600"
+                                          : slot.status === "boost" ? "bg-orange-100 text-orange-700"
+                                          : slot.status === "reduce" ? "bg-yellow-50 text-yellow-700"
+                                          : "bg-gray-100 text-gray-500"
+                                        }`}>
+                                          {isActive ? "운영"
+                                            : slot.status === "scheduled" ? "대기"
+                                            : slot.status === "boost" ? "강화"
+                                            : slot.status === "reduce" ? "축소"
+                                            : "대기"}
+                                        </span>
+                                      </>
+                                    ) : (
+                                      <p className="text-[10px] text-gray-400 mt-0.5">미배정</p>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })() : selectedPoolId ? (
+                      <div className="py-12 text-center text-sm text-muted-foreground">편성표 불러오는 중...</div>
+                    ) : null}
+                  </div>
+                )}
+
+                {/* ─ 준비중 stub 탭들 ─ */}
+                {(adCenterTab === "meta" || adCenterTab === "aiSettings" || adCenterTab === "performance" || adCenterTab === "billing") && (
+                  <div className="py-20 flex flex-col items-center gap-3 text-center">
+                    <div className="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center">
+                      {adCenterTab === "meta" && <ExternalLink className="w-6 h-6 text-gray-400" />}
+                      {adCenterTab === "aiSettings" && <Settings className="w-6 h-6 text-gray-400" />}
+                      {adCenterTab === "performance" && <TrendingUp className="w-6 h-6 text-gray-400" />}
+                      {adCenterTab === "billing" && <CircleDollarSign className="w-6 h-6 text-gray-400" />}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-sm">
+                        {adCenterTab === "meta" && "Meta 광고 API 연동"}
+                        {adCenterTab === "aiSettings" && "AI 편성 엔진 설정"}
+                        {adCenterTab === "performance" && "성과 리포트"}
+                        {adCenterTab === "billing" && "정산 관리"}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {adCenterTab === "meta" && "Phase 3에서 Meta Marketing API 실제 연동 및 성과 수집이 구현됩니다."}
+                        {adCenterTab === "aiSettings" && "Phase 2에서 AI 문구 자동 보정 및 편성 엔진이 구현됩니다."}
+                        {adCenterTab === "performance" && "Phase 3에서 노출·클릭·지출 성과 데이터 리포트가 제공됩니다."}
+                        {adCenterTab === "billing" && "Phase 3에서 광고주별 예산 집행 및 정산 관리가 구현됩니다."}
+                      </p>
+                    </div>
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs bg-blue-50 text-blue-600 border border-blue-200 font-medium">
+                      {adCenterTab === "meta" ? "Phase 3 예정" : adCenterTab === "aiSettings" ? "Phase 2 예정" : "Phase 3 예정"}
+                    </span>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* ══ 크롤링 소스 ═══════════════════════════════════════════════════ */}
           {activeNav === "sources" && (

@@ -42,6 +42,8 @@ export const adPerformancesTable = pgTable("ad_performances", {
   clicks: integer("clicks").notNull().default(0),
   spend: integer("spend").notNull().default(0),
   reach: integer("reach").notNull().default(0),
+  ctr: real("ctr"),
+  cpc: integer("cpc"),
   source: text("source").notNull().default("manual"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (t) => [

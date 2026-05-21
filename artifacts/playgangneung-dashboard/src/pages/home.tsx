@@ -591,6 +591,91 @@ function VideoCard({ item }: { item: VideoItem }) {
   );
 }
 
+// ─── 광고주 성과 조회 컴포넌트 ────────────────────────────────────────────────────
+function AdPerformanceLookup({ base }: { base: string }) {
+  const [adId, setAdId] = useState("");
+  const [queried, setQueried] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<{
+    adTitle: string; businessName: string; status: string;
+    since: string; until: string; hasSufficientData: boolean;
+    performance: { totalImpressions: number; totalClicks: number; totalSpend: number; ctr: number };
+  } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleLookup() {
+    const id = adId.trim();
+    if (!id) return;
+    setLoading(true); setError(null); setResult(null); setQueried(id);
+    try {
+      const r = await fetch(`${base}/api/public/ads/${id}/performance-summary`);
+      if (!r.ok) { setError("광고를 찾을 수 없습니다. 광고 ID를 확인해주세요."); }
+      else { setResult(await r.json()); }
+    } catch { setError("조회 중 오류가 발생했습니다."); }
+    finally { setLoading(false); }
+  }
+
+  return (
+    <section className="bg-gray-50 border-t py-8 px-4">
+      <div className="max-w-lg mx-auto">
+        <p className="text-sm font-semibold text-gray-700 mb-1">광고 성과 조회</p>
+        <p className="text-xs text-gray-500 mb-3">광고 담당자에게 받은 광고 ID를 입력하면 최근 30일 성과를 확인할 수 있습니다.</p>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={adId}
+            onChange={(e) => setAdId(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleLookup()}
+            placeholder="광고 ID 입력"
+            className="flex-1 border rounded-md px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-gray-400"
+          />
+          <Button size="sm" onClick={handleLookup} disabled={loading || !adId.trim()} className="bg-gray-700 hover:bg-gray-800 text-white">
+            {loading ? "조회 중..." : "조회"}
+          </Button>
+        </div>
+
+        {error && queried && (
+          <p className="mt-3 text-xs text-red-600 bg-red-50 rounded px-3 py-2">{error}</p>
+        )}
+
+        {result && (
+          <div className="mt-3 bg-white rounded-lg border p-4 space-y-2">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="font-semibold text-sm">{result.adTitle}</p>
+                <p className="text-xs text-gray-500">{result.businessName}</p>
+              </div>
+              <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${
+                result.status === "active" ? "bg-green-50 text-green-700 border-green-200"
+                : result.status === "approved" ? "bg-blue-50 text-blue-700 border-blue-200"
+                : "bg-gray-50 text-gray-600 border-gray-200"
+              }`}>{result.status === "active" ? "운영중" : result.status === "approved" ? "승인됨" : result.status === "published" ? "게시됨" : result.status}</span>
+            </div>
+            {result.hasSufficientData ? (
+              <div className="grid grid-cols-2 gap-2 pt-2 border-t">
+                {[
+                  { label: "노출수", value: result.performance.totalImpressions.toLocaleString() },
+                  { label: "클릭수", value: result.performance.totalClicks.toLocaleString() },
+                  { label: "CTR", value: `${result.performance.ctr}%` },
+                  { label: "지출", value: `₩${result.performance.totalSpend.toLocaleString()}` },
+                ].map((m) => (
+                  <div key={m.label} className="bg-gray-50 rounded p-2">
+                    <p className="text-[10px] text-gray-500">{m.label}</p>
+                    <p className="text-sm font-bold text-gray-800">{m.value}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-gray-400 pt-2 border-t">성과 데이터가 아직 없습니다.</p>
+            )}
+            <p className="text-[10px] text-gray-400">기간: {result.since} ~ {result.until}</p>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
 export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showAll, setShowAll] = useState(false);
@@ -901,6 +986,9 @@ export default function Home() {
           </>
         )}
       </main>
+
+      {/* 광고주 성과 조회 섹션 */}
+      <AdPerformanceLookup base={BASE} />
 
       {/* Footer */}
       <footer className="bg-gray-900 text-gray-400 py-8">

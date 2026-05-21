@@ -229,18 +229,36 @@ export interface RateLimitStatus {
 export function parseRateLimitHeader(header: string | null): RateLimitStatus | null {
   if (!header) return null;
   try {
-    const obj: Record<string, unknown> = {};
-    for (const part of header.split(",")) {
-      const [k, v] = part.trim().split("=");
-      obj[k.trim()] = v?.replace(/"/g, "").trim();
+    // Meta 헤더는 항상 JSON 형식
+    // x-app-usage: {"call_count":10,"total_cputime":2,"total_time":5}
+    // x-business-use-case-usage: {"act_xxx":[{"call_count":10,...,"type":"ads_management"}]}
+    const parsed = JSON.parse(header) as Record<string, unknown>;
+
+    // x-app-usage (flat object)
+    if (typeof parsed["call_count"] === "number") {
+      return {
+        callCount: Number(parsed["call_count"] ?? 0),
+        totalCputime: Number(parsed["total_cputime"] ?? 0),
+        totalTime: Number(parsed["total_time"] ?? 0),
+        type: "app",
+        estimatedTimeToRegain: Number(parsed["estimated_time_to_regain_access"] ?? 0),
+      };
     }
-    return {
-      callCount: Number(obj["call_count"] ?? 0),
-      totalCputime: Number(obj["total_cputime"] ?? 0),
-      totalTime: Number(obj["total_time"] ?? 0),
-      type: String(obj["type"] ?? ""),
-      estimatedTimeToRegain: Number(obj["estimated_time_to_regain_access"] ?? 0),
-    };
+
+    // x-business-use-case-usage (nested: {"act_xxx": [{...}]})
+    const firstKey = Object.keys(parsed)[0];
+    if (firstKey) {
+      const arr = parsed[firstKey] as Array<Record<string, unknown>>;
+      const item = (Array.isArray(arr) ? arr[0] : {}) as Record<string, unknown>;
+      return {
+        callCount: Number(item["call_count"] ?? 0),
+        totalCputime: Number(item["total_cputime"] ?? 0),
+        totalTime: Number(item["total_time"] ?? 0),
+        type: String(item["type"] ?? ""),
+        estimatedTimeToRegain: Number(item["estimated_time_to_regain_access"] ?? 0),
+      };
+    }
+    return null;
   } catch {
     return null;
   }

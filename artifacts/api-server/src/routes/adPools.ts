@@ -456,8 +456,10 @@ router.post("/ad-pools/:id/push-to-meta", async (req, res) => {
     const endTime = new Date(`${pool.endDate}T23:59:59+09:00`).toISOString();
 
     // 2. 전략별 광고세트 생성
-    // - performance 모드: 광고별 개별 광고세트 (성과 측정 격리)
-    // - 나머지: 풀 단위 단일 광고세트
+    // - performance  → 광고별 개별 광고세트 (성과 측정 격리)
+    // - new_ad_boost → 카테고리별 광고세트 (카테고리 경쟁 최소화)
+    // - overexposure_prevention → 기간(날짜 월) 별 광고세트 (과노출 방지)
+    // - equal/manual → 풀 단위 단일 광고세트
     let firstAdSetId = "";
     const adAdSetMap: Record<string, string> = {};
 
@@ -478,8 +480,56 @@ router.post("/ad-pools/:id/push-to-meta", async (req, res) => {
           if (!firstAdSetId) firstAdSetId = setId;
         }
       }
+    } else if (aiMode === "new_ad_boost") {
+      // 카테고리별 광고세트 — 동일 카테고리 광고끼리 묶어 노출 다양성 확보
+      const adsForCategory = await db.select().from(adsTable).where(inArray(adsTable.id, adIdList));
+      const byCategory: Record<string, string[]> = {};
+      for (const a of adsForCategory) {
+        const cat = a.category || "기타";
+        byCategory[cat] = [...(byCategory[cat] ?? []), a.id];
+      }
+      const cats = Object.keys(byCategory);
+      const budgetPerCat = Math.max(Math.round(dailyBudgetPerDay / Math.max(cats.length, 1)), 100);
+      for (const [cat, catAdIds] of Object.entries(byCategory)) {
+        const setRes = await createAdSet({
+          name: `[PLAY강릉] ${pool.name} - ${cat}`,
+          campaignId: metaCampaignId,
+          dailyBudget: budgetPerCat,
+          startTime,
+          endTime,
+        });
+        if (setRes.ok) {
+          const setId = (setRes as { ok: true; data: { id: string } }).data.id;
+          for (const adId of catAdIds) adAdSetMap[adId] = setId;
+          if (!firstAdSetId) firstAdSetId = setId;
+        }
+      }
+    } else if (aiMode === "overexposure_prevention") {
+      // 기간별 광고세트 — adsTable.date 기준 월(YYYY-MM)로 그룹핑하여 과노출 방지
+      const adsForPeriod = await db.select().from(adsTable).where(inArray(adsTable.id, adIdList));
+      const byPeriod: Record<string, string[]> = {};
+      for (const a of adsForPeriod) {
+        const month = (a.date ?? "").slice(0, 7) || "기타";
+        byPeriod[month] = [...(byPeriod[month] ?? []), a.id];
+      }
+      const periods = Object.keys(byPeriod);
+      const budgetPerPeriod = Math.max(Math.round(dailyBudgetPerDay / Math.max(periods.length, 1)), 100);
+      for (const [period, periodAdIds] of Object.entries(byPeriod)) {
+        const setRes = await createAdSet({
+          name: `[PLAY강릉] ${pool.name} - ${period}`,
+          campaignId: metaCampaignId,
+          dailyBudget: budgetPerPeriod,
+          startTime,
+          endTime,
+        });
+        if (setRes.ok) {
+          const setId = (setRes as { ok: true; data: { id: string } }).data.id;
+          for (const adId of periodAdIds) adAdSetMap[adId] = setId;
+          if (!firstAdSetId) firstAdSetId = setId;
+        }
+      }
     } else {
-      // 단일 광고세트
+      // 단일 광고세트 (equal / manual)
       const adSetRes = await createAdSet({
         name: `[PLAY강릉] ${pool.name} 광고세트`,
         campaignId: metaCampaignId,

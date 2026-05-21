@@ -152,10 +152,21 @@ interface PoolPerformanceSummary {
   budgetUsedPct: number;
 }
 
+interface AdBreakdownItem {
+  adId: string;
+  title: string;
+  businessName: string;
+  impressions: number;
+  clicks: number;
+  spend: number;
+  ctr: number;
+}
+
 interface PoolPerformance {
   pool: { id: string; name: string; totalBudget: number; metaCampaignId?: string | null };
   summary: PoolPerformanceSummary;
   dailyChart: { date: string; impressions: number; clicks: number; spend: number; ctr: number }[];
+  adBreakdown: AdBreakdownItem[];
   since: string;
   until: string;
 }
@@ -2517,6 +2528,42 @@ export default function Admin() {
                             </Card>
                           )}
                         </>
+                      )}
+
+                      {/* 광고별 성과 테이블 */}
+                      {perfPoolId && !poolPerfLoading && perf && perf.adBreakdown && perf.adBreakdown.length > 0 && (
+                        <Card>
+                          <CardContent className="p-4">
+                            <p className="text-sm font-semibold mb-3">광고별 성과 비교</p>
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-xs">
+                                <thead>
+                                  <tr className="border-b text-muted-foreground">
+                                    <th className="text-left py-2 pr-3 font-medium">광고 제목</th>
+                                    <th className="text-right py-2 px-2 font-medium">노출수</th>
+                                    <th className="text-right py-2 px-2 font-medium">클릭수</th>
+                                    <th className="text-right py-2 px-2 font-medium">CTR</th>
+                                    <th className="text-right py-2 pl-2 font-medium">지출</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {perf.adBreakdown.map((ad: { adId: string; title: string; businessName: string; impressions: number; clicks: number; ctr: number; spend: number }) => (
+                                    <tr key={ad.adId} className="border-b last:border-0 hover:bg-muted/30">
+                                      <td className="py-2 pr-3">
+                                        <p className="font-medium truncate max-w-[180px]">{ad.title}</p>
+                                        <p className="text-muted-foreground">{ad.businessName}</p>
+                                      </td>
+                                      <td className="text-right py-2 px-2 font-mono">{ad.impressions.toLocaleString()}</td>
+                                      <td className="text-right py-2 px-2 font-mono">{ad.clicks.toLocaleString()}</td>
+                                      <td className="text-right py-2 px-2 font-mono">{ad.ctr}%</td>
+                                      <td className="text-right py-2 pl-2 font-mono">₩{ad.spend.toLocaleString()}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </CardContent>
+                        </Card>
                       )}
 
                       {perfPoolId && poolPerfLoading && (

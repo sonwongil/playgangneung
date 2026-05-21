@@ -62,6 +62,30 @@ router.get("/ad-pools/:id/performance", async (req, res) => {
         ctr: v.impressions > 0 ? Number(((v.clicks / v.impressions) * 100).toFixed(2)) : 0,
       }));
 
+    // 광고별 breakdown (adId 기준 집계 + 광고 제목 조회)
+    const byAd: Record<string, { impressions: number; clicks: number; spend: number; title: string; businessName: string }> = {};
+    for (const r of rows) {
+      if (!byAd[r.adId]) byAd[r.adId] = { impressions: 0, clicks: 0, spend: 0, title: r.adId.slice(-8), businessName: "" };
+      byAd[r.adId].impressions += r.impressions;
+      byAd[r.adId].clicks += r.clicks;
+      byAd[r.adId].spend += r.spend;
+    }
+    const adIdKeys = Object.keys(byAd);
+    if (adIdKeys.length > 0) {
+      const adRows = await db.select({ id: adsTable.id, title: adsTable.title, businessName: adsTable.businessName })
+        .from(adsTable).where(inArray(adsTable.id, adIdKeys));
+      for (const a of adRows) {
+        if (byAd[a.id]) { byAd[a.id].title = a.title; byAd[a.id].businessName = a.businessName; }
+      }
+    }
+    const adBreakdown = Object.entries(byAd)
+      .map(([adId, v]) => ({
+        adId, title: v.title, businessName: v.businessName,
+        impressions: v.impressions, clicks: v.clicks, spend: v.spend,
+        ctr: v.impressions > 0 ? Number(((v.clicks / v.impressions) * 100).toFixed(2)) : 0,
+      }))
+      .sort((a, b) => b.impressions - a.impressions);
+
     return res.json({
       pool: { id: pool.id, name: pool.name, totalBudget: pool.totalBudget, metaCampaignId: pool.metaCampaignId },
       summary: {
@@ -70,6 +94,7 @@ router.get("/ad-pools/:id/performance", async (req, res) => {
         budgetUsedPct: pool.totalBudget > 0 ? Number(((totalSpend / pool.totalBudget) * 100).toFixed(1)) : 0,
       },
       dailyChart,
+      adBreakdown,
       since,
       until,
     });
@@ -198,17 +223,19 @@ router.post("/ad-pools/:id/collect-performance", async (req, res) => {
       for (const ad of adsWithMeta) {
         const insights = await getAdInsights(ad.metaAdId!, since, until);
         if (!insights.ok) { req.log.warn({ adId: ad.id, error: insights.error }, "광고 단위 성과 수집 실패"); continue; }
-        const rows = (insights.data as { data: { date_start: string; impressions?: string; clicks?: string; spend?: string; reach?: string }[] }).data ?? [];
+        const rows = (insights.data as { data: { date_start: string; impressions?: string; clicks?: string; spend?: string; reach?: string; ctr?: string; cpc?: string }[] }).data ?? [];
         for (const row of rows) {
           const pid = perfId(ad.id, id, row.date_start, "meta");
           const impressions = Number(row.impressions ?? 0);
           const clicks = Number(row.clicks ?? 0);
           const spend = Math.round(Number(row.spend ?? 0) * 100);
           const reach = Number(row.reach ?? 0);
+          const ctr = row.ctr != null ? Number(row.ctr) : null;
+          const cpc = row.cpc != null ? Math.round(Number(row.cpc)) : null;
           await db.insert(adPerformancesTable).values({
             id: pid, adId: ad.id, poolId: id, date: row.date_start,
-            impressions, clicks, spend, reach, source: "meta",
-          }).onConflictDoUpdate({ target: adPerformancesTable.id, set: { impressions, clicks, spend, reach } });
+            impressions, clicks, spend, reach, ctr, cpc, source: "meta",
+          }).onConflictDoUpdate({ target: adPerformancesTable.id, set: { impressions, clicks, spend, reach, ctr, cpc } });
           saved++;
         }
       }
@@ -217,17 +244,19 @@ router.post("/ad-pools/:id/collect-performance", async (req, res) => {
       const firstAdId = adIds[0] ?? id;
       const insights = await getCampaignInsights(pool.metaCampaignId, "last_7d");
       if (!insights.ok) return res.status(502).json({ error: `Meta API 오류: ${insights.error}` });
-      const rows = (insights.data as { data: { date_start: string; impressions?: string; clicks?: string; spend?: string; reach?: string }[] }).data ?? [];
+      const rows = (insights.data as { data: { date_start: string; impressions?: string; clicks?: string; spend?: string; reach?: string; ctr?: string; cpc?: string }[] }).data ?? [];
       for (const row of rows) {
         const pid = perfId(firstAdId, id, row.date_start, "meta");
         const impressions = Number(row.impressions ?? 0);
         const clicks = Number(row.clicks ?? 0);
         const spend = Math.round(Number(row.spend ?? 0) * 100);
         const reach = Number(row.reach ?? 0);
+        const ctr = row.ctr != null ? Number(row.ctr) : null;
+        const cpc = row.cpc != null ? Math.round(Number(row.cpc)) : null;
         await db.insert(adPerformancesTable).values({
           id: pid, adId: firstAdId, poolId: id, date: row.date_start,
-          impressions, clicks, spend, reach, source: "meta",
-        }).onConflictDoUpdate({ target: adPerformancesTable.id, set: { impressions, clicks, spend, reach } });
+          impressions, clicks, spend, reach, ctr, cpc, source: "meta",
+        }).onConflictDoUpdate({ target: adPerformancesTable.id, set: { impressions, clicks, spend, reach, ctr, cpc } });
         saved++;
       }
     }

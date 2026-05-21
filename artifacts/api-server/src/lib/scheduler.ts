@@ -81,27 +81,30 @@ async function collectMetaPerformance() {
       const makeId = (adId: string, date: string) =>
         crypto.createHash("sha256").update(`${adId}|${pool.id}|${date}|meta`).digest("hex").slice(0, 32);
 
+      type InsightRow = { date_start: string; impressions?: string; clicks?: string; spend?: string; reach?: string; ctr?: string; cpc?: string };
       if (adsWithMeta.length > 0) {
         for (const ad of adsWithMeta) {
           const adInsights = await getAdInsights(ad.metaAdId!, since, until);
           if (!adInsights.ok) { logger.warn({ adId: ad.id, error: adInsights.error }, "광고 단위 성과 수집 실패"); continue; }
-          const adRows = (adInsights.data as { data: { date_start: string; impressions?: string; clicks?: string; spend?: string; reach?: string }[] }).data ?? [];
+          const adRows = (adInsights.data as { data: InsightRow[] }).data ?? [];
           for (const row of adRows) {
             const pid = makeId(ad.id, row.date_start);
             const impressions = Number(row.impressions ?? 0);
             const clicks = Number(row.clicks ?? 0);
             const spend = Math.round(Number(row.spend ?? 0) * 100);
             const reach = Number(row.reach ?? 0);
+            const ctr = row.ctr != null ? Number(row.ctr) : null;
+            const cpc = row.cpc != null ? Math.round(Number(row.cpc)) : null;
             await db.insert(adPerformancesTable).values({
               id: pid, adId: ad.id, poolId: pool.id, date: row.date_start,
-              impressions, clicks, spend, reach, source: "meta",
-            }).onConflictDoUpdate({ target: adPerformancesTable.id, set: { impressions, clicks, spend, reach } });
+              impressions, clicks, spend, reach, ctr, cpc, source: "meta",
+            }).onConflictDoUpdate({ target: adPerformancesTable.id, set: { impressions, clicks, spend, reach, ctr, cpc } });
             total++;
           }
         }
       } else {
         // 캠페인 단위 폴백
-        const rows = (insights.data as { data: { date_start: string; impressions?: string; clicks?: string; spend?: string; reach?: string }[] }).data ?? [];
+        const rows = (insights.data as { data: InsightRow[] }).data ?? [];
         const firstAdId = adIds[0] ?? pool.id;
         for (const row of rows) {
           const pid = makeId(firstAdId, row.date_start);
@@ -109,10 +112,12 @@ async function collectMetaPerformance() {
           const clicks = Number(row.clicks ?? 0);
           const spend = Math.round(Number(row.spend ?? 0) * 100);
           const reach = Number(row.reach ?? 0);
+          const ctr = row.ctr != null ? Number(row.ctr) : null;
+          const cpc = row.cpc != null ? Math.round(Number(row.cpc)) : null;
           await db.insert(adPerformancesTable).values({
             id: pid, adId: firstAdId, poolId: pool.id, date: row.date_start,
-            impressions, clicks, spend, reach, source: "meta",
-          }).onConflictDoUpdate({ target: adPerformancesTable.id, set: { impressions, clicks, spend, reach } });
+            impressions, clicks, spend, reach, ctr, cpc, source: "meta",
+          }).onConflictDoUpdate({ target: adPerformancesTable.id, set: { impressions, clicks, spend, reach, ctr, cpc } });
           total++;
         }
       }

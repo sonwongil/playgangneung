@@ -9,6 +9,13 @@ const ALLOWED_HOSTS = [
   "www.gncaf.or.kr",
   "gncaf.or.kr",
   "images.unsplash.com",
+  // 네이버 블로그 이미지
+  "postfiles.pstatic.net",
+  "blogfiles.pstatic.net",
+  "mblogthumb-phinf.pstatic.net",
+  "phinf.pstatic.net",
+  "blogpfthumb-phinf.pstatic.net",
+  "blogimgs.naver.net",
 ];
 
 router.get("/proxy/image", async (req, res) => {
@@ -31,11 +38,16 @@ router.get("/proxy/image", async (req, res) => {
     return;
   }
 
+  const NAVER_HOSTS = ["postfiles.pstatic.net", "blogfiles.pstatic.net", "mblogthumb-phinf.pstatic.net", "phinf.pstatic.net", "blogpfthumb-phinf.pstatic.net", "blogimgs.naver.net"];
+  const referer = NAVER_HOSTS.includes(parsed.hostname)
+    ? "https://blog.naver.com/"
+    : `${parsed.protocol}//${parsed.hostname}/`;
+
   try {
     const upstream = await fetch(rawUrl, {
       headers: {
-        "User-Agent": "Mozilla/5.0 (compatible; PlayGangneungBot/1.0)",
-        "Referer": `${parsed.protocol}//${parsed.hostname}/`,
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Referer": referer,
         "Accept": "image/webp,image/apng,image/*,*/*;q=0.8",
       },
       signal: AbortSignal.timeout(8000),

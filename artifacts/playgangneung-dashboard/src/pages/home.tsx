@@ -471,6 +471,10 @@ function FeedCard({ item }: { item: FeedItem }) {
   );
 }
 
+function proxyImg(url: string): string {
+  return `${BASE}/api/proxy/image?url=${encodeURIComponent(url)}`;
+}
+
 const STORY_GRADIENTS = [
   "from-blue-800 to-blue-600",
   "from-purple-800 to-purple-600",
@@ -494,14 +498,18 @@ function StoryCard({ item }: { item: StoryItem }) {
       <div className="relative h-44 overflow-hidden">
         {firstImage ? (
           <img
-            src={firstImage}
+            src={proxyImg(firstImage)}
             alt={item.title}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             loading="lazy"
+            onError={(e) => {
+              const el = e.currentTarget;
+              el.style.display = "none";
+              el.parentElement?.querySelector(".story-fallback")?.classList.remove("hidden");
+            }}
           />
-        ) : (
-          <div className={`w-full h-full bg-gradient-to-br ${gradient}`} />
-        )}
+        ) : null}
+        <div className={`story-fallback w-full h-full bg-gradient-to-br ${gradient} absolute inset-0 ${firstImage ? "hidden" : ""}`} />
         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
         <div className="absolute bottom-0 left-0 right-0 p-3">
           {item.author && (

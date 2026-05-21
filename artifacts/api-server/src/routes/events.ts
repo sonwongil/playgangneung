@@ -297,6 +297,32 @@ router.patch("/events/:id/status", async (req, res) => {
     }
 
     req.log.info({ id, status }, "이벤트 상태 변경");
+
+    if (status === "approved") {
+      const log = req.log;
+      setImmediate(async () => {
+        try {
+          const ev = updated;
+          if (!ev.socialDraft) {
+            const draft = generateSocialDraft(ev);
+            await saveEventDraft(ev.id, draft);
+          }
+          const allImages = [ev.thumbnail, ...(ev.extraImages ?? [])].filter(Boolean) as string[];
+          const base = { id: ev.id, title: ev.title, description: ev.description, category: ev.category, source: ev.source, startDate: ev.startDate, date: ev.date };
+          if (allImages.length === 0) {
+            await generateCardImage({ ...base, thumbnail: undefined });
+          } else {
+            for (let i = 0; i < allImages.length; i++) {
+              await generateCardImage({ ...base, thumbnail: allImages[i], suffix: i === 0 ? "thumb" : `extra${i}` });
+            }
+          }
+          log.info({ id }, "자동 카드이미지 생성 완료");
+        } catch (autoErr) {
+          log.warn({ id, err: autoErr }, "자동 카드이미지 생성 실패");
+        }
+      });
+    }
+
     return res.json({ success: true, id, status });
   } catch (err) {
     req.log.error({ err }, "상태 변경 실패");

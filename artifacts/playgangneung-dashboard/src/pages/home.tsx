@@ -471,96 +471,63 @@ function FeedCard({ item }: { item: FeedItem }) {
   );
 }
 
+const STORY_GRADIENTS = [
+  "from-blue-800 to-blue-600",
+  "from-purple-800 to-purple-600",
+  "from-emerald-800 to-emerald-600",
+  "from-rose-800 to-rose-600",
+  "from-orange-800 to-orange-600",
+  "from-cyan-800 to-cyan-600",
+];
+
 function StoryCard({ item }: { item: StoryItem }) {
-  const [open, setOpen] = useState(false);
   const firstImage = item.images[0];
+  const gradient = STORY_GRADIENTS[item.id.charCodeAt(0) % STORY_GRADIENTS.length];
   return (
-    <>
-      <div
-        onClick={() => setOpen(true)}
-        className="rounded-2xl overflow-hidden bg-gray-900 text-white cursor-pointer hover:brightness-110 transition-all"
-      >
-        {firstImage && (
-          <div className="relative h-48 overflow-hidden">
-            <img src={firstImage} alt={item.title} className="w-full h-full object-cover" loading="lazy" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-          </div>
+    <a
+      href={item.sourceUrl || "#"}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="block rounded-2xl overflow-hidden cursor-pointer hover:shadow-xl transition-shadow duration-300 group bg-gray-900"
+    >
+      {/* 이미지/그라디언트 배경 + 제목 오버레이 */}
+      <div className="relative h-44 overflow-hidden">
+        {firstImage ? (
+          <img
+            src={firstImage}
+            alt={item.title}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            loading="lazy"
+          />
+        ) : (
+          <div className={`w-full h-full bg-gradient-to-br ${gradient}`} />
         )}
-        <div className="p-4">
+        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
+        <div className="absolute bottom-0 left-0 right-0 p-3">
           {item.author && (
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-xs font-bold shrink-0">
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <div className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-[10px] font-bold text-white shrink-0">
                 {item.author[0]}
               </div>
-              <span className="text-xs text-gray-400">{item.author}</span>
+              <span className="text-[11px] text-white/70 truncate">{item.author}</span>
             </div>
           )}
-          <h3 className="font-bold text-base leading-snug mb-2 line-clamp-2">{item.title}</h3>
-          {item.body && (
-            <p className="text-sm text-gray-400 line-clamp-3 leading-relaxed">{item.body}</p>
-          )}
-          {item.tags?.length > 0 && (
-            <div className="flex flex-wrap gap-1 mt-3">
-              {item.tags.slice(0, 4).map(tag => (
-                <span key={tag} className="text-xs bg-gray-800 text-gray-400 px-2 py-0.5 rounded-full">#{tag}</span>
-              ))}
-            </div>
-          )}
-          <p className="text-xs text-gray-600 mt-3">
-            {new Date(item.createdAt).toLocaleDateString("ko-KR")}
-          </p>
-
+          <h3 className="font-bold text-sm text-white leading-snug line-clamp-2">{item.title}</h3>
         </div>
       </div>
-
-      {/* 상세 패널 */}
-      <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent side="right" className="w-full sm:max-w-lg flex flex-col p-0 overflow-hidden">
-          {firstImage && (
-            <div className="relative h-56 shrink-0 bg-gray-100 overflow-hidden">
-              <img src={firstImage} alt={item.title} className="w-full h-full object-cover" />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-            </div>
-          )}
-          <div className="flex-1 overflow-y-auto p-5 space-y-3">
-            {item.author && (
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-sm font-bold text-white shrink-0">
-                  {item.author[0]}
-                </div>
-                <span className="text-sm font-medium">{item.author}</span>
-                <span className="text-xs text-muted-foreground ml-auto">{new Date(item.createdAt).toLocaleDateString("ko-KR")}</span>
-              </div>
-            )}
-            <h2 className="font-bold text-lg leading-snug">{item.title}</h2>
-            {item.body && (
-              <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">{item.body}</p>
-            )}
-            {item.tags?.length > 0 && (
-              <div className="flex flex-wrap gap-1 pt-1">
-                {item.tags.filter(Boolean).map(tag => (
-                  <span key={tag} className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">#{tag}</span>
-                ))}
-              </div>
-            )}
-          </div>
-          {item.sourceUrl && (
-            <div className="border-t p-4 shrink-0">
-              <a
-                href={item.sourceUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 w-full h-10 rounded-lg bg-gray-900 text-white text-sm font-medium hover:bg-gray-700 transition-colors"
-              >
-                <ExternalLink className="w-4 h-4" />원문 보기
-              </a>
-            </div>
-          )}
-        </SheetContent>
-      </Sheet>
-    </>
+      {/* 태그 */}
+      {item.tags?.length > 0 && (
+        <div className="px-3 py-2 flex flex-wrap gap-1">
+          {item.tags.slice(0, 3).map(tag => (
+            <span key={tag} className="text-[11px] bg-gray-800 text-gray-400 px-1.5 py-0.5 rounded-full">#{tag}</span>
+          ))}
+          <span className="text-[11px] text-gray-600 ml-auto">{new Date(item.createdAt).toLocaleDateString("ko-KR")}</span>
+        </div>
+      )}
+    </a>
   );
 }
+
 
 function VideoCard({ item }: { item: VideoItem }) {
   const [playing, setPlaying] = useState(false);

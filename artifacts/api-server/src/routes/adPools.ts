@@ -542,6 +542,12 @@ router.post("/ad-pools/:id/push-to-meta", async (req, res) => {
       for (const adId of adIdList) adAdSetMap[adId] = firstAdSetId;
     }
 
+    // 전략별 adset 생성 결과 검증 — 1개도 없으면 synced 표시 금지
+    const createdAdSetIds = [...new Set(Object.values(adAdSetMap))].filter(Boolean);
+    if (!firstAdSetId || createdAdSetIds.length === 0) {
+      return res.status(502).json({ error: "광고세트 생성에 모두 실패했습니다. Meta 연결 설정을 확인해주세요." });
+    }
+
     // 3. 광고 소재 생성 + metaAdId 저장
     const pageId = process.env["META_PAGE_ID"] ?? "";
     const createdAds: { adId: string; metaAdId: string }[] = [];

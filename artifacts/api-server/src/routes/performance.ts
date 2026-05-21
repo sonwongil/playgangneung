@@ -354,6 +354,122 @@ router.get("/meta/rate-limit", async (req, res) => {
   });
 });
 
+// ─── 이메일·전화번호로 내 광고 조회 (공개) ───────────────────────────────────────
+router.post("/public/lookup-ad", async (req, res) => {
+  try {
+    const body = req.body as { email?: string; phone?: string };
+    const email = (body.email ?? "").trim().toLowerCase();
+    const phone = (body.phone ?? "").trim().replace(/[^0-9]/g, "");
+
+    if (!email && !phone) {
+      return res.status(400).json({ error: "이메일 또는 전화번호를 입력하세요" });
+    }
+
+    const ads = await db.select().from(adsTable);
+    const matched = ads.filter((ad) => {
+      if (ad.status === "rejected") return false;
+      if (email && ad.email.trim().toLowerCase() === email) return true;
+      if (phone && ad.phone.replace(/[^0-9]/g, "") === phone) return true;
+      return false;
+    });
+
+    if (matched.length === 0) {
+      return res.status(404).json({ error: "일치하는 광고를 찾을 수 없습니다. 이메일 또는 전화번호를 확인해 주세요." });
+    }
+
+    // 토큰이 없는 광고는 자동 발급
+    const results = await Promise.all(
+      matched.map(async (ad) => {
+        let token = ad.reportToken;
+        if (!token) {
+          token = crypto.randomBytes(24).toString("base64url");
+          await db.update(adsTable).set({ reportToken: token }).where(eq(adsTable.id, ad.id));
+        }
+        return {
+          id: ad.id,
+          title: ad.title,
+          businessName: ad.businessName,
+          status: ad.status,
+          plan: ad.plan,
+          createdAt: ad.createdAt,
+          reportToken: token,
+        };
+      })
+    );
+
+    return res.json({ ads: results });
+  } catch (err) {
+    req.log.error({ err }, "광고 조회 실패");
+    return res.status(500).json({ error: "조회 실패" });
+  }
+});
+
+// ─── 광고주 리포트 토큰 발급 / 조회 (관리자 전용) ─────────────────────────────────
+router.post("/ads/:id/report-token", async (req, res) => {
+  if (!req.session?.isAdmin) return res.status(401).json({ error: "로그인이 필요합니다" });
+  try {
+    const { id } = req.params;
+    const [ad] = await db.select().from(adsTable).where(eq(adsTable.id, id));
+    if (!ad) return res.status(404).json({ error: "광고를 찾을 수 없습니다" });
+
+    // 기존 토큰 있으면 재사용, 없으면 새로 발급
+    const token = ad.reportToken ?? crypto.randomBytes(24).toString("base64url");
+
+    if (!ad.reportToken) {
+      await db.update(adsTable).set({ reportToken: token }).where(eq(adsTable.id, id));
+    }
+
+    req.log.info({ adId: id }, "광고 리포트 토큰 발급");
+    return res.json({ token });
+  } catch (err) {
+    req.log.error({ err }, "리포트 토큰 발급 실패");
+    return res.status(500).json({ error: "토큰 발급 실패" });
+  }
+});
+
+// ─── 토큰 기반 광고주 공개 성과 리포트 ──────────────────────────────────────────
+router.get("/public/report/:token", async (req, res) => {
+  try {
+    const { token } = req.params;
+    const [ad] = await db.select().from(adsTable).where(eq(adsTable.reportToken, token));
+    if (!ad || ad.status === "rejected") return res.status(404).json({ error: "리포트를 찾을 수 없습니다" });
+
+    const since = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+    const until = new Date().toISOString().slice(0, 10);
+
+    const rows = await db
+      .select()
+      .from(adPerformancesTable)
+      .where(and(eq(adPerformancesTable.adId, ad.id), gte(adPerformancesTable.date, since)))
+      .orderBy(adPerformancesTable.date);
+
+    const totalImpressions = rows.reduce((s, r) => s + r.impressions, 0);
+    const totalClicks = rows.reduce((s, r) => s + r.clicks, 0);
+    const totalSpend = rows.reduce((s, r) => s + r.spend, 0);
+    const ctr = totalImpressions > 0 ? Number(((totalClicks / totalImpressions) * 100).toFixed(2)) : 0;
+
+    // 소속 풀의 예산 정보 조회
+    const poolRow = rows[0]?.poolId
+      ? (await db.select().from(adPoolsTable).where(eq(adPoolsTable.id, rows[0].poolId)))[0]
+      : null;
+    const totalBudget = poolRow?.totalBudget ?? 0;
+    const budgetUsedPct = totalBudget > 0 ? Number(((totalSpend / totalBudget) * 100).toFixed(1)) : null;
+
+    return res.json({
+      adTitle: ad.title,
+      businessName: ad.businessName,
+      status: ad.status,
+      since,
+      until,
+      performance: { totalImpressions, totalClicks, totalSpend, ctr, totalBudget, budgetUsedPct },
+      hasSufficientData: rows.length > 0,
+    });
+  } catch (err) {
+    req.log.error({ err }, "공개 리포트 조회 실패");
+    return res.status(500).json({ error: "조회 실패" });
+  }
+});
+
 // ─── 광고주 공개 성과 요약 (인증 없음, adId 기반) ──────────────────────────────────
 router.get("/public/ads/:id/performance-summary", async (req, res) => {
   try {

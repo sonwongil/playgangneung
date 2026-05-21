@@ -114,6 +114,7 @@ interface Ad {
   createdAt: string;
   aiScore: number | null;
   aiNote: string | null;
+  reportToken?: string | null;
 }
 
 interface Source {
@@ -855,6 +856,23 @@ export default function Admin() {
     onSuccess: () => { toast({ title: "삭제 완료" }); qc.invalidateQueries({ queryKey: ["admin-ads"] }); },
     onError: () => toast({ title: "삭제 실패", variant: "destructive" }),
   });
+
+  const [reportLinkLoading, setReportLinkLoading] = useState<string | null>(null);
+  async function handleCopyReportLink(adId: string) {
+    setReportLinkLoading(adId);
+    try {
+      const r = await fetch(`${BASE}/api/ads/${adId}/report-token`, { method: "POST", credentials: "include" });
+      const d = await r.json() as { token?: string; error?: string };
+      if (!r.ok || !d.token) throw new Error(d.error ?? "토큰 발급 실패");
+      const url = `${window.location.origin}${BASE}/report/${d.token}`;
+      await navigator.clipboard.writeText(url);
+      toast({ title: "리포트 링크 복사됨", description: "광고주에게 붙여넣기로 전달하세요." });
+    } catch (e: any) {
+      toast({ title: e.message ?? "리포트 링크 생성 실패", variant: "destructive" });
+    } finally {
+      setReportLinkLoading(null);
+    }
+  }
 
   async function handleAiImprove(adId: string) {
     setAiImprovingId(adId);
@@ -4058,6 +4076,18 @@ export default function Admin() {
                     <XCircle className="w-4 h-4 mr-2 text-red-500" />제외
                   </Button>
                 )}
+                <Button
+                  className="w-full"
+                  variant="outline"
+                  disabled={reportLinkLoading === selectedAd.id}
+                  onClick={() => handleCopyReportLink(selectedAd.id)}
+                >
+                  {reportLinkLoading === selectedAd.id ? (
+                    <><RefreshCw className="w-3 h-3 mr-1 animate-spin" />링크 생성 중...</>
+                  ) : (
+                    <><Copy className="w-3 h-3 mr-1 text-blue-500" />광고주 리포트 링크 복사</>
+                  )}
+                </Button>
                 <div className="flex gap-2 pt-1">
                   <Button className="flex-1" variant="outline" onClick={() => { setEditingAd(selectedAd); setSelectedAd(null); }}>
                     <Pencil className="w-3 h-3 mr-1" />수정

@@ -23,6 +23,7 @@ export const adsTable = pgTable("ads", {
   aiScore: integer("ai_score"),
   aiNote: text("ai_note"),
   metaAdId: text("meta_ad_id"),
+  reportToken: text("report_token"),
 });
 
 export type AdRow = typeof adsTable.$inferSelect;

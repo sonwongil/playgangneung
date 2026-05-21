@@ -9,6 +9,8 @@ import Admin from "@/pages/admin";
 import AdminEventDetail from "@/pages/admin-event-detail";
 import AdSubmit from "@/pages/ad-submit";
 import Login from "@/pages/login";
+import AdReport from "@/pages/ad-report";
+import MyAd from "@/pages/my-ad";
 
 const queryClient = new QueryClient();
 
@@ -57,6 +59,8 @@ function Router() {
       <Route path="/admin" component={AdminGuard} />
       <Route path="/login" component={Login} />
       <Route path="/ad-submit" component={AdSubmit} />
+      <Route path="/report/:token" component={AdReport} />
+      <Route path="/my-ad" component={MyAd} />
       <Route component={NotFound} />
     </Switch>
   );

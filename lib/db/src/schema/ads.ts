@@ -27,6 +27,7 @@ export const adsTable = pgTable("ads", {
   metaImageHash: text("meta_image_hash"),
   metaStatus: text("meta_status"),
   reportToken: text("report_token"),
+  reportSentAt: timestamp("report_sent_at"),
 });
 
 export type AdRow = typeof adsTable.$inferSelect;

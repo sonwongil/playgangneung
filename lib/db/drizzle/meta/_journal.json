@@ -36,6 +36,20 @@
       "when": 1748736000000,
       "tag": "0004_ads_report_token",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1748822400000,
+      "tag": "0005_meta_creative_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1748908800000,
+      "tag": "0006_ads_report_sent_at",
+      "breakpoints": true
     }
   ]
 }

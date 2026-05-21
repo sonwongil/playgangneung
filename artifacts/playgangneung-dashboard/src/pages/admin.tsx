@@ -115,6 +115,7 @@ interface Ad {
   aiScore: number | null;
   aiNote: string | null;
   reportToken?: string | null;
+  reportSentAt?: string | null;
 }
 
 interface Source {
@@ -842,9 +843,21 @@ export default function Admin() {
   const adStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
       const r = await fetch(`${BASE}/api/ads/${id}/status`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ status }) });
-      if (!r.ok) throw new Error(); return r.json();
+      if (!r.ok) throw new Error(); return r.json() as Promise<{ success: boolean; ad?: Ad; autoSend?: { channels: string[]; errors: string[] } | null }>;
     },
-    onSuccess: () => { toast({ title: "상태 변경 완료" }); qc.invalidateQueries({ queryKey: ["admin-ads"] }); },
+    onSuccess: (data, vars) => {
+      toast({ title: "상태 변경 완료" });
+      qc.invalidateQueries({ queryKey: ["admin-ads"] });
+      // 승인 전환 시 자동 발송 결과 toast
+      if (vars.status === "approved" && data.autoSend) {
+        if (data.autoSend.channels.length > 0) {
+          const labels = data.autoSend.channels.map((c) => c === "email" ? "이메일" : "SMS").join("·");
+          toast({ title: `리포트 자동 발송 완료 (${labels})`, description: "광고주에게 리포트 링크가 전달되었습니다." });
+        } else if (data.autoSend.errors.length > 0) {
+          toast({ title: "리포트 자동 발송 실패", description: data.autoSend.errors.join(", "), variant: "destructive" });
+        }
+      }
+    },
     onError: () => toast({ title: "상태 변경 실패", variant: "destructive" }),
   });
 
@@ -880,6 +893,33 @@ export default function Admin() {
       toast({ title: e.message ?? "리포트 링크 생성 실패", variant: "destructive" });
     } finally {
       setReportLinkLoading(null);
+    }
+  }
+
+  const [sendReportLoading, setSendReportLoading] = useState<string | null>(null);
+  async function handleSendReport(ad: Ad) {
+    setSendReportLoading(ad.id);
+    try {
+      const r = await fetch(`${BASE}/api/ads/${ad.id}/send-report`, { method: "POST", credentials: "include" });
+      const d = await r.json() as { success?: boolean; error?: string; hint?: string; email?: string; phone?: string; sentAt?: string; reportUrl?: string; mailNotConfigured?: boolean; channels?: string[] };
+      if (d.mailNotConfigured && d.reportUrl) {
+        // 이메일·SMS 모두 미설정 — 링크 복사로 폴백
+        await navigator.clipboard.writeText(d.reportUrl);
+        toast({ title: "발송 설정 없음 — 링크 복사됨", description: d.hint ?? "SMTP_HOST 또는 SMS_API_KEY 설정 후 자동 발송이 가능합니다." });
+        return;
+      }
+      if (!r.ok || !d.success) throw new Error(d.error ?? "발송 실패");
+      // 로컬 상태 업데이트
+      if (selectedAd && selectedAd.id === ad.id) {
+        setSelectedAd({ ...selectedAd, reportSentAt: d.sentAt ?? null });
+      }
+      qc.invalidateQueries({ queryKey: ["admin-ads"] });
+      const channelLabels = (d.channels ?? []).map((c) => c === "email" ? `이메일(${d.email ?? ad.email})` : `SMS(${d.phone ?? ad.phone})`).join(", ");
+      toast({ title: "리포트 발송 완료", description: channelLabels || `${d.email ?? ad.email}로 발송되었습니다.` });
+    } catch (e: any) {
+      toast({ title: e.message ?? "리포트 발송 실패", variant: "destructive" });
+    } finally {
+      setSendReportLoading(null);
     }
   }
 
@@ -4265,6 +4305,23 @@ export default function Admin() {
                     <><Copy className="w-3 h-3 mr-1 text-blue-500" />광고주 리포트 링크 복사</>
                   )}
                 </Button>
+                <Button
+                  className="w-full"
+                  variant="outline"
+                  disabled={sendReportLoading === selectedAd.id}
+                  onClick={() => handleSendReport(selectedAd)}
+                >
+                  {sendReportLoading === selectedAd.id ? (
+                    <><RefreshCw className="w-3 h-3 mr-1 animate-spin" />발송 중...</>
+                  ) : (
+                    <><Send className="w-3 h-3 mr-1 text-green-600" />리포트 링크 이메일 발송</>
+                  )}
+                </Button>
+                {selectedAd.reportSentAt && (
+                  <p className="text-xs text-gray-500 text-center -mt-1">
+                    마지막 발송: {new Date(selectedAd.reportSentAt).toLocaleString("ko-KR", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                  </p>
+                )}
                 <div className="flex gap-2 pt-1">
                   <Button className="flex-1" variant="outline" onClick={() => { setEditingAd(selectedAd); setSelectedAd(null); }}>
                     <Pencil className="w-3 h-3 mr-1" />수정

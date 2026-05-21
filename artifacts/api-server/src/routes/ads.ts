@@ -5,6 +5,7 @@ import path from "path";
 import fs from "fs/promises";
 import { db, adsTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
+import { sendMail, isMailConfigured, buildReportEmailHtml, sendSms, isSmsConfigured, buildReportSmsText } from "../lib/mailer.js";
 import { generateCardImage } from "../lib/card.js";
 import { UPLOADS_DIR, CARDS_DIR } from "../lib/paths.js";
 // lazy import — 서버 시작 시 환경변수 없어도 크래시 방지
@@ -63,6 +64,7 @@ export interface Ad {
   isFreeAd: true;
   aiScore: number | null;
   aiNote: string | null;
+  reportSentAt?: string | null;
 }
 
 function rowToAd(row: typeof adsTable.$inferSelect): Ad {
@@ -89,6 +91,7 @@ function rowToAd(row: typeof adsTable.$inferSelect): Ad {
     isFreeAd: true,
     aiScore: row.aiScore ?? null,
     aiNote: row.aiNote ?? null,
+    reportSentAt: row.reportSentAt?.toISOString() ?? null,
   };
 }
 
@@ -195,20 +198,45 @@ router.patch("/ads/:id/ai-note", async (req, res) => {
 });
 
 router.patch("/ads/:id/status", async (req, res) => {
+  if (!req.session?.isAdmin) return res.status(401).json({ error: "인증 필요" });
   try {
     const { id } = req.params;
     const { status } = req.body as { status: AdStatus };
     const extra: Record<string, unknown> = {};
-    if (status === "approved") {
-      const [cur] = await db.select().from(adsTable).where(eq(adsTable.id, id));
-      if (!cur) return res.status(404).json({ error: "광고를 찾을 수 없습니다" });
-      if (!cur.approvedAt) extra.approvedAt = new Date();
+    let prevStatus: AdStatus | null = null;
+
+    const [cur] = await db.select().from(adsTable).where(eq(adsTable.id, id));
+    if (!cur) return res.status(404).json({ error: "광고를 찾을 수 없습니다" });
+    prevStatus = cur.status as AdStatus;
+
+    if (status === "approved" && !cur.approvedAt) {
+      extra.approvedAt = new Date();
     }
+
     await db.update(adsTable).set({ status, ...extra }).where(eq(adsTable.id, id));
     const [row] = await db.select().from(adsTable).where(eq(adsTable.id, id));
     if (!row) return res.status(404).json({ error: "광고를 찾을 수 없습니다" });
     req.log.info({ id, status }, "광고 상태 변경");
-    return res.json({ success: true, ad: rowToAd(row) });
+
+    // 광고 승인 전환 시 리포트 링크 자동 발송 (이메일 또는 SMS 설정된 경우)
+    let autoSend: { channels: string[]; errors: string[] } | null = null;
+    if (status === "approved" && prevStatus !== "approved") {
+      try {
+        const dispatch = await dispatchReport(row);
+        if (dispatch.ok) {
+          await db.update(adsTable).set({ reportSentAt: new Date() }).where(eq(adsTable.id, id));
+          autoSend = { channels: dispatch.channels, errors: dispatch.errors };
+          req.log.info({ id, channels: dispatch.channels }, "승인 시 리포트 자동 발송 완료");
+        } else if (!dispatch.notConfigured) {
+          autoSend = { channels: [], errors: dispatch.errors };
+          req.log.warn({ id, errors: dispatch.errors }, "승인 시 리포트 자동 발송 실패");
+        }
+      } catch (dispatchErr) {
+        req.log.warn({ id, err: dispatchErr }, "승인 시 리포트 자동 발송 예외");
+      }
+    }
+
+    return res.json({ success: true, ad: rowToAd(row), autoSend });
   } catch (err) {
     req.log.error({ err }, "광고 상태 변경 실패");
     return res.status(500).json({ error: "상태 변경 실패" });
@@ -411,6 +439,112 @@ router.post("/ads/ai-check-batch", async (req, res) => {
   } catch (err) {
     req.log.error({ err }, "AI 배치 점검 실패");
     return res.status(500).json({ error: "배치 점검 실패" });
+  }
+});
+
+// ─── 리포트 링크 발송 공통 로직 (이메일 + SMS) ──────────────────────────────────
+async function dispatchReport(row: typeof adsTable.$inferSelect): Promise<{
+  ok: boolean;
+  channels: string[];
+  errors: string[];
+  reportUrl: string;
+  notConfigured: boolean;
+}> {
+  const SITE_URL = process.env["SITE_URL"] ?? "https://play-gangneung-dashboard.replit.app";
+
+  // 토큰 발급 (없으면 새로 생성)
+  let token = row.reportToken;
+  if (!token) {
+    token = crypto.randomBytes(24).toString("base64url");
+    await db.update(adsTable).set({ reportToken: token }).where(eq(adsTable.id, row.id));
+  }
+
+  const reportUrl = `${SITE_URL}/report/${token}`;
+  const channels: string[] = [];
+  const errors: string[] = [];
+  const mailConfigured = isMailConfigured();
+  const smsConfigured = isSmsConfigured();
+
+  if (!mailConfigured && !smsConfigured) {
+    return { ok: false, channels, errors, reportUrl, notConfigured: true };
+  }
+
+  // 이메일 발송
+  if (mailConfigured) {
+    if (row.email) {
+      const html = buildReportEmailHtml({ businessName: row.businessName, title: row.title, reportUrl });
+      const result = await sendMail({
+        to: row.email,
+        subject: `[PLAY강릉] 광고 성과 리포트 — ${row.title}`,
+        html,
+        text: `안녕하세요, ${row.businessName} 담당자님.\n광고 「${row.title}」 성과 리포트: ${reportUrl}`,
+      });
+      if (result.ok) channels.push("email");
+      else errors.push(`이메일: ${result.error}`);
+    } else {
+      errors.push("이메일: 광고주 이메일이 없습니다");
+    }
+  }
+
+  // SMS 발송
+  if (smsConfigured) {
+    if (row.phone) {
+      const smsText = buildReportSmsText({ businessName: row.businessName, title: row.title, reportUrl });
+      const result = await sendSms(row.phone, smsText);
+      if (result.ok) channels.push("sms");
+      else errors.push(`SMS: ${result.error}`);
+    } else {
+      errors.push("SMS: 광고주 전화번호가 없습니다");
+    }
+  }
+
+  const ok = channels.length > 0;
+  return { ok, channels, errors, reportUrl, notConfigured: false };
+}
+
+// ─── 리포트 링크 발송 엔드포인트 (이메일 + SMS) ──────────────────────────────────
+router.post("/ads/:id/send-report", async (req, res) => {
+  if (!req.session?.isAdmin) return res.status(401).json({ error: "인증 필요" });
+  try {
+    const { id } = req.params;
+    const [row] = await db.select().from(adsTable).where(eq(adsTable.id, id));
+    if (!row) return res.status(404).json({ error: "광고를 찾을 수 없습니다" });
+    if (!row.email && !row.phone) return res.status(400).json({ error: "광고주 연락처(이메일/전화번호)가 없습니다" });
+
+    const dispatch = await dispatchReport(row);
+
+    if (dispatch.notConfigured) {
+      // 이메일·SMS 모두 미설정 → 링크만 반환 (복사 폴백)
+      return res.status(503).json({
+        error: "이메일·SMS 설정이 없습니다",
+        hint: "SMTP_HOST/SMS_API_KEY 등 환경변수를 설정하면 자동 발송됩니다.",
+        reportUrl: dispatch.reportUrl,
+        mailNotConfigured: true,
+      });
+    }
+
+    if (!dispatch.ok) {
+      req.log.warn({ adId: id, errors: dispatch.errors }, "리포트 발송 전체 실패");
+      return res.status(502).json({ error: `발송 실패: ${dispatch.errors.join(", ")}` });
+    }
+
+    // 발송 이력 기록
+    const sentAt = new Date();
+    await db.update(adsTable).set({ reportSentAt: sentAt }).where(eq(adsTable.id, id));
+
+    req.log.info({ adId: id, channels: dispatch.channels }, "리포트 발송 완료");
+    return res.json({
+      success: true,
+      sentAt: sentAt.toISOString(),
+      email: row.email,
+      phone: row.phone,
+      channels: dispatch.channels,
+      errors: dispatch.errors.length > 0 ? dispatch.errors : undefined,
+      reportUrl: dispatch.reportUrl,
+    });
+  } catch (err) {
+    req.log.error({ err }, "리포트 발송 실패");
+    return res.status(500).json({ error: "발송 실패" });
   }
 });
 

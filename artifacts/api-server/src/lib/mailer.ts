@@ -165,6 +165,58 @@ export function buildReportEmailHtml(params: {
 </html>`;
 }
 
+export function buildPaymentReceiptHtml(params: {
+  customerName: string;
+  productName: string;
+  amount: number;
+  orderId: string;
+  method: string | null;
+  paidAt: string;
+}): string {
+  const { customerName, productName, amount, orderId, method, paidAt } = params;
+  return `<!DOCTYPE html>
+<html lang="ko">
+<head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width,initial-scale=1" /></head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:'Apple SD Gothic Neo',sans-serif">
+  <table width="100%" cellpadding="0" cellspacing="0" style="padding:40px 0">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08)">
+        <tr><td style="background:#1e40af;padding:28px 36px">
+          <div style="color:#ffffff;font-size:22px;font-weight:700">PLAY강릉</div>
+          <div style="color:#93c5fd;font-size:13px;margin-top:4px">광고 결제 영수증</div>
+        </td></tr>
+        <tr><td style="padding:36px">
+          <p style="margin:0 0 8px;color:#374151;font-size:15px">안녕하세요, <strong>${customerName}</strong> 고객님.</p>
+          <p style="margin:0 0 28px;color:#374151;font-size:15px">결제가 완료되었습니다. 아래 내역을 확인해 주세요.</p>
+          <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden">
+            <tr style="background:#f9fafb"><td style="padding:12px 16px;color:#6b7280;font-size:13px;width:120px">상품명</td><td style="padding:12px 16px;color:#111827;font-size:13px;font-weight:600">${productName}</td></tr>
+            <tr style="border-top:1px solid #e5e7eb"><td style="padding:12px 16px;color:#6b7280;font-size:13px">결제금액</td><td style="padding:12px 16px;color:#1e40af;font-size:15px;font-weight:700">₩${amount.toLocaleString("ko-KR")}</td></tr>
+            <tr style="border-top:1px solid #e5e7eb"><td style="padding:12px 16px;color:#6b7280;font-size:13px">결제수단</td><td style="padding:12px 16px;color:#111827;font-size:13px">${method ?? "카드"}</td></tr>
+            <tr style="border-top:1px solid #e5e7eb"><td style="padding:12px 16px;color:#6b7280;font-size:13px">결제일시</td><td style="padding:12px 16px;color:#111827;font-size:13px">${paidAt}</td></tr>
+            <tr style="border-top:1px solid #e5e7eb"><td style="padding:12px 16px;color:#6b7280;font-size:13px">주문번호</td><td style="padding:12px 16px;color:#9ca3af;font-size:11px;font-family:monospace">${orderId}</td></tr>
+          </table>
+          <p style="margin:24px 0 0;color:#6b7280;font-size:13px">담당자가 확인 후 광고 집행을 안내드립니다.<br />문의: PLAY강릉 운영팀</p>
+        </td></tr>
+        <tr><td style="padding:20px 36px;border-top:1px solid #f3f4f6;background:#f9fafb">
+          <p style="margin:0;color:#9ca3af;font-size:12px">본 메일은 자동 발송된 결제 영수증입니다.</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}
+
+export function buildPaymentReceiptSms(params: {
+  customerName: string;
+  productName: string;
+  amount: number;
+  orderId: string;
+}): string {
+  const { customerName, productName, amount, orderId } = params;
+  return `[PLAY강릉] ${customerName}님 결제완료\n상품: ${productName}\n금액: ₩${amount.toLocaleString("ko-KR")}\n주문번호: ${orderId}`;
+}
+
 export function buildReportSmsText(params: {
   businessName: string;
   title: string;

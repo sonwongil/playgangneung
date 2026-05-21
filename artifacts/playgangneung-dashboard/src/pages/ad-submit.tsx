@@ -1,44 +1,23 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useDropzone } from "react-dropzone";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle, Upload, X, ImageIcon, ChevronRight, Megaphone, Star, Zap, Plus, Bold } from "lucide-react";
+import { CheckCircle, Upload, X, ImageIcon, ChevronRight, Plus, Bold, CreditCard, Send } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-type Plan = "basic" | "main" | "premium";
-
-const PLANS = [
-  {
-    id: "basic" as Plan,
-    icon: <Megaphone className="w-5 h-5" />,
-    name: "기본 광고",
-    features: ["카드 이미지 제작", "SNS 업로드", "1일 노출"],
-    color: "border-blue-200 bg-blue-50",
-    activeColor: "border-blue-500 bg-blue-50 ring-2 ring-blue-400",
-    badgeColor: "bg-blue-100 text-blue-700",
-  },
-  {
-    id: "main" as Plan,
-    icon: <Star className="w-5 h-5" />,
-    name: "메인 광고",
-    features: ["메인 노출", "반복 SNS 노출", "3일 노출"],
-    color: "border-purple-200 bg-purple-50",
-    activeColor: "border-purple-500 bg-purple-50 ring-2 ring-purple-400",
-    badgeColor: "bg-purple-100 text-purple-700",
-  },
-  {
-    id: "premium" as Plan,
-    icon: <Zap className="w-5 h-5" />,
-    name: "프리미엄 광고",
-    features: ["릴스/영상 포함", "메인 고정 노출", "5일 노출"],
-    color: "border-orange-200 bg-orange-50",
-    activeColor: "border-orange-500 bg-orange-50 ring-2 ring-orange-400",
-    badgeColor: "bg-orange-100 text-orange-700",
-  },
-];
+interface AdProduct {
+  id: string;
+  name: string;
+  description: string;
+  amount: number;
+  adDurationDays: number | null;
+  productType: string;
+  sortOrder: number;
+}
 
 const CATEGORIES = ["행사", "맛집", "카페", "숙소", "체험", "핫플", "지역소식", "기타"];
 
@@ -53,7 +32,7 @@ interface FormData {
   date: string;
   location: string;
   url: string;
-  plan: Plan;
+  plan: string;
   agreed: boolean;
 }
 
@@ -354,13 +333,26 @@ function ImageSlot({
 
 export default function AdSubmit() {
   const { toast } = useToast();
+  const [, navigate] = useLocation();
   const [submitted, setSubmitted] = useState(false);
+  const [paidLoading, setPaidLoading] = useState(false);
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [images, setImages] = useState<[string | null, string | null, string | null]>([null, null, null]);
   const [form, setForm] = useState<FormData>({
     businessName: "", contactName: "", phone: "", email: "",
     category: "행사", title: "", description: "", date: "",
     location: "", url: "", plan: "basic", agreed: false,
   });
+
+  const { data: productsData } = useQuery<{ products: AdProduct[] }>({
+    queryKey: ["ad-products-public"],
+    queryFn: async () => {
+      const r = await fetch(`${BASE}/api/ad-products/public`);
+      if (!r.ok) return { products: [] };
+      return r.json() as Promise<{ products: AdProduct[] }>;
+    },
+  });
+  const adProducts = productsData?.products ?? [];
 
   // 전역 붙여넣기(Ctrl+V) — 빈 슬롯 순서대로 채움
   useEffect(() => {
@@ -428,7 +420,7 @@ export default function AdSubmit() {
   const set = (key: keyof FormData, value: string | boolean) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.agreed) {
       toast({ title: "개인정보 동의 필요", description: "개인정보 활용에 동의해주세요.", variant: "destructive" });
@@ -438,7 +430,31 @@ export default function AdSubmit() {
       toast({ title: "필수 항목 누락", description: "업체명, 제목, 연락처를 입력해주세요.", variant: "destructive" });
       return;
     }
-    mutation.mutate();
+    if (selectedProductId) {
+      setPaidLoading(true);
+      try {
+        const body = {
+          ...form,
+          imageUrl: images[0] ?? null,
+          extraImages: [images[1], images[2]].filter(Boolean),
+          isFreeAd: false,
+          plan: selectedProductId,
+        };
+        const res = await fetch(`${BASE}/api/ads`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) throw new Error("접수 실패");
+        const d = await res.json() as { id: string };
+        navigate(`/checkout?productId=${selectedProductId}&adId=${d.id}`);
+      } catch {
+        toast({ title: "접수 실패", description: "잠시 후 다시 시도해주세요.", variant: "destructive" });
+        setPaidLoading(false);
+      }
+    } else {
+      mutation.mutate();
+    }
   };
 
   if (submitted) {
@@ -487,29 +503,56 @@ export default function AdSubmit() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Plan Selection — 전체 무료 기간 중 숨김 */}
-          <div className="hidden bg-white rounded-2xl border border-border shadow-sm p-5">
-            <h2 className="font-semibold text-base mb-4">광고 상품 선택</h2>
-            <div className="grid grid-cols-3 gap-3">
-              {PLANS.map((plan) => (
+          {/* 광고 상품 선택 */}
+          <div className="bg-white rounded-2xl border border-border shadow-sm p-5">
+            <h2 className="font-semibold text-base mb-1">광고 상품 선택</h2>
+            <p className="text-xs text-muted-foreground mb-4">무료 기본 접수 또는 유료 상품을 선택하세요.</p>
+            <div className="space-y-2">
+              {/* 무료 접수 옵션 */}
+              <button
+                type="button"
+                onClick={() => setSelectedProductId(null)}
+                className={`w-full text-left rounded-xl border-2 p-4 transition-all ${
+                  selectedProductId === null ? "border-blue-500 bg-blue-50 ring-1 ring-blue-400" : "border-gray-200 hover:border-gray-300"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center shrink-0">
+                      <Send className="w-4 h-4 text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-sm">무료 기본 접수</p>
+                      <p className="text-xs text-muted-foreground">기본 피드 등록 · 관리자 검수 후 노출</p>
+                    </div>
+                  </div>
+                  <span className="text-sm font-bold text-blue-600 shrink-0">무료</span>
+                </div>
+              </button>
+              {/* 유료 상품 목록 */}
+              {adProducts.map((p) => (
                 <button
-                  key={plan.id}
+                  key={p.id}
                   type="button"
-                  onClick={() => set("plan", plan.id)}
-                  className={`rounded-xl border-2 p-3 text-left transition-all ${form.plan === plan.id ? plan.activeColor : plan.color}`}
+                  onClick={() => setSelectedProductId(p.id)}
+                  className={`w-full text-left rounded-xl border-2 p-4 transition-all ${
+                    selectedProductId === p.id ? "border-orange-500 bg-orange-50 ring-1 ring-orange-400" : "border-gray-200 hover:border-gray-300"
+                  }`}
                 >
-                  <div className="mb-2">{plan.icon}</div>
-                  <p className="font-semibold text-sm mb-2">{plan.name}</p>
-                  <ul className="space-y-1">
-                    {plan.features.map((f) => (
-                      <li key={f} className="text-xs text-muted-foreground flex items-center gap-1">
-                        <ChevronRight className="w-3 h-3 flex-shrink-0" />{f}
-                      </li>
-                    ))}
-                  </ul>
-                  <span className={`mt-2 inline-block text-xs font-medium px-2 py-0.5 rounded-full ${plan.badgeColor}`}>
-                    현재 무료
-                  </span>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center shrink-0">
+                        <CreditCard className="w-4 h-4 text-orange-600" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-sm">{p.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {p.description}{p.adDurationDays ? ` · ${p.adDurationDays}일 노출` : ""}
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-sm font-bold text-gray-800 shrink-0">₩{p.amount.toLocaleString("ko-KR")}</span>
+                  </div>
                 </button>
               ))}
             </div>
@@ -630,10 +673,15 @@ export default function AdSubmit() {
           {/* Submit */}
           <Button
             type="submit"
-            className="w-full h-12 text-base font-semibold"
-            disabled={mutation.isPending}
+            className={`w-full h-12 text-base font-semibold ${selectedProductId ? "bg-orange-500 hover:bg-orange-600 text-white" : ""}`}
+            disabled={mutation.isPending || paidLoading}
           >
-            {mutation.isPending ? "접수 중..." : "무료 광고 접수하기"}
+            {(mutation.isPending || paidLoading)
+              ? "처리 중..."
+              : selectedProductId
+              ? <><CreditCard className="w-4 h-4 mr-2 inline" />결제하기</>
+              : "무료 광고 접수하기"
+            }
           </Button>
         </form>
 

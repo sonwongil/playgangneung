@@ -59,6 +59,9 @@ import {
   TrendingUp,
   CircleDollarSign,
   Sparkles,
+  Search,
+  GripVertical,
+  RotateCcw,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -570,6 +573,7 @@ export default function Admin() {
   const [manualLoading, setManualLoading] = useState(false);
   const [metaPushLoading, setMetaPushLoading] = useState<string | null>(null);
   const [billingExpireLoading, setBillingExpireLoading] = useState(false);
+  const [refundLoading, setRefundLoading] = useState<string | null>(null);
   const [showProductForm, setShowProductForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState<AdProduct | null>(null);
   const [productForm, setProductForm] = useState({ name: "", description: "", amount: "", adDurationDays: "", productType: "ad_run", isActive: true, sortOrder: "0", marginRate: "30" });
@@ -649,6 +653,10 @@ export default function Admin() {
 
   const [adminSortBy, setAdminSortBy] = useState<"date" | "latest">("latest");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [eventsSearch, setEventsSearch] = useState("");
+  const [eventsStatusFilter, setEventsStatusFilter] = useState("all");
+  const [adsSearch, setAdsSearch] = useState("");
+  const [adsStatusFilter, setAdsStatusFilter] = useState("all");
 
   const SCHEDULE_ORDER: Record<string, number> = {
     today: 0, ongoing: 1, tomorrow: 2, upcoming: 3, dateUnknown: 4, ended: 5,
@@ -668,8 +676,21 @@ export default function Admin() {
     });
   }
 
-  const events: Event[] = sortBySchedule(data?.events ?? [], adminSortBy);
-  const ads: Ad[] = adsData?.ads ?? [];
+  const allEvents: Event[] = sortBySchedule(data?.events ?? [], adminSortBy);
+  const events: Event[] = allEvents.filter((ev) => {
+    const q = eventsSearch.toLowerCase().trim();
+    if (q && !ev.title?.toLowerCase().includes(q) && !ev.source?.toLowerCase().includes(q) && !ev.description?.toLowerCase().includes(q)) return false;
+    if (eventsStatusFilter !== "all" && ev.status !== eventsStatusFilter) return false;
+    return true;
+  });
+
+  const allAds: Ad[] = adsData?.ads ?? [];
+  const ads: Ad[] = allAds.filter((ad) => {
+    const q = adsSearch.toLowerCase().trim();
+    if (q && !ad.title?.toLowerCase().includes(q) && !ad.businessName?.toLowerCase().includes(q) && !ad.phone?.toLowerCase().includes(q)) return false;
+    if (adsStatusFilter !== "all" && ad.status !== adsStatusFilter) return false;
+    return true;
+  });
 
   // derived lists
   const feedEvents = events.filter((e) => e.status === "approved");
@@ -1069,6 +1090,27 @@ export default function Admin() {
     }
   }
 
+  async function handleRefund(orderId: string) {
+    if (!confirm("환불 처리하시겠습니까? 토스페이먼츠에서 즉시 취소됩니다.")) return;
+    setRefundLoading(orderId);
+    try {
+      const r = await fetch(`${BASE}/api/payment/${orderId}/refund`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ cancelReason: "관리자 환불 처리" }),
+      });
+      const d = await r.json() as { success?: boolean; error?: string };
+      if (!r.ok) throw new Error(d.error ?? "환불 실패");
+      toast({ title: "환불 완료", description: "결제가 취소되었습니다." });
+      refetchPaymentOrders();
+    } catch (e) {
+      toast({ title: "환불 실패", description: (e as Error).message, variant: "destructive" });
+    } finally {
+      setRefundLoading(null);
+    }
+  }
+
   const adEditMutation = useMutation({
     mutationFn: async ({ id, patch }: { id: string; patch: Partial<Ad> }) => {
       const r = await fetch(`${BASE}/api/ads/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify(patch) });
@@ -1268,7 +1310,7 @@ export default function Admin() {
           <div className="flex items-center gap-2">
             <Button
               size="sm" variant="outline"
-              className="gap-1.5 text-blue-600 border-blue-200 hover:bg-blue-50"
+              className="hidden md:inline-flex gap-1.5 text-blue-600 border-blue-200 hover:bg-blue-50"
               onClick={() => { setMobilePreviewPath("/"); setShowMobilePreview(true); }}
             >
               <Smartphone className="w-3.5 h-3.5" />모바일 보기
@@ -1278,11 +1320,11 @@ export default function Admin() {
               className="gap-1.5 text-green-700 border-green-300 hover:bg-green-50"
               onClick={() => { resetManualDialog(); setShowManualDialog(true); }}
             >
-              <PlusCircle className="w-3.5 h-3.5" />새 피드 등록
+              <PlusCircle className="w-3.5 h-3.5" /><span className="hidden sm:inline">새 피드 등록</span>
             </Button>
             <Button size="sm" onClick={() => crawlMutation.mutate()} disabled={crawlMutation.isPending} className="gap-1.5">
               <RefreshCw className={`w-3.5 h-3.5 ${crawlMutation.isPending ? "animate-spin" : ""}`} />
-              {crawlMutation.isPending ? "크롤링 중..." : "전체 크롤링"}
+              <span className="hidden sm:inline">{crawlMutation.isPending ? "크롤링 중..." : "전체 크롤링"}</span>
             </Button>
           </div>
         </header>
@@ -1292,6 +1334,30 @@ export default function Admin() {
           {/* ══ 대시보드: 수집 목차 ══════════════════════════════════════════ */}
           {activeNav === "dashboard" && (
             <div className="space-y-2">
+              {/* 검색·필터 바 */}
+              <div className="flex items-center gap-2 mb-2 flex-wrap">
+                <div className="relative flex-1 min-w-[160px]">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                  <input
+                    type="text"
+                    placeholder="제목·소스 검색..."
+                    value={eventsSearch}
+                    onChange={(e) => setEventsSearch(e.target.value)}
+                    className="w-full pl-8 pr-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white"
+                  />
+                </div>
+                <div className="flex items-center gap-1 flex-wrap">
+                  {(["all", "pending", "draft", "approved", "published", "rejected"] as const).map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => setEventsStatusFilter(s)}
+                      className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${eventsStatusFilter === s ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}
+                    >
+                      {s === "all" ? `전체(${allEvents.length})` : `${STATUS_CONFIG[s]?.label ?? s}(${allEvents.filter(e => e.status === s).length})`}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <input
@@ -1657,6 +1723,30 @@ export default function Admin() {
           {/* ══ 공동광고 센터 ══════════════════════════════════════════════════════ */}
           {activeNav === "ads" && (
             <div className="space-y-2">
+              {/* 검색·필터 바 */}
+              <div className="flex items-center gap-2 mb-2 flex-wrap">
+                <div className="relative flex-1 min-w-[160px]">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                  <input
+                    type="text"
+                    placeholder="업체명·제목·연락처 검색..."
+                    value={adsSearch}
+                    onChange={(e) => setAdsSearch(e.target.value)}
+                    className="w-full pl-8 pr-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white"
+                  />
+                </div>
+                <div className="flex items-center gap-1 flex-wrap">
+                  {(["all", "pending", "approved", "scheduled", "published", "rejected"] as const).map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => setAdsStatusFilter(s)}
+                      className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${adsStatusFilter === s ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}
+                    >
+                      {s === "all" ? `전체(${allAds.length})` : `${AD_STATUS[s]?.label ?? s}(${allAds.filter(a => a.status === s).length})`}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <p className="text-xs text-muted-foreground mb-3">공동광고 센터 접수 목록 <span className="font-semibold text-foreground">{ads.length}건</span></p>
               {adsLoading ? <div className="py-16 text-center text-sm text-muted-foreground">불러오는 중...</div> : ads.length === 0 ? (
                 <div className="py-16 text-center text-sm text-muted-foreground"><Megaphone className="w-8 h-8 mx-auto mb-2 opacity-30" />접수된 광고가 없습니다.</div>
@@ -3036,6 +3126,24 @@ export default function Admin() {
                     </Card>
                   ) : null;
 
+                  async function reorderProducts(products: AdProduct[], fromIdx: number, dir: -1 | 1) {
+                    const toIdx = fromIdx + dir;
+                    if (toIdx < 0 || toIdx >= products.length) return;
+                    const order = products.map((p, i) => {
+                      if (i === fromIdx) return { id: p.id, sortOrder: toIdx };
+                      if (i === toIdx) return { id: p.id, sortOrder: fromIdx };
+                      return { id: p.id, sortOrder: i };
+                    });
+                    const r = await fetch(`${BASE}/api/admin/ad-products/reorder`, {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      credentials: "include",
+                      body: JSON.stringify({ order }),
+                    });
+                    if (r.ok) void refetchAdminProducts();
+                    else toast({ title: "순서 저장 실패", variant: "destructive" });
+                  }
+
                   return (
                     <div className="space-y-4">
 
@@ -3062,15 +3170,28 @@ export default function Admin() {
                               <table className="w-full text-xs">
                                 <thead className="bg-gray-50 border-b">
                                   <tr>
-                                    {["순서", "상품명", "유형", "가격", "기간", "마진율", "상태", ""].map((h) => (
+                                    {["↕", "상품명", "유형", "가격", "기간", "마진율", "상태", ""].map((h) => (
                                       <th key={h} className="px-3 py-2 text-left text-gray-600 font-medium whitespace-nowrap">{h}</th>
                                     ))}
                                   </tr>
                                 </thead>
                                 <tbody>
-                                  {(adminProductsData?.products ?? []).map((p) => (
+                                  {(adminProductsData?.products ?? []).map((p, idx, arr) => (
                                     <tr key={p.id} className={`border-b ${!p.isActive ? "opacity-50" : ""}`}>
-                                      <td className="px-3 py-2 text-gray-400">{p.sortOrder}</td>
+                                      <td className="px-2 py-2">
+                                        <div className="flex flex-col gap-0.5">
+                                          <button
+                                            disabled={idx === 0}
+                                            onClick={() => void reorderProducts(arr, idx, -1)}
+                                            className="text-gray-400 hover:text-gray-700 disabled:opacity-20 leading-none px-1"
+                                          >▲</button>
+                                          <button
+                                            disabled={idx === arr.length - 1}
+                                            onClick={() => void reorderProducts(arr, idx, 1)}
+                                            className="text-gray-400 hover:text-gray-700 disabled:opacity-20 leading-none px-1"
+                                          >▼</button>
+                                        </div>
+                                      </td>
                                       <td className="px-3 py-2">
                                         <div className="font-medium text-gray-800">{p.name}</div>
                                         {p.description && <div className="text-[10px] text-gray-400 mt-0.5">{p.description}</div>}
@@ -3292,10 +3413,21 @@ export default function Admin() {
                                       <td className="px-3 py-2 whitespace-nowrap text-gray-500">{o.method ?? "—"}</td>
                                       <td className="px-3 py-2 whitespace-nowrap">
                                         <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                                          o.status === "paid"   ? "bg-green-50 text-green-700" :
-                                          o.status === "failed" ? "bg-red-50 text-red-600" :
+                                          o.status === "paid"     ? "bg-green-50 text-green-700" :
+                                          o.status === "failed"   ? "bg-red-50 text-red-600" :
+                                          o.status === "refunded" ? "bg-gray-100 text-gray-500" :
                                           "bg-yellow-50 text-yellow-700"
-                                        }`}>{o.status === "paid" ? "완료" : o.status === "failed" ? "실패" : "대기"}</span>
+                                        }`}>{o.status === "paid" ? "완료" : o.status === "failed" ? "실패" : o.status === "refunded" ? "환불" : "대기"}</span>
+                                        {o.status === "paid" && (
+                                          <button
+                                            onClick={() => handleRefund(o.orderId)}
+                                            disabled={refundLoading === o.orderId}
+                                            className="ml-1.5 px-1.5 py-0.5 text-[10px] bg-red-50 text-red-500 rounded hover:bg-red-100 disabled:opacity-50 border border-red-100 transition-colors"
+                                          >
+                                            <RotateCcw className="inline w-2.5 h-2.5 mr-0.5 -mt-px" />
+                                            {refundLoading === o.orderId ? "처리중" : "환불"}
+                                          </button>
+                                        )}
                                       </td>
                                       <td className="px-3 py-2 whitespace-nowrap text-gray-400">
                                         {o.paidAt ? new Date(o.paidAt).toLocaleDateString("ko-KR") : new Date(o.createdAt).toLocaleDateString("ko-KR")}

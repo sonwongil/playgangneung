@@ -104,6 +104,24 @@ router.patch("/admin/ad-products/:id", async (req, res) => {
   return res.json({ product: updated });
 });
 
+// ─── PATCH /api/admin/ad-products/reorder — 순서 일괄 저장 (관리자) ───────────
+router.patch("/admin/ad-products/reorder", async (req, res) => {
+  if (!req.session?.isAdmin) return res.status(401).json({ error: "로그인이 필요합니다." });
+
+  const { order } = req.body as { order?: { id: string; sortOrder: number }[] };
+  if (!Array.isArray(order)) return res.status(400).json({ error: "order 배열이 필요합니다." });
+
+  await Promise.all(
+    order.map(({ id, sortOrder }) =>
+      db.update(adProductsTable)
+        .set({ sortOrder, updatedAt: new Date() })
+        .where(eq(adProductsTable.id, id)),
+    ),
+  );
+
+  return res.json({ success: true });
+});
+
 // ─── DELETE /api/admin/ad-products/:id — 상품 삭제 (관리자) ─────────────────
 router.delete("/admin/ad-products/:id", async (req, res) => {
   if (!req.session?.isAdmin) return res.status(401).json({ error: "로그인이 필요합니다." });

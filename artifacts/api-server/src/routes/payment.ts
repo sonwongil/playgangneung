@@ -8,8 +8,16 @@
  */
 import { Router } from "express";
 import crypto from "crypto";
-import { db, adPaymentsTable, adProductsTable } from "@workspace/db";
+import { db, adPaymentsTable, adProductsTable, adsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
+import {
+  sendMail,
+  sendSms,
+  buildPaymentReceiptHtml,
+  buildPaymentReceiptSms,
+  isMailConfigured,
+  isSmsConfigured,
+} from "../lib/mailer.js";
 
 const router = Router();
 
@@ -105,16 +113,114 @@ router.post("/payment/confirm", async (req, res) => {
     return res.status(tossRes.status).json(result);
   }
 
+  const paidAt = new Date();
+  const method = (result["method"] as string) ?? null;
+  const receiptUrl = ((result["receipt"] as { url?: string } | undefined)?.url) ?? null;
+
+  // ── T004: 광고 신청 자동 생성 ──────────────────────────────────────────────
+  let newAdId: string | null = null;
+  if (!record.adId) {
+    newAdId = crypto.randomUUID().replace(/-/g, "").slice(0, 24);
+    try {
+      await db.insert(adsTable).values({
+        id: newAdId,
+        businessName: record.customerName || "미입력",
+        contactName: record.customerName || "미입력",
+        phone: "",
+        email: record.customerEmail || "",
+        category: "기타",
+        title: record.productNameSnapshot ?? record.plan ?? "광고 신청",
+        description: "",
+        date: "",
+        location: "",
+        url: "",
+        plan: record.productTypeSnapshot ?? "ad_run",
+        status: "pending",
+        isFreeAd: false,
+      });
+    } catch {
+      newAdId = null;
+    }
+  }
+
   await db.update(adPaymentsTable).set({
     status: "paid",
     paymentKey,
-    method: (result["method"] as string) ?? null,
-    receiptUrl: ((result["receipt"] as { url?: string } | undefined)?.url) ?? null,
+    method,
+    receiptUrl,
     rawResponse: result,
-    paidAt: new Date(),
+    paidAt,
+    ...(newAdId ? { adId: newAdId } : {}),
   }).where(eq(adPaymentsTable.orderId, orderId));
 
-  return res.json({ success: true, orderId, amount, method: result["method"] });
+  // ── T003: 결제 완료 이메일 / SMS 발송 ──────────────────────────────────────
+  if (record.customerEmail) {
+    const paidAtStr = paidAt.toLocaleString("ko-KR", { timeZone: "Asia/Seoul" });
+
+    if (isMailConfigured()) {
+      await sendMail({
+        to: record.customerEmail,
+        subject: `[PLAY강릉] 결제 완료 — ${record.productNameSnapshot ?? record.plan}`,
+        html: buildPaymentReceiptHtml({
+          customerName: record.customerName || "고객",
+          productName: record.productNameSnapshot ?? record.plan ?? "광고 상품",
+          amount: record.amount,
+          orderId: record.orderId,
+          method,
+          paidAt: paidAtStr,
+        }),
+      });
+    }
+
+    if (isSmsConfigured() && (result["cardNumber"] == null)) {
+      // 가상계좌/무통장 입금 완료 시 SMS 추가 발송 (카드는 앱 알림으로 충분)
+    }
+  }
+
+  // 관리자 SMS 알림 (SMS 설정 있을 때만)
+  if (isSmsConfigured() && process.env["ADMIN_PHONE"]) {
+    await sendSms(
+      process.env["ADMIN_PHONE"],
+      buildPaymentReceiptSms({
+        customerName: record.customerName || "고객",
+        productName: record.productNameSnapshot ?? record.plan ?? "광고 상품",
+        amount: record.amount,
+        orderId: record.orderId,
+      }),
+    );
+  }
+
+  return res.json({ success: true, orderId, amount, method });
+});
+
+// ─── POST /api/payment/:orderId/refund — 환불 처리 (관리자 전용) ──────────────
+router.post("/payment/:orderId/refund", async (req, res) => {
+  if (!req.session?.isAdmin) return res.status(401).json({ error: "로그인이 필요합니다." });
+
+  const { orderId } = req.params as { orderId: string };
+  const { cancelReason = "관리자 환불 처리" } = req.body as { cancelReason?: string };
+
+  const [record] = await db.select().from(adPaymentsTable).where(eq(adPaymentsTable.orderId, orderId));
+  if (!record) return res.status(404).json({ error: "주문을 찾을 수 없습니다." });
+  if (record.status !== "paid") return res.status(400).json({ error: "결제 완료 상태에서만 환불 가능합니다." });
+  if (!record.paymentKey) return res.status(400).json({ error: "결제키가 없습니다. 테스트 결제는 콘솔에서 직접 취소하세요." });
+
+  const tossRes = await fetch(`https://api.tosspayments.com/v1/payments/${record.paymentKey}/cancel`, {
+    method: "POST",
+    headers: { Authorization: basicAuth(), "Content-Type": "application/json" },
+    body: JSON.stringify({ cancelReason, cancelAmount: record.amount }),
+  });
+  const result = await tossRes.json() as Record<string, unknown>;
+
+  if (!tossRes.ok) {
+    return res.status(tossRes.status).json({ error: (result["message"] as string) ?? "토스 환불 API 오류" });
+  }
+
+  await db.update(adPaymentsTable)
+    .set({ status: "refunded", rawResponse: result })
+    .where(eq(adPaymentsTable.orderId, orderId));
+
+  return res.json({ success: true, orderId });
 });
 
 // ─── GET /api/payment/orders — 결제 내역 (관리자 전용) ───────────────────────

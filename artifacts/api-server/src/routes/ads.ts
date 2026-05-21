@@ -7,6 +7,7 @@ import { db, adsTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 import { generateCardImage } from "../lib/card.js";
 import { UPLOADS_DIR, CARDS_DIR } from "../lib/paths.js";
+import { openai } from "@workspace/integrations-openai-ai-server";
 
 const upload = multer({
   storage: multer.diskStorage({
@@ -289,6 +290,113 @@ router.post("/ads/:id/card", async (req, res) => {
   } catch (err) {
     req.log.error({ err }, "광고 카드이미지 생성 실패");
     return res.status(500).json({ error: "카드이미지 생성 실패" });
+  }
+});
+
+// ─── AI 문구 보정 ──────────────────────────────────────────────────────────────
+router.post("/ads/:id/ai-improve", async (req, res) => {
+  if (!req.session?.isAdmin) return res.status(401).json({ error: "인증 필요" });
+  try {
+    const { id } = req.params;
+    const [row] = await db.select().from(adsTable).where(eq(adsTable.id, id));
+    if (!row) return res.status(404).json({ error: "광고를 찾을 수 없습니다" });
+
+    const prompt = `당신은 강릉 지역 SNS 광고 카피라이터입니다.
+아래 광고 문구를 검토하고 개선안을 제시하세요.
+
+업체명: ${row.businessName}
+카테고리: ${row.category}
+제목: ${row.title}
+설명: ${row.description.replace(/<[^>]*>/g, "").slice(0, 300)}
+
+다음 항목을 JSON으로 응답하세요:
+{
+  "aiScore": 0-100 점수 (현재 문구 품질),
+  "improvedTitle": "개선된 제목 (20자 이내)",
+  "improvedDescription": "개선된 설명 (150자 이내, 강릉 특성 반영)",
+  "aiNote": "검수 코멘트 (위험 표현, 개선 포인트 등 한 줄)",
+  "issues": ["문제점1", "문제점2"]
+}
+
+주의사항:
+- 과장 광고 표현 (최고, 100%, 보장 등) 감점
+- 강릉 지역 특색 반영 시 가산점
+- 자연스러운 한국어 사용
+- SNS에 적합한 감성적 문구`;
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-5-mini",
+      max_completion_tokens: 1000,
+      messages: [{ role: "user", content: prompt }],
+    });
+
+    const raw = response.choices[0]?.message?.content ?? "{}";
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return res.status(500).json({ error: "AI 응답 파싱 실패" });
+
+    const result = JSON.parse(jsonMatch[0]) as {
+      aiScore: number;
+      improvedTitle: string;
+      improvedDescription: string;
+      aiNote: string;
+      issues: string[];
+    };
+
+    // aiScore, aiNote 저장
+    await db.update(adsTable).set({
+      aiScore: Math.min(100, Math.max(0, Math.round(result.aiScore ?? 70))),
+      aiNote: result.aiNote ?? "",
+    }).where(eq(adsTable.id, id));
+
+    req.log.info({ id, aiScore: result.aiScore }, "AI 문구 보정 완료");
+    return res.json({ success: true, ...result });
+  } catch (err) {
+    req.log.error({ err }, "AI 문구 보정 실패");
+    return res.status(500).json({ error: "AI 문구 보정 실패" });
+  }
+});
+
+// ─── AI 배치 점검 ──────────────────────────────────────────────────────────────
+router.post("/ads/ai-check-batch", async (req, res) => {
+  if (!req.session?.isAdmin) return res.status(401).json({ error: "인증 필요" });
+  try {
+    const rows = await db.select().from(adsTable).orderBy(desc(adsTable.createdAt));
+    const toCheck = rows.filter((r) => r.aiScore === null || r.aiScore === undefined);
+
+    let checked = 0;
+    for (const row of toCheck.slice(0, 10)) {
+      try {
+        const prompt = `광고 문구를 간단히 점검하고 JSON으로 응답하세요.
+업체: ${row.businessName}, 카테고리: ${row.category}
+제목: ${row.title}
+설명: ${(row.description ?? "").replace(/<[^>]*>/g, "").slice(0, 200)}
+
+{"aiScore": 0-100, "aiNote": "한 줄 코멘트"}`;
+
+        const response = await openai.chat.completions.create({
+          model: "gpt-5-nano",
+          max_completion_tokens: 200,
+          messages: [{ role: "user", content: prompt }],
+        });
+
+        const raw = response.choices[0]?.message?.content ?? "{}";
+        const jsonMatch = raw.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const result = JSON.parse(jsonMatch[0]) as { aiScore: number; aiNote: string };
+          await db.update(adsTable).set({
+            aiScore: Math.min(100, Math.max(0, Math.round(result.aiScore ?? 70))),
+            aiNote: result.aiNote ?? "",
+          }).where(eq(adsTable.id, row.id));
+          checked++;
+        }
+      } catch (_e) { /* 개별 실패 무시 */ }
+    }
+
+    req.log.info({ checked, total: toCheck.length }, "AI 배치 점검 완료");
+    return res.json({ success: true, checked, skipped: toCheck.length - checked, total: rows.length });
+  } catch (err) {
+    req.log.error({ err }, "AI 배치 점검 실패");
+    return res.status(500).json({ error: "배치 점검 실패" });
   }
 });
 

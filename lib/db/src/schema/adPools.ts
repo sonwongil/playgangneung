@@ -23,6 +23,7 @@ export const rotationRulesTable = pgTable("rotation_rules", {
   hourSlot: integer("hour_slot").notNull().default(0),
   weight: real("weight").notNull().default(1),
   status: text("status").notNull().default("active"),
+  aiReason: text("ai_reason"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

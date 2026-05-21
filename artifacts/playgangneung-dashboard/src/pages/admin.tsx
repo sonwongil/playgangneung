@@ -158,6 +158,16 @@ interface RotationSlot {
   adName: string | null;
   weight: number;
   status: string;
+  aiReason: string | null;
+}
+
+interface AiImproveResult {
+  adId: string;
+  aiScore: number;
+  improvedTitle: string;
+  improvedDescription: string;
+  aiNote: string;
+  issues: string[];
 }
 
 interface BlogSource {
@@ -289,6 +299,10 @@ export default function Admin() {
   const [adCardLoading, setAdCardLoading] = useState<Record<string, boolean>>({});
   const [adCenterTab, setAdCenterTab] = useState<"overview" | "applications" | "createPool" | "rotation" | "meta" | "aiSettings" | "performance" | "billing">("overview");
   const [selectedPoolId, setSelectedPoolId] = useState<string | null>(null);
+  const [aiImproveResult, setAiImproveResult] = useState<AiImproveResult | null>(null);
+  const [aiImprovingId, setAiImprovingId] = useState<string | null>(null);
+  const [aiCheckBatchLoading, setAiCheckBatchLoading] = useState(false);
+  const [generatingRotationId, setGeneratingRotationId] = useState<string | null>(null);
   const [poolForm, setPoolForm] = useState({
     name: "", objective: "awareness" as AdPool["objective"],
     selectedAdIds: [] as string[], totalBudget: 0,
@@ -735,6 +749,54 @@ export default function Admin() {
     onSuccess: () => { toast({ title: "삭제 완료" }); qc.invalidateQueries({ queryKey: ["admin-ads"] }); },
     onError: () => toast({ title: "삭제 실패", variant: "destructive" }),
   });
+
+  async function handleAiImprove(adId: string) {
+    setAiImprovingId(adId);
+    try {
+      const r = await fetch(`${BASE}/api/ads/${adId}/ai-improve`, { method: "POST", credentials: "include" });
+      const d = await r.json() as AiImproveResult & { success?: boolean; error?: string };
+      if (!r.ok) throw new Error(d.error ?? "AI 보정 실패");
+      setAiImproveResult({ ...d, adId });
+      qc.invalidateQueries({ queryKey: ["admin-ads"] });
+      toast({ title: `AI 검수 완료 — ${d.aiScore}점` });
+    } catch (e: any) {
+      toast({ title: e.message ?? "AI 보정 실패", variant: "destructive" });
+    } finally {
+      setAiImprovingId(null);
+    }
+  }
+
+  async function handleAiCheckBatch() {
+    setAiCheckBatchLoading(true);
+    try {
+      const r = await fetch(`${BASE}/api/ads/ai-check-batch`, { method: "POST", credentials: "include" });
+      const d = await r.json() as { checked: number; skipped: number; total: number; error?: string };
+      if (!r.ok) throw new Error(d.error ?? "배치 점검 실패");
+      qc.invalidateQueries({ queryKey: ["admin-ads"] });
+      qc.invalidateQueries({ queryKey: ["ad-center-stats"] });
+      qc.invalidateQueries({ queryKey: ["ad-center-alerts"] });
+      toast({ title: `AI 배치 점검 완료`, description: `${d.checked}건 점검, ${d.skipped}건 건너뜀` });
+    } catch (e: any) {
+      toast({ title: e.message ?? "배치 점검 실패", variant: "destructive" });
+    } finally {
+      setAiCheckBatchLoading(false);
+    }
+  }
+
+  async function handleGenerateRotation(poolId: string) {
+    setGeneratingRotationId(poolId);
+    try {
+      const r = await fetch(`${BASE}/api/ad-pools/${poolId}/generate-rotation`, { method: "POST", credentials: "include" });
+      const d = await r.json() as { count: number; aiMode: string; error?: string };
+      if (!r.ok) throw new Error(d.error ?? "편성표 생성 실패");
+      qc.invalidateQueries({ queryKey: ["ad-pool-rotation", poolId] });
+      toast({ title: `AI 편성표 생성 완료`, description: `${d.count}개 슬롯 배정 (${d.aiMode} 전략)` });
+    } catch (e: any) {
+      toast({ title: e.message ?? "편성표 생성 실패", variant: "destructive" });
+    } finally {
+      setGeneratingRotationId(null);
+    }
+  }
 
   const adEditMutation = useMutation({
     mutationFn: async ({ id, patch }: { id: string; patch: Partial<Ad> }) => {
@@ -1382,7 +1444,7 @@ export default function Admin() {
               { key: "createPool",    label: "묶음만들기", icon: <Layers className="w-3.5 h-3.5" />,           stub: false },
               { key: "rotation",      label: "순환편성표", icon: <CalendarClock className="w-3.5 h-3.5" />,    stub: false },
               { key: "meta",          label: "Meta연동",   icon: <ExternalLink className="w-3.5 h-3.5" />,     stub: true  },
-              { key: "aiSettings",    label: "AI설정",     icon: <Settings className="w-3.5 h-3.5" />,         stub: true  },
+              { key: "aiSettings",    label: "AI설정",     icon: <Settings className="w-3.5 h-3.5" />,         stub: false },
               { key: "performance",   label: "성과리포트", icon: <TrendingUp className="w-3.5 h-3.5" />,       stub: true  },
               { key: "billing",       label: "정산관리",   icon: <CircleDollarSign className="w-3.5 h-3.5" />, stub: true  },
             ] as const;
@@ -1599,8 +1661,14 @@ export default function Admin() {
                                         </>
                                       )}
                                       <Button size="sm" variant="outline" className="h-7 px-2 text-xs text-blue-700 border-blue-200"
+                                        disabled={aiImprovingId === ad.id}
+                                        onClick={() => handleAiImprove(ad.id)}>
+                                        <Sparkles className={`w-3 h-3 ${aiImprovingId === ad.id ? "animate-spin" : ""}`} />
+                                        {aiImprovingId === ad.id ? "분석중..." : "AI검수"}
+                                      </Button>
+                                      <Button size="sm" variant="outline" className="h-7 px-2 text-xs"
                                         onClick={() => setAiNoteEdit(isEditingAiNote ? null : { adId: ad.id, score: String(ad.aiScore ?? ""), note: ad.aiNote ?? "" })}>
-                                        <Sparkles className="w-3 h-3" />AI문구수정
+                                        <Pencil className="w-3 h-3" />수동수정
                                       </Button>
                                       {ad.status === "approved" && (
                                         <Button size="sm" variant="outline" className="h-7 px-2 text-xs text-purple-700 border-purple-200"
@@ -1882,36 +1950,52 @@ export default function Admin() {
                             </CardContent>
                           </Card>
 
+                          {/* AI 편성표 생성 버튼 */}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Button
+                              size="sm"
+                              className="gap-1.5 bg-blue-600 hover:bg-blue-700 text-white"
+                              disabled={generatingRotationId === pool.id}
+                              onClick={() => handleGenerateRotation(pool.id)}
+                            >
+                              <Sparkles className={`w-3.5 h-3.5 ${generatingRotationId === pool.id ? "animate-spin" : ""}`} />
+                              {generatingRotationId === pool.id ? "AI 편성 중..." : "AI 편성표 생성"}
+                            </Button>
+                            <span className="text-xs text-muted-foreground">전략: <span className="font-medium">{AI_MODE_LABEL[pool.aiMode]}</span> — AI가 24시간 슬롯을 자동 배정합니다</span>
+                          </div>
+
                           {/* 24시간 편성표 */}
                           <div>
                             <p className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1.5">
-                              <CalendarClock className="w-3.5 h-3.5" />24시간 순환 편성표 (균등 분배 기본값)
+                              <CalendarClock className="w-3.5 h-3.5" />24시간 순환 편성표
                             </p>
                             <div className="grid grid-cols-4 md:grid-cols-6 gap-1.5">
                               {slots.map((slot) => {
                                 const isActive = slot.status === "active";
+                                const isBoost = slot.status === "boost";
                                 const hasAd = !!slot.adId;
                                 return (
                                   <div
                                     key={slot.hour}
-                                    className={`rounded-lg border p-2 text-center ${hasAd && isActive ? "bg-purple-50 border-purple-200" : "bg-gray-50 border-gray-200"}`}
+                                    title={slot.aiReason ?? undefined}
+                                    className={`rounded-lg border p-2 text-center cursor-default ${
+                                      isBoost ? "bg-orange-50 border-orange-300" :
+                                      hasAd && isActive ? "bg-purple-50 border-purple-200" :
+                                      "bg-gray-50 border-gray-200"
+                                    }`}
                                   >
                                     <p className="text-xs font-bold text-muted-foreground">{String(slot.hour).padStart(2, "0")}시</p>
                                     {hasAd ? (
                                       <>
                                         <p className="text-[10px] font-medium text-purple-700 line-clamp-2 mt-0.5">{slot.adName}</p>
                                         <span className={`inline-block mt-0.5 px-1 py-0.5 rounded text-[9px] font-semibold ${
-                                          isActive ? "bg-green-100 text-green-700"
+                                          isBoost ? "bg-orange-100 text-orange-700"
+                                          : isActive ? "bg-green-100 text-green-700"
                                           : slot.status === "scheduled" ? "bg-blue-50 text-blue-600"
-                                          : slot.status === "boost" ? "bg-orange-100 text-orange-700"
                                           : slot.status === "reduce" ? "bg-yellow-50 text-yellow-700"
                                           : "bg-gray-100 text-gray-500"
                                         }`}>
-                                          {isActive ? "운영"
-                                            : slot.status === "scheduled" ? "대기"
-                                            : slot.status === "boost" ? "강화"
-                                            : slot.status === "reduce" ? "축소"
-                                            : "대기"}
+                                          {isBoost ? "강화" : isActive ? "운영" : slot.status === "reduce" ? "축소" : "대기"}
                                         </span>
                                       </>
                                     ) : (
@@ -1921,6 +2005,9 @@ export default function Admin() {
                                 );
                               })}
                             </div>
+                            {slots.some((s) => s.aiReason) && (
+                              <p className="text-[10px] text-muted-foreground mt-1.5">슬롯 위에 마우스를 올리면 AI 배정 근거를 확인할 수 있습니다</p>
+                            )}
                           </div>
                         </div>
                       );
@@ -1930,31 +2017,103 @@ export default function Admin() {
                   </div>
                 )}
 
+                {/* ─ AI 설정 탭 ─ */}
+                {adCenterTab === "aiSettings" && (
+                  <div className="space-y-5 max-w-2xl">
+                    {/* 배치 AI 점검 */}
+                    <Card>
+                      <CardContent className="p-5 space-y-3">
+                        <div className="flex items-center gap-2">
+                          <Sparkles className="w-4 h-4 text-blue-500" />
+                          <p className="font-semibold text-sm">AI 일괄 점검</p>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          AI 검수가 안 된 광고를 한 번에 점검합니다. 문구 품질 점수(0~100)와 개선 포인트를 자동으로 저장합니다.
+                        </p>
+                        <div className="flex items-center gap-3">
+                          <Button
+                            size="sm"
+                            className="gap-1.5"
+                            disabled={aiCheckBatchLoading}
+                            onClick={handleAiCheckBatch}
+                          >
+                            <Sparkles className={`w-3.5 h-3.5 ${aiCheckBatchLoading ? "animate-spin" : ""}`} />
+                            {aiCheckBatchLoading ? "점검 중..." : "미검수 광고 일괄 점검"}
+                          </Button>
+                          <span className="text-xs text-muted-foreground">최대 10건씩 처리됩니다</span>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* AI 편성 전략 설명 */}
+                    <Card>
+                      <CardContent className="p-5 space-y-3">
+                        <div className="flex items-center gap-2">
+                          <CalendarClock className="w-4 h-4 text-purple-500" />
+                          <p className="font-semibold text-sm">AI 편성 전략 안내</p>
+                        </div>
+                        <div className="space-y-2">
+                          {[
+                            { mode: "균등 분배 (equal)", desc: "모든 광고에 동일한 시간 배정. 공정한 노출을 보장합니다.", color: "bg-blue-50 border-blue-200" },
+                            { mode: "성과 기반 (performance)", desc: "AI 점수가 높은 광고를 피크타임(09~21시)에 더 많이 노출. 클릭률 극대화 전략.", color: "bg-orange-50 border-orange-200" },
+                            { mode: "수동 (manual)", desc: "AI가 기본 편성표를 생성하고, 직접 슬롯을 조정할 수 있습니다.", color: "bg-gray-50 border-gray-200" },
+                          ].map((s) => (
+                            <div key={s.mode} className={`rounded-lg border p-3 ${s.color}`}>
+                              <p className="text-xs font-semibold mb-0.5">{s.mode}</p>
+                              <p className="text-[11px] text-muted-foreground">{s.desc}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* AI 알림 규칙 */}
+                    <Card>
+                      <CardContent className="p-5 space-y-3">
+                        <div className="flex items-center gap-2">
+                          <Bell className="w-4 h-4 text-yellow-500" />
+                          <p className="font-semibold text-sm">AI 알림 감지 규칙</p>
+                        </div>
+                        <div className="space-y-2 text-xs text-muted-foreground">
+                          {[
+                            "AI 점수 60점 미만 → 문구 보정 필요 경고",
+                            "접수 후 2일 이상 미처리 → 처리 지연 알림",
+                            "운영 기간 종료 묶음 → 상태 업데이트 오류 알림",
+                          ].map((rule, i) => (
+                            <div key={i} className="flex items-start gap-2">
+                              <AlertTriangle className="w-3 h-3 text-yellow-500 shrink-0 mt-0.5" />
+                              <span>{rule}</span>
+                            </div>
+                          ))}
+                        </div>
+                        <p className="text-[10px] text-muted-foreground pt-1 border-t">Phase 3에서 Meta 성과 데이터 기반 알림(낮은 CTR, 과노출 등)이 추가됩니다.</p>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
+
                 {/* ─ 준비중 stub 탭들 ─ */}
-                {(adCenterTab === "meta" || adCenterTab === "aiSettings" || adCenterTab === "performance" || adCenterTab === "billing") && (
+                {(adCenterTab === "meta" || adCenterTab === "performance" || adCenterTab === "billing") && (
                   <div className="py-20 flex flex-col items-center gap-3 text-center">
                     <div className="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center">
                       {adCenterTab === "meta" && <ExternalLink className="w-6 h-6 text-gray-400" />}
-                      {adCenterTab === "aiSettings" && <Settings className="w-6 h-6 text-gray-400" />}
                       {adCenterTab === "performance" && <TrendingUp className="w-6 h-6 text-gray-400" />}
                       {adCenterTab === "billing" && <CircleDollarSign className="w-6 h-6 text-gray-400" />}
                     </div>
                     <div>
                       <p className="font-semibold text-sm">
                         {adCenterTab === "meta" && "Meta 광고 API 연동"}
-                        {adCenterTab === "aiSettings" && "AI 편성 엔진 설정"}
                         {adCenterTab === "performance" && "성과 리포트"}
                         {adCenterTab === "billing" && "정산 관리"}
                       </p>
                       <p className="text-xs text-muted-foreground mt-1">
-                        {adCenterTab === "meta" && "Phase 3에서 Meta Marketing API 실제 연동 및 성과 수집이 구현됩니다."}
-                        {adCenterTab === "aiSettings" && "Phase 2에서 AI 문구 자동 보정 및 편성 엔진이 구현됩니다."}
+                        {adCenterTab === "meta" && "Phase 3에서 Meta Marketing API 실제 연동 및 캠페인 자동 생성이 구현됩니다."}
                         {adCenterTab === "performance" && "Phase 3에서 노출·클릭·지출 성과 데이터 리포트가 제공됩니다."}
                         {adCenterTab === "billing" && "Phase 3에서 광고주별 예산 집행 및 정산 관리가 구현됩니다."}
                       </p>
                     </div>
                     <span className="inline-flex items-center px-3 py-1 rounded-full text-xs bg-blue-50 text-blue-600 border border-blue-200 font-medium">
-                      {adCenterTab === "meta" ? "Phase 3 예정" : adCenterTab === "aiSettings" ? "Phase 2 예정" : "Phase 3 예정"}
+                      Phase 3 예정
                     </span>
                   </div>
                 )}
@@ -3351,6 +3510,68 @@ export default function Admin() {
         </DialogContent>
       </Dialog>
     )}
+    {/* ══ AI 검수 결과 다이얼로그 ═══════════════════════════════════════════ */}
+    {aiImproveResult && (
+      <Dialog open onOpenChange={() => setAiImproveResult(null)}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-blue-500" />AI 검수 결과
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {/* 점수 */}
+            <div className="flex items-center gap-3">
+              <div className={`w-14 h-14 rounded-full flex items-center justify-center text-lg font-bold border-4 ${
+                aiImproveResult.aiScore >= 80 ? "border-green-400 text-green-700 bg-green-50"
+                : aiImproveResult.aiScore >= 60 ? "border-yellow-400 text-yellow-700 bg-yellow-50"
+                : "border-red-400 text-red-700 bg-red-50"
+              }`}>
+                {aiImproveResult.aiScore}
+              </div>
+              <div>
+                <p className="font-semibold text-sm">
+                  {aiImproveResult.aiScore >= 80 ? "우수 — 바로 사용 가능합니다" : aiImproveResult.aiScore >= 60 ? "보통 — 보정 문구 적용을 권장합니다" : "미흡 — 문구 개선이 필요합니다"}
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">{aiImproveResult.aiNote}</p>
+              </div>
+            </div>
+            {/* 문제점 */}
+            {aiImproveResult.issues.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground mb-1.5">지적 사항</p>
+                <div className="space-y-1">
+                  {aiImproveResult.issues.map((issue, i) => (
+                    <div key={i} className="flex items-start gap-2 text-xs">
+                      <AlertTriangle className="w-3 h-3 text-yellow-500 shrink-0 mt-0.5" />
+                      <span>{issue}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {/* 개선 제안 */}
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground">AI 개선 문구</p>
+              <div className="rounded-lg border bg-blue-50/50 p-3 space-y-2">
+                <div>
+                  <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">제목</p>
+                  <p className="text-sm font-medium mt-0.5">{aiImproveResult.improvedTitle}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">설명</p>
+                  <p className="text-xs mt-0.5 whitespace-pre-line">{aiImproveResult.improvedDescription}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="pt-1">
+            <Button variant="outline" size="sm" onClick={() => setAiImproveResult(null)}>닫기</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    )}
+
     {/* ══ 수동 피드 등록 다이얼로그 ══════════════════════════════════════════ */}
     <Dialog open={showManualDialog} onOpenChange={(o) => { if (!o) resetManualDialog(); }}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto" onInteractOutside={(e) => e.preventDefault()}>

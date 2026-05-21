@@ -956,6 +956,29 @@ export default function Admin() {
     }
   }
 
+  const [resetReportLoading, setResetReportLoading] = useState<string | null>(null);
+  async function handleResetReportToken(adId: string) {
+    if (!confirm("기존 리포트 링크가 즉시 무효화되고 새 링크가 발급됩니다.\n기존 링크로 접근하면 404 오류가 발생합니다.\n\n계속하시겠습니까?")) return;
+    setResetReportLoading(adId);
+    try {
+      const r = await fetch(`${BASE}/api/ads/${adId}/report-token`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reset: true }),
+      });
+      const d = await r.json() as { token?: string; error?: string };
+      if (!r.ok || !d.token) throw new Error(d.error ?? "토큰 재발급 실패");
+      const url = `${window.location.origin}${BASE}/report/${d.token}`;
+      await navigator.clipboard.writeText(url);
+      toast({ title: "리포트 링크 재발급 완료", description: "새 링크가 클립보드에 복사됐습니다. 기존 링크는 더 이상 사용할 수 없습니다." });
+    } catch (e: any) {
+      toast({ title: e.message ?? "토큰 재발급 실패", variant: "destructive" });
+    } finally {
+      setResetReportLoading(null);
+    }
+  }
+
   const [sendReportLoading, setSendReportLoading] = useState<string | null>(null);
   async function handleSendReport(ad: Ad) {
     setSendReportLoading(ad.id);
@@ -4631,6 +4654,18 @@ export default function Admin() {
                     <><RefreshCw className="w-3 h-3 mr-1 animate-spin" />링크 생성 중...</>
                   ) : (
                     <><Copy className="w-3 h-3 mr-1 text-blue-500" />광고주 리포트 링크 복사</>
+                  )}
+                </Button>
+                <Button
+                  className="w-full"
+                  variant="outline"
+                  disabled={resetReportLoading === selectedAd.id}
+                  onClick={() => handleResetReportToken(selectedAd.id)}
+                >
+                  {resetReportLoading === selectedAd.id ? (
+                    <><RefreshCw className="w-3 h-3 mr-1 animate-spin" />재발급 중...</>
+                  ) : (
+                    <><RefreshCw className="w-3 h-3 mr-1 text-orange-500" />리포트 링크 재발급</>
                   )}
                 </Button>
                 <Button

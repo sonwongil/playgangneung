@@ -461,23 +461,28 @@ router.post("/public/lookup-ad", async (req, res) => {
   }
 });
 
-// ─── 광고주 리포트 토큰 발급 / 조회 (관리자 전용) ─────────────────────────────────
+// ─── 광고주 리포트 토큰 발급 / 재발급 (관리자 전용) ──────────────────────────────
 router.post("/ads/:id/report-token", async (req, res) => {
   if (!req.session?.isAdmin) return res.status(401).json({ error: "로그인이 필요합니다" });
   try {
     const { id } = req.params;
+    const body = (req.body ?? {}) as { reset?: boolean };
     const [ad] = await db.select().from(adsTable).where(eq(adsTable.id, id));
     if (!ad) return res.status(404).json({ error: "광고를 찾을 수 없습니다" });
 
-    // 기존 토큰 있으면 재사용, 없으면 새로 발급
-    const token = ad.reportToken ?? crypto.randomBytes(24).toString("base64url");
+    // reset: true 이면 항상 새 토큰 발급 (기존 토큰 무효화)
+    // 그 외에는 기존 토큰 재사용, 없으면 신규 발급
+    const shouldReset = body.reset === true;
+    const token = (shouldReset || !ad.reportToken)
+      ? crypto.randomBytes(24).toString("base64url")
+      : ad.reportToken;
 
-    if (!ad.reportToken) {
+    if (shouldReset || !ad.reportToken) {
       await db.update(adsTable).set({ reportToken: token }).where(eq(adsTable.id, id));
     }
 
-    req.log.info({ adId: id }, "광고 리포트 토큰 발급");
-    return res.json({ token });
+    req.log.info({ adId: id, reset: shouldReset }, shouldReset ? "광고 리포트 토큰 재발급 (기존 무효화)" : "광고 리포트 토큰 발급");
+    return res.json({ token, reset: shouldReset });
   } catch (err) {
     req.log.error({ err }, "리포트 토큰 발급 실패");
     return res.status(500).json({ error: "토큰 발급 실패" });

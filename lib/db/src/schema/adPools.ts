@@ -43,3 +43,16 @@ export const adPerformancesTable = pgTable("ad_performances", {
 });
 
 export type AdPerformanceRow = typeof adPerformancesTable.$inferSelect;
+
+export const adAlertsTable = pgTable("ad_alerts", {
+  id: text("id").primaryKey(),
+  type: text("type").notNull().default("info"),
+  level: text("level").notNull().default("info"),
+  message: text("message").notNull().default(""),
+  adId: text("ad_id"),
+  poolId: text("pool_id"),
+  resolved: integer("resolved").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export type AdAlertRow = typeof adAlertsTable.$inferSelect;

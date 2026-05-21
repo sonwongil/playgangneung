@@ -15,6 +15,13 @@
       "when": 1748476800000,
       "tag": "0001_ad_pools_and_ai_fields",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1748563200000,
+      "tag": "0002_rotation_ai_reason_and_alerts",
+      "breakpoints": true
     }
   ]
 }

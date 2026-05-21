@@ -129,7 +129,7 @@ interface AdPool {
   totalBudget: number;
   startDate: string;
   endDate: string;
-  aiMode: "equal" | "performance" | "manual";
+  aiMode: "equal" | "performance" | "overexposure_prevention" | "new_ad_boost" | "manual";
   status: "draft" | "active" | "paused" | "ended";
   createdAt: string;
   updatedAt: string;
@@ -303,6 +303,7 @@ export default function Admin() {
   const [aiImprovingId, setAiImprovingId] = useState<string | null>(null);
   const [aiCheckBatchLoading, setAiCheckBatchLoading] = useState(false);
   const [generatingRotationId, setGeneratingRotationId] = useState<string | null>(null);
+  const [alertDetectLoading, setAlertDetectLoading] = useState(false);
   const [poolForm, setPoolForm] = useState({
     name: "", objective: "awareness" as AdPool["objective"],
     selectedAdIds: [] as string[], totalBudget: 0,
@@ -780,6 +781,21 @@ export default function Admin() {
       toast({ title: e.message ?? "배치 점검 실패", variant: "destructive" });
     } finally {
       setAiCheckBatchLoading(false);
+    }
+  }
+
+  async function handleAlertDetect() {
+    setAlertDetectLoading(true);
+    try {
+      const r = await fetch(`${BASE}/api/ad-center/alerts/detect`, { method: "POST", credentials: "include" });
+      const d = await r.json() as { detected: number; inserted: number; skippedDuplicates: number; error?: string };
+      if (!r.ok) throw new Error(d.error ?? "알림 감지 실패");
+      qc.invalidateQueries({ queryKey: ["ad-center-alerts"] });
+      toast({ title: `알림 감지 완료`, description: `${d.inserted}건 신규 저장, ${d.skippedDuplicates}건 중복 건너뜀` });
+    } catch (e: any) {
+      toast({ title: e.message ?? "알림 감지 실패", variant: "destructive" });
+    } finally {
+      setAlertDetectLoading(false);
     }
   }
 
@@ -1435,6 +1451,8 @@ export default function Admin() {
             const AI_MODE_LABEL: Record<string, string> = {
               equal: "균등 분배",
               performance: "성과 기반",
+              overexposure_prevention: "과노출 방지",
+              new_ad_boost: "신규 광고 보정",
               manual: "수동",
             };
 
@@ -1832,11 +1850,13 @@ export default function Admin() {
                           <div className="flex gap-2 flex-wrap">
                             {([
                               { value: "equal", label: "균등 분배", desc: "광고를 시간대별로 균등 배분" },
-                              { value: "performance", label: "성과 기반", desc: "AI가 실적에 따라 자동 조정 (Phase 2)" },
-                              { value: "manual", label: "수동", desc: "직접 편성표 설정" },
-                            ] as const).map((m) => (
+                              { value: "performance", label: "성과 기반", desc: "AI점수 높은 광고를 피크타임에 집중 배정" },
+                              { value: "overexposure_prevention", label: "과노출 방지", desc: "동일 광고 연속 2시간 초과 금지, 강제 순환" },
+                              { value: "new_ad_boost", label: "신규 광고 보정", desc: "최근 등록 광고를 피크타임에 우선 배정" },
+                              { value: "manual", label: "수동", desc: "AI 기본 편성 후 직접 슬롯 조정" },
+                            ] as { value: string; label: string; desc: string }[]).map((m) => (
                               <label key={m.value} className={`flex items-start gap-2 px-3 py-2 rounded-lg border text-xs cursor-pointer transition-colors ${poolForm.aiMode === m.value ? "bg-blue-50 border-blue-300" : "border-gray-200 hover:border-blue-200"}`}>
-                                <input type="radio" name="aiMode" value={m.value} className="mt-0.5 accent-blue-600" checked={poolForm.aiMode === m.value} onChange={() => setPoolForm((p) => ({ ...p, aiMode: m.value }))} />
+                                <input type="radio" name="aiMode" value={m.value} className="mt-0.5 accent-blue-600" checked={poolForm.aiMode === m.value} onChange={() => setPoolForm((p) => ({ ...p, aiMode: m.value as AdPool["aiMode"] }))} />
                                 <div>
                                   <p className="font-medium">{m.label}</p>
                                   <p className="text-muted-foreground">{m.desc}</p>
@@ -2055,7 +2075,9 @@ export default function Admin() {
                         <div className="space-y-2">
                           {[
                             { mode: "균등 분배 (equal)", desc: "모든 광고에 동일한 시간 배정. 공정한 노출을 보장합니다.", color: "bg-blue-50 border-blue-200" },
-                            { mode: "성과 기반 (performance)", desc: "AI 점수가 높은 광고를 피크타임(09~21시)에 더 많이 노출. 클릭률 극대화 전략.", color: "bg-orange-50 border-orange-200" },
+                            { mode: "성과 기반 (performance)", desc: "AI 점수가 높은 광고를 피크타임(09~21시)에 집중 배정. 클릭률 극대화 전략.", color: "bg-orange-50 border-orange-200" },
+                            { mode: "과노출 방지 (overexposure_prevention)", desc: "동일 광고 연속 2시간 초과 금지. 광고 피로도 최소화 및 고른 노출 보장.", color: "bg-yellow-50 border-yellow-200" },
+                            { mode: "신규 광고 보정 (new_ad_boost)", desc: "최근 3일 이내 등록된 신규 광고를 피크타임에 우선 배정. 초기 노출을 높입니다.", color: "bg-green-50 border-green-200" },
                             { mode: "수동 (manual)", desc: "AI가 기본 편성표를 생성하고, 직접 슬롯을 조정할 수 있습니다.", color: "bg-gray-50 border-gray-200" },
                           ].map((s) => (
                             <div key={s.mode} className={`rounded-lg border p-3 ${s.color}`}>
@@ -2067,18 +2089,33 @@ export default function Admin() {
                       </CardContent>
                     </Card>
 
-                    {/* AI 알림 규칙 */}
+                    {/* AI 알림 감지 */}
                     <Card>
                       <CardContent className="p-5 space-y-3">
                         <div className="flex items-center gap-2">
                           <Bell className="w-4 h-4 text-yellow-500" />
-                          <p className="font-semibold text-sm">AI 알림 감지 규칙</p>
+                          <p className="font-semibold text-sm">AI 알림 감지 & 저장</p>
                         </div>
-                        <div className="space-y-2 text-xs text-muted-foreground">
+                        <p className="text-xs text-muted-foreground">감지된 알림은 대시보드 알림 패널에 영구 저장됩니다.</p>
+                        <div className="flex items-center gap-3">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1.5 border-yellow-300 text-yellow-700 hover:bg-yellow-50"
+                            disabled={alertDetectLoading}
+                            onClick={handleAlertDetect}
+                          >
+                            <AlertTriangle className={`w-3.5 h-3.5 ${alertDetectLoading ? "animate-pulse" : ""}`} />
+                            {alertDetectLoading ? "감지 중..." : "알림 지금 감지"}
+                          </Button>
+                        </div>
+                        <div className="space-y-2 text-xs text-muted-foreground pt-1 border-t">
+                          <p className="font-medium text-foreground">감지 규칙</p>
                           {[
                             "AI 점수 60점 미만 → 문구 보정 필요 경고",
                             "접수 후 2일 이상 미처리 → 처리 지연 알림",
                             "운영 기간 종료 묶음 → 상태 업데이트 오류 알림",
+                            "동일 광고 연속 3시간 이상 → 과노출 감지 경고",
                           ].map((rule, i) => (
                             <div key={i} className="flex items-start gap-2">
                               <AlertTriangle className="w-3 h-3 text-yellow-500 shrink-0 mt-0.5" />
@@ -2086,7 +2123,7 @@ export default function Admin() {
                             </div>
                           ))}
                         </div>
-                        <p className="text-[10px] text-muted-foreground pt-1 border-t">Phase 3에서 Meta 성과 데이터 기반 알림(낮은 CTR, 과노출 등)이 추가됩니다.</p>
+                        <p className="text-[10px] text-muted-foreground pt-1 border-t">Phase 3에서 Meta CTR 데이터 기반 저CTR 알림이 추가됩니다.</p>
                       </CardContent>
                     </Card>
                   </div>

@@ -13,6 +13,7 @@ import scheduleRouter from "./schedule.js";
 import storiesRouter from "./stories.js";
 import videosRouter from "./videos.js";
 import performanceRouter from "./performance.js";
+import paymentRouter from "./payment.js";
 
 const router: IRouter = Router();
 
@@ -34,5 +35,6 @@ router.use(scheduleRouter);
 router.use(storiesRouter);
 router.use(videosRouter);
 router.use(performanceRouter);
+router.use(paymentRouter);
 
 export default router;

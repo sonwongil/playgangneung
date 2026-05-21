@@ -11,6 +11,9 @@ import AdSubmit from "@/pages/ad-submit";
 import Login from "@/pages/login";
 import AdReport from "@/pages/ad-report";
 import MyAd from "@/pages/my-ad";
+import Checkout from "@/pages/checkout";
+import CheckoutSuccess from "@/pages/checkout-success";
+import CheckoutFail from "@/pages/checkout-fail";
 
 const queryClient = new QueryClient();
 
@@ -61,6 +64,9 @@ function Router() {
       <Route path="/ad-submit" component={AdSubmit} />
       <Route path="/report/:token" component={AdReport} />
       <Route path="/my-ad" component={MyAd} />
+      <Route path="/checkout/success" component={CheckoutSuccess} />
+      <Route path="/checkout/fail" component={CheckoutFail} />
+      <Route path="/checkout" component={Checkout} />
       <Route component={NotFound} />
     </Switch>
   );

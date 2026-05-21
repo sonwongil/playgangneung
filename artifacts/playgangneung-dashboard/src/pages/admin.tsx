@@ -205,6 +205,22 @@ interface MetaRateLimit {
   warning: string | null;
 }
 
+interface AdPayment {
+  id: string;
+  orderId: string;
+  paymentKey: string | null;
+  adId: string | null;
+  plan: string;
+  amount: number;
+  status: string;
+  method: string | null;
+  receiptUrl: string | null;
+  customerName: string;
+  customerEmail: string;
+  createdAt: string;
+  paidAt: string | null;
+}
+
 interface AdCenterStats {
   total: number;
   active: number;
@@ -550,6 +566,16 @@ export default function Admin() {
     queryFn: async () => {
       const r = await fetch(`${BASE}/api/billing/summary`, { credentials: "include" });
       if (!r.ok) throw new Error("정산 현황 로드 실패");
+      return r.json();
+    },
+    enabled: !!(activeNav === "adCenter" && adCenterTab === "billing"),
+  });
+
+  const { data: paymentOrdersData, isLoading: paymentOrdersLoading } = useQuery<{ orders: AdPayment[] }>({
+    queryKey: ["payment-orders"],
+    queryFn: async () => {
+      const r = await fetch(`${BASE}/api/payment/orders`, { credentials: "include" });
+      if (!r.ok) throw new Error("결제 내역 로드 실패");
       return r.json();
     },
     enabled: !!(activeNav === "adCenter" && adCenterTab === "billing"),
@@ -2957,6 +2983,63 @@ export default function Admin() {
                           등록된 광고 묶음이 없습니다.
                         </div>
                       )}
+
+                      {/* ── 토스페이먼츠 결제 내역 ───────────────────────────── */}
+                      <div className="mt-6 border-t pt-5">
+                        <p className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-1.5">
+                          <CircleDollarSign className="w-4 h-4 text-blue-600" />결제 내역
+                        </p>
+                        {paymentOrdersLoading && (
+                          <div className="py-6 text-center text-sm text-muted-foreground">
+                            <RefreshCw className="w-4 h-4 animate-spin mx-auto mb-1 text-blue-400" />로딩 중...
+                          </div>
+                        )}
+                        {!paymentOrdersLoading && (paymentOrdersData?.orders ?? []).length === 0 && (
+                          <p className="text-xs text-muted-foreground py-4 text-center">결제 내역이 없습니다.</p>
+                        )}
+                        {!paymentOrdersLoading && (paymentOrdersData?.orders ?? []).length > 0 && (
+                          <div className="overflow-x-auto rounded-lg border">
+                            <table className="w-full text-xs">
+                              <thead className="bg-gray-50 border-b">
+                                <tr>
+                                  {["주문번호", "상품", "금액", "구매자", "수단", "상태", "결제일"].map((h) => (
+                                    <th key={h} className="px-3 py-2 text-left text-gray-600 font-medium whitespace-nowrap">{h}</th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {(paymentOrdersData?.orders ?? []).map((o) => (
+                                  <tr key={o.id} className="border-b hover:bg-gray-50">
+                                    <td className="px-3 py-2 font-mono text-[10px] text-gray-500 whitespace-nowrap">{o.orderId}</td>
+                                    <td className="px-3 py-2 whitespace-nowrap">
+                                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                                        o.plan === "premium" ? "bg-purple-50 text-purple-700" :
+                                        o.plan === "main" ? "bg-blue-50 text-blue-700" : "bg-gray-50 text-gray-600"
+                                      }`}>{o.plan}</span>
+                                    </td>
+                                    <td className="px-3 py-2 font-bold text-gray-800 whitespace-nowrap">₩{o.amount.toLocaleString()}</td>
+                                    <td className="px-3 py-2 whitespace-nowrap">
+                                      <div>{o.customerName}</div>
+                                      <div className="text-gray-400">{o.customerEmail}</div>
+                                    </td>
+                                    <td className="px-3 py-2 whitespace-nowrap text-gray-500">{o.method ?? "—"}</td>
+                                    <td className="px-3 py-2 whitespace-nowrap">
+                                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                                        o.status === "paid" ? "bg-green-50 text-green-700" :
+                                        o.status === "failed" ? "bg-red-50 text-red-600" :
+                                        "bg-yellow-50 text-yellow-700"
+                                      }`}>{o.status === "paid" ? "완료" : o.status === "failed" ? "실패" : "대기"}</span>
+                                    </td>
+                                    <td className="px-3 py-2 whitespace-nowrap text-gray-400">
+                                      {o.paidAt ? new Date(o.paidAt).toLocaleDateString("ko-KR") : new Date(o.createdAt).toLocaleDateString("ko-KR")}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   );
                 })()}

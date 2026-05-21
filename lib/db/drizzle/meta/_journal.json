@@ -50,6 +50,13 @@
       "when": 1748908800000,
       "tag": "0006_ads_report_sent_at",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1748995200000,
+      "tag": "0007_payments",
+      "breakpoints": true
     }
   ]
 }

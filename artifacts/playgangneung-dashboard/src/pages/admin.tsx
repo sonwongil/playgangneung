@@ -180,6 +180,18 @@ interface BillingSummary {
   today: string;
 }
 
+interface MetaRateLimit {
+  configured: boolean;
+  rateLimit: {
+    callCount: number;
+    totalCputime: number;
+    totalTime: number;
+    type: string;
+    estimatedTimeToRegain: number;
+  } | null;
+  warning: string | null;
+}
+
 interface AdCenterStats {
   total: number;
   active: number;
@@ -519,6 +531,17 @@ export default function Admin() {
       return r.json();
     },
     enabled: !!(activeNav === "adCenter" && adCenterTab === "billing"),
+  });
+
+  const { data: metaRateLimitData, refetch: refetchRateLimit } = useQuery<MetaRateLimit>({
+    queryKey: ["meta-rate-limit"],
+    queryFn: async () => {
+      const r = await fetch(`${BASE}/api/meta/rate-limit`, { credentials: "include" });
+      if (!r.ok) throw new Error("rate-limit 조회 실패");
+      return r.json();
+    },
+    enabled: !!(activeNav === "adCenter" && adCenterTab === "meta"),
+    refetchInterval: 60000,
   });
 
   const { data: storiesData, isLoading: storiesLoading, refetch: refetchStories } = useQuery<{ stories: AdminStory[] }>({
@@ -2205,17 +2228,62 @@ export default function Admin() {
                   const pools = adPoolsData?.pools ?? [];
                   return (
                     <div className="space-y-4">
-                      {/* 환경변수 상태 배너 */}
-                      <Card className="border-blue-200 bg-blue-50">
-                        <CardContent className="p-4">
-                          <p className="text-sm font-semibold text-blue-800 flex items-center gap-2">
-                            <ExternalLink className="w-4 h-4" />Meta Marketing API 연동
-                          </p>
-                          <p className="text-xs text-blue-700 mt-1">
-                            환경변수 <code className="bg-blue-100 px-1 rounded">META_ACCESS_TOKEN</code>과{" "}
-                            <code className="bg-blue-100 px-1 rounded">META_AD_ACCOUNT_ID</code>를 설정하면 Meta 광고 캠페인을 자동 생성합니다.
-                            미설정 시에도 관리 기능은 모두 사용 가능합니다.
-                          </p>
+                      {/* Meta API 상태 + Rate-limit 모니터링 패널 */}
+                      <Card className={metaRateLimitData?.warning ? "border-yellow-300 bg-yellow-50" : metaRateLimitData?.configured ? "border-green-200 bg-green-50" : "border-blue-200 bg-blue-50"}>
+                        <CardContent className="p-4 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <p className="text-sm font-semibold flex items-center gap-2">
+                              {metaRateLimitData?.configured
+                                ? <><CheckCircle className="w-4 h-4 text-green-600" /><span className="text-green-800">Meta Marketing API 연결됨</span></>
+                                : <><ExternalLink className="w-4 h-4 text-blue-600" /><span className="text-blue-800">Meta Marketing API 미연결</span></>
+                              }
+                            </p>
+                            <Button size="sm" variant="ghost" className="h-6 text-xs gap-1" onClick={() => refetchRateLimit()}>
+                              <RefreshCw className="w-3 h-3" />새로고침
+                            </Button>
+                          </div>
+                          {!metaRateLimitData?.configured && (
+                            <p className="text-xs text-blue-700">
+                              환경변수 <code className="bg-blue-100 px-1 rounded">META_ACCESS_TOKEN</code>과{" "}
+                              <code className="bg-blue-100 px-1 rounded">META_AD_ACCOUNT_ID</code>를 설정하면 Meta 광고 캠페인을 자동 생성합니다.
+                              미설정 시에도 관리 기능은 모두 사용 가능합니다.
+                            </p>
+                          )}
+                          {metaRateLimitData?.configured && metaRateLimitData.rateLimit && (
+                            <div className="space-y-1.5">
+                              {metaRateLimitData.warning && (
+                                <p className="text-xs font-medium text-yellow-800 flex items-center gap-1">
+                                  <AlertTriangle className="w-3 h-3" />{metaRateLimitData.warning}
+                                </p>
+                              )}
+                              <div className="flex items-center gap-2">
+                                <span className="text-[11px] text-muted-foreground w-20 shrink-0">API 호출량</span>
+                                <div className="flex-1 bg-gray-200 rounded-full h-1.5">
+                                  <div
+                                    className={`h-1.5 rounded-full transition-all ${metaRateLimitData.rateLimit.callCount >= 80 ? "bg-red-500" : metaRateLimitData.rateLimit.callCount >= 50 ? "bg-yellow-500" : "bg-green-500"}`}
+                                    style={{ width: `${Math.min(100, metaRateLimitData.rateLimit.callCount)}%` }}
+                                  />
+                                </div>
+                                <span className="text-[11px] font-mono text-muted-foreground w-10 text-right">{metaRateLimitData.rateLimit.callCount}%</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-[11px] text-muted-foreground w-20 shrink-0">CPU 시간</span>
+                                <div className="flex-1 bg-gray-200 rounded-full h-1.5">
+                                  <div
+                                    className={`h-1.5 rounded-full ${metaRateLimitData.rateLimit.totalCputime >= 80 ? "bg-red-500" : "bg-blue-400"}`}
+                                    style={{ width: `${Math.min(100, metaRateLimitData.rateLimit.totalCputime)}%` }}
+                                  />
+                                </div>
+                                <span className="text-[11px] font-mono text-muted-foreground w-10 text-right">{metaRateLimitData.rateLimit.totalCputime}%</span>
+                              </div>
+                              {metaRateLimitData.rateLimit.estimatedTimeToRegain > 0 && (
+                                <p className="text-[11px] text-yellow-700">한도 회복까지 약 {metaRateLimitData.rateLimit.estimatedTimeToRegain}분</p>
+                              )}
+                            </div>
+                          )}
+                          {metaRateLimitData?.configured && !metaRateLimitData.rateLimit && (
+                            <p className="text-xs text-green-700">API 호출 기록 없음 — 한도 여유 충분</p>
+                          )}
                         </CardContent>
                       </Card>
 

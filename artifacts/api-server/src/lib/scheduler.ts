@@ -5,9 +5,9 @@ import crypto from "crypto";
 import { crawlAll } from "./crawler.js";
 import { appendEvents } from "./storage.js";
 import { logger } from "./logger.js";
-import { db, adPoolsTable, adPerformancesTable } from "@workspace/db";
-import { eq, sql } from "drizzle-orm";
-import { getCampaignInsights, isConfigured } from "./metaApi.js";
+import { db, adPoolsTable, adPerformancesTable, adsTable } from "@workspace/db";
+import { eq, sql, and, inArray, isNotNull } from "drizzle-orm";
+import { getCampaignInsights, getAdInsights, isConfigured } from "./metaApi.js";
 
 const CONFIG_FILE = path.resolve(process.cwd(), "data/config.json");
 
@@ -68,24 +68,53 @@ async function collectMetaPerformance() {
         logger.warn({ poolId: pool.id, error: insights.error }, "Meta 성과 수집 실패");
         continue;
       }
-      const rows = (insights.data as { data: { date_start: string; impressions?: string; clicks?: string; spend?: string; reach?: string }[] }).data ?? [];
-      const firstAdId = ((pool.adIds as string[]) ?? [])[0] ?? pool.id;
-      for (const row of rows) {
-        const pid = crypto.createHash("sha256")
-          .update(`${firstAdId}|${pool.id}|${row.date_start}|meta`)
-          .digest("hex").slice(0, 32);
-        const impressions = Number(row.impressions ?? 0);
-        const clicks = Number(row.clicks ?? 0);
-        const spend = Math.round(Number(row.spend ?? 0) * 100);
-        const reach = Number(row.reach ?? 0);
-        await db.insert(adPerformancesTable).values({
-          id: pid, adId: firstAdId, poolId: pool.id, date: row.date_start,
-          impressions, clicks, spend, reach, source: "meta",
-        }).onConflictDoUpdate({
-          target: adPerformancesTable.id,
-          set: { impressions, clicks, spend, reach },
-        });
-        total++;
+      const adIds = (pool.adIds as string[]) ?? [];
+      const since = new Date(Date.now() - 86400000).toISOString().slice(0, 10); // yesterday
+      const until = since;
+
+      // 광고별 metaAdId 있는 광고만 광고 단위 성과 수집
+      const adsWithMeta = adIds.length > 0
+        ? await db.select().from(adsTable)
+            .where(and(inArray(adsTable.id, adIds), isNotNull(adsTable.metaAdId)))
+        : [];
+
+      const makeId = (adId: string, date: string) =>
+        crypto.createHash("sha256").update(`${adId}|${pool.id}|${date}|meta`).digest("hex").slice(0, 32);
+
+      if (adsWithMeta.length > 0) {
+        for (const ad of adsWithMeta) {
+          const adInsights = await getAdInsights(ad.metaAdId!, since, until);
+          if (!adInsights.ok) { logger.warn({ adId: ad.id, error: adInsights.error }, "광고 단위 성과 수집 실패"); continue; }
+          const adRows = (adInsights.data as { data: { date_start: string; impressions?: string; clicks?: string; spend?: string; reach?: string }[] }).data ?? [];
+          for (const row of adRows) {
+            const pid = makeId(ad.id, row.date_start);
+            const impressions = Number(row.impressions ?? 0);
+            const clicks = Number(row.clicks ?? 0);
+            const spend = Math.round(Number(row.spend ?? 0) * 100);
+            const reach = Number(row.reach ?? 0);
+            await db.insert(adPerformancesTable).values({
+              id: pid, adId: ad.id, poolId: pool.id, date: row.date_start,
+              impressions, clicks, spend, reach, source: "meta",
+            }).onConflictDoUpdate({ target: adPerformancesTable.id, set: { impressions, clicks, spend, reach } });
+            total++;
+          }
+        }
+      } else {
+        // 캠페인 단위 폴백
+        const rows = (insights.data as { data: { date_start: string; impressions?: string; clicks?: string; spend?: string; reach?: string }[] }).data ?? [];
+        const firstAdId = adIds[0] ?? pool.id;
+        for (const row of rows) {
+          const pid = makeId(firstAdId, row.date_start);
+          const impressions = Number(row.impressions ?? 0);
+          const clicks = Number(row.clicks ?? 0);
+          const spend = Math.round(Number(row.spend ?? 0) * 100);
+          const reach = Number(row.reach ?? 0);
+          await db.insert(adPerformancesTable).values({
+            id: pid, adId: firstAdId, poolId: pool.id, date: row.date_start,
+            impressions, clicks, spend, reach, source: "meta",
+          }).onConflictDoUpdate({ target: adPerformancesTable.id, set: { impressions, clicks, spend, reach } });
+          total++;
+        }
       }
     }
     logger.info({ pools: activePools.length, total }, "Meta 성과 자동 수집 완료");

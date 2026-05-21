@@ -423,7 +423,7 @@ JSON 배열만 반환 (설명 없이):
 });
 
 // ─── Meta에 반영 (캠페인 → 전략별 광고세트 → 광고 자동 생성) ─────────────────────
-router.post("/:id/push-to-meta", async (req, res) => {
+router.post("/ad-pools/:id/push-to-meta", async (req, res) => {
   if (!req.session?.isAdmin) return res.status(401).json({ error: "로그인이 필요합니다" });
   const { isConfigured, createCampaign, createAdSet, createAd } = await import("../lib/metaApi.js");
   if (!isConfigured()) {

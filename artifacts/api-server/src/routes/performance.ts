@@ -1,8 +1,8 @@
 import { Router } from "express";
 import crypto from "crypto";
 import { db, adPerformancesTable, adPoolsTable, adsTable } from "@workspace/db";
-import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
-import { getCampaignInsights, isConfigured, getLastRateLimit } from "../lib/metaApi.js";
+import { eq, and, gte, lte, desc, sql, inArray, isNotNull } from "drizzle-orm";
+import { getCampaignInsights, getAdInsights, isConfigured, getLastRateLimit } from "../lib/metaApi.js";
 
 /** 중복 방지용 결정론적 ID — (adId, poolId, date, source) 기반 sha256 앞 16자 */
 function perfId(adId: string, poolId: string | null, date: string, source: string): string {
@@ -182,30 +182,58 @@ router.post("/ad-pools/:id/collect-performance", async (req, res) => {
     if (!pool) return res.status(404).json({ error: "묶음을 찾을 수 없습니다" });
     if (!pool.metaCampaignId) return res.status(400).json({ error: "Meta 캠페인이 연동되지 않았습니다. 먼저 'Meta에 반영'을 실행하세요." });
 
-    const insights = await getCampaignInsights(pool.metaCampaignId, "last_7d");
-    if (!insights.ok) return res.status(502).json({ error: `Meta API 오류: ${insights.error}` });
-
-    const rows = (insights.data as { data: { date_start: string; impressions?: string; clicks?: string; spend?: string; reach?: string }[] }).data ?? [];
+    const adIds = (pool.adIds as string[]) ?? [];
+    const since = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
+    const until = new Date().toISOString().slice(0, 10);
     let saved = 0;
-    const firstAdId = ((pool.adIds as string[]) ?? [])[0] ?? id;
-    for (const row of rows) {
-      const pid = perfId(firstAdId, id, row.date_start, "meta");
-      const impressions = Number(row.impressions ?? 0);
-      const clicks = Number(row.clicks ?? 0);
-      const spend = Math.round(Number(row.spend ?? 0) * 100);
-      const reach = Number(row.reach ?? 0);
-      await db.insert(adPerformancesTable).values({
-        id: pid, adId: firstAdId, poolId: id, date: row.date_start,
-        impressions, clicks, spend, reach, source: "meta",
-      }).onConflictDoUpdate({
-        target: adPerformancesTable.id,
-        set: { impressions, clicks, spend, reach },
-      });
-      saved++;
+
+    // 광고별 metaAdId 조회 — metaAdId 있는 광고만 광고 단위 성과 수집
+    const adsWithMeta = adIds.length > 0
+      ? await db.select().from(adsTable)
+          .where(and(inArray(adsTable.id, adIds), isNotNull(adsTable.metaAdId)))
+      : [];
+
+    if (adsWithMeta.length > 0) {
+      // 광고 단위 성과 수집 (정확한 광고별 데이터)
+      for (const ad of adsWithMeta) {
+        const insights = await getAdInsights(ad.metaAdId!, since, until);
+        if (!insights.ok) { req.log.warn({ adId: ad.id, error: insights.error }, "광고 단위 성과 수집 실패"); continue; }
+        const rows = (insights.data as { data: { date_start: string; impressions?: string; clicks?: string; spend?: string; reach?: string }[] }).data ?? [];
+        for (const row of rows) {
+          const pid = perfId(ad.id, id, row.date_start, "meta");
+          const impressions = Number(row.impressions ?? 0);
+          const clicks = Number(row.clicks ?? 0);
+          const spend = Math.round(Number(row.spend ?? 0) * 100);
+          const reach = Number(row.reach ?? 0);
+          await db.insert(adPerformancesTable).values({
+            id: pid, adId: ad.id, poolId: id, date: row.date_start,
+            impressions, clicks, spend, reach, source: "meta",
+          }).onConflictDoUpdate({ target: adPerformancesTable.id, set: { impressions, clicks, spend, reach } });
+          saved++;
+        }
+      }
+    } else {
+      // metaAdId 없는 경우 캠페인 단위 폴백 (firstAdId에 집계)
+      const firstAdId = adIds[0] ?? id;
+      const insights = await getCampaignInsights(pool.metaCampaignId, "last_7d");
+      if (!insights.ok) return res.status(502).json({ error: `Meta API 오류: ${insights.error}` });
+      const rows = (insights.data as { data: { date_start: string; impressions?: string; clicks?: string; spend?: string; reach?: string }[] }).data ?? [];
+      for (const row of rows) {
+        const pid = perfId(firstAdId, id, row.date_start, "meta");
+        const impressions = Number(row.impressions ?? 0);
+        const clicks = Number(row.clicks ?? 0);
+        const spend = Math.round(Number(row.spend ?? 0) * 100);
+        const reach = Number(row.reach ?? 0);
+        await db.insert(adPerformancesTable).values({
+          id: pid, adId: firstAdId, poolId: id, date: row.date_start,
+          impressions, clicks, spend, reach, source: "meta",
+        }).onConflictDoUpdate({ target: adPerformancesTable.id, set: { impressions, clicks, spend, reach } });
+        saved++;
+      }
     }
 
-    req.log.info({ poolId: id, saved }, "Meta 성과 수동 수집 완료");
-    return res.json({ success: true, saved, campaign: pool.metaCampaignId });
+    req.log.info({ poolId: id, saved, adCount: adsWithMeta.length }, "Meta 성과 수동 수집 완료");
+    return res.json({ success: true, saved, adLevelCount: adsWithMeta.length, campaign: pool.metaCampaignId });
   } catch (err) {
     req.log.error({ err }, "Meta 성과 수집 실패");
     return res.status(500).json({ error: "수집 실패" });

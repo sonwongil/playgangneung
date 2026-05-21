@@ -2,9 +2,96 @@ import { Router } from "express";
 import crypto from "crypto";
 import { db, adsTable, adPoolsTable, rotationRulesTable } from "@workspace/db";
 import { eq, desc, inArray } from "drizzle-orm";
-import { openai } from "@workspace/integrations-openai-ai-server";
+
+// lazy import — 서버 시작 시 크래시 방지 (환경변수 없는 경우 대비)
+async function getOpenAI() {
+  const { openai } = await import("@workspace/integrations-openai-ai-server");
+  return openai;
+}
 
 const router = Router();
+
+// ─── 전략별 결정론적 슬롯 빌더 ─────────────────────────────────────────────────
+// poolId, aiMode, adsRows를 받아 rotationRules 삽입용 배열을 반환
+type AdsRow = typeof adsTable.$inferSelect;
+interface BuiltSlot {
+  id: string;
+  poolId: string;
+  adId: string;
+  hourSlot: number;
+  weight: number;
+  status: string;
+  aiReason: string;
+}
+
+export function buildStrategySlots(poolId: string, aiMode: string, adsRows: AdsRow[]): BuiltSlot[] {
+  if (adsRows.length === 0) return [];
+  const n = adsRows.length;
+  type WeightedAd = { adId: string; weight: number; aiScore: number; createdAt: Date };
+  const weightedAds: WeightedAd[] = adsRows.map((a) => ({
+    adId: a.id,
+    weight: 1 / n,
+    aiScore: (a.aiScore as number | null) ?? 70,
+    createdAt: a.createdAt,
+  }));
+
+  const sortedByScore = [...weightedAds].sort((a, b) => b.aiScore - a.aiScore);
+  const cutoff = Date.now() - 3 * 86400000;
+  const newAds = weightedAds.filter((a) => a.createdAt.getTime() >= cutoff);
+  const primeHours = new Set<number>([9,10,11,12,13,14,15,16,17,18,19,20,21]);
+
+  const slots: BuiltSlot[] = [];
+  for (let hour = 0; hour < 24; hour++) {
+    const isPrime = primeHours.has(hour);
+    let chosen: WeightedAd = weightedAds[hour % n];
+    let status = "active";
+    let reason = "균등 순환 배정";
+
+    if (aiMode === "performance") {
+      chosen = isPrime
+        ? sortedByScore[Math.floor((hour / 24) * sortedByScore.length) % sortedByScore.length]
+        : weightedAds[hour % n];
+      if (isPrime && sortedByScore[0]?.adId === chosen.adId) status = "boost";
+      reason = isPrime
+        ? `피크타임 — AI점수 상위 광고 (${chosen.aiScore}점)`
+        : "비피크 균등 배정";
+    } else if (aiMode === "overexposure_prevention") {
+      const prev1 = slots[hour - 1]?.adId;
+      const prev2 = slots[hour - 2]?.adId;
+      let idx = hour % n;
+      let tries = 0;
+      while (tries < n && weightedAds[idx % n].adId === prev1 && weightedAds[idx % n].adId === prev2) {
+        idx++;
+        tries++;
+      }
+      chosen = weightedAds[idx % n];
+      reason = `과노출 방지 — 연속 2시간 이상 동일 광고 제한 (${hour}시)`;
+    } else if (aiMode === "new_ad_boost") {
+      if (isPrime && newAds.length > 0) {
+        chosen = newAds[Math.floor((hour / 24) * newAds.length) % newAds.length];
+        status = "boost";
+        reason = `신규 광고 피크타임 부스트 (${hour}시)`;
+      } else {
+        chosen = weightedAds[hour % n];
+        reason = newAds.length > 0 ? "비피크 균등 배정" : "신규 광고 없음 — 균등 배정";
+      }
+    } else {
+      // equal / manual
+      reason = `${aiMode === "manual" ? "수동 기준" : "균등"} 순환 배정`;
+    }
+
+    slots.push({
+      id: crypto.randomUUID(),
+      poolId,
+      adId: chosen.adId,
+      hourSlot: hour,
+      weight: Math.round(chosen.weight * 100) || 1,
+      status,
+      aiReason: reason,
+    });
+  }
+  return slots;
+}
 
 export type AdPoolStatus = "draft" | "active" | "paused" | "ended";
 export type AdPoolObjective = "awareness" | "conversion" | "traffic" | "engagement";
@@ -81,23 +168,15 @@ router.post("/ad-pools", async (req, res) => {
       aiMode: body.aiMode ?? "equal",
       status: "draft",
     });
+    // 광고가 있으면 전략에 따라 편성표 자동 생성
     if (adIds.length > 0) {
-      const slots = 24;
-      const perAd = Math.floor(slots / adIds.length);
-      const rules = adIds.flatMap((adId, adIdx) =>
-        Array.from({ length: perAd }, (_, i) => ({
-          id: crypto.randomUUID(),
-          poolId: id,
-          adId,
-          hourSlot: adIdx * perAd + i,
-          weight: 1,
-          status: "active",
-        }))
-      );
+      const adsRows = await db.select().from(adsTable).where(inArray(adsTable.id, adIds));
+      const aiMode = body.aiMode ?? "equal";
+      const rules = buildStrategySlots(id, aiMode, adsRows);
       if (rules.length > 0) await db.insert(rotationRulesTable).values(rules);
     }
     const [row] = await db.select().from(adPoolsTable).where(eq(adPoolsTable.id, id));
-    req.log.info({ id }, "ad-pool 생성 완료");
+    req.log.info({ id, aiMode: body.aiMode ?? "equal" }, "ad-pool 생성 완료 (자동 편성 포함)");
     return res.status(201).json({ success: true, pool: rowToPool(row) });
   } catch (err) {
     req.log.error({ err }, "ad-pool 생성 실패");
@@ -221,101 +300,33 @@ router.post("/ad-pools/:id/generate-rotation", async (req, res) => {
 
     const adsRows = await db.select().from(adsTable).where(inArray(adsTable.id, adIds));
     const aiMode = (pool.aiMode as string) ?? "equal";
-
-    // ─── 전략별 가중치 계산 ─────────────────────────────────────────────────────
-    type WeightedAd = { adId: string; name: string; weight: number; aiScore: number; createdAt: Date };
     const n = adsRows.length;
-    let weightedAds: WeightedAd[] = adsRows.map((a) => ({
-      adId: a.id,
-      name: a.businessName || a.title,
-      weight: 1,
-      aiScore: (a.aiScore as number | null) ?? 70,
-      createdAt: a.createdAt,
-    }));
 
     const strategyLabel: Record<string, string> = {
-      equal: "균등 분배",
-      performance: "성과 기반",
-      overexposure_prevention: "과노출 방지",
-      new_ad_boost: "신규 광고 보정",
-      manual: "수동",
+      equal: "균등 분배", performance: "성과 기반",
+      overexposure_prevention: "과노출 방지", new_ad_boost: "신규 광고 보정", manual: "수동",
+    };
+    const modeDesc: Record<string, string> = {
+      equal: "24시간 균등 순환 배정",
+      performance: "AI점수 높은 광고를 피크타임(09~21시)에 집중 배정",
+      overexposure_prevention: "동일 광고 연속 2시간 초과 금지, 골고루 순환",
+      new_ad_boost: "최근 추가된 신규 광고를 피크타임에 우선 배정",
+      manual: "균등 분배 후 수동 조정 가능",
     };
 
-    // ─── 결정론적 슬롯 빌더 (AI 없이도 동작하는 폴백 + 검증 기준) ─────────────
-    function buildDeterministicSlots(mode: string): typeof slotAssignments {
-      const slots: typeof slotAssignments = [];
-      const sortedByScore = [...weightedAds].sort((a, b) => b.aiScore - a.aiScore);
-      // 신규 광고: 최근 3일 이내 추가된 광고
-      const cutoff = Date.now() - 3 * 86400000;
-      const newAds = weightedAds.filter((a) => a.createdAt.getTime() >= cutoff);
-      const primeHours = new Set<number>([9,10,11,12,13,14,15,16,17,18,19,20,21]);
-
-      for (let hour = 0; hour < 24; hour++) {
-        const isPrime = primeHours.has(hour);
-        let chosen: WeightedAd;
-        let status = "active";
-        let reason = "균등 순환 배정";
-
-        if (mode === "performance") {
-          // 피크타임은 상위 광고, 비피크는 순환
-          chosen = isPrime
-            ? sortedByScore[Math.floor(hour / 24 * sortedByScore.length) % sortedByScore.length]
-            : weightedAds[hour % n];
-          if (isPrime && sortedByScore[0].adId === chosen.adId) status = "boost";
-          reason = isPrime ? `피크타임 — AI점수 상위 광고 (${chosen.aiScore}점)` : "비피크 균등 배정";
-        } else if (mode === "overexposure_prevention") {
-          // 과노출 방지: 연속 2시간 이상 같은 광고 금지, 강제 순환
-          const prev1 = slots[hour - 1]?.adId;
-          const prev2 = slots[hour - 2]?.adId;
-          let idx = hour % n;
-          // 직전 2슬롯과 다른 광고 선택
-          let tries = 0;
-          while (tries < n && (weightedAds[idx % n].adId === prev1 && weightedAds[idx % n].adId === prev2)) {
-            idx++;
-            tries++;
-          }
-          chosen = weightedAds[idx % n];
-          reason = `과노출 방지 — 연속 노출 제한 순환 (${hour}시)`;
-        } else if (mode === "new_ad_boost") {
-          // 신규 보정: 신규 광고가 있으면 피크타임 우선 배정
-          if (isPrime && newAds.length > 0) {
-            chosen = newAds[Math.floor(hour / 24 * newAds.length) % newAds.length];
-            status = "boost";
-            reason = `신규 광고 피크타임 부스트 (${chosen.name})`;
-          } else {
-            chosen = weightedAds[hour % n];
-            reason = newAds.length > 0 ? "비피크 균등 배정" : "신규 광고 없음 — 균등 배정";
-          }
-        } else {
-          // equal / manual: 순수 균등 순환
-          chosen = weightedAds[hour % n];
-          reason = `${strategyLabel[mode] ?? mode} 균등 순환`;
-        }
-
-        slots.push({
-          hourSlot: hour,
-          adId: chosen.adId,
-          weight: chosen.weight,
-          status,
-          aiReason: reason,
-        });
-      }
-      return slots;
-    }
+    // 광고 이름/점수 맵 (AI 프롬프트용)
+    type WA = { adId: string; name: string; aiScore: number };
+    const wAds: WA[] = adsRows.map((a) => ({
+      adId: a.id, name: a.businessName || a.title, aiScore: (a.aiScore as number | null) ?? 70,
+    }));
+    const validAdIdSet = new Set(wAds.map((a) => a.adId));
 
     type SlotItem = { hourSlot: number; adId: string; weight: number; status: string; aiReason: string };
     let slotAssignments: SlotItem[] = [];
 
-    // ─── AI 편성 (gpt-5-mini) ──────────────────────────────────────────────────
-    const validAdIdSet = new Set(weightedAds.map((a) => a.adId));
+    // ─── AI 편성 시도 (gpt-5-mini, lazy import) ────────────────────────────────
     try {
-      const modeDesc: Record<string, string> = {
-        equal: "24시간 균등 순환 배정",
-        performance: "AI점수 높은 광고를 피크타임(09~21시)에 집중 배정",
-        overexposure_prevention: "동일 광고 연속 2시간 초과 금지, 골고루 순환",
-        new_ad_boost: "최근 추가된 신규 광고를 피크타임에 우선 배정",
-        manual: "균등 분배 후 수동 조정 가능",
-      };
+      const openai = await getOpenAI();
       const prompt = `당신은 SNS 광고 편성 전문가입니다.
 아래 광고 묶음을 24시간(0~23시) 타임슬롯에 배정해주세요.
 
@@ -323,7 +334,7 @@ router.post("/ad-pools/:id/generate-rotation", async (req, res) => {
 전략: ${strategyLabel[aiMode] ?? aiMode} — ${modeDesc[aiMode] ?? ""}
 
 참여 광고 (adId | 이름 | AI점수):
-${weightedAds.map((a) => `${a.adId} | ${a.name} | ${a.aiScore}점`).join("\n")}
+${wAds.map((a) => `${a.adId} | ${a.name} | ${a.aiScore}점`).join("\n")}
 
 필수 규칙:
 - 반드시 24개 항목 (hour 0~23 각 1개씩, 중복 없음)
@@ -344,7 +355,6 @@ JSON 배열만 반환 (설명 없이):
       const jsonMatch = raw.match(/\[[\s\S]*?\]/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]) as { hour: number; adId: string; status?: string; reason?: string }[];
-        // 엄격 검증: 타입, 범위, 존재 여부, 중복
         const seenHours = new Set<number>();
         const validated: SlotItem[] = [];
         for (const p of parsed) {
@@ -352,30 +362,27 @@ JSON 배열만 반환 (설명 없이):
           if (!Number.isInteger(hour) || hour < 0 || hour > 23) continue;
           if (seenHours.has(hour)) continue;
           if (!validAdIdSet.has(p.adId)) continue;
-          const wAd = weightedAds.find((w) => w.adId === p.adId)!;
           seenHours.add(hour);
           validated.push({
             hourSlot: hour,
-            adId: wAd.adId,
-            weight: wAd.weight,
+            adId: p.adId,
+            weight: Math.round((1 / n) * 100) || 1,
             status: ["active", "boost", "reduce", "scheduled"].includes(p.status ?? "") ? (p.status ?? "active") : "active",
             aiReason: typeof p.reason === "string" && p.reason.length > 0 ? p.reason : `AI 편성 (${hour}시)`,
           });
         }
-        // 24시간 완전 커버 여부 확인
-        if (validated.length === 24) {
-          slotAssignments = validated;
-        } else {
-          // 누락 시간대는 결정론적으로 보완
-          const deterministicFull = buildDeterministicSlots(aiMode);
-          for (const slot of deterministicFull) {
-            if (!seenHours.has(slot.hourSlot)) {
-              validated.push({ ...slot, aiReason: `AI 미배정 보완 (${slot.hourSlot}시)` });
-              seenHours.add(slot.hourSlot);
-            }
+        // 누락 시간대는 결정론적으로 보완
+        const detFull = buildStrategySlots(id, aiMode, adsRows);
+        for (const slot of detFull) {
+          if (!seenHours.has(slot.hourSlot)) {
+            validated.push({
+              hourSlot: slot.hourSlot, adId: slot.adId, weight: slot.weight,
+              status: slot.status, aiReason: `AI 미배정 보완 (${slot.hourSlot}시)`,
+            });
+            seenHours.add(slot.hourSlot);
           }
-          slotAssignments = validated.sort((a, b) => a.hourSlot - b.hourSlot);
         }
+        slotAssignments = validated.sort((a, b) => a.hourSlot - b.hourSlot);
       }
     } catch (_aiErr) {
       req.log.warn({ err: _aiErr }, "AI 편성 실패 — 결정론적 폴백 사용");
@@ -383,19 +390,19 @@ JSON 배열만 반환 (설명 없이):
 
     // ─── AI 응답 없으면 결정론적 폴백 ─────────────────────────────────────────
     if (slotAssignments.length < 24) {
-      slotAssignments = buildDeterministicSlots(aiMode);
+      const detSlots = buildStrategySlots(id, aiMode, adsRows);
+      slotAssignments = detSlots.map((s) => ({
+        hourSlot: s.hourSlot, adId: s.adId, weight: s.weight,
+        status: s.status, aiReason: s.aiReason,
+      }));
     }
 
     // 기존 룰 삭제 후 새로 저장
     await db.delete(rotationRulesTable).where(eq(rotationRulesTable.poolId, id));
     const rules = slotAssignments.map((s) => ({
-      id: crypto.randomUUID(),
-      poolId: id,
-      adId: s.adId,
-      hourSlot: s.hourSlot,
-      weight: Math.round(s.weight * 100),
-      status: s.status,
-      aiReason: s.aiReason,
+      id: crypto.randomUUID(), poolId: id,
+      adId: s.adId, hourSlot: s.hourSlot,
+      weight: s.weight, status: s.status, aiReason: s.aiReason,
     }));
     if (rules.length > 0) await db.insert(rotationRulesTable).values(rules);
 

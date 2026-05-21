@@ -1,7 +1,7 @@
 import { Router } from "express";
 import crypto from "crypto";
-import { db, adsTable, adPoolsTable, rotationRulesTable, adAlertsTable } from "@workspace/db";
-import { eq, desc, and } from "drizzle-orm";
+import { db, adsTable, adPoolsTable, rotationRulesTable, adAlertsTable, adPerformancesTable } from "@workspace/db";
+import { eq, desc, sql } from "drizzle-orm";
 
 const router = Router();
 
@@ -165,8 +165,93 @@ router.post("/ad-center/alerts/detect", async (req, res) => {
       }
     }
 
-    // 5) 저CTR 경고: ad_performances에서 CTR < 0.5% (데이터 있을 때만)
-    // (Phase 3에서 실제 성과 데이터 연동 후 활성화 예정 — 현재는 테이블 구조만 준비)
+    // 5) 저CTR 경고: CTR < 0.5% (최근 7일 누적, 데이터 없으면 건너뜀)
+    try {
+      const perfRows = await db
+        .select({
+          adId: adPerformancesTable.adId,
+          totalImpressions: sql<number>`sum(${adPerformancesTable.impressions})`,
+          totalClicks: sql<number>`sum(${adPerformancesTable.clicks})`,
+        })
+        .from(adPerformancesTable)
+        .groupBy(adPerformancesTable.adId);
+
+      for (const row of perfRows) {
+        const imp = Number(row.totalImpressions) || 0;
+        const clk = Number(row.totalClicks) || 0;
+        if (imp >= 100) { // 최소 100 노출 이상 있을 때만 판정
+          const ctr = clk / imp;
+          if (ctr < 0.005) { // CTR < 0.5%
+            const ad = allAds.find((a) => a.id === row.adId);
+            if (ad) {
+              newAlerts.push({
+                id: crypto.randomUUID(),
+                type: "low_ctr",
+                level: "warning",
+                message: `[${ad.businessName || ad.title}] CTR ${(ctr * 100).toFixed(2)}% — 평균 이하 (${clk}클릭 / ${imp}노출). 소재 점검 필요`,
+                adId: ad.id,
+              });
+            }
+          }
+        }
+      }
+    } catch (_perfErr) {
+      req.log.warn({ err: _perfErr }, "저CTR 감지 중 오류 — 건너뜀");
+    }
+
+    // 6) 예산소진 이상: 시작일로부터 경과 비율 대비 예산 소진 속도 이상 (데이터 없으면 건너뜀)
+    try {
+      const today2 = new Date().toISOString().slice(0, 10);
+      for (const pool of allPools) {
+        if (pool.status !== "active" || !pool.startDate || !pool.endDate) continue;
+        const totalBudget = (pool.totalBudget as number) ?? 0;
+        if (totalBudget <= 0) continue;
+
+        const poolStart = new Date(pool.startDate).getTime();
+        const poolEnd = new Date(pool.endDate).getTime();
+        const now = Date.now();
+        const totalDuration = poolEnd - poolStart;
+        if (totalDuration <= 0 || now < poolStart) continue;
+
+        const elapsed = Math.min(now - poolStart, totalDuration);
+        const elapsedRatio = elapsed / totalDuration;
+
+        // 해당 풀의 실제 spend 합산
+        const poolAdIds = (pool.adIds as string[]) ?? [];
+        if (poolAdIds.length === 0) continue;
+
+        const spendRows = await db
+          .select({ totalSpend: sql<number>`sum(${adPerformancesTable.spend})` })
+          .from(adPerformancesTable)
+          .where(sql`${adPerformancesTable.adId} = ANY(ARRAY[${sql.join(poolAdIds.map((aid) => sql`${aid}`), sql`, `)}])`);
+
+        const totalSpend = Number(spendRows[0]?.totalSpend) || 0;
+        const spendRatio = totalSpend / totalBudget;
+
+        // 경과 비율보다 소진율이 1.5배 이상이면 경고
+        if (spendRatio > elapsedRatio * 1.5 && spendRatio > 0.3) {
+          newAlerts.push({
+            id: crypto.randomUUID(),
+            type: "budget_burn_fast",
+            level: "warning",
+            message: `묶음 [${pool.name}] 예산 소진 이상: ${(spendRatio * 100).toFixed(0)}% 소진 (운영 ${(elapsedRatio * 100).toFixed(0)}% 경과). 소진 속도 점검 필요`,
+            poolId: pool.id,
+          });
+        }
+        // 예산 90% 이상 소진 경고 (기간 20% 이상 남은 경우)
+        if (spendRatio >= 0.9 && elapsedRatio <= 0.8 && today2 <= pool.endDate) {
+          newAlerts.push({
+            id: crypto.randomUUID(),
+            type: "budget_near_exhausted",
+            level: "error",
+            message: `묶음 [${pool.name}] 예산 ${(spendRatio * 100).toFixed(0)}% 소진 — 기간 ${Math.ceil((1 - elapsedRatio) * 100)}% 남았습니다. 예산 증액 검토 필요`,
+            poolId: pool.id,
+          });
+        }
+      }
+    } catch (_budgetErr) {
+      req.log.warn({ err: _budgetErr }, "예산소진 감지 중 오류 — 건너뜀");
+    }
 
     // 기존 미해결 알림과 중복 방지 (type + adId/poolId 조합)
     const existing = await db

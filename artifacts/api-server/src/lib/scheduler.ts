@@ -69,18 +69,22 @@ async function collectMetaPerformance() {
         continue;
       }
       const rows = (insights.data as { data: { date_start: string; impressions?: string; clicks?: string; spend?: string; reach?: string }[] }).data ?? [];
+      const firstAdId = ((pool.adIds as string[]) ?? [])[0] ?? pool.id;
       for (const row of rows) {
+        const pid = crypto.createHash("sha256")
+          .update(`${firstAdId}|${pool.id}|${row.date_start}|meta`)
+          .digest("hex").slice(0, 32);
+        const impressions = Number(row.impressions ?? 0);
+        const clicks = Number(row.clicks ?? 0);
+        const spend = Math.round(Number(row.spend ?? 0) * 100);
+        const reach = Number(row.reach ?? 0);
         await db.insert(adPerformancesTable).values({
-          id: crypto.randomUUID(),
-          adId: ((pool.adIds as string[]) ?? [])[0] ?? pool.id,
-          poolId: pool.id,
-          date: row.date_start,
-          impressions: Number(row.impressions ?? 0),
-          clicks: Number(row.clicks ?? 0),
-          spend: Math.round(Number(row.spend ?? 0) * 100),
-          reach: Number(row.reach ?? 0),
-          source: "meta",
-        }).onConflictDoNothing();
+          id: pid, adId: firstAdId, poolId: pool.id, date: row.date_start,
+          impressions, clicks, spend, reach, source: "meta",
+        }).onConflictDoUpdate({
+          target: adPerformancesTable.id,
+          set: { impressions, clicks, spend, reach },
+        });
         total++;
       }
     }

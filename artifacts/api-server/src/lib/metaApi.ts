@@ -47,6 +47,10 @@ async function metaPost<T = Record<string, unknown>>(
   }
 }
 
+// ─── Rate limit 현황 저장 (메모리, 마지막 응답 기준) ─────────────────────────────
+let _lastRateLimit: RateLimitStatus | null = null;
+export function getLastRateLimit(): RateLimitStatus | null { return _lastRateLimit; }
+
 async function metaGet<T = Record<string, unknown>>(
   path: string,
   params: Record<string, string> = {},
@@ -57,11 +61,21 @@ async function metaGet<T = Record<string, unknown>>(
     const qs = new URLSearchParams({ ...params, access_token: creds.token });
     const url = `${GRAPH_BASE}/${path}?${qs}`;
     const res = await fetch(url);
+    // Rate limit 헤더 캡처
+    const rlHeader = res.headers.get("x-business-use-case-usage") ?? res.headers.get("x-app-usage");
+    if (rlHeader) {
+      const parsed = parseRateLimitHeader(rlHeader);
+      if (parsed) { _lastRateLimit = parsed; logger.debug({ rateLimit: parsed }, "Meta API rate limit 갱신"); }
+    }
     const json = await res.json() as Record<string, unknown>;
     if (!res.ok || json["error"]) {
       const err = json["error"] as Record<string, unknown> | undefined;
       const msg = (err?.["message"] as string) ?? JSON.stringify(json);
       const code = (err?.["code"] as number) ?? res.status;
+      // 17 = API rate limit exceeded
+      if (code === 17 || code === 32) {
+        logger.warn({ code, msg }, "Meta API rate limit 초과");
+      }
       return { ok: false, error: msg, code };
     }
     return { ok: true, data: json as T };

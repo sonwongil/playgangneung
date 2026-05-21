@@ -107,6 +107,10 @@ export interface AdPool {
   endDate: string;
   aiMode: AdPoolAiMode;
   status: AdPoolStatus;
+  metaCampaignId: string | null;
+  metaAdSetId: string | null;
+  metaSyncedAt: string | null;
+  metaSyncStatus: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -122,6 +126,10 @@ function rowToPool(row: typeof adPoolsTable.$inferSelect): AdPool {
     endDate: row.endDate,
     aiMode: (row.aiMode as AdPoolAiMode) ?? "equal",
     status: (row.status as AdPoolStatus) ?? "draft",
+    metaCampaignId: row.metaCampaignId ?? null,
+    metaAdSetId: row.metaAdSetId ?? null,
+    metaSyncedAt: row.metaSyncedAt ? row.metaSyncedAt.toISOString() : null,
+    metaSyncStatus: row.metaSyncStatus ?? null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -414,10 +422,10 @@ JSON 배열만 반환 (설명 없이):
   }
 });
 
-// ─── Meta에 반영 (캠페인 → 광고세트 → 광고 자동 생성) ─────────────────────────────
+// ─── Meta에 반영 (캠페인 → 전략별 광고세트 → 광고 자동 생성) ─────────────────────
 router.post("/:id/push-to-meta", async (req, res) => {
   if (!req.session?.isAdmin) return res.status(401).json({ error: "로그인이 필요합니다" });
-  const { isConfigured, createCampaign, createAdSet } = await import("../lib/metaApi.js");
+  const { isConfigured, createCampaign, createAdSet, createAd } = await import("../lib/metaApi.js");
   if (!isConfigured()) {
     return res.status(503).json({
       error: "Meta API 환경변수 미설정",
@@ -430,7 +438,10 @@ router.post("/:id/push-to-meta", async (req, res) => {
     const [pool] = await db.select().from(adPoolsTable).where(eq(adPoolsTable.id, id));
     if (!pool) return res.status(404).json({ error: "묶음을 찾을 수 없습니다" });
 
-    // 캠페인 생성
+    const adIdList = (pool.adIds as string[]) ?? [];
+    if (adIdList.length === 0) return res.status(400).json({ error: "풀에 광고가 없습니다" });
+
+    // 1. 캠페인 생성
     const campaignRes = await createCampaign({
       name: `[PLAY강릉] ${pool.name}`,
       objective: pool.objective,
@@ -439,28 +450,97 @@ router.post("/:id/push-to-meta", async (req, res) => {
     if (!campaignRes.ok) return res.status(502).json({ error: `캠페인 생성 실패: ${campaignRes.error}` });
     const metaCampaignId = (campaignRes as { ok: true; data: { id: string } }).data.id;
 
-    // 광고세트 생성
-    const adSetRes = await createAdSet({
-      name: `[PLAY강릉] ${pool.name} 광고세트`,
-      campaignId: metaCampaignId,
-      dailyBudget: Math.round(pool.totalBudget / 30),
-      startTime: new Date(`${pool.startDate}T00:00:00+09:00`).toISOString(),
-      endTime: new Date(`${pool.endDate}T23:59:59+09:00`).toISOString(),
-    });
-    if (!adSetRes.ok) return res.status(502).json({ error: `광고세트 생성 실패: ${adSetRes.error}` });
-    const metaAdSetId = (adSetRes as { ok: true; data: { id: string } }).data.id;
+    const aiMode = pool.aiMode as AdPoolAiMode;
+    const dailyBudgetPerDay = Math.max(Math.round(pool.totalBudget / 30), 1000);
+    const startTime = new Date(`${pool.startDate}T00:00:00+09:00`).toISOString();
+    const endTime = new Date(`${pool.endDate}T23:59:59+09:00`).toISOString();
 
-    // DB 저장
+    // 2. 전략별 광고세트 생성
+    // - performance 모드: 광고별 개별 광고세트 (성과 측정 격리)
+    // - 나머지: 풀 단위 단일 광고세트
+    let firstAdSetId = "";
+    const adAdSetMap: Record<string, string> = {};
+
+    if (aiMode === "performance") {
+      // 광고별 개별 광고세트
+      const budgetPerAd = Math.max(Math.round(dailyBudgetPerDay / adIdList.length), 100);
+      for (const adId of adIdList) {
+        const setRes = await createAdSet({
+          name: `[PLAY강릉] ${pool.name} - 광고 ${adId.slice(-6)}`,
+          campaignId: metaCampaignId,
+          dailyBudget: budgetPerAd,
+          startTime,
+          endTime,
+        });
+        if (setRes.ok) {
+          const setId = (setRes as { ok: true; data: { id: string } }).data.id;
+          adAdSetMap[adId] = setId;
+          if (!firstAdSetId) firstAdSetId = setId;
+        }
+      }
+    } else {
+      // 단일 광고세트
+      const adSetRes = await createAdSet({
+        name: `[PLAY강릉] ${pool.name} 광고세트`,
+        campaignId: metaCampaignId,
+        dailyBudget: dailyBudgetPerDay,
+        startTime,
+        endTime,
+      });
+      if (!adSetRes.ok) return res.status(502).json({ error: `광고세트 생성 실패: ${adSetRes.error}` });
+      firstAdSetId = (adSetRes as { ok: true; data: { id: string } }).data.id;
+      for (const adId of adIdList) adAdSetMap[adId] = firstAdSetId;
+    }
+
+    // 3. 광고 소재 생성 + metaAdId 저장
+    const pageId = process.env["META_PAGE_ID"] ?? "";
+    const createdAds: { adId: string; metaAdId: string }[] = [];
+
+    if (adIdList.length > 0) {
+      const adsRows = await db.select().from(adsTable).where(inArray(adsTable.id, adIdList));
+      for (const adRow of adsRows) {
+        const adSetId = adAdSetMap[adRow.id] ?? firstAdSetId;
+        if (!adSetId || !pageId) {
+          // pageId 미설정 시 광고 소재 생성 생략 — 광고세트까지만 연동
+          createdAds.push({ adId: adRow.id, metaAdId: "" });
+          continue;
+        }
+        const adRes = await createAd({
+          name: `[PLAY강릉] ${adRow.title}`,
+          adSetId,
+          pageId,
+          title: adRow.title,
+          body: adRow.description,
+          imageUrl: adRow.imageUrl ?? undefined,
+          linkUrl: adRow.url ?? undefined,
+        });
+        if (adRes.ok) {
+          const metaAdId = (adRes as { ok: true; data: { id: string } }).data.id;
+          await db.update(adsTable).set({ metaAdId } as any).where(eq(adsTable.id, adRow.id));
+          createdAds.push({ adId: adRow.id, metaAdId });
+        }
+      }
+    }
+
+    // 4. 풀 DB 저장
     await db.update(adPoolsTable).set({
       metaCampaignId,
-      metaAdSetId,
+      metaAdSetId: firstAdSetId,
       metaSyncedAt: new Date(),
       metaSyncStatus: "synced",
       updatedAt: new Date(),
     }).where(eq(adPoolsTable.id, id));
 
-    req.log.info({ poolId: id, metaCampaignId, metaAdSetId }, "Meta 캠페인 반영 완료");
-    return res.json({ success: true, metaCampaignId, metaAdSetId });
+    req.log.info({ poolId: id, metaCampaignId, adSetCount: Object.keys(adAdSetMap).length, adCount: createdAds.length }, "Meta 캠페인 반영 완료");
+    return res.json({
+      success: true,
+      metaCampaignId,
+      metaAdSetId: firstAdSetId,
+      strategy: aiMode === "performance" ? "per-ad-adset" : "single-adset",
+      adSetsCreated: [...new Set(Object.values(adAdSetMap))].length,
+      adsCreated: createdAds.filter((a) => a.metaAdId).length,
+      note: !pageId ? "META_PAGE_ID 미설정 — 광고 소재 생성 생략 (캠페인/광고세트만 생성)" : undefined,
+    });
   } catch (err) {
     req.log.error({ err }, "Meta 반영 실패");
     return res.status(500).json({ error: "Meta 반영 실패" });

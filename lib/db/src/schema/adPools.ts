@@ -1,4 +1,4 @@
-import { pgTable, text, jsonb, timestamp, integer, real } from "drizzle-orm/pg-core";
+import { pgTable, text, jsonb, timestamp, integer, real, uniqueIndex } from "drizzle-orm/pg-core";
 
 export const adPoolsTable = pgTable("ad_pools", {
   id: text("id").primaryKey(),
@@ -44,7 +44,9 @@ export const adPerformancesTable = pgTable("ad_performances", {
   reach: integer("reach").notNull().default(0),
   source: text("source").notNull().default("manual"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+}, (t) => [
+  uniqueIndex("ad_perf_uniq").on(t.adId, t.poolId, t.date, t.source),
+]);
 
 export type AdPerformanceRow = typeof adPerformancesTable.$inferSelect;
 

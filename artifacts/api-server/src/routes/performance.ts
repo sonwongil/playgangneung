@@ -2,7 +2,12 @@ import { Router } from "express";
 import crypto from "crypto";
 import { db, adPerformancesTable, adPoolsTable, adsTable } from "@workspace/db";
 import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
-import { getCampaignInsights, isConfigured } from "../lib/metaApi.js";
+import { getCampaignInsights, isConfigured, getLastRateLimit } from "../lib/metaApi.js";
+
+/** 중복 방지용 결정론적 ID — (adId, poolId, date, source) 기반 sha256 앞 16자 */
+function perfId(adId: string, poolId: string | null, date: string, source: string): string {
+  return crypto.createHash("sha256").update(`${adId}|${poolId ?? ""}|${date}|${source}`).digest("hex").slice(0, 32);
+}
 
 const router = Router();
 
@@ -133,8 +138,9 @@ router.post("/performance/manual", async (req, res) => {
     };
     if (!body.adId || !body.date) return res.status(400).json({ error: "adId, date 필수" });
 
+    const pid = perfId(body.adId, body.poolId ?? null, body.date, "manual");
     await db.insert(adPerformancesTable).values({
-      id: crypto.randomUUID(),
+      id: pid,
       adId: body.adId,
       poolId: body.poolId ?? null,
       date: body.date,
@@ -143,7 +149,15 @@ router.post("/performance/manual", async (req, res) => {
       spend: body.spend ?? 0,
       reach: body.reach ?? 0,
       source: "manual",
-    }).onConflictDoNothing();
+    }).onConflictDoUpdate({
+      target: adPerformancesTable.id,
+      set: {
+        impressions: body.impressions ?? 0,
+        clicks: body.clicks ?? 0,
+        spend: body.spend ?? 0,
+        reach: body.reach ?? 0,
+      },
+    });
 
     req.log.info({ adId: body.adId, date: body.date }, "성과 수동 입력");
     return res.status(201).json({ success: true });
@@ -173,18 +187,20 @@ router.post("/ad-pools/:id/collect-performance", async (req, res) => {
 
     const rows = (insights.data as { data: { date_start: string; impressions?: string; clicks?: string; spend?: string; reach?: string }[] }).data ?? [];
     let saved = 0;
+    const firstAdId = ((pool.adIds as string[]) ?? [])[0] ?? id;
     for (const row of rows) {
+      const pid = perfId(firstAdId, id, row.date_start, "meta");
+      const impressions = Number(row.impressions ?? 0);
+      const clicks = Number(row.clicks ?? 0);
+      const spend = Math.round(Number(row.spend ?? 0) * 100);
+      const reach = Number(row.reach ?? 0);
       await db.insert(adPerformancesTable).values({
-        id: crypto.randomUUID(),
-        adId: (pool.adIds as string[])[0] ?? id,
-        poolId: id,
-        date: row.date_start,
-        impressions: Number(row.impressions ?? 0),
-        clicks: Number(row.clicks ?? 0),
-        spend: Math.round(Number(row.spend ?? 0) * 100), // 원 단위로 저장
-        reach: Number(row.reach ?? 0),
-        source: "meta",
-      }).onConflictDoNothing();
+        id: pid, adId: firstAdId, poolId: id, date: row.date_start,
+        impressions, clicks, spend, reach, source: "meta",
+      }).onConflictDoUpdate({
+        target: adPerformancesTable.id,
+        set: { impressions, clicks, spend, reach },
+      });
       saved++;
     }
 
@@ -264,6 +280,55 @@ router.get("/billing/summary", async (req, res) => {
     return res.json({ summaries, today });
   } catch (err) {
     req.log.error({ err }, "정산 현황 조회 실패");
+    return res.status(500).json({ error: "조회 실패" });
+  }
+});
+
+// ─── Meta Rate-limit 현황 조회 ───────────────────────────────────────────────────
+router.get("/meta/rate-limit", async (req, res) => {
+  if (!req.session?.isAdmin) return res.status(401).json({ error: "로그인이 필요합니다" });
+  const status = getLastRateLimit();
+  return res.json({
+    configured: isConfigured(),
+    rateLimit: status,
+    warning: status && status.callCount >= 80
+      ? `API 호출 한도 ${status.callCount}% 소진 — 주의 필요`
+      : null,
+  });
+});
+
+// ─── 광고주 공개 성과 요약 (인증 없음, adId 기반) ──────────────────────────────────
+router.get("/public/ads/:id/performance-summary", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [ad] = await db.select().from(adsTable).where(eq(adsTable.id, id));
+    if (!ad || ad.status === "rejected") return res.status(404).json({ error: "광고를 찾을 수 없습니다" });
+
+    const since = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+    const until = new Date().toISOString().slice(0, 10);
+
+    const rows = await db
+      .select()
+      .from(adPerformancesTable)
+      .where(and(eq(adPerformancesTable.adId, id), gte(adPerformancesTable.date, since)))
+      .orderBy(adPerformancesTable.date);
+
+    const totalImpressions = rows.reduce((s, r) => s + r.impressions, 0);
+    const totalClicks = rows.reduce((s, r) => s + r.clicks, 0);
+    const totalSpend = rows.reduce((s, r) => s + r.spend, 0);
+    const ctr = totalImpressions > 0 ? Number(((totalClicks / totalImpressions) * 100).toFixed(2)) : 0;
+
+    return res.json({
+      adTitle: ad.title,
+      businessName: ad.businessName,
+      status: ad.status,
+      since,
+      until,
+      performance: { totalImpressions, totalClicks, totalSpend, ctr },
+      hasSufficientData: rows.length > 0,
+    });
+  } catch (err) {
+    req.log.error({ err }, "광고주 성과 요약 조회 실패");
     return res.status(500).json({ error: "조회 실패" });
   }
 });

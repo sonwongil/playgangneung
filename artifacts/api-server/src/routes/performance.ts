@@ -153,6 +153,63 @@ router.get("/ads/:id/performance", async (req, res) => {
   }
 });
 
+// ─── 샘플 성과 데이터 시딩 (테스트용) ───────────────────────────────────────────
+router.post("/performance/seed", async (req, res) => {
+  if (!req.session?.isAdmin) return res.status(401).json({ error: "로그인이 필요합니다" });
+  try {
+    const { poolId } = req.body as { poolId?: string };
+    if (!poolId) return res.status(400).json({ error: "poolId 필수" });
+
+    const [pool] = await db.select().from(adPoolsTable).where(eq(adPoolsTable.id, poolId));
+    if (!pool) return res.status(404).json({ error: "묶음을 찾을 수 없습니다" });
+
+    const adIds = (pool.adIds as string[]) ?? [];
+    if (adIds.length === 0) return res.status(400).json({ error: "묶음에 광고가 없습니다. 먼저 광고를 추가하세요." });
+
+    const today = new Date();
+    let saved = 0;
+
+    for (let dayOffset = 29; dayOffset >= 0; dayOffset--) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - dayOffset);
+      const dateStr = d.toISOString().slice(0, 10);
+
+      for (const adId of adIds) {
+        // 현실적인 랜덤 성과 생성: 노출 500~5000, CTR 1~4%, 지출은 노출 기반
+        const impressions = Math.floor(Math.random() * 4500) + 500;
+        const ctr = (Math.random() * 3 + 1) / 100; // 1~4%
+        const clicks = Math.floor(impressions * ctr);
+        const cpc = Math.floor(Math.random() * 400) + 100; // 100~500원
+        const spend = clicks * cpc;
+        const reach = Math.floor(impressions * (0.6 + Math.random() * 0.3)); // 노출의 60~90%
+
+        const pid = perfId(adId, poolId, dateStr, "sample");
+        await db.insert(adPerformancesTable).values({
+          id: pid,
+          adId,
+          poolId,
+          date: dateStr,
+          impressions,
+          clicks,
+          spend,
+          reach,
+          source: "sample",
+        }).onConflictDoUpdate({
+          target: adPerformancesTable.id,
+          set: { impressions, clicks, spend, reach },
+        });
+        saved++;
+      }
+    }
+
+    req.log.info({ poolId, saved, adCount: adIds.length }, "샘플 성과 데이터 시딩 완료");
+    return res.status(201).json({ success: true, saved, days: 30, adCount: adIds.length });
+  } catch (err) {
+    req.log.error({ err }, "샘플 데이터 시딩 실패");
+    return res.status(500).json({ error: "시딩 실패" });
+  }
+});
+
 // ─── 수동 성과 입력 ──────────────────────────────────────────────────────────────
 router.post("/performance/manual", async (req, res) => {
   if (!req.session?.isAdmin) return res.status(401).json({ error: "로그인이 필요합니다" });

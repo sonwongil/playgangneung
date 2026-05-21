@@ -522,6 +522,15 @@ export default function Admin() {
   const [perfPoolId, setPerfPoolId] = useState<string | null>(null);
   const [perfSince, setPerfSince] = useState(() => new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10));
   const [perfUntil, setPerfUntil] = useState(() => new Date().toISOString().slice(0, 10));
+  const [seedLoading, setSeedLoading] = useState(false);
+  const [showManualForm, setShowManualForm] = useState(false);
+  const [manualAdId, setManualAdId] = useState("");
+  const [manualDate, setManualDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [manualImpressions, setManualImpressions] = useState("");
+  const [manualClicks, setManualClicks] = useState("");
+  const [manualSpend, setManualSpend] = useState("");
+  const [manualReach, setManualReach] = useState("");
+  const [manualLoading, setManualLoading] = useState(false);
   const [metaPushLoading, setMetaPushLoading] = useState<string | null>(null);
   const [billingExpireLoading, setBillingExpireLoading] = useState(false);
 
@@ -2470,9 +2479,147 @@ export default function Admin() {
                               {poolPerfLoading ? <RefreshCw className="w-3 h-3 animate-spin" /> : <TrendingUp className="w-3 h-3" />}
                               <span className="ml-1">조회</span>
                             </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={!perfPoolId || seedLoading}
+                              onClick={async () => {
+                                if (!perfPoolId) return;
+                                setSeedLoading(true);
+                                try {
+                                  const r = await fetch(`${BASE}/api/performance/seed`, {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    credentials: "include",
+                                    body: JSON.stringify({ poolId: perfPoolId }),
+                                  });
+                                  const d = await r.json() as { success?: boolean; saved?: number; days?: number; adCount?: number; error?: string };
+                                  if (!r.ok) toast({ description: d.error ?? "시딩 실패", variant: "destructive" });
+                                  else {
+                                    toast({ description: `샘플 데이터 ${d.saved ?? 0}건 생성 완료 (${d.adCount ?? 0}개 광고 × ${d.days ?? 30}일)` });
+                                    refetchPoolPerf();
+                                  }
+                                } catch {
+                                  toast({ description: "시딩 실패", variant: "destructive" });
+                                } finally {
+                                  setSeedLoading(false);
+                                }
+                              }}
+                            >
+                              {seedLoading ? <RefreshCw className="w-3 h-3 animate-spin mr-1" /> : <Sparkles className="w-3 h-3 mr-1" />}
+                              샘플 데이터 생성
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={!perfPoolId}
+                              onClick={() => setShowManualForm((v) => !v)}
+                            >
+                              <PlusCircle className="w-3 h-3 mr-1" />
+                              수동 입력
+                            </Button>
                           </div>
                         </CardContent>
                       </Card>
+
+                      {/* 수동 성과 입력 폼 */}
+                      {perfPoolId && showManualForm && (() => {
+                        const selectedPool = pools.find((p) => p.id === perfPoolId);
+                        const poolAdIds = selectedPool?.adIds ?? [];
+                        const poolAds = (adsData?.ads ?? []).filter((a) => poolAdIds.includes(a.id));
+                        return (
+                          <Card className="border-orange-200 bg-orange-50/40">
+                            <CardContent className="p-4 space-y-3">
+                              <p className="text-sm font-semibold text-orange-800 flex items-center gap-1.5">
+                                <PlusCircle className="w-4 h-4" />수동 성과 입력
+                              </p>
+                              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                <div>
+                                  <label className="text-xs text-muted-foreground mb-1 block">광고 선택</label>
+                                  <select
+                                    className="w-full border rounded-md px-3 py-1.5 text-sm bg-white"
+                                    value={manualAdId}
+                                    onChange={(e) => setManualAdId(e.target.value)}
+                                  >
+                                    <option value="">-- 광고 선택 --</option>
+                                    {poolAds.map((a) => (
+                                      <option key={a.id} value={a.id}>{a.title} ({a.businessName})</option>
+                                    ))}
+                                    {poolAds.length === 0 && poolAdIds.map((id) => (
+                                      <option key={id} value={id}>{id.slice(-8)}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="text-xs text-muted-foreground mb-1 block">날짜</label>
+                                  <Input type="date" value={manualDate} onChange={(e) => setManualDate(e.target.value)} className="text-sm bg-white" />
+                                </div>
+                                <div>
+                                  <label className="text-xs text-muted-foreground mb-1 block">노출수</label>
+                                  <Input type="number" min="0" placeholder="0" value={manualImpressions} onChange={(e) => setManualImpressions(e.target.value)} className="text-sm bg-white" />
+                                </div>
+                                <div>
+                                  <label className="text-xs text-muted-foreground mb-1 block">클릭수</label>
+                                  <Input type="number" min="0" placeholder="0" value={manualClicks} onChange={(e) => setManualClicks(e.target.value)} className="text-sm bg-white" />
+                                </div>
+                                <div>
+                                  <label className="text-xs text-muted-foreground mb-1 block">지출(₩)</label>
+                                  <Input type="number" min="0" placeholder="0" value={manualSpend} onChange={(e) => setManualSpend(e.target.value)} className="text-sm bg-white" />
+                                </div>
+                                <div>
+                                  <label className="text-xs text-muted-foreground mb-1 block">도달수</label>
+                                  <Input type="number" min="0" placeholder="0" value={manualReach} onChange={(e) => setManualReach(e.target.value)} className="text-sm bg-white" />
+                                </div>
+                              </div>
+                              <div className="flex gap-2 justify-end">
+                                <Button size="sm" variant="ghost" onClick={() => setShowManualForm(false)}>취소</Button>
+                                <Button
+                                  size="sm"
+                                  className="bg-orange-600 hover:bg-orange-700"
+                                  disabled={manualLoading || !manualAdId || !manualDate}
+                                  onClick={async () => {
+                                    if (!manualAdId || !manualDate) return;
+                                    setManualLoading(true);
+                                    try {
+                                      const r = await fetch(`${BASE}/api/performance/manual`, {
+                                        method: "POST",
+                                        headers: { "Content-Type": "application/json" },
+                                        credentials: "include",
+                                        body: JSON.stringify({
+                                          adId: manualAdId,
+                                          poolId: perfPoolId,
+                                          date: manualDate,
+                                          impressions: Number(manualImpressions) || 0,
+                                          clicks: Number(manualClicks) || 0,
+                                          spend: Number(manualSpend) || 0,
+                                          reach: Number(manualReach) || 0,
+                                        }),
+                                      });
+                                      const d = await r.json() as { success?: boolean; error?: string };
+                                      if (!r.ok) toast({ description: d.error ?? "입력 실패", variant: "destructive" });
+                                      else {
+                                        toast({ description: `${manualDate} 성과 데이터가 저장되었습니다` });
+                                        setManualImpressions("");
+                                        setManualClicks("");
+                                        setManualSpend("");
+                                        setManualReach("");
+                                        refetchPoolPerf();
+                                      }
+                                    } catch {
+                                      toast({ description: "입력 실패", variant: "destructive" });
+                                    } finally {
+                                      setManualLoading(false);
+                                    }
+                                  }}
+                                >
+                                  {manualLoading ? <RefreshCw className="w-3 h-3 animate-spin mr-1" /> : <Check className="w-3 h-3 mr-1" />}
+                                  저장
+                                </Button>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      })()}
 
                       {!perfPoolId && (
                         <div className="py-16 text-center text-muted-foreground text-sm">

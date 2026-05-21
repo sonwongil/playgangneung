@@ -4434,7 +4434,9 @@ export default function Admin() {
               {/* 상태 뱃지 */}
               <div className="flex items-center gap-2 mb-4">
                 <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs border font-medium ${sc.cls}`}>{sc.label}</span>
-                <span className="text-sm text-muted-foreground">{selectedAd.plan === "basic" ? "기본" : selectedAd.plan === "main" ? "메인" : "프리미엄"} 플랜</span>
+                {selectedAd.plan && selectedAd.plan !== "basic" && (
+                  <span className="text-sm text-muted-foreground">상품 ID: {selectedAd.plan}</span>
+                )}
               </div>
 
               {/* 정보 테이블 */}

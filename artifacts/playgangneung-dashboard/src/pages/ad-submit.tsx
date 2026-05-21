@@ -1,11 +1,11 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useDropzone } from "react-dropzone";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle, Upload, X, ImageIcon, ChevronRight, Plus, Bold, CreditCard, Send } from "lucide-react";
+import { CheckCircle, Upload, X, ImageIcon, CreditCard, Bold, Plus } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -336,7 +336,7 @@ export default function AdSubmit() {
   const [, navigate] = useLocation();
   const [submitted, setSubmitted] = useState(false);
   const [paidLoading, setPaidLoading] = useState(false);
-  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+  const [selectedProductId, setSelectedProductId] = useState<string>("");
   const [images, setImages] = useState<[string | null, string | null, string | null]>([null, null, null]);
   const [form, setForm] = useState<FormData>({
     businessName: "", contactName: "", phone: "", email: "",
@@ -353,6 +353,13 @@ export default function AdSubmit() {
     },
   });
   const adProducts = productsData?.products ?? [];
+
+  // 상품 로드 시 첫 번째 상품 자동 선택
+  useEffect(() => {
+    if (!selectedProductId && adProducts.length > 0) {
+      setSelectedProductId(adProducts[0].id);
+    }
+  }, [adProducts, selectedProductId]);
 
   // 전역 붙여넣기(Ctrl+V) — 빈 슬롯 순서대로 채움
   useEffect(() => {
@@ -398,25 +405,6 @@ export default function AdSubmit() {
     });
   };
 
-  const mutation = useMutation({
-    mutationFn: async () => {
-      const body = {
-        ...form,
-        imageUrl: images[0] ?? null,
-        extraImages: [images[1], images[2]].filter(Boolean),
-      };
-      const res = await fetch(`${BASE}/api/ads`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) throw new Error("접수 실패");
-      return res.json();
-    },
-    onSuccess: () => setSubmitted(true),
-    onError: () => toast({ title: "접수 실패", description: "잠시 후 다시 시도해주세요.", variant: "destructive" }),
-  });
-
   const set = (key: keyof FormData, value: string | boolean) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
@@ -430,30 +418,30 @@ export default function AdSubmit() {
       toast({ title: "필수 항목 누락", description: "업체명, 제목, 연락처를 입력해주세요.", variant: "destructive" });
       return;
     }
-    if (selectedProductId) {
-      setPaidLoading(true);
-      try {
-        const body = {
-          ...form,
-          imageUrl: images[0] ?? null,
-          extraImages: [images[1], images[2]].filter(Boolean),
-          isFreeAd: false,
-          plan: selectedProductId,
-        };
-        const res = await fetch(`${BASE}/api/ads`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-        if (!res.ok) throw new Error("접수 실패");
-        const d = await res.json() as { id: string };
-        navigate(`/checkout?productId=${selectedProductId}&adId=${d.id}`);
-      } catch {
-        toast({ title: "접수 실패", description: "잠시 후 다시 시도해주세요.", variant: "destructive" });
-        setPaidLoading(false);
-      }
-    } else {
-      mutation.mutate();
+    if (!selectedProductId) {
+      toast({ title: "상품 선택 필요", description: "광고 상품을 선택해주세요.", variant: "destructive" });
+      return;
+    }
+    setPaidLoading(true);
+    try {
+      const body = {
+        ...form,
+        imageUrl: images[0] ?? null,
+        extraImages: [images[1], images[2]].filter(Boolean),
+        isFreeAd: false,
+        plan: selectedProductId,
+      };
+      const res = await fetch(`${BASE}/api/ads`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error("접수 실패");
+      const d = await res.json() as { id: string };
+      navigate(`/checkout?productId=${selectedProductId}&adId=${d.id}`);
+    } catch {
+      toast({ title: "접수 실패", description: "잠시 후 다시 시도해주세요.", variant: "destructive" });
+      setPaidLoading(false);
     }
   };
 
@@ -497,52 +485,33 @@ export default function AdSubmit() {
 
         {/* Notice */}
         <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-6 text-sm text-blue-800 leading-relaxed">
-          <strong>📢 시범 운영 안내</strong><br />
-          현재 PLAY강릉 광고 서비스는 시범 운영 기간으로 <strong>무료</strong> 제공되고 있습니다.<br />
-          관리자 검수 후 SNS 및 웹 피드에 소개될 수 있습니다.
+          <strong>📢 광고 안내</strong><br />
+          광고 접수 후 관리자 검수를 거쳐 PLAY강릉 SNS 및 웹 피드에 소개됩니다.<br />
+          결제 완료 후 영업일 기준 1일 이내 집행됩니다.
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* 광고 상품 선택 */}
           <div className="bg-white rounded-2xl border border-border shadow-sm p-5">
             <h2 className="font-semibold text-base mb-1">광고 상품 선택</h2>
-            <p className="text-xs text-muted-foreground mb-4">무료 기본 접수 또는 유료 상품을 선택하세요.</p>
+            <p className="text-xs text-muted-foreground mb-4">원하시는 광고 상품을 선택해주세요.</p>
             <div className="space-y-2">
-              {/* 무료 접수 옵션 */}
-              <button
-                type="button"
-                onClick={() => setSelectedProductId(null)}
-                className={`w-full text-left rounded-xl border-2 p-4 transition-all ${
-                  selectedProductId === null ? "border-blue-500 bg-blue-50 ring-1 ring-blue-400" : "border-gray-200 hover:border-gray-300"
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center shrink-0">
-                      <Send className="w-4 h-4 text-blue-600" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-sm">무료 기본 접수</p>
-                      <p className="text-xs text-muted-foreground">기본 피드 등록 · 관리자 검수 후 노출</p>
-                    </div>
-                  </div>
-                  <span className="text-sm font-bold text-blue-600 shrink-0">무료</span>
-                </div>
-              </button>
-              {/* 유료 상품 목록 */}
+              {adProducts.length === 0 && (
+                <p className="text-xs text-muted-foreground py-4 text-center">상품을 불러오는 중...</p>
+              )}
               {adProducts.map((p) => (
                 <button
                   key={p.id}
                   type="button"
                   onClick={() => setSelectedProductId(p.id)}
                   className={`w-full text-left rounded-xl border-2 p-4 transition-all ${
-                    selectedProductId === p.id ? "border-orange-500 bg-orange-50 ring-1 ring-orange-400" : "border-gray-200 hover:border-gray-300"
+                    selectedProductId === p.id ? "border-blue-500 bg-blue-50 ring-1 ring-blue-400" : "border-gray-200 hover:border-gray-300"
                   }`}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center shrink-0">
-                        <CreditCard className="w-4 h-4 text-orange-600" />
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${selectedProductId === p.id ? "bg-blue-100" : "bg-gray-100"}`}>
+                        <CreditCard className={`w-4 h-4 ${selectedProductId === p.id ? "text-blue-600" : "text-gray-500"}`} />
                       </div>
                       <div>
                         <p className="font-semibold text-sm">{p.name}</p>
@@ -551,7 +520,9 @@ export default function AdSubmit() {
                         </p>
                       </div>
                     </div>
-                    <span className="text-sm font-bold text-gray-800 shrink-0">₩{p.amount.toLocaleString("ko-KR")}</span>
+                    <span className={`text-sm font-bold shrink-0 ${selectedProductId === p.id ? "text-blue-600" : "text-gray-800"}`}>
+                      ₩{p.amount.toLocaleString("ko-KR")}
+                    </span>
                   </div>
                 </button>
               ))}
@@ -673,14 +644,12 @@ export default function AdSubmit() {
           {/* Submit */}
           <Button
             type="submit"
-            className={`w-full h-12 text-base font-semibold ${selectedProductId ? "bg-orange-500 hover:bg-orange-600 text-white" : ""}`}
-            disabled={mutation.isPending || paidLoading}
+            className="w-full h-12 text-base font-semibold"
+            disabled={paidLoading || !selectedProductId}
           >
-            {(mutation.isPending || paidLoading)
+            {paidLoading
               ? "처리 중..."
-              : selectedProductId
-              ? <><CreditCard className="w-4 h-4 mr-2 inline" />결제하기</>
-              : "무료 광고 접수하기"
+              : <><CreditCard className="w-4 h-4 mr-2 inline" />결제하기</>
             }
           </Button>
         </form>

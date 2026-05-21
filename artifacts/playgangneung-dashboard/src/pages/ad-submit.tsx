@@ -344,7 +344,7 @@ export default function AdSubmit() {
     location: "", url: "", plan: "basic", agreed: false,
   });
 
-  const { data: productsData } = useQuery<{ products: AdProduct[] }>({
+  const { data: productsData, isLoading: productsLoading } = useQuery<{ products: AdProduct[] }>({
     queryKey: ["ad-products-public"],
     queryFn: async () => {
       const r = await fetch(`${BASE}/api/ad-products/public`);
@@ -496,8 +496,11 @@ export default function AdSubmit() {
             <h2 className="font-semibold text-base mb-1">광고 상품 선택</h2>
             <p className="text-xs text-muted-foreground mb-4">원하시는 광고 상품을 선택해주세요.</p>
             <div className="space-y-2">
-              {adProducts.length === 0 && (
+              {productsLoading && (
                 <p className="text-xs text-muted-foreground py-4 text-center">상품을 불러오는 중...</p>
+              )}
+              {!productsLoading && adProducts.length === 0 && (
+                <p className="text-xs text-muted-foreground py-4 text-center">현재 등록된 광고 상품이 없습니다. 잠시 후 다시 확인해주세요.</p>
               )}
               {adProducts.map((p) => (
                 <button

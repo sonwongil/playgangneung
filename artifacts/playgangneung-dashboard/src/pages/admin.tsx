@@ -316,7 +316,7 @@ type NavKey = "dashboard" | "ads" | "adCenter" | "stories" | "videos" | "sources
 
 const NAV_ITEMS: { icon: React.ReactNode; label: string; key: NavKey }[] = [
   { icon: <LayoutDashboard className="w-4 h-4" />, label: "대시보드", key: "dashboard" },
-  { icon: <Megaphone className="w-4 h-4" />, label: "광고접수", key: "ads" },
+  { icon: <Megaphone className="w-4 h-4" />, label: "공동광고 센터", key: "ads" },
   { icon: <BriefcaseBusiness className="w-4 h-4" />, label: "광고센터", key: "adCenter" },
   { icon: <BookOpen className="w-4 h-4" />, label: "스토리", key: "stories" },
   { icon: <Video className="w-4 h-4" />, label: "영상", key: "videos" },
@@ -1654,10 +1654,10 @@ export default function Admin() {
             </div>
           )}
 
-          {/* ══ 광고접수 ══════════════════════════════════════════════════════ */}
+          {/* ══ 공동광고 센터 ══════════════════════════════════════════════════════ */}
           {activeNav === "ads" && (
             <div className="space-y-2">
-              <p className="text-xs text-muted-foreground mb-3">광고 접수 목록 <span className="font-semibold text-foreground">{ads.length}건</span></p>
+              <p className="text-xs text-muted-foreground mb-3">공동광고 센터 접수 목록 <span className="font-semibold text-foreground">{ads.length}건</span></p>
               {adsLoading ? <div className="py-16 text-center text-sm text-muted-foreground">불러오는 중...</div> : ads.length === 0 ? (
                 <div className="py-16 text-center text-sm text-muted-foreground"><Megaphone className="w-8 h-8 mx-auto mb-2 opacity-30" />접수된 광고가 없습니다.</div>
               ) : ads.map((ad) => {

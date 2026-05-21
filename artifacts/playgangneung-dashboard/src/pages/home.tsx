@@ -313,7 +313,7 @@ function FeedCard({ item }: { item: FeedItem }) {
       setShowDetail(true);
       return;
     }
-    window.open(href, "_blank", "noopener,noreferrer");
+    window.open(`/content/${item.id}`, "_blank", "noopener,noreferrer");
   }
 
   return (
@@ -445,16 +445,14 @@ function FeedCard({ item }: { item: FeedItem }) {
               )}
             </div>
           )}
-          {href && (
-            <a
-              href={href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block w-full text-center bg-primary text-primary-foreground rounded-xl py-3 font-semibold text-sm"
-            >
-              자세히 보기 →
-            </a>
-          )}
+          <a
+            href={`/content/${item.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block w-full text-center bg-primary text-primary-foreground rounded-xl py-3 font-semibold text-sm"
+          >
+            자세히 보기 →
+          </a>
         </SheetContent>
       </Sheet>
     )}

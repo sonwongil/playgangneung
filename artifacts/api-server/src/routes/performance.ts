@@ -228,7 +228,7 @@ router.post("/ad-pools/:id/collect-performance", async (req, res) => {
           const pid = perfId(ad.id, id, row.date_start, "meta");
           const impressions = Number(row.impressions ?? 0);
           const clicks = Number(row.clicks ?? 0);
-          const spend = Math.round(Number(row.spend ?? 0) * 100);
+          const spend = Math.round(Number(row.spend ?? 0));
           const reach = Number(row.reach ?? 0);
           const ctr = row.ctr != null ? Number(row.ctr) : null;
           const cpc = row.cpc != null ? Math.round(Number(row.cpc)) : null;
@@ -249,7 +249,7 @@ router.post("/ad-pools/:id/collect-performance", async (req, res) => {
         const pid = perfId(firstAdId, id, row.date_start, "meta");
         const impressions = Number(row.impressions ?? 0);
         const clicks = Number(row.clicks ?? 0);
-        const spend = Math.round(Number(row.spend ?? 0) * 100);
+        const spend = Math.round(Number(row.spend ?? 0));
         const reach = Number(row.reach ?? 0);
         const ctr = row.ctr != null ? Number(row.ctr) : null;
         const cpc = row.cpc != null ? Math.round(Number(row.cpc)) : null;

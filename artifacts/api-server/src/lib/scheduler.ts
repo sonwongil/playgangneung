@@ -5,8 +5,8 @@ import crypto from "crypto";
 import { crawlAll } from "./crawler.js";
 import { appendEvents } from "./storage.js";
 import { logger } from "./logger.js";
-import { db, adPoolsTable, adPerformancesTable, adsTable } from "@workspace/db";
-import { eq, sql, and, inArray, isNotNull } from "drizzle-orm";
+import { db, adPoolsTable, adPerformancesTable, adsTable, adAlertsTable } from "@workspace/db";
+import { sql, and, inArray, isNotNull, lte } from "drizzle-orm";
 import { getCampaignInsights, getAdInsights, isConfigured } from "./metaApi.js";
 
 const CONFIG_FILE = path.resolve(process.cwd(), "data/config.json");
@@ -66,6 +66,12 @@ async function collectMetaPerformance() {
       const insights = await getCampaignInsights(pool.metaCampaignId, "yesterday");
       if (!insights.ok) {
         logger.warn({ poolId: pool.id, error: insights.error }, "Meta 성과 수집 실패");
+        const alertId = crypto.randomUUID().replace(/-/g, "").slice(0, 32);
+        await db.insert(adAlertsTable).values({
+          id: alertId, type: "meta_error", level: "error",
+          message: `Meta 성과 수집 실패 (풀: ${pool.name ?? pool.id}): ${insights.error}`,
+          poolId: pool.id, resolved: 0,
+        }).onConflictDoNothing();
         continue;
       }
       const adIds = (pool.adIds as string[]) ?? [];
@@ -91,7 +97,7 @@ async function collectMetaPerformance() {
             const pid = makeId(ad.id, row.date_start);
             const impressions = Number(row.impressions ?? 0);
             const clicks = Number(row.clicks ?? 0);
-            const spend = Math.round(Number(row.spend ?? 0) * 100);
+            const spend = Math.round(Number(row.spend ?? 0));
             const reach = Number(row.reach ?? 0);
             const ctr = row.ctr != null ? Number(row.ctr) : null;
             const cpc = row.cpc != null ? Math.round(Number(row.cpc)) : null;
@@ -110,7 +116,7 @@ async function collectMetaPerformance() {
           const pid = makeId(firstAdId, row.date_start);
           const impressions = Number(row.impressions ?? 0);
           const clicks = Number(row.clicks ?? 0);
-          const spend = Math.round(Number(row.spend ?? 0) * 100);
+          const spend = Math.round(Number(row.spend ?? 0));
           const reach = Number(row.reach ?? 0);
           const ctr = row.ctr != null ? Number(row.ctr) : null;
           const cpc = row.cpc != null ? Math.round(Number(row.cpc)) : null;
@@ -128,8 +134,39 @@ async function collectMetaPerformance() {
   }
 }
 
+// ─── 만료 풀 자동 전환 (매일 자정 KST) ────────────────────────────────────────
+async function autoExpirePools() {
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    const expired = await db
+      .select({ id: adPoolsTable.id, name: adPoolsTable.name })
+      .from(adPoolsTable)
+      .where(
+        sql`${adPoolsTable.status} = 'active' AND ${adPoolsTable.endDate} IS NOT NULL AND ${adPoolsTable.endDate} < ${today}`,
+      );
+    if (expired.length === 0) return;
+    const expiredIds = expired.map((p) => p.id);
+    await db
+      .update(adPoolsTable)
+      .set({ status: "ended", updatedAt: new Date() } as any)
+      .where(sql`${adPoolsTable.id} IN (${sql.join(expiredIds.map((id) => sql`${id}`), sql`, `)})`);
+    for (const pool of expired) {
+      const alertId = crypto.randomUUID().replace(/-/g, "").slice(0, 32);
+      await db.insert(adAlertsTable).values({
+        id: alertId, type: "pool_expired", level: "info",
+        message: `광고 풀 '${pool.name ?? pool.id}' 기간 만료로 자동 종료됨`,
+        poolId: pool.id, resolved: 0,
+      }).onConflictDoNothing();
+    }
+    logger.info({ count: expired.length, ids: expiredIds }, "만료 광고 풀 자동 전환 완료");
+  } catch (err) {
+    logger.error({ err }, "만료 광고 풀 자동 전환 오류");
+  }
+}
+
 let currentTask: cron.ScheduledTask | null = null;
 let performanceTask: cron.ScheduledTask | null = null;
+let expireTask: cron.ScheduledTask | null = null;
 
 function applySchedule(hour: number, minute: number) {
   if (currentTask) { currentTask.stop(); currentTask = null; }
@@ -145,6 +182,12 @@ export async function startScheduler() {
   if (performanceTask) { performanceTask.stop(); }
   performanceTask = cron.schedule("0 8 * * *", collectMetaPerformance, { timezone: "Asia/Seoul" });
   logger.info("Meta 성과 수집 스케줄 등록 완료 (매일 08:00 KST)");
+  // 매일 자정 KST 만료 풀 자동 전환
+  if (expireTask) { expireTask.stop(); }
+  expireTask = cron.schedule("0 0 * * *", autoExpirePools, { timezone: "Asia/Seoul" });
+  logger.info("만료 풀 자동 전환 스케줄 등록 완료 (매일 00:00 KST)");
+  // 서버 시작 시 즉시 1회 실행 (누락 만료 처리)
+  void autoExpirePools();
 }
 
 export async function reschedule(hour: number, minute: number) {

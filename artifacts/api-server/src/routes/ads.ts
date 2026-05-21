@@ -7,7 +7,15 @@ import { db, adsTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 import { generateCardImage } from "../lib/card.js";
 import { UPLOADS_DIR, CARDS_DIR } from "../lib/paths.js";
-import { openai } from "@workspace/integrations-openai-ai-server";
+// lazy import — 서버 시작 시 환경변수 없어도 크래시 방지
+async function getOpenAI() {
+  try {
+    const { openai } = await import("@workspace/integrations-openai-ai-server");
+    return openai;
+  } catch {
+    return null;
+  }
+}
 
 const upload = multer({
   storage: multer.diskStorage({
@@ -324,6 +332,9 @@ router.post("/ads/:id/ai-improve", async (req, res) => {
 - 자연스러운 한국어 사용
 - SNS에 적합한 감성적 문구`;
 
+    const openai = await getOpenAI();
+    if (!openai) return res.status(503).json({ error: "AI 연동이 설정되지 않았습니다. 환경변수를 확인하세요." });
+
     const response = await openai.chat.completions.create({
       model: "gpt-5-mini",
       max_completion_tokens: 1000,
@@ -362,6 +373,9 @@ router.post("/ads/ai-check-batch", async (req, res) => {
   try {
     const rows = await db.select().from(adsTable).orderBy(desc(adsTable.createdAt));
     const toCheck = rows.filter((r) => r.aiScore === null || r.aiScore === undefined);
+
+    const openai = await getOpenAI();
+    if (!openai) return res.status(503).json({ error: "AI 연동이 설정되지 않았습니다. 환경변수를 확인하세요." });
 
     let checked = 0;
     for (const row of toCheck.slice(0, 10)) {

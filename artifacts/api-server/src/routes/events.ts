@@ -291,8 +291,8 @@ router.patch("/events/:id/status", async (req, res) => {
       });
     }
 
-    const updated = await updateEventStatus(id, status as EventStatus);
-    if (!updated) {
+    const ok = await updateEventStatus(id, status as EventStatus);
+    if (!ok) {
       return res.status(404).json({ success: false, error: "이벤트를 찾을 수 없습니다." });
     }
 
@@ -302,7 +302,9 @@ router.patch("/events/:id/status", async (req, res) => {
       const log = req.log;
       setImmediate(async () => {
         try {
-          const ev = updated;
+          const events = await readEvents();
+          const ev = events.find((e) => e.id === id);
+          if (!ev) return;
           if (!ev.socialDraft) {
             const draft = generateSocialDraft(ev);
             await saveEventDraft(ev.id, draft);
@@ -396,6 +398,43 @@ router.post("/events/:id/card", async (req, res) => {
     return res.json({ success: true, id, cardUrls });
   } catch (err) {
     req.log.error({ err }, "카드이미지 생성 실패");
+    return res.status(500).json({ success: false, error: String(err) });
+  }
+});
+
+router.post("/events/generate-cards-batch", async (req, res) => {
+  try {
+    const events = await readEvents();
+    const targets = events.filter((e) => e.status === "approved" || e.status === "published");
+
+    let generated = 0;
+    let skipped = 0;
+    for (const event of targets) {
+      try {
+        if (!event.socialDraft) {
+          const draft = generateSocialDraft(event);
+          await saveEventDraft(event.id, draft);
+        }
+        const allImages = [event.thumbnail, ...(event.extraImages ?? [])].filter(Boolean) as string[];
+        const base = { id: event.id, title: event.title, description: event.description, category: event.category, source: event.source, startDate: event.startDate, date: event.date };
+        if (allImages.length === 0) {
+          await generateCardImage({ ...base, thumbnail: undefined });
+        } else {
+          for (let i = 0; i < allImages.length; i++) {
+            await generateCardImage({ ...base, thumbnail: allImages[i], suffix: i === 0 ? "thumb" : `extra${i}` });
+          }
+        }
+        generated++;
+      } catch (err) {
+        req.log.warn({ id: event.id, err }, "카드이미지 생성 건너뜀");
+        skipped++;
+      }
+    }
+
+    req.log.info({ total: targets.length, generated, skipped }, "카드이미지 일괄 생성 완료");
+    return res.json({ success: true, total: targets.length, generated, skipped });
+  } catch (err) {
+    req.log.error({ err }, "카드이미지 일괄 생성 실패");
     return res.status(500).json({ success: false, error: String(err) });
   }
 });

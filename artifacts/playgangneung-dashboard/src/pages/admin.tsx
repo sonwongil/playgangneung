@@ -50,6 +50,7 @@ import {
   BookOpen,
   Video,
   Download,
+  ImageIcon,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -592,6 +593,18 @@ export default function Admin() {
     },
     onSuccess: () => { toast({ title: "수정 완료" }); qc.invalidateQueries({ queryKey: ["admin-ads"] }); setEditingAd(null); },
     onError: () => toast({ title: "수정 실패", variant: "destructive" }),
+  });
+
+  const generateCardsBatchMutation = useMutation({
+    mutationFn: async () => {
+      const r = await fetch(`${BASE}/api/events/generate-cards-batch`, { method: "POST", credentials: "include" });
+      const d = await r.json(); if (!r.ok) throw new Error(d.error ?? "실패"); return d as { total: number; generated: number; skipped: number };
+    },
+    onSuccess: (d) => {
+      toast({ title: `${d.generated}건 카드이미지 생성 완료${d.skipped ? ` (${d.skipped}건 건너뜀)` : ""}` });
+      qc.invalidateQueries({ queryKey: ["admin-events"] });
+    },
+    onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
   });
 
   const regenerateDraftsMutation = useMutation({
@@ -2039,6 +2052,23 @@ export default function Admin() {
                   >
                     <Clock className="w-4 h-4" />
                     {saveScheduleMutation.isPending ? "저장 중..." : `${String(scheduleHour).padStart(2,"0")}:${String(scheduleMinute).padStart(2,"0")} 으로 저장`}
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="p-5 space-y-3">
+                  <p className="font-semibold text-sm flex items-center gap-2"><ImageIcon className="w-4 h-4 text-purple-600" />카드이미지 일괄 생성</p>
+                  <p className="text-sm text-muted-foreground">승인·발행된 기존 이벤트 전체의 카드이미지(1080×1080)를 생성합니다. 시간이 걸릴 수 있습니다.</p>
+                  {generateCardsBatchMutation.data && (
+                    <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 rounded-lg px-3 py-2 border border-green-200">
+                      <CheckCircle className="w-4 h-4 shrink-0" />
+                      {`${generateCardsBatchMutation.data.generated}건 생성 완료 (전체 ${generateCardsBatchMutation.data.total}건)`}
+                    </div>
+                  )}
+                  <Button className="w-full gap-2 bg-purple-600 hover:bg-purple-700" onClick={() => generateCardsBatchMutation.mutate()} disabled={generateCardsBatchMutation.isPending}>
+                    <ImageIcon className={`w-4 h-4 ${generateCardsBatchMutation.isPending ? "animate-pulse" : ""}`} />
+                    {generateCardsBatchMutation.isPending ? "생성 중... (잠시 기다려 주세요)" : "일괄 생성"}
                   </Button>
                 </CardContent>
               </Card>

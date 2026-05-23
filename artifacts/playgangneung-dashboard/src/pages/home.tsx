@@ -935,42 +935,18 @@ export default function Home() {
       </main>
 
       {/* Footer */}
-      <footer className="bg-gray-900 text-gray-400 py-8">
-        <div className="max-w-6xl mx-auto px-4 text-center">
-          <img src={`${BASE}/logo_transparent.png`} alt="PLAY강릉" className="h-10 object-contain mx-auto mb-3" />
-          <div className="flex items-center justify-center gap-4 mb-5">
-            <a href="https://www.instagram.com/playgangneung/" target="_blank" rel="noopener noreferrer" className="flex flex-col items-center gap-1 group">
-              <img src={`${BASE}/btn-follow.png`} alt="인스타 팔로우" className="h-10 object-contain group-hover:opacity-80 transition-opacity" />
-              <span className="text-[10px] text-gray-500">Instagram</span>
-            </a>
-            <a href="https://www.facebook.com/profile.php?id=61589314617028" target="_blank" rel="noopener noreferrer" className="flex flex-col items-center gap-1 group">
-              <img src={`${BASE}/btn-follow.png`} alt="페이스북 팔로우" className="h-10 object-contain group-hover:opacity-80 transition-opacity" />
-              <span className="text-[10px] text-gray-500">Facebook</span>
-            </a>
-            <a href="https://www.youtube.com/@playgangneung?sub_confirmation=1" target="_blank" rel="noopener noreferrer" className="flex flex-col items-center gap-1 group">
-              <img src={`${BASE}/btn-follow.png`} alt="유튜브 구독" className="h-10 object-contain group-hover:opacity-80 transition-opacity" />
-              <span className="text-[10px] text-gray-500">YouTube</span>
-            </a>
-          </div>
-          <div className="text-[11px] leading-relaxed space-y-0.5 text-gray-500">
-            <p>
-              <span className="text-gray-400 font-medium">상호</span> 플레이강릉
-              <span className="mx-2 text-gray-700">|</span>
-              <span className="text-gray-400 font-medium">대표자</span> 손원길
-              <span className="mx-2 text-gray-700">|</span>
-              <span className="text-gray-400 font-medium">정보책임자</span> 손원길
-            </p>
-            <p>
-              <span className="text-gray-400 font-medium">사업자등록번호</span> 292-07-03357
-              <span className="mx-2 text-gray-700">|</span>
-              <span className="text-gray-400 font-medium">이메일</span>{" "}
-              <a href="mailto:event62@gmail.com" className="hover:text-gray-300 transition-colors">event62@gmail.com</a>
-            </p>
-            <p><span className="text-gray-400 font-medium">주소</span> 강원특별자치도 강릉시 사천면 진리해변길 37 103-1101</p>
-          </div>
-          <p className="mt-4 text-[11px] text-gray-600">
-            © 2026 PLAY강릉. All rights reserved.
-            <a href={`${BASE}/admin`} className="ml-2 text-gray-900 select-none" tabIndex={-1} aria-hidden="true">·</a>
+      <footer className="bg-gray-900 text-gray-500 py-4 border-t border-gray-800">
+        <div className="max-w-6xl mx-auto px-4 text-center text-[11px] leading-relaxed space-y-0.5">
+          <p>
+            상호 플레이강릉 · 대표자 손원길 · 사업자등록번호 292-07-03357
+            <span className="mx-1.5 text-gray-700">|</span>
+            <a href="mailto:event62@gmail.com" className="hover:text-gray-300 transition-colors">event62@gmail.com</a>
+          </p>
+          <p className="text-gray-600">
+            강원특별자치도 강릉시 사천면 진리해변길 37 103-1101
+            <span className="mx-1.5 text-gray-700">·</span>
+            © 2026 PLAY강릉
+            <a href={`${BASE}/admin`} className="ml-1 text-gray-900 select-none" tabIndex={-1} aria-hidden="true">·</a>
           </p>
         </div>
       </footer>

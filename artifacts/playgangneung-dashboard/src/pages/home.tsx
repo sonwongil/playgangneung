@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
+import { useClerk, useUser } from "@clerk/react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -7,7 +8,7 @@ import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import {
   CalendarDays, MapPin, Megaphone, Star, Pin, Search, X, Play,
-  Menu, Smartphone, ChevronLeft, ChevronRight, Home as HomeIcon, LogIn, LogOut, Flame,
+  Menu, Smartphone, ChevronLeft, ChevronRight, LogIn, LogOut, Flame,
   Heart, MessageCircle, Eye, Users, TrendingUp, Pencil,
 } from "lucide-react";
 
@@ -430,6 +431,9 @@ export default function Home() {
   const menuRef = useRef<HTMLDivElement>(null);
   const hashtagBarRef = useRef<HTMLDivElement>(null);
   const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const { signOut } = useClerk();
+  const { isSignedIn } = useUser();
+  const [, setLocation] = useLocation();
 
   useEffect(() => {
     const handler = (e: Event) => { e.preventDefault(); setInstallPrompt(e as Event & { prompt: () => Promise<void> }); };
@@ -684,13 +688,6 @@ export default function Home() {
             {menuOpen && (
               <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden">
                 <button
-                  className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100"
-                  onClick={() => { setMenuOpen(false); handleTagClick("전체"); }}
-                >
-                  <HomeIcon className="w-4 h-4 shrink-0 text-blue-600" />
-                  홈으로
-                </button>
-                <button
                   onClick={async () => {
                     setMenuOpen(false);
                     if (installPrompt) { await installPrompt.prompt(); setInstallPrompt(null); }
@@ -701,26 +698,26 @@ export default function Home() {
                   <Smartphone className="w-4 h-4 shrink-0" />
                   홈화면에 추가
                 </button>
-                {authData?.isAdmin ? (
-                  <>
-                    <Link href="/admin" className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100" onClick={() => setMenuOpen(false)}>
-                      <LogIn className="w-4 h-4 shrink-0" />관리자 페이지
-                    </Link>
-                    <button
-                      onClick={async () => {
-                        setMenuOpen(false);
-                        await fetch(`${BASE}/api/auth/logout`, { method: "POST" });
-                        window.location.reload();
-                      }}
-                      className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                    >
-                      <LogOut className="w-4 h-4 shrink-0" />로그아웃
-                    </button>
-                  </>
+                {isSignedIn ? (
+                  <button
+                    onClick={async () => {
+                      setMenuOpen(false);
+                      await signOut();
+                      setLocation("/");
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                  >
+                    <LogOut className="w-4 h-4 shrink-0" />로그아웃
+                  </button>
                 ) : (
-                  <Link href="/login" className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setMenuOpen(false)}>
-                    <LogIn className="w-4 h-4 shrink-0" />관리자 로그인
-                  </Link>
+                  <>
+                    <Link href="/sign-in" className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100" onClick={() => setMenuOpen(false)}>
+                      <LogIn className="w-4 h-4 shrink-0 text-orange-500" />로그인
+                    </Link>
+                    <Link href="/sign-up" className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setMenuOpen(false)}>
+                      <Users className="w-4 h-4 shrink-0 text-orange-500" />회원가입
+                    </Link>
+                  </>
                 )}
               </div>
             )}

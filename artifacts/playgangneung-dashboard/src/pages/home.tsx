@@ -396,7 +396,7 @@ function HashtagPill({ tag, active, onClick }: { tag: string; active: boolean; o
   return (
     <button
       onClick={onClick}
-      className={`shrink-0 px-3.5 py-1.5 rounded-full text-sm font-bold transition-all ${
+      className={`shrink-0 px-5 py-2 rounded-full text-[18px] font-bold transition-all ${
         active
           ? "bg-gray-900 text-white shadow-sm"
           : "text-gray-600 hover:text-gray-900"

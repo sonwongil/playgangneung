@@ -10,6 +10,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@clerk/express": "^2.1.20",
+    "@clerk/shared": "^4.13.0",
     "@fontsource/noto-sans-kr": "^5.2.9",
     "@google-cloud/storage": "^7.19.0",
     "@napi-rs/canvas": "^0.1.100",
@@ -29,6 +31,7 @@
     "express-session": "^1.19.0",
     "fast-xml-parser": "^5.7.2",
     "google-auth-library": "^10.6.2",
+    "http-proxy-middleware": "^4.0.0",
     "iconv-lite": "^0.7.2",
     "multer": "^2.1.1",
     "node-cron": "^4.2.1",

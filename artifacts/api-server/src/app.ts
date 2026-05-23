@@ -2,6 +2,13 @@ import express, { type Express } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
 import cookieSession from "cookie-session";
+import { clerkMiddleware } from "@clerk/express";
+import { publishableKeyFromHost } from "@clerk/shared/keys";
+import {
+  CLERK_PROXY_PATH,
+  clerkProxyMiddleware,
+  getClerkProxyHost,
+} from "./middlewares/clerkProxyMiddleware.js";
 import router from "./routes/index.js";
 import contentRouter from "./routes/content.js";
 import aboutRouter from "./routes/about.js";
@@ -16,6 +23,9 @@ app.set("trust proxy", 1);
 // Static files
 app.use("/api/cards", express.static(CARDS_DIR, { maxAge: 0, etag: false }));
 app.use("/api/uploads", express.static(UPLOADS_DIR, { maxAge: "7d" }));
+
+// Clerk proxy — must come BEFORE body parsers (streams raw bytes)
+app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
 
 app.use(
   pinoHttp({
@@ -45,6 +55,15 @@ app.use(
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: "20mb" }));
 app.use(express.urlencoded({ extended: true, limit: "20mb" }));
+
+app.use(
+  clerkMiddleware((req) => ({
+    publishableKey: publishableKeyFromHost(
+      getClerkProxyHost(req) ?? "",
+      process.env.CLERK_PUBLISHABLE_KEY,
+    ),
+  })),
+);
 
 app.get("/", (_req, res) => {
   res.redirect("/api/admin");

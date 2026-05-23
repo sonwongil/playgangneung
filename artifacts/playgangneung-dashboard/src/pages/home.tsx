@@ -635,10 +635,9 @@ export default function Home() {
         {/* 해시태그 바 */}
         <div
           ref={hashtagBarRef}
-          className="flex gap-2 px-3 py-2.5 overflow-x-auto scrollbar-hide"
-          style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+          className="flex flex-wrap justify-center gap-2 px-2 py-2.5"
         >
-          {PREDEFINED_TAGS.map((tag) => (
+          {PREDEFINED_TAGS.filter((tag) => tag !== "전체").map((tag) => (
             <HashtagPill key={tag} tag={tag} active={activeTag === tag} onClick={() => handleTagClick(tag)} />
           ))}
           {popularTags.map((t) => (

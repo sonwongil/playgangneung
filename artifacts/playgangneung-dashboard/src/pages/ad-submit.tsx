@@ -33,6 +33,7 @@ interface FormData {
   location: string;
   url: string;
   plan: string;
+  isPremiumFeatured: boolean;
   agreed: boolean;
 }
 
@@ -341,7 +342,7 @@ export default function AdSubmit() {
   const [form, setForm] = useState<FormData>({
     businessName: "", contactName: "", phone: "", email: "",
     category: "행사", title: "", description: "", date: "",
-    location: "", url: "", plan: "basic", agreed: false,
+    location: "", url: "", plan: "basic", isPremiumFeatured: false, agreed: false,
   });
 
   const { data: productsData, isLoading: productsLoading } = useQuery<{ products: AdProduct[] }>({
@@ -430,6 +431,7 @@ export default function AdSubmit() {
         extraImages: [images[1], images[2]].filter(Boolean),
         isFreeAd: false,
         plan: selectedProductId,
+        isPremiumFeatured: form.isPremiumFeatured,
       };
       const res = await fetch(`${BASE}/api/ads`, {
         method: "POST",
@@ -627,6 +629,25 @@ export default function AdSubmit() {
                 onRemove={() => removeImage(2)}
               />
             </div>
+          </div>
+
+          {/* 프리미엄 광고 노출 신청 */}
+          <div className="bg-amber-50 rounded-2xl border border-amber-200 shadow-sm p-5">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                className="mt-0.5 w-4 h-4 accent-amber-500"
+                checked={form.isPremiumFeatured}
+                onChange={(e) => set("isPremiumFeatured", e.target.checked)}
+              />
+              <div>
+                <p className="text-sm font-semibold text-amber-800">⭐ 프리미엄 광고 노출 신청</p>
+                <p className="text-xs text-amber-700 mt-0.5 leading-relaxed">
+                  체크 시 메인 홈페이지 상단 <strong>「PLAY 추천 · 프리미엄 콘텐츠」</strong> 슬라이더에 노출됩니다.<br />
+                  (관리자 승인 후 반영, 별도 추가 비용 없음)
+                </p>
+              </div>
+            </label>
           </div>
 
           {/* Agreement */}

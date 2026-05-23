@@ -16,6 +16,7 @@ import performanceRouter from "./performance.js";
 import paymentRouter from "./payment.js";
 import adProductsRouter from "./adProducts.js";
 import tagsRouter from "./tags.js";
+import bannerConfigRouter from "./bannerConfig.js";
 
 const router: IRouter = Router();
 
@@ -40,5 +41,6 @@ router.use(performanceRouter);
 router.use(paymentRouter);
 router.use(adProductsRouter);
 router.use(tagsRouter);
+router.use(bannerConfigRouter);
 
 export default router;

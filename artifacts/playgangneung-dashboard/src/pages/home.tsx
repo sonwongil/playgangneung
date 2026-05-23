@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -483,12 +483,75 @@ export default function Home() {
     staleTime: 60_000,
   });
 
+  interface PremiumAd {
+    id: string;
+    title: string;
+    businessName: string;
+    imageUrl: string | null;
+    extraImages?: string[];
+    category: string;
+    url: string;
+    adPlan: "basic" | "main" | "premium";
+    status: string;
+  }
+  interface BannerConfig {
+    subtitle: string;
+    stat1Label: string;
+    stat1Value: string;
+    stat2Label: string;
+    stat2Value: string;
+    stat3Label: string;
+    stat3Value: string;
+    ctaText: string;
+  }
+
+  const { data: premiumAdsData } = useQuery<{ ads: PremiumAd[] }>({
+    queryKey: ["premium-ads"],
+    queryFn: async () => {
+      const res = await fetch(`${BASE}/api/ads/premium-featured`);
+      if (!res.ok) throw new Error("프리미엄 광고 로드 실패");
+      return res.json();
+    },
+    staleTime: 60_000,
+    refetchInterval: 120_000,
+  });
+
+  const { data: bannerConfig } = useQuery<BannerConfig>({
+    queryKey: ["banner-config"],
+    queryFn: async () => {
+      const res = await fetch(`${BASE}/api/banner-config`);
+      if (!res.ok) throw new Error("배너 설정 로드 실패");
+      return res.json();
+    },
+    staleTime: 300_000,
+  });
+
+  const premiumAds = premiumAdsData?.ads ?? [];
+  const [premiumIdx, setPremiumIdx] = useState(0);
+  const premiumIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const goToPremium = useCallback((idx: number) => {
+    setPremiumIdx((prev) => {
+      const len = premiumAds.length;
+      if (len === 0) return 0;
+      return ((idx % len) + len) % len;
+    });
+  }, [premiumAds.length]);
+
+  useEffect(() => {
+    if (premiumAds.length <= 1) return;
+    premiumIntervalRef.current = setInterval(() => {
+      setPremiumIdx((prev) => (prev + 1) % premiumAds.length);
+    }, 3000);
+    return () => { if (premiumIntervalRef.current) clearInterval(premiumIntervalRef.current); };
+  }, [premiumAds.length]);
+
   const allFeed: FeedItem[] = feedData?.feed ?? [];
   const stories: StoryItem[] = storiesData?.stories ?? [];
   const videos: VideoItem[] = videosData?.videos ?? [];
   const popularTags = (popularTagsData?.tags ?? []).filter((t) => !PREDEFINED_TAGS.includes(t.tag.replace(/^#/, "") as PredefinedTag) && !PREDEFINED_TAGS.includes(t.tag as PredefinedTag));
 
-  const premiumItems = allFeed.filter((e) => e.isAd && (e.adPlan === "premium" || e.adPlan === "main"));
+  const premiumItems = allFeed.filter((e) => e.isAd && (e.adPlan === "premium" || e.adPlan === "main")); 
 
   const filteredFeed = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -688,55 +751,92 @@ export default function Home() {
         {/* 피드 뷰 (스토리/영상 외 모든 탭) */}
         {showFeed && (
           <>
-            {/* 프리미엄 콘텐츠 가로 스크롤 (전체 탭 + 검색 없을 때) */}
-            {!isFiltered && premiumItems.length > 0 && (
+            {/* ⭐ 프리미엄 콘텐츠 캐러셀 (전체 탭 + 검색 없을 때) */}
+            {!isFiltered && premiumAds.length > 0 && (
               <section className="mb-5">
                 <div className="flex items-center gap-2 mb-2.5">
                   <Star className="w-4 h-4 text-amber-500 fill-amber-400" />
                   <span className="text-sm font-bold text-gray-800">PLAY 추천 · 프리미엄 콘텐츠</span>
                   <span className="text-xs text-gray-400 ml-auto">광고</span>
                 </div>
-                <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
-                  {premiumItems.map((item) => {
-                    const ytThumb = extractYoutubeThumb(item.videoUrl);
-                    const thumb = item.thumbnail ?? ytThumb ?? "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=400&q=80";
+                <div className="relative overflow-hidden rounded-2xl bg-gray-100 shadow-sm" style={{ aspectRatio: "16/7" }}>
+                  {premiumAds.map((item, idx) => {
+                    const thumb = item.imageUrl ?? (item.extraImages?.[0]) ?? "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&q=80";
                     return (
                       <div
                         key={item.id}
-                        onClick={() => window.open(`/content/${item.id}`, "_blank")}
-                        className="shrink-0 w-52 cursor-pointer group"
+                        onClick={() => { if (item.url) window.open(item.url, "_blank"); else window.open(`${BASE}/content/${item.id}`, "_blank"); }}
+                        className={`absolute inset-0 cursor-pointer transition-opacity duration-700 ${idx === premiumIdx ? "opacity-100 z-10" : "opacity-0 z-0"}`}
                       >
-                        <div className="relative h-32 rounded-xl overflow-hidden bg-gray-100 mb-2">
-                          <img src={thumb} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" />
-                          {item.adPlan && (
-                            <div className="absolute top-2 left-2">
-                              <AdBadge plan={item.adPlan} />
-                            </div>
-                          )}
+                        <img src={thumb} alt={item.title} className="w-full h-full object-cover" loading="lazy" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+                        <div className="absolute bottom-0 left-0 right-0 p-4">
+                          <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-400 text-amber-900 mb-1.5">⭐ 프리미엄 광고</span>
+                          <p className="text-white font-bold text-sm leading-snug line-clamp-2">{item.title}</p>
+                          <p className="text-white/70 text-xs mt-0.5">{item.businessName}</p>
                         </div>
-                        <p className="text-xs font-semibold text-gray-800 line-clamp-2 leading-snug">{item.title}</p>
-                        <p className="text-[11px] text-gray-400 mt-0.5">{item.businessName}</p>
                       </div>
                     );
                   })}
+                  {/* 이전/다음 버튼 */}
+                  {premiumAds.length > 1 && (
+                    <>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); goToPremium(premiumIdx - 1); if (premiumIntervalRef.current) { clearInterval(premiumIntervalRef.current); premiumIntervalRef.current = setInterval(() => setPremiumIdx((p) => (p + 1) % premiumAds.length), 3000); } }}
+                        className="absolute left-2 top-1/2 -translate-y-1/2 z-20 w-7 h-7 rounded-full bg-black/40 text-white flex items-center justify-center hover:bg-black/60 transition-colors"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); goToPremium(premiumIdx + 1); if (premiumIntervalRef.current) { clearInterval(premiumIntervalRef.current); premiumIntervalRef.current = setInterval(() => setPremiumIdx((p) => (p + 1) % premiumAds.length), 3000); } }}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 z-20 w-7 h-7 rounded-full bg-black/40 text-white flex items-center justify-center hover:bg-black/60 transition-colors"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                      {/* 점 네비게이션 */}
+                      <div className="absolute bottom-2 right-4 z-20 flex gap-1.5 items-center">
+                        {premiumAds.map((_, idx) => (
+                          <button
+                            key={idx}
+                            onClick={(e) => { e.stopPropagation(); goToPremium(idx); }}
+                            className={`rounded-full transition-all ${idx === premiumIdx ? "w-4 h-1.5 bg-white" : "w-1.5 h-1.5 bg-white/50"}`}
+                          />
+                        ))}
+                      </div>
+                    </>
+                  )}
                 </div>
               </section>
             )}
 
-            {/* 공동광고 지원센터 배너 (전체 탭 + 검색 없을 때) */}
+            {/* 📢 공동광고 지원센터 배너 (전체 탭 + 검색 없을 때) */}
             {!isFiltered && (
               <a
                 href={`${BASE}/ad-submit`}
-                className="block mb-5 rounded-2xl overflow-hidden bg-gradient-to-r from-orange-500 to-amber-400 p-4 hover:shadow-lg transition-shadow"
+                className="block mb-5 rounded-2xl overflow-hidden bg-gradient-to-br from-orange-500 via-amber-500 to-yellow-400 p-4 hover:shadow-lg transition-shadow"
               >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-bold text-white/80 mb-1">지역 소상공인을 위한</p>
-                    <p className="text-base font-extrabold text-white leading-tight">📢 공동광고 지원센터</p>
-                    <p className="text-xs text-white/80 mt-1">하루 15,000원으로 강릉에 노출하세요!</p>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1">
+                    <p className="text-xs font-bold text-white/80 mb-0.5">지역 소상공인을 위한</p>
+                    <p className="text-base font-extrabold text-white leading-tight mb-2">📢 공동광고 지원센터</p>
+                    <p className="text-xs text-white/90 mb-3">{bannerConfig?.subtitle ?? "하루 15,000원으로 강릉에 노출하세요!"}</p>
+                    <div className="flex gap-3 flex-wrap">
+                      <div className="bg-white/20 rounded-xl px-3 py-1.5 text-center">
+                        <p className="text-white font-bold text-sm leading-none">{bannerConfig?.stat1Value ?? "120건+"}</p>
+                        <p className="text-white/70 text-[10px] mt-0.5">{bannerConfig?.stat1Label ?? "광고 신청"}</p>
+                      </div>
+                      <div className="bg-white/20 rounded-xl px-3 py-1.5 text-center">
+                        <p className="text-white font-bold text-sm leading-none">{bannerConfig?.stat2Value ?? "55만명+"}</p>
+                        <p className="text-white/70 text-[10px] mt-0.5">{bannerConfig?.stat2Label ?? "PLAY강릉 팔로워"}</p>
+                      </div>
+                      <div className="bg-white/20 rounded-xl px-3 py-1.5 text-center">
+                        <p className="text-white font-bold text-sm leading-none">{bannerConfig?.stat3Value ?? "10만명+"}</p>
+                        <p className="text-white/70 text-[10px] mt-0.5">{bannerConfig?.stat3Label ?? "월 방문자"}</p>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex-shrink-0 bg-white/20 rounded-xl px-4 py-2.5 text-white font-bold text-sm">
-                    지금 신청 →
+                  <div className="shrink-0 self-center bg-white text-orange-600 font-bold text-xs rounded-xl px-3 py-2 shadow-sm whitespace-nowrap">
+                    {bannerConfig?.ctaText ?? "지금 신청 →"}
                   </div>
                 </div>
               </a>

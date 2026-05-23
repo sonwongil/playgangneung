@@ -91,6 +91,7 @@ async function readAds(): Promise<Ad[]> {
       isFreeAd: true as const,
       aiScore: row.aiScore ?? null,
       aiNote: row.aiNote ?? null,
+      isPremiumFeatured: row.isPremiumFeatured ?? false,
     }));
   } catch { return []; }
 }

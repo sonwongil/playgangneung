@@ -65,6 +65,7 @@ export interface Ad {
   aiScore: number | null;
   aiNote: string | null;
   reportSentAt?: string | null;
+  isPremiumFeatured: boolean;
 }
 
 function rowToAd(row: typeof adsTable.$inferSelect): Ad {
@@ -92,6 +93,7 @@ function rowToAd(row: typeof adsTable.$inferSelect): Ad {
     aiScore: row.aiScore ?? null,
     aiNote: row.aiNote ?? null,
     reportSentAt: row.reportSentAt?.toISOString() ?? null,
+    isPremiumFeatured: row.isPremiumFeatured ?? false,
   };
 }
 
@@ -167,6 +169,7 @@ router.post("/ads", async (req, res) => {
       plan: body.plan ?? "basic",
       status: "pending",
       isFreeAd: true,
+      isPremiumFeatured: body.isPremiumFeatured === true,
     });
     const [row] = await db.select().from(adsTable).where(eq(adsTable.id, id));
     req.log.info({ id }, "광고 접수 완료");
@@ -545,6 +548,39 @@ router.post("/ads/:id/send-report", async (req, res) => {
   } catch (err) {
     req.log.error({ err }, "리포트 발송 실패");
     return res.status(500).json({ error: "발송 실패" });
+  }
+});
+
+// ─── 프리미엄 노출 토글 ─────────────────────────────────────────────────────────
+router.patch("/ads/:id/premium-featured", async (req, res) => {
+  if (!req.session?.isAdmin) return res.status(401).json({ error: "인증 필요" });
+  try {
+    const { id } = req.params;
+    const { isPremiumFeatured } = req.body as { isPremiumFeatured: boolean };
+    await db.update(adsTable).set({ isPremiumFeatured: !!isPremiumFeatured }).where(eq(adsTable.id, id));
+    const [row] = await db.select().from(adsTable).where(eq(adsTable.id, id));
+    if (!row) return res.status(404).json({ error: "광고를 찾을 수 없습니다" });
+    req.log.info({ id, isPremiumFeatured }, "프리미엄 노출 토글");
+    return res.json({ success: true, ad: rowToAd(row) });
+  } catch (err) {
+    req.log.error({ err }, "프리미엄 노출 토글 실패");
+    return res.status(500).json({ error: "토글 실패" });
+  }
+});
+
+// ─── 공개 프리미엄 광고 목록 ─────────────────────────────────────────────────
+router.get("/ads/premium-featured", async (_req, res) => {
+  try {
+    const rows = await db
+      .select()
+      .from(adsTable)
+      .orderBy(desc(adsTable.createdAt));
+    const featured = rows
+      .map(rowToAd)
+      .filter((a) => a.isPremiumFeatured && (a.status === "approved" || a.status === "published" || a.status === "scheduled"));
+    return res.json({ ads: featured });
+  } catch (err) {
+    return res.status(500).json({ error: "조회 실패" });
   }
 });
 

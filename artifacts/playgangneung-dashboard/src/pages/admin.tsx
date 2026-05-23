@@ -119,6 +119,7 @@ interface Ad {
   aiNote: string | null;
   reportToken?: string | null;
   reportSentAt?: string | null;
+  isPremiumFeatured?: boolean;
 }
 
 interface Source {
@@ -375,6 +376,14 @@ export default function Admin() {
     category: "행사", startDate: todayStr(), endDate: todayStr(), location: "", videoUrl: "",
   });
   const [pwForm, setPwForm] = useState({ current: "", next: "", confirm: "" });
+  const [bannerForm, setBannerForm] = useState({
+    subtitle: "하루 15,000원으로 강릉에 노출하세요!",
+    stat1Label: "광고 신청", stat1Value: "누적 120건+",
+    stat2Label: "PLAY강릉 팔로워", stat2Value: "55만명+",
+    stat3Label: "월 방문자", stat3Value: "10만명+",
+    ctaText: "지금 바로 시작하세요!",
+  });
+  const [bannerLoaded, setBannerLoaded] = useState(false);
   const [newSourceName, setNewSourceName] = useState("");
   const [newSourceUrl, setNewSourceUrl] = useState("");
   const [scheduleHour, setScheduleHour] = useState(9);
@@ -516,6 +525,20 @@ export default function Admin() {
     },
     enabled: activeNav === "settings",
     onSuccess: (d: { crawlHour: number; crawlMinute: number }) => { setScheduleHour(d.crawlHour); setScheduleMinute(d.crawlMinute); },
+  } as any);
+
+  useQuery<{
+    subtitle: string; stat1Label: string; stat1Value: string;
+    stat2Label: string; stat2Value: string; stat3Label: string; stat3Value: string; ctaText: string;
+  }>({
+    queryKey: ["banner-config"],
+    queryFn: async () => {
+      const r = await fetch(`${BASE}/api/banner-config`, { credentials: "include" });
+      if (!r.ok) throw new Error("배너 로드 실패");
+      return r.json();
+    },
+    enabled: activeNav === "settings" && !bannerLoaded,
+    onSuccess: (d: { subtitle: string; stat1Label: string; stat1Value: string; stat2Label: string; stat2Value: string; stat3Label: string; stat3Value: string; ctaText: string }) => { setBannerForm({ ...d }); setBannerLoaded(true); },
   } as any);
 
   const { data: adCenterStatsData } = useQuery<{ stats: AdCenterStats }>({
@@ -1164,6 +1187,22 @@ export default function Admin() {
   });
 
 
+  const saveBannerMutation = useMutation({
+    mutationFn: async (cfg: typeof bannerForm) => {
+      const r = await fetch(`${BASE}/api/banner-config`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(cfg),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error ?? "저장 실패");
+      return d;
+    },
+    onSuccess: () => { toast({ title: "배너 설정 저장 완료" }); qc.invalidateQueries({ queryKey: ["banner-config"] }); },
+    onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
+  });
+
   const addSourceMutation = useMutation({
     mutationFn: async ({ name, url }: { name: string; url: string }) => {
       const r = await fetch(`${BASE}/api/sources`, { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ name, url }) });
@@ -1761,11 +1800,36 @@ export default function Admin() {
                             <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs border font-medium ${sc.cls}`}>{sc.label}</span>
                             <span className="text-xs font-medium text-muted-foreground">{ad.businessName}</span>
                             <span className="text-xs text-muted-foreground">{ad.category}</span>
+                            {ad.isPremiumFeatured && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 border border-amber-200">⭐ 프리미엄 노출</span>
+                            )}
                           </div>
                           <p className="font-semibold text-sm">{ad.title || ad.businessName}</p>
                           <p className="text-xs text-muted-foreground mt-0.5">{ad.phone} · {ad.createdAt?.slice(0, 10)}</p>
                         </div>
-                        <div className="text-xs text-muted-foreground shrink-0">상세보기 →</div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              await fetch(`${BASE}/api/ads/${ad.id}/premium-featured`, {
+                                method: "PATCH",
+                                headers: { "Content-Type": "application/json" },
+                                credentials: "include",
+                                body: JSON.stringify({ isPremiumFeatured: !ad.isPremiumFeatured }),
+                              });
+                              qc.invalidateQueries({ queryKey: ["admin-ads"] });
+                            }}
+                            className={`px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors ${
+                              ad.isPremiumFeatured
+                                ? "bg-amber-500 text-white border-amber-500 hover:bg-amber-600"
+                                : "bg-white text-gray-500 border-gray-300 hover:bg-amber-50 hover:border-amber-300 hover:text-amber-700"
+                            }`}
+                            title="프론트 프리미엄 슬라이더 노출 토글"
+                          >
+                            ⭐ 프리미엄
+                          </button>
+                          <div className="text-xs text-muted-foreground">상세보기 →</div>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -4335,6 +4399,73 @@ export default function Admin() {
                   </Button>
                 </CardContent>
               </Card>
+              {/* 공동광고 배너 설정 */}
+              <Card>
+                <CardContent className="p-5 space-y-4">
+                  <p className="font-semibold text-sm flex items-center gap-2">
+                    <Megaphone className="w-4 h-4 text-orange-500" />공동광고 지원센터 배너 설정
+                  </p>
+                  <p className="text-xs text-muted-foreground">공개 홈페이지의 공동광고 지원센터 배너 문구와 통계를 수정합니다.</p>
+                  <div className="space-y-3">
+                    <div>
+                      <Label className="text-xs text-muted-foreground">부제 (한 줄 문구)</Label>
+                      <Input className="mt-1" value={bannerForm.subtitle} onChange={(e) => setBannerForm((p) => ({ ...p, subtitle: e.target.value }))} placeholder="하루 15,000원으로 강릉에 노출하세요!" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label className="text-xs text-muted-foreground">통계 1 라벨</Label>
+                        <Input className="mt-1" value={bannerForm.stat1Label} onChange={(e) => setBannerForm((p) => ({ ...p, stat1Label: e.target.value }))} placeholder="광고 신청" />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">통계 1 값</Label>
+                        <Input className="mt-1" value={bannerForm.stat1Value} onChange={(e) => setBannerForm((p) => ({ ...p, stat1Value: e.target.value }))} placeholder="누적 120건+" />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">통계 2 라벨</Label>
+                        <Input className="mt-1" value={bannerForm.stat2Label} onChange={(e) => setBannerForm((p) => ({ ...p, stat2Label: e.target.value }))} placeholder="PLAY강릉 팔로워" />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">통계 2 값</Label>
+                        <Input className="mt-1" value={bannerForm.stat2Value} onChange={(e) => setBannerForm((p) => ({ ...p, stat2Value: e.target.value }))} placeholder="55만명+" />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">통계 3 라벨</Label>
+                        <Input className="mt-1" value={bannerForm.stat3Label} onChange={(e) => setBannerForm((p) => ({ ...p, stat3Label: e.target.value }))} placeholder="월 방문자" />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">통계 3 값</Label>
+                        <Input className="mt-1" value={bannerForm.stat3Value} onChange={(e) => setBannerForm((p) => ({ ...p, stat3Value: e.target.value }))} placeholder="10만명+" />
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">CTA 버튼 텍스트</Label>
+                      <Input className="mt-1" value={bannerForm.ctaText} onChange={(e) => setBannerForm((p) => ({ ...p, ctaText: e.target.value }))} placeholder="지금 바로 시작하세요!" />
+                    </div>
+                  </div>
+                  {/* 미리보기 */}
+                  <div className="rounded-xl bg-gradient-to-br from-orange-500 via-amber-500 to-yellow-400 p-3 text-xs">
+                    <p className="text-white/80 font-bold mb-0.5">지역 소상공인을 위한</p>
+                    <p className="text-white font-extrabold mb-1">📢 공동광고 지원센터</p>
+                    <p className="text-white/90 text-[11px] mb-2">{bannerForm.subtitle}</p>
+                    <div className="flex gap-2 flex-wrap">
+                      {[{ l: bannerForm.stat1Label, v: bannerForm.stat1Value }, { l: bannerForm.stat2Label, v: bannerForm.stat2Value }, { l: bannerForm.stat3Label, v: bannerForm.stat3Value }].map((s, i) => (
+                        <div key={i} className="bg-white/20 rounded-lg px-2 py-1 text-center">
+                          <p className="text-white font-bold text-[11px]">{s.v}</p>
+                          <p className="text-white/70 text-[9px]">{s.l}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <Button
+                    className="w-full gap-2 bg-orange-500 hover:bg-orange-600"
+                    disabled={saveBannerMutation.isPending}
+                    onClick={() => saveBannerMutation.mutate(bannerForm)}
+                  >
+                    {saveBannerMutation.isPending ? "저장 중..." : "배너 설정 저장"}
+                  </Button>
+                </CardContent>
+              </Card>
+
               <Card>
                 <CardContent className="p-5">
                   <p className="font-semibold text-sm flex items-center gap-2 mb-4"><KeyRound className="w-4 h-4 text-blue-600" />비밀번호 변경</p>

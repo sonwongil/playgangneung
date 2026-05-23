@@ -8,8 +8,8 @@ import { logger } from "./logger.js";
 const GRAPH_BASE = "https://graph.facebook.com/v19.0";
 
 function getCredentials(): { token: string; adAccountId: string } | null {
-  const token = process.env["META_ACCESS_TOKEN"];
-  const adAccountId = process.env["META_AD_ACCOUNT_ID"];
+  const token = process.env["META_ACCESS_TOKEN"]?.trim();
+  const adAccountId = process.env["META_AD_ACCOUNT_ID"]?.trim();
   if (!token || !adAccountId) return null;
   return { token, adAccountId };
 }

@@ -18,6 +18,7 @@ import MyAd from "@/pages/my-ad";
 import Checkout from "@/pages/checkout";
 import CheckoutSuccess from "@/pages/checkout-success";
 import CheckoutFail from "@/pages/checkout-fail";
+import Privacy from "@/pages/privacy";
 
 const queryClient = new QueryClient();
 
@@ -224,6 +225,7 @@ function Router() {
       <Route path="/checkout/success" component={CheckoutSuccess} />
       <Route path="/checkout/fail" component={CheckoutFail} />
       <Route path="/checkout" component={Checkout} />
+      <Route path="/privacy" component={Privacy} />
       <Route component={NotFound} />
     </Switch>
   );

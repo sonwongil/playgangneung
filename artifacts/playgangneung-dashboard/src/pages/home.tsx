@@ -659,23 +659,30 @@ export default function Home() {
             )}
           </div>
 
-            {/* 광고 접수 버튼 */}
-          <Link
-            href="/ad-submit"
-            className="flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-full hover:bg-gray-100 transition-colors"
-            title="광고 접수"
-          >
-            <Pencil className="w-4.5 h-4.5 text-gray-600" style={{ width: 18, height: 18 }} />
-          </Link>
-
-          {/* 공동광고 아이콘 */}
-          <Link
-            href="/ad-submit"
-            className="flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-full hover:bg-orange-50 transition-colors"
-            title="공동광고 지원센터"
-          >
-            <Megaphone className="w-4.5 h-4.5 text-gray-600" style={{ width: 18, height: 18 }} />
-          </Link>
+          {/* 로그인/회원가입 또는 로그아웃 */}
+          {isSignedIn ? (
+            <button
+              onClick={async () => { await signOut(); setLocation("/"); }}
+              className="flex-shrink-0 flex items-center gap-1 px-3 h-8 rounded-full border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
+            >
+              <LogOut className="w-3.5 h-3.5" />로그아웃
+            </button>
+          ) : (
+            <>
+              <Link
+                href="/sign-in"
+                className="flex-shrink-0 flex items-center gap-1 px-3 h-8 rounded-full border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
+              >
+                <LogIn className="w-3.5 h-3.5" />로그인
+              </Link>
+              <Link
+                href="/sign-up"
+                className="flex-shrink-0 flex items-center gap-1 px-3 h-8 rounded-full bg-orange-500 text-xs font-semibold text-white hover:bg-orange-600 transition-colors"
+              >
+                회원가입
+              </Link>
+            </>
+          )}
 
           {/* 메뉴 */}
           <div className="relative flex-shrink-0" ref={menuRef}>

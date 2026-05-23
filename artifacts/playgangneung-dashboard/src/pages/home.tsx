@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -444,6 +445,15 @@ export default function Home() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [menuOpen]);
 
+  // bfcache(뒤로가기 캐시)로 복원될 때 강제 새로고침하여 최신 화면 표시
+  useEffect(() => {
+    const handlePageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) window.location.reload();
+    };
+    window.addEventListener("pageshow", handlePageShow);
+    return () => window.removeEventListener("pageshow", handlePageShow);
+  }, []);
+
   const { data: feedData } = useQuery<{ feed: FeedItem[]; total: number }>({
     queryKey: ["public-feed"],
     queryFn: async () => {
@@ -624,9 +634,9 @@ export default function Home() {
       <div className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
         {/* Header */}
         <header className="max-w-6xl mx-auto px-3 flex items-center gap-2" style={{ height: 56 }}>
-          <a href={`${BASE}/`} className="flex-shrink-0">
+          <Link href="/" className="flex-shrink-0">
             <img src={`${BASE}/logo2.png`} alt="PLAY강릉" style={{ height: 44, width: "auto" }} />
-          </a>
+          </Link>
 
           {/* 검색창 */}
           <div className="flex-1 relative">
@@ -646,22 +656,22 @@ export default function Home() {
           </div>
 
             {/* 광고 접수 버튼 */}
-          <a
-            href={`${BASE}/ad-submit`}
+          <Link
+            href="/ad-submit"
             className="flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-full hover:bg-gray-100 transition-colors"
             title="광고 접수"
           >
             <Pencil className="w-4.5 h-4.5 text-gray-600" style={{ width: 18, height: 18 }} />
-          </a>
+          </Link>
 
           {/* 공동광고 아이콘 */}
-          <a
-            href={`${BASE}/ad-submit`}
+          <Link
+            href="/ad-submit"
             className="flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-full hover:bg-orange-50 transition-colors"
             title="공동광고 지원센터"
           >
             <Megaphone className="w-4.5 h-4.5 text-gray-600" style={{ width: 18, height: 18 }} />
-          </a>
+          </Link>
 
           {/* 메뉴 */}
           <div className="relative flex-shrink-0" ref={menuRef}>
@@ -696,9 +706,9 @@ export default function Home() {
                 </button>
                 {authData?.isAdmin ? (
                   <>
-                    <a href={`${BASE}/admin`} className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100" onClick={() => setMenuOpen(false)}>
+                    <Link href="/admin" className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100" onClick={() => setMenuOpen(false)}>
                       <LogIn className="w-4 h-4 shrink-0" />관리자 페이지
-                    </a>
+                    </Link>
                     <button
                       onClick={async () => {
                         setMenuOpen(false);
@@ -711,9 +721,9 @@ export default function Home() {
                     </button>
                   </>
                 ) : (
-                  <a href={`${BASE}/login`} className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setMenuOpen(false)}>
+                  <Link href="/login" className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setMenuOpen(false)}>
                     <LogIn className="w-4 h-4 shrink-0" />관리자 로그인
-                  </a>
+                  </Link>
                 )}
               </div>
             )}
@@ -735,8 +745,8 @@ export default function Home() {
             ))}
           </div>
           {/* 우측 고정 공동광고 버튼 */}
-          <a
-            href={`${BASE}/ad-submit`}
+          <Link
+            href="/ad-submit"
             className="shrink-0 flex items-center gap-2 px-3 py-1.5 bg-orange-500 hover:bg-orange-600 transition-colors border-l border-orange-400"
           >
             <Megaphone className="w-3.5 h-3.5 text-white shrink-0" />
@@ -745,7 +755,7 @@ export default function Home() {
               <p className="text-[9px] text-orange-100 mt-0.5 whitespace-nowrap">하루 15,000원으로 강릉에 노출!</p>
             </div>
             <ChevronRight className="w-3 h-3 text-white/80 shrink-0" />
-          </a>
+          </Link>
         </div>
       </div>
 
@@ -857,8 +867,8 @@ export default function Home() {
 
             {/* 📢 공동광고 지원센터 배너 (다크 네이비) */}
             {!isFiltered && (
-              <a
-                href={`${BASE}/ad-submit`}
+              <Link
+                href="/ad-submit"
                 className="block mb-5 rounded-2xl overflow-hidden bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950 p-4 hover:shadow-xl transition-shadow"
               >
                 <div className="flex items-center gap-4">
@@ -902,7 +912,7 @@ export default function Home() {
                     </span>
                   </div>
                 </div>
-              </a>
+              </Link>
             )}
 
             {/* 🔥 인기 태그 (전체 탭 + 인기 태그 존재할 때) */}
@@ -968,8 +978,8 @@ export default function Home() {
                       <FeedCard item={item} onTagClick={(tag) => handleTagClick(tag)} />
                       {/* 피드 중간 공동광고 배너 (8개마다) */}
                       {(idx + 1) % 8 === 0 && idx < display.length - 1 && !isFiltered && (
-                        <a
-                          href={`${BASE}/ad-submit`}
+                        <Link
+                          href="/ad-submit"
                           className="col-span-2 sm:col-span-3 lg:col-span-4 mt-3 mb-1 block rounded-xl bg-gradient-to-r from-orange-500 to-amber-400 px-4 py-3 text-white hover:shadow-md transition-shadow"
                         >
                           <div className="flex items-center justify-between">
@@ -979,7 +989,7 @@ export default function Home() {
                             </div>
                             <span className="text-xs font-semibold bg-white/20 rounded-lg px-3 py-1.5">참여하기 →</span>
                           </div>
-                        </a>
+                        </Link>
                       )}
                     </div>
                   ))}
@@ -1009,7 +1019,7 @@ export default function Home() {
             강원특별자치도 강릉시 사천면 진리해변길 37 103-1101
             <span className="mx-1.5 text-gray-700">·</span>
             © 2026 PLAY강릉
-            <a href={`${BASE}/admin`} className="ml-1 text-gray-900 select-none" tabIndex={-1} aria-hidden="true">·</a>
+            <Link href="/admin" className="ml-1 text-gray-900 select-none" tabIndex={-1} aria-hidden="true">·</Link>
           </p>
         </div>
       </footer>

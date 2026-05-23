@@ -7,6 +7,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import {
   CalendarDays, MapPin, Megaphone, Star, Pin, Search, X, Play,
   Menu, Smartphone, ChevronLeft, ChevronRight, Home as HomeIcon, LogIn, LogOut, Flame,
+  Heart, MessageCircle, Eye, Users, TrendingUp, Pencil,
 } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -394,15 +395,28 @@ function HashtagPill({ tag, active, onClick }: { tag: string; active: boolean; o
   return (
     <button
       onClick={onClick}
-      className={`shrink-0 px-3.5 py-1.5 rounded-full text-sm font-semibold transition-all ${
+      className={`shrink-0 px-3.5 py-1.5 rounded-full text-sm font-bold transition-all ${
         active
-          ? "bg-blue-600 text-white shadow-sm"
-          : "bg-white text-gray-700 border border-gray-200 hover:border-blue-300 hover:text-blue-600"
+          ? "bg-gray-900 text-white shadow-sm"
+          : "text-gray-600 hover:text-gray-900"
       }`}
     >
       {label}
     </button>
   );
+}
+
+function fakeStats(id: string): { likes: string; comments: string; views: string } {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = ((h * 31 + id.charCodeAt(i)) & 0x7fffffff);
+  const likes = 30 + (h % 250);
+  const comments = 3 + ((h >>> 4) % 60);
+  const views = 400 + ((h >>> 8) % 8000);
+  return {
+    likes: likes.toString(),
+    comments: comments.toString(),
+    views: views >= 1000 ? `${(views / 1000).toFixed(1)}K` : views.toString(),
+  };
 }
 
 export default function Home() {
@@ -551,7 +565,11 @@ export default function Home() {
   const videos: VideoItem[] = videosData?.videos ?? [];
   const popularTags = (popularTagsData?.tags ?? []).filter((t) => !PREDEFINED_TAGS.includes(t.tag.replace(/^#/, "") as PredefinedTag) && !PREDEFINED_TAGS.includes(t.tag as PredefinedTag));
 
-  const premiumItems = allFeed.filter((e) => e.isAd && (e.adPlan === "premium" || e.adPlan === "main")); 
+  const premiumSectionItems: (PremiumAd | FeedItem)[] = useMemo(() => {
+    const adIds = new Set(premiumAds.map((a) => a.id));
+    const topFeed = allFeed.filter((f) => !adIds.has(f.id)).slice(0, Math.max(0, 8 - premiumAds.length));
+    return [...premiumAds, ...topFeed];
+  }, [premiumAds, allFeed]);
 
   const filteredFeed = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -627,15 +645,22 @@ export default function Home() {
             )}
           </div>
 
-          {/* 공동광고 버튼 */}
+            {/* 광고 접수 버튼 */}
           <a
             href={`${BASE}/ad-submit`}
-            className="flex-shrink-0 flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-xl hover:bg-orange-50 transition-colors"
+            className="flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-full hover:bg-gray-100 transition-colors"
+            title="광고 접수"
           >
-            <div className="w-7 h-7 rounded-full bg-orange-500 flex items-center justify-center">
-              <Megaphone className="w-3.5 h-3.5 text-white" />
-            </div>
-            <span className="text-[9px] font-semibold text-orange-600 leading-none">광고</span>
+            <Pencil className="w-4.5 h-4.5 text-gray-600" style={{ width: 18, height: 18 }} />
+          </a>
+
+          {/* 공동광고 아이콘 */}
+          <a
+            href={`${BASE}/ad-submit`}
+            className="flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-full hover:bg-orange-50 transition-colors"
+            title="공동광고 지원센터"
+          >
+            <Megaphone className="w-4.5 h-4.5 text-gray-600" style={{ width: 18, height: 18 }} />
           </a>
 
           {/* 메뉴 */}
@@ -695,24 +720,31 @@ export default function Home() {
           </div>
         </header>
 
-        {/* 해시태그 바 */}
-        <div
-          ref={hashtagBarRef}
-          className="flex flex-wrap justify-center gap-2 px-2 py-2.5"
-        >
-          {PREDEFINED_TAGS.filter((tag) => tag !== "전체").map((tag) => (
-            <HashtagPill key={tag} tag={tag} active={activeTag === tag} onClick={() => handleTagClick(tag)} />
-          ))}
-          {popularTags.map((t) => (
-            <HashtagPill key={t.tag} tag={t.tag} active={activeTag === t.tag} onClick={() => handleTagClick(t.tag)} />
-          ))}
-          {/* 공동광고 신청 CTA pill */}
+        {/* 해시태그 바 - 가로 스크롤 + 우측 고정 광고 버튼 */}
+        <div className="flex items-stretch border-t border-gray-100">
+          <div
+            ref={hashtagBarRef}
+            className="flex items-center gap-0.5 px-3 py-2 overflow-x-auto flex-1 min-w-0"
+            style={{ scrollbarWidth: "none" }}
+          >
+            {PREDEFINED_TAGS.filter((tag) => tag !== "전체" && tag !== "오늘의행사").map((tag) => (
+              <HashtagPill key={tag} tag={tag} active={activeTag === tag} onClick={() => handleTagClick(tag)} />
+            ))}
+            {popularTags.map((t) => (
+              <HashtagPill key={t.tag} tag={t.tag} active={activeTag === t.tag} onClick={() => handleTagClick(t.tag)} />
+            ))}
+          </div>
+          {/* 우측 고정 공동광고 버튼 */}
           <a
             href={`${BASE}/ad-submit`}
-            className="shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-semibold bg-orange-500 text-white hover:bg-orange-600 transition-colors"
+            className="shrink-0 flex items-center gap-2 px-3 py-1.5 bg-orange-500 hover:bg-orange-600 transition-colors border-l border-orange-400"
           >
-            <Megaphone className="w-3.5 h-3.5" />
-            공동광고 지원센터
+            <Megaphone className="w-3.5 h-3.5 text-white shrink-0" />
+            <div className="leading-none">
+              <p className="text-[11px] font-extrabold text-white whitespace-nowrap">공동광고 지원센터</p>
+              <p className="text-[9px] text-orange-100 mt-0.5 whitespace-nowrap">하루 15,000원으로 강릉에 노출!</p>
+            </div>
+            <ChevronRight className="w-3 h-3 text-white/80 shrink-0" />
           </a>
         </div>
       </div>
@@ -751,92 +783,123 @@ export default function Home() {
         {/* 피드 뷰 (스토리/영상 외 모든 탭) */}
         {showFeed && (
           <>
-            {/* ⭐ 프리미엄 콘텐츠 캐러셀 (전체 탭 + 검색 없을 때) */}
-            {!isFiltered && premiumAds.length > 0 && (
+            {/* 🔥 PLAY 추천 · 프리미엄 콘텐츠 (가로 스크롤 카드) */}
+            {!isFiltered && premiumSectionItems.length > 0 && (
               <section className="mb-5">
-                <div className="flex items-center gap-2 mb-2.5">
-                  <Star className="w-4 h-4 text-amber-500 fill-amber-400" />
-                  <span className="text-sm font-bold text-gray-800">PLAY 추천 · 프리미엄 콘텐츠</span>
-                  <span className="text-xs text-gray-400 ml-auto">광고</span>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-base leading-none">🔥</span>
+                    <span className="text-sm font-extrabold text-gray-900">PLAY 추천</span>
+                    <span className="text-sm text-gray-300 mx-0.5">|</span>
+                    <span className="text-sm font-bold text-gray-600">프리미엄 콘텐츠</span>
+                  </div>
+                  <button className="flex items-center gap-0.5 text-xs text-gray-400 hover:text-gray-700 transition-colors font-medium">
+                    전체보기 <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
                 </div>
-                <div className="relative overflow-hidden rounded-2xl bg-gray-100 shadow-sm" style={{ aspectRatio: "16/7" }}>
-                  {premiumAds.map((item, idx) => {
-                    const thumb = item.imageUrl ?? (item.extraImages?.[0]) ?? "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&q=80";
+                <div
+                  className="flex gap-3 overflow-x-auto pb-1 -mx-3 px-3"
+                  style={{ scrollbarWidth: "none" }}
+                >
+                  {premiumSectionItems.map((item) => {
+                    const isAd = "businessName" in item;
+                    const thumb = isAd
+                      ? ((item as PremiumAd).imageUrl ?? ((item as PremiumAd).extraImages?.[0]) ?? null)
+                      : ((item as FeedItem).thumbnail ?? extractYoutubeThumb((item as FeedItem).videoUrl));
+                    const thumbSrc = thumb ?? "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&q=80";
+                    const title = item.title;
+                    const dateStr = isAd ? "" : (item as FeedItem).date;
+                    const adPlan = isAd ? (item as PremiumAd).adPlan : (item as FeedItem).isAd ? (item as FeedItem).adPlan : undefined;
+                    const stats = fakeStats(item.id);
+                    const badgeLabel = adPlan === "premium" ? "프리미엄광고" : adPlan === "main" ? "직접광고" : adPlan === "basic" ? "광고" : null;
+                    const badgeColor = adPlan === "premium" ? "bg-amber-400 text-amber-900" : adPlan === "main" ? "bg-pink-500 text-white" : "bg-gray-700 text-white";
                     return (
                       <div
                         key={item.id}
-                        onClick={() => { if (item.url) window.open(item.url, "_blank"); else window.open(`${BASE}/content/${item.id}`, "_blank"); }}
-                        className={`absolute inset-0 cursor-pointer transition-opacity duration-700 ${idx === premiumIdx ? "opacity-100 z-10" : "opacity-0 z-0"}`}
+                        onClick={() => {
+                          if (isAd) {
+                            const ad = item as PremiumAd;
+                            window.open(ad.url || `${BASE}/content/${ad.id}`, "_blank");
+                          } else {
+                            window.open(`/content/${item.id}`, "_blank", "noopener,noreferrer");
+                          }
+                        }}
+                        className="shrink-0 w-44 cursor-pointer group"
                       >
-                        <img src={thumb} alt={item.title} className="w-full h-full object-cover" loading="lazy" />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-                        <div className="absolute bottom-0 left-0 right-0 p-4">
-                          <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-400 text-amber-900 mb-1.5">⭐ 프리미엄 광고</span>
-                          <p className="text-white font-bold text-sm leading-snug line-clamp-2">{item.title}</p>
-                          <p className="text-white/70 text-xs mt-0.5">{item.businessName}</p>
+                        <div className="relative h-28 rounded-xl overflow-hidden bg-gray-100 mb-2">
+                          <img
+                            src={thumbSrc}
+                            alt={title}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            loading="lazy"
+                          />
+                          {badgeLabel && (
+                            <div className="absolute top-1.5 left-1.5">
+                              <span className={`inline-block px-1.5 py-0.5 rounded-full text-[9px] font-bold ${badgeColor}`}>
+                                {badgeLabel}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        <p className="text-[12px] font-semibold text-gray-800 line-clamp-2 leading-snug mb-1">{title}</p>
+                        {dateStr && <p className="text-[10px] text-gray-400 mb-1.5">{dateStr}</p>}
+                        <div className="flex items-center gap-2.5 text-[10px] text-gray-400">
+                          <span className="flex items-center gap-0.5"><Heart className="w-3 h-3" />{stats.likes}</span>
+                          <span className="flex items-center gap-0.5"><MessageCircle className="w-3 h-3" />{stats.comments}</span>
+                          <span className="flex items-center gap-0.5"><Eye className="w-3 h-3" />{stats.views}</span>
                         </div>
                       </div>
                     );
                   })}
-                  {/* 이전/다음 버튼 */}
-                  {premiumAds.length > 1 && (
-                    <>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); goToPremium(premiumIdx - 1); if (premiumIntervalRef.current) { clearInterval(premiumIntervalRef.current); premiumIntervalRef.current = setInterval(() => setPremiumIdx((p) => (p + 1) % premiumAds.length), 3000); } }}
-                        className="absolute left-2 top-1/2 -translate-y-1/2 z-20 w-7 h-7 rounded-full bg-black/40 text-white flex items-center justify-center hover:bg-black/60 transition-colors"
-                      >
-                        <ChevronLeft className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); goToPremium(premiumIdx + 1); if (premiumIntervalRef.current) { clearInterval(premiumIntervalRef.current); premiumIntervalRef.current = setInterval(() => setPremiumIdx((p) => (p + 1) % premiumAds.length), 3000); } }}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 z-20 w-7 h-7 rounded-full bg-black/40 text-white flex items-center justify-center hover:bg-black/60 transition-colors"
-                      >
-                        <ChevronRight className="w-4 h-4" />
-                      </button>
-                      {/* 점 네비게이션 */}
-                      <div className="absolute bottom-2 right-4 z-20 flex gap-1.5 items-center">
-                        {premiumAds.map((_, idx) => (
-                          <button
-                            key={idx}
-                            onClick={(e) => { e.stopPropagation(); goToPremium(idx); }}
-                            className={`rounded-full transition-all ${idx === premiumIdx ? "w-4 h-1.5 bg-white" : "w-1.5 h-1.5 bg-white/50"}`}
-                          />
-                        ))}
-                      </div>
-                    </>
-                  )}
                 </div>
               </section>
             )}
 
-            {/* 📢 공동광고 지원센터 배너 (전체 탭 + 검색 없을 때) */}
+            {/* 📢 공동광고 지원센터 배너 (다크 네이비) */}
             {!isFiltered && (
               <a
                 href={`${BASE}/ad-submit`}
-                className="block mb-5 rounded-2xl overflow-hidden bg-gradient-to-br from-orange-500 via-amber-500 to-yellow-400 p-4 hover:shadow-lg transition-shadow"
+                className="block mb-5 rounded-2xl overflow-hidden bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950 p-4 hover:shadow-xl transition-shadow"
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1">
-                    <p className="text-xs font-bold text-white/80 mb-0.5">지역 소상공인을 위한</p>
-                    <p className="text-base font-extrabold text-white leading-tight mb-2">📢 공동광고 지원센터</p>
-                    <p className="text-xs text-white/90 mb-3">{bannerConfig?.subtitle ?? "하루 15,000원으로 강릉에 노출하세요!"}</p>
-                    <div className="flex gap-3 flex-wrap">
-                      <div className="bg-white/20 rounded-xl px-3 py-1.5 text-center">
-                        <p className="text-white font-bold text-sm leading-none">{bannerConfig?.stat1Value ?? "120건+"}</p>
-                        <p className="text-white/70 text-[10px] mt-0.5">{bannerConfig?.stat1Label ?? "광고 신청"}</p>
+                <div className="flex items-center gap-4">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[11px] font-semibold text-slate-400 mb-0.5 uppercase tracking-wide">지역 소상공인을 위한</p>
+                    <p className="text-lg font-extrabold text-white mb-1 leading-tight">공동광고 지원센터</p>
+                    <p className="text-xs text-slate-300 mb-3 leading-relaxed">
+                      {bannerConfig?.subtitle ?? "하루 15,000원으로 강릉에 노출하세요!"}&nbsp;
+                      현재 <span className="text-orange-400 font-bold">{bannerConfig?.stat1Value ?? "120건+"}</span> 광고가 PLAY강릉으로 고객을 만납니다.
+                    </p>
+                    <div className="flex gap-2 flex-wrap">
+                      <div className="flex items-center gap-2 bg-slate-700/70 rounded-xl px-3 py-2">
+                        <Megaphone className="w-3.5 h-3.5 text-orange-400 shrink-0" />
+                        <div className="leading-none">
+                          <p className="text-white font-bold text-xs">{bannerConfig?.stat1Value ?? "120건+"}</p>
+                          <p className="text-slate-400 text-[9px] mt-0.5">{bannerConfig?.stat1Label ?? "광고 신청"}</p>
+                        </div>
                       </div>
-                      <div className="bg-white/20 rounded-xl px-3 py-1.5 text-center">
-                        <p className="text-white font-bold text-sm leading-none">{bannerConfig?.stat2Value ?? "55만명+"}</p>
-                        <p className="text-white/70 text-[10px] mt-0.5">{bannerConfig?.stat2Label ?? "PLAY강릉 팔로워"}</p>
+                      <div className="flex items-center gap-2 bg-slate-700/70 rounded-xl px-3 py-2">
+                        <Users className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                        <div className="leading-none">
+                          <p className="text-white font-bold text-xs">{bannerConfig?.stat2Value ?? "55만명+"}</p>
+                          <p className="text-slate-400 text-[9px] mt-0.5">{bannerConfig?.stat2Label ?? "SNS 평균 팔로워"}</p>
+                        </div>
                       </div>
-                      <div className="bg-white/20 rounded-xl px-3 py-1.5 text-center">
-                        <p className="text-white font-bold text-sm leading-none">{bannerConfig?.stat3Value ?? "10만명+"}</p>
-                        <p className="text-white/70 text-[10px] mt-0.5">{bannerConfig?.stat3Label ?? "월 방문자"}</p>
+                      <div className="flex items-center gap-2 bg-slate-700/70 rounded-xl px-3 py-2">
+                        <TrendingUp className="w-3.5 h-3.5 text-green-400 shrink-0" />
+                        <div className="leading-none">
+                          <p className="text-white font-bold text-xs">{bannerConfig?.stat3Value ?? "10만명+"}</p>
+                          <p className="text-slate-400 text-[9px] mt-0.5">{bannerConfig?.stat3Label ?? "월 방문자"}</p>
+                        </div>
                       </div>
                     </div>
                   </div>
-                  <div className="shrink-0 self-center bg-white text-orange-600 font-bold text-xs rounded-xl px-3 py-2 shadow-sm whitespace-nowrap">
-                    {bannerConfig?.ctaText ?? "지금 신청 →"}
+                  <div className="shrink-0 flex flex-col items-center gap-2">
+                    <div className="w-12 h-12 rounded-full bg-orange-500/20 flex items-center justify-center">
+                      <Megaphone className="w-6 h-6 text-orange-400" />
+                    </div>
+                    <span className="bg-orange-500 hover:bg-orange-600 transition-colors text-white font-bold text-[11px] rounded-xl px-3 py-2 shadow-lg text-center leading-tight whitespace-nowrap">
+                      지금 바로<br />시작하기 →
+                    </span>
                   </div>
                 </div>
               </a>
@@ -899,7 +962,7 @@ export default function Home() {
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {display.map((item, idx) => (
                     <div key={item.id}>
                       <FeedCard item={item} onTagClick={(tag) => handleTagClick(tag)} />

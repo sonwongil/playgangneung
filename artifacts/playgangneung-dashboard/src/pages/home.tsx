@@ -870,48 +870,22 @@ export default function Home() {
             {!isFiltered && (
               <Link
                 href="/ad-submit"
-                className="block mb-5 rounded-2xl overflow-hidden bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950 p-4 hover:shadow-xl transition-shadow"
+                className="block mb-5 rounded-2xl overflow-hidden bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950 px-4 py-3 hover:shadow-xl transition-shadow"
               >
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3">
                   <div className="flex-1 min-w-0">
-                    <p className="text-[11px] font-semibold text-slate-400 mb-0.5 uppercase tracking-wide">지역 소상공인을 위한</p>
-                    <p className="text-lg font-extrabold text-white mb-1 leading-tight">공동광고 지원센터</p>
-                    <p className="text-xs text-slate-300 mb-3 leading-relaxed">
-                      {bannerConfig?.subtitle ?? "하루 15,000원으로 강릉에 노출하세요!"}&nbsp;
-                      현재 <span className="text-orange-400 font-bold">{bannerConfig?.stat1Value ?? "120건+"}</span> 광고가 PLAY강릉으로 고객을 만납니다.
+                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">지역 소상공인을 위한</p>
+                    <p className="text-base font-extrabold text-white leading-tight truncate">공동광고 지원센터</p>
+                    <p className="text-xs text-slate-300 mt-0.5 truncate">
+                      {(() => {
+                        const sub = bannerConfig?.subtitle ?? "하루 15,000원으로 강릉에 노출하세요!";
+                        return sub.length > 22 ? sub.slice(0, 22) + "…" : sub;
+                      })()}
                     </p>
-                    <div className="flex gap-2 flex-wrap">
-                      <div className="flex items-center gap-2 bg-slate-700/70 rounded-xl px-3 py-2">
-                        <Megaphone className="w-3.5 h-3.5 text-orange-400 shrink-0" />
-                        <div className="leading-none">
-                          <p className="text-white font-bold text-xs">{bannerConfig?.stat1Value ?? "120건+"}</p>
-                          <p className="text-slate-400 text-[9px] mt-0.5">{bannerConfig?.stat1Label ?? "광고 신청"}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 bg-slate-700/70 rounded-xl px-3 py-2">
-                        <Users className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                        <div className="leading-none">
-                          <p className="text-white font-bold text-xs">{bannerConfig?.stat2Value ?? "55만명+"}</p>
-                          <p className="text-slate-400 text-[9px] mt-0.5">{bannerConfig?.stat2Label ?? "SNS 평균 팔로워"}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 bg-slate-700/70 rounded-xl px-3 py-2">
-                        <TrendingUp className="w-3.5 h-3.5 text-green-400 shrink-0" />
-                        <div className="leading-none">
-                          <p className="text-white font-bold text-xs">{bannerConfig?.stat3Value ?? "10만명+"}</p>
-                          <p className="text-slate-400 text-[9px] mt-0.5">{bannerConfig?.stat3Label ?? "월 방문자"}</p>
-                        </div>
-                      </div>
-                    </div>
                   </div>
-                  <div className="shrink-0 flex flex-col items-center gap-2">
-                    <div className="w-12 h-12 rounded-full bg-orange-500/20 flex items-center justify-center">
-                      <Megaphone className="w-6 h-6 text-orange-400" />
-                    </div>
-                    <span className="bg-orange-500 hover:bg-orange-600 transition-colors text-white font-bold text-[11px] rounded-xl px-3 py-2 shadow-lg text-center leading-tight whitespace-nowrap">
-                      지금 바로<br />시작하기 →
-                    </span>
-                  </div>
+                  <span className="shrink-0 bg-orange-500 hover:bg-orange-600 transition-colors text-white font-bold text-[11px] rounded-xl px-3 py-2 shadow-lg text-center leading-tight whitespace-nowrap">
+                    지금 바로<br />시작하기 →
+                  </span>
                 </div>
               </Link>
             )}

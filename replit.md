@@ -84,6 +84,14 @@ artifacts/
 - Vite `dedupe: ["react", "react-dom"]` 설정으로 중복 React 방지
 - 강원도청/강원신문/강원도민일보 등 강원도 전역 소스는 명시적으로 제외됨
 
+## Meta Ads API 연동
+
+- `META_PAGE_ID` = 61589314617028 (PLAY강릉 페이스북 페이지)
+- `META_AD_ACCOUNT_ID` = 1660013435208674
+- `META_ACCESS_TOKEN` — Replit Secrets에 저장됨 (만료 시 Meta Business Suite → 시스템 사용자에서 재발급)
+- 연동 코드: `artifacts/api-server/src/lib/metaApi.ts`, 집행: `POST /api/ad-pools/:id/push-to-meta`
+- 토큰 유효성 확인: `curl "https://graph.facebook.com/v19.0/me?access_token=$META_ACCESS_TOKEN"`
+
 ## User preferences
 
 - 강릉 전용 소스만 사용 (강원도 전역 소스 제거 요청)

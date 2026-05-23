@@ -5,8 +5,8 @@ import crypto from "crypto";
 import { crawlAll } from "./crawler.js";
 import { appendEvents } from "./storage.js";
 import { logger } from "./logger.js";
-import { db, adPoolsTable, adPerformancesTable, adsTable, adAlertsTable } from "@workspace/db";
-import { sql, and, inArray, isNotNull, lte } from "drizzle-orm";
+import { db, adPoolsTable, adPerformancesTable, adsTable, adAlertsTable, eventsTable } from "@workspace/db";
+import { sql, and, inArray, isNotNull, ne, lt } from "drizzle-orm";
 import { getCampaignInsights, getAdInsights, isConfigured } from "./metaApi.js";
 
 const CONFIG_FILE = path.resolve(process.cwd(), "data/config.json");
@@ -164,9 +164,34 @@ async function autoExpirePools() {
   }
 }
 
+// ─── 미승인 크롤 콘텐츠 자동 삭제 (매일 새벽 03:00 KST) ─────────────────────────
+const PURGE_DAYS = 10;
+
+async function purgeOldUnapprovedEvents() {
+  try {
+    const cutoff = new Date(Date.now() - PURGE_DAYS * 24 * 60 * 60 * 1000).toISOString();
+    const result = await db
+      .delete(eventsTable)
+      .where(
+        and(
+          ne(eventsTable.status, "approved"),
+          ne(eventsTable.sourceType, "manual"),
+          lt(eventsTable.crawledAt, cutoff),
+        ),
+      );
+    const count = result.rowCount ?? 0;
+    if (count > 0) {
+      logger.info({ count, cutoff }, `미승인 크롤 콘텐츠 ${count}건 자동 삭제 완료 (${PURGE_DAYS}일 경과)`);
+    }
+  } catch (err) {
+    logger.error({ err }, "미승인 크롤 콘텐츠 자동 삭제 오류");
+  }
+}
+
 let currentTask: cron.ScheduledTask | null = null;
 let performanceTask: cron.ScheduledTask | null = null;
 let expireTask: cron.ScheduledTask | null = null;
+let purgeTask: cron.ScheduledTask | null = null;
 
 function applySchedule(hour: number, minute: number) {
   if (currentTask) { currentTask.stop(); currentTask = null; }
@@ -188,6 +213,12 @@ export async function startScheduler() {
   logger.info("만료 풀 자동 전환 스케줄 등록 완료 (매일 00:00 KST)");
   // 서버 시작 시 즉시 1회 실행 (누락 만료 처리)
   void autoExpirePools();
+  // 매일 새벽 03:00 KST 미승인 크롤 콘텐츠 자동 삭제
+  if (purgeTask) { purgeTask.stop(); }
+  purgeTask = cron.schedule("0 3 * * *", purgeOldUnapprovedEvents, { timezone: "Asia/Seoul" });
+  logger.info(`미승인 크롤 콘텐츠 자동 삭제 스케줄 등록 완료 (매일 03:00 KST, ${PURGE_DAYS}일 경과 시 삭제)`);
+  // 서버 시작 시 즉시 1회 실행 (누락 항목 정리)
+  void purgeOldUnapprovedEvents();
 }
 
 export async function reschedule(hour: number, minute: number) {

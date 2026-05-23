@@ -633,7 +633,7 @@ export default function Home() {
       {/* ─── 상단 고정 영역 ─── */}
       <div className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
         {/* Header */}
-        <header className="max-w-6xl mx-auto px-3 flex items-center gap-2" style={{ height: 56 }}>
+        <header className="px-3 flex items-center gap-2" style={{ height: 56 }}>
           <Link href="/" className="flex-shrink-0">
             <img src={`${BASE}/logo2.png`} alt="PLAY강릉" style={{ height: 44, width: "auto" }} />
           </Link>

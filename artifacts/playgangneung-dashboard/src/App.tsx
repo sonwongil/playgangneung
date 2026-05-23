@@ -19,6 +19,7 @@ import Checkout from "@/pages/checkout";
 import CheckoutSuccess from "@/pages/checkout-success";
 import CheckoutFail from "@/pages/checkout-fail";
 import Privacy from "@/pages/privacy";
+import DataDeletion from "@/pages/data-deletion";
 
 const queryClient = new QueryClient();
 
@@ -226,6 +227,7 @@ function Router() {
       <Route path="/checkout/fail" component={CheckoutFail} />
       <Route path="/checkout" component={Checkout} />
       <Route path="/privacy" component={Privacy} />
+      <Route path="/data-deletion" component={DataDeletion} />
       <Route component={NotFound} />
     </Switch>
   );

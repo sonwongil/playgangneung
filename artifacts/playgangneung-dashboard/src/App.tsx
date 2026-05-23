@@ -252,6 +252,8 @@ function ClerkProviderWithRoutes() {
             ...koKR.signUp?.start,
             title: "PLAY강릉 회원가입",
             subtitle: "강릉의 소식을 가장 빠르게 만나보세요",
+            actionText: "계정이 없으신가요?",
+            actionLink: "회원가입",
           },
         },
       }}

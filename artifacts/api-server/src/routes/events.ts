@@ -267,6 +267,7 @@ router.post("/events/manual", async (req, res) => {
       sourceType: "manual",
       status: "approved",
       socialDraft: null,
+      hashtags: null,
       crawledAt: new Date().toISOString(),
     };
 

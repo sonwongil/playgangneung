@@ -210,6 +210,7 @@ function buildEvent(
     sourceType,
     status: "draft" as const,
     socialDraft: null,
+    hashtags: null,
     crawledAt: new Date().toISOString(),
   };
 }

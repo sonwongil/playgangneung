@@ -31,6 +31,7 @@ export interface CrawledEvent {
   sourceType: SourceType;
   status: EventStatus;
   socialDraft: SocialDraft | null;
+  hashtags: string[] | null;
   crawledAt: string;
 }
 
@@ -54,6 +55,7 @@ function rowToEvent(row: typeof eventsTable.$inferSelect): CrawledEvent {
     sourceType: row.sourceType as SourceType,
     status: row.status as EventStatus,
     socialDraft: (row.socialDraft as SocialDraft) ?? null,
+    hashtags: (row.hashtags as string[] | null) ?? null,
     crawledAt: row.crawledAt,
   };
 }
@@ -86,6 +88,7 @@ export async function saveEvents(events: CrawledEvent[]): Promise<void> {
         sourceType: e.sourceType,
         status: e.status,
         socialDraft: e.socialDraft as any,
+        hashtags: e.hashtags as any,
         crawledAt: e.crawledAt,
       })),
     )
@@ -108,6 +111,7 @@ export async function saveEvents(events: CrawledEvent[]): Promise<void> {
         sourceType: sql`excluded.source_type`,
         status: sql`excluded.status`,
         socialDraft: sql`excluded.social_draft`,
+        hashtags: sql`excluded.hashtags`,
         crawledAt: sql`excluded.crawled_at`,
       },
     });

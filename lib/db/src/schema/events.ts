@@ -21,6 +21,7 @@ export const eventsTable = pgTable(
     sourceType: text("source_type").notNull().default("html"),
     status: text("status").notNull().default("draft"),
     socialDraft: jsonb("social_draft"),
+    hashtags: jsonb("hashtags").$type<string[]>(),
     crawledAt: text("crawled_at").notNull().default(""),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },

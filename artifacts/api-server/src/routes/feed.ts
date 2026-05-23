@@ -32,6 +32,7 @@ export interface FeedItem {
   phone?: string;
   email?: string;
   extraImages?: string[];
+  hashtags?: string[];
 }
 
 const CATEGORY_THUMBNAILS: Record<string, string> = {
@@ -165,6 +166,7 @@ function eventToFeedItem(ev: CrawledEvent): FeedItem {
     videoUrl: ev.videoUrl ?? null,
     location: ev.location || "강릉",
     isAd: false,
+    hashtags: ev.hashtags ?? [],
   };
 }
 

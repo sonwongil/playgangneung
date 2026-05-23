@@ -388,13 +388,9 @@ function VideoCard({ item }: { item: VideoItem }) {
   );
 }
 
-const TAG_EMOJI: Record<string, string> = {
-  "전체": "🏠", "오늘의행사": "📅", "행사": "🎪", "맛집": "🍜", "정보": "📢", "스토리": "📖", "영상": "🎬",
-};
 
 function HashtagPill({ tag, active, onClick }: { tag: string; active: boolean; onClick: () => void }) {
-  const isPredefined = PREDEFINED_TAGS.includes(tag as PredefinedTag);
-  const label = isPredefined ? `${TAG_EMOJI[tag] ?? "#"}${tag}` : (tag.startsWith("#") ? tag : `#${tag}`);
+  const label = tag.startsWith("#") ? tag : `#${tag}`;
   return (
     <button
       onClick={onClick}

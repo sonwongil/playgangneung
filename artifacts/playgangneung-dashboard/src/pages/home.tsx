@@ -659,11 +659,11 @@ export default function Home() {
             )}
           </div>
 
-          {/* 로그인/회원가입 또는 로그아웃 */}
+          {/* 로그인/회원가입 또는 로그아웃 — 모바일 숨김(햄버거 메뉴에 있음), sm 이상 표시 */}
           {isSignedIn ? (
             <button
               onClick={async () => { await signOut(); setLocation("/"); }}
-              className="flex-shrink-0 flex items-center gap-1 px-3 h-8 rounded-full border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
+              className="hidden sm:flex flex-shrink-0 items-center gap-1 px-3 h-8 rounded-full border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
             >
               <LogOut className="w-3.5 h-3.5" />로그아웃
             </button>
@@ -671,13 +671,13 @@ export default function Home() {
             <>
               <Link
                 href="/sign-in"
-                className="flex-shrink-0 flex items-center gap-1 px-3 h-8 rounded-full border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
+                className="hidden sm:flex flex-shrink-0 items-center gap-1 px-3 h-8 rounded-full border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
               >
                 <LogIn className="w-3.5 h-3.5" />로그인
               </Link>
               <Link
                 href="/sign-up"
-                className="flex-shrink-0 flex items-center gap-1 px-3 h-8 rounded-full bg-orange-500 text-xs font-semibold text-white hover:bg-orange-600 transition-colors"
+                className="hidden sm:flex flex-shrink-0 items-center gap-1 px-3 h-8 rounded-full bg-orange-500 text-xs font-semibold text-white hover:bg-orange-600 transition-colors"
               >
                 회원가입
               </Link>

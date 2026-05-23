@@ -650,7 +650,7 @@ export default function Home() {
             className="shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-semibold bg-orange-500 text-white hover:bg-orange-600 transition-colors"
           >
             <Megaphone className="w-3.5 h-3.5" />
-            공동광고 신청
+            공동광고 지원센터
           </a>
         </div>
       </div>

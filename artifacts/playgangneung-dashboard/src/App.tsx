@@ -95,10 +95,7 @@ const clerkAppearance = {
 function SignInPage() {
   return (
     <div className="flex min-h-[100dvh] items-center justify-center bg-gray-50 px-4 py-8">
-      <div className="flex flex-col lg:flex-row items-start justify-center gap-8 w-full max-w-4xl">
-        <SignIn routing="path" path={`${BASE}/sign-in`} signUpUrl={`${BASE}/sign-up`} />
-        <SignUp routing="virtual" signInUrl={`${BASE}/sign-in`} />
-      </div>
+      <SignIn routing="path" path={`${BASE}/sign-in`} signUpUrl={`${BASE}/sign-up`} />
     </div>
   );
 }

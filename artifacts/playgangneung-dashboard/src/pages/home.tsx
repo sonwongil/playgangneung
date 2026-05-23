@@ -634,9 +634,9 @@ export default function Home() {
       <div className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
         {/* Header */}
         <header className="max-w-6xl mx-auto px-3 flex items-center gap-2 w-full" style={{ height: 56 }}>
-          <Link href="/" className="flex-shrink-0">
+          <button className="flex-shrink-0" onClick={() => handleTagClick("전체")}>
             <img src={`${BASE}/logo2.png`} alt="PLAY강릉" style={{ height: 44, width: "auto" }} />
-          </Link>
+          </button>
 
           {/* 검색창 */}
           <div className="flex-1 relative">
@@ -683,16 +683,13 @@ export default function Home() {
             </button>
             {menuOpen && (
               <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden">
-                <a
-                  href="https://playgangneung.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100"
-                  onClick={() => setMenuOpen(false)}
+                <button
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100"
+                  onClick={() => { setMenuOpen(false); handleTagClick("전체"); }}
                 >
                   <HomeIcon className="w-4 h-4 shrink-0 text-blue-600" />
-                  홈페이지 바로가기
-                </a>
+                  홈으로
+                </button>
                 <button
                   onClick={async () => {
                     setMenuOpen(false);

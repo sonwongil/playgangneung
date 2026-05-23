@@ -748,7 +748,7 @@ export default function Home() {
           {/* 우측 고정 공동광고 버튼 */}
           <Link
             href="/ad-submit"
-            className="shrink-0 flex items-center gap-2 px-3 py-1.5 bg-orange-500 hover:bg-orange-600 transition-colors border-l border-orange-400"
+            className="hidden sm:flex shrink-0 items-center gap-2 px-3 py-1.5 bg-orange-500 hover:bg-orange-600 transition-colors border-l border-orange-400"
           >
             <Megaphone className="w-3.5 h-3.5 text-white shrink-0" />
             {/* 모바일: 텍스트 숨김, sm 이상: 표시 */}

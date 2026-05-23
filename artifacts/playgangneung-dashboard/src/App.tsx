@@ -84,6 +84,8 @@ const clerkAppearance = {
     otpCodeFieldInput: "border-gray-200",
     formFieldRow: "",
     main: "",
+    "formFieldInput__password": "[&::placeholder]:opacity-0",
+    "formFieldInput__confirmPassword": "[&::placeholder]:opacity-0",
   },
 };
 
@@ -252,8 +254,6 @@ function ClerkProviderWithRoutes() {
             subtitle: "강릉의 소식을 가장 빠르게 만나보세요",
           },
         },
-        formFieldInputPlaceholder__password: "비밀번호를 만드세요",
-        formFieldInputPlaceholder__confirmPassword: "비밀번호를 다시 입력하세요",
       }}
       routerPush={(to) => setLocation(stripBase(to))}
       routerReplace={(to) => setLocation(stripBase(to), { replace: true })}

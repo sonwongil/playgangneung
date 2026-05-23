@@ -204,9 +204,6 @@ function renderHtml(item: ContentItem, contentUrl: string, ogImageOverride?: str
 
   // 자세히보기: 원문 링크 (없으면 콘텐츠 URL)
   const detailHref = (hasLink && item.link) ? item.link : contentUrl;
-  // 팔로우: SNS 계정 (JS로 referrer 감지 → Facebook or Instagram)
-  const FB_URL = "https://www.facebook.com/profile.php?id=61589314617028";
-  const IG_URL = "https://www.instagram.com/playgangneung/";
 
   const actionButtons: string[] = [];
   if (hasMap) actionButtons.push(`<a href="https://map.kakao.com/link/search/${encodeURIComponent(item.location!)}" class="btn btn-secondary">🗺️ 지도 보기</a>`);
@@ -405,27 +402,12 @@ a{text-decoration:none;color:inherit}
   </div>
 </div>
 
-<!-- Bottom action bar: 자세히보기 + 팔로우 버튼 이미지 링크 -->
+<!-- Bottom action bar: 자세히보기 버튼만 -->
 <div class="bottom-bar">
   <a href="${escHtml(detailHref)}" target="_blank" rel="noopener noreferrer" class="btn-img-wrap">
     <img src="/btn-jabochigi.png" alt="자세히보기" class="btn-img">
   </a>
-  <a id="follow-link" href="${escHtml(IG_URL)}" target="_blank" rel="noopener noreferrer" class="btn-img-wrap">
-    <img src="/btn-follow.png" alt="팔로우" class="btn-img">
-  </a>
 </div>
-<script>
-(function(){
-  var ref = document.referrer || '';
-  var link = document.getElementById('follow-link');
-  if (!link) return;
-  if (ref.includes('facebook.com') || ref.includes('fb.com') || ref.includes('fb.me')) {
-    link.href = '${FB_URL}';
-  } else {
-    link.href = '${IG_URL}';
-  }
-})();
-</script>
 
 </body>
 </html>`;

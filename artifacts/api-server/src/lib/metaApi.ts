@@ -108,6 +108,7 @@ export async function createCampaign(opts: CreateCampaignOptions) {
     objective: OBJECTIVE_MAP[opts.objective] ?? "OUTCOME_AWARENESS",
     status: opts.status ?? "PAUSED",
     special_ad_categories: [],
+    is_adset_budget_sharing_enabled: false,
   });
 }
 
@@ -132,6 +133,7 @@ export async function createAdSet(opts: CreateAdSetOptions) {
     end_time: opts.endTime,
     billing_event: "IMPRESSIONS",
     optimization_goal: "REACH",
+    bid_strategy: "LOWEST_COST_WITHOUT_CAP",
     targeting: opts.targeting ?? {
       geo_locations: { countries: ["KR"], cities: [{ key: "635526", radius: 50, distance_unit: "kilometer" }] },
       age_min: 18, age_max: 65,

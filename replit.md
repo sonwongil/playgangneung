@@ -86,9 +86,15 @@ artifacts/
 
 ## Meta Ads API 연동
 
-- `META_PAGE_ID` = 61589314617028 (PLAY강릉 페이스북 페이지)
-- `META_AD_ACCOUNT_ID` = 1660013435208674
-- `META_ACCESS_TOKEN` — Replit Secrets에 저장됨 (만료 시 Meta Business Suite → 시스템 사용자에서 재발급)
+아래 4개 환경변수 **모두 Replit Secrets에 이미 저장됨** — 절대 다시 묻지 말 것.
+
+| 변수명 | 값/설명 |
+|--------|---------|
+| `META_PAGE_ID` | 1135888279600983 (Play강릉 페이스북 페이지) |
+| `META_AD_ACCOUNT_ID` | 1660013435208674 |
+| `META_ACCESS_TOKEN` | 저장됨 — 만료 시 Meta Business Suite → 시스템 사용자에서 재발급 |
+| `META_APP_SECRET` | 저장됨 — 웹훅 서명 검증용, 현재 코드에서 미사용 |
+
 - 연동 코드: `artifacts/api-server/src/lib/metaApi.ts`, 집행: `POST /api/ad-pools/:id/push-to-meta`
 - 토큰 유효성 확인: `curl "https://graph.facebook.com/v19.0/me?access_token=$META_ACCESS_TOKEN"`
 

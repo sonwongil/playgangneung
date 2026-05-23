@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from "@tan
 import { ClerkProvider, SignIn, SignUp, Show, useClerk } from "@clerk/react";
 import { publishableKeyFromHost } from "@clerk/react/internal";
 import { shadcn } from "@clerk/themes";
+import { koKR } from "@clerk/localizations";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
@@ -234,14 +235,19 @@ function ClerkProviderWithRoutes() {
       signInUrl={`${BASE}/sign-in`}
       signUpUrl={`${BASE}/sign-up`}
       localization={{
+        ...koKR,
         signIn: {
+          ...koKR.signIn,
           start: {
+            ...koKR.signIn?.start,
             title: "PLAY강릉 로그인",
             subtitle: "계정에 로그인하세요",
           },
         },
         signUp: {
+          ...koKR.signUp,
           start: {
+            ...koKR.signUp?.start,
             title: "PLAY강릉 회원가입",
             subtitle: "강릉의 소식을 가장 빠르게 만나보세요",
           },

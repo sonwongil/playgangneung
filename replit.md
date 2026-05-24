@@ -101,6 +101,7 @@ artifacts/
 ## User preferences
 
 - 강릉 전용 소스만 사용 (강원도 전역 소스 제거 요청)
+- **개발 및 수정 시 검증된 외부 라이브러리(GitHub 공인, 스타 수 높음)를 우선 도입한다. 직접 구현 코드로 대체하지 말 것.**
 
 ## Version History
 

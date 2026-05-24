@@ -583,6 +583,8 @@ export default function Home() {
   const premiumAds = premiumAdsData?.ads ?? [];
   const [premiumIdx, setPremiumIdx] = useState(0);
   const premiumIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const premiumScrollRef = useRef<HTMLDivElement>(null);
+  const premiumDrag = useRef({ active: false, startX: 0, scrollLeft: 0, moved: false });
   const goToPremium = useCallback((idx: number) => {
     setPremiumIdx((prev) => {
       const len = premiumAds.length;
@@ -850,8 +852,26 @@ export default function Home() {
                   </button>
                 </div>
                 <div
-                  className="flex gap-3 overflow-x-auto pb-1 -mx-3 px-3"
+                  ref={premiumScrollRef}
+                  className="flex gap-3 overflow-x-auto pb-1 -mx-3 px-3 cursor-grab active:cursor-grabbing select-none"
                   style={{ scrollbarWidth: "none", WebkitOverflowScrolling: "touch" } as React.CSSProperties}
+                  onPointerDown={(e) => {
+                    const el = premiumScrollRef.current;
+                    if (!el) return;
+                    el.setPointerCapture(e.pointerId);
+                    premiumDrag.current = { active: true, startX: e.clientX, scrollLeft: el.scrollLeft, moved: false };
+                  }}
+                  onPointerMove={(e) => {
+                    const d = premiumDrag.current;
+                    if (!d.active) return;
+                    const dx = e.clientX - d.startX;
+                    if (!d.moved && Math.abs(dx) > 5) d.moved = true;
+                    if (d.moved && premiumScrollRef.current)
+                      premiumScrollRef.current.scrollLeft = d.scrollLeft - dx;
+                  }}
+                  onPointerUp={() => { premiumDrag.current.active = false; }}
+                  onPointerCancel={() => { premiumDrag.current.active = false; }}
+                  onClick={(e) => { if (premiumDrag.current.moved) e.stopPropagation(); }}
                 >
                   {premiumSectionItems.map((item) => {
                     const isAd = "businessName" in item;

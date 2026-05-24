@@ -24,6 +24,10 @@ args = "typecheck"
 task = "workflow.run"
 args = "api-check"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "🚀 배포"
+
 [[workflows.workflow]]
 name = "typecheck"
 author = "agent"
@@ -45,6 +49,17 @@ args = "bash scripts/validate.sh"
 
 [workflows.workflow.metadata]
 isValidation = true
+
+[[workflows.workflow]]
+name = "🚀 배포"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "bash scripts/deploy.sh"
+
+[workflows.workflow.metadata]
+outputType = "console"
 
 [agent]
 stack = "PNPM_WORKSPACE"

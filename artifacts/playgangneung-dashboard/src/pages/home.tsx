@@ -1,5 +1,4 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
-import useEmblaCarousel from "embla-carousel-react";
 import { Link, useLocation } from "wouter";
 import { useClerk, useUser } from "@clerk/react";
 import { useQuery } from "@tanstack/react-query";
@@ -584,7 +583,6 @@ export default function Home() {
   const premiumAds = premiumAdsData?.ads ?? [];
   const [premiumIdx, setPremiumIdx] = useState(0);
   const premiumIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const [emblaRef] = useEmblaCarousel({ dragFree: true, containScroll: "trimSnaps" });
   const goToPremium = useCallback((idx: number) => {
     setPremiumIdx((prev) => {
       const len = premiumAds.length;
@@ -851,8 +849,10 @@ export default function Home() {
                     전체보기 <ChevronRight className="w-3.5 h-3.5" />
                   </button>
                 </div>
-                <div className="overflow-hidden -mx-3" ref={emblaRef}>
-                <div className="flex gap-3 px-3 pb-1">
+                <div
+                  className="flex gap-3 overflow-x-auto pb-1 -mx-3 px-3"
+                  style={{ scrollbarWidth: "none", WebkitOverflowScrolling: "touch" } as React.CSSProperties}
+                >
                   {premiumSectionItems.map((item) => {
                     const isAd = "businessName" in item;
                     const thumb = isAd
@@ -903,7 +903,6 @@ export default function Home() {
                       </div>
                     );
                   })}
-                </div>
                 </div>
               </section>
             )}

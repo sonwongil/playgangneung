@@ -515,6 +515,9 @@ importers:
       '@tosspayments/payment-widget-sdk':
         specifier: ^0.12.1
         version: 0.12.1(typescript@5.9.3)
+      embla-carousel-react:
+        specifier: ^8.6.0
+        version: 8.6.0(react@19.1.0)
       react-dropzone:
         specifier: ^15.0.0
         version: 15.0.0(react@19.1.0)
@@ -648,9 +651,6 @@ importers:
       date-fns:
         specifier: ^3.6.0
         version: 3.6.0
-      embla-carousel-react:
-        specifier: ^8.6.0
-        version: 8.6.0(react@19.1.0)
       framer-motion:
         specifier: 'catalog:'
         version: 12.35.1(react-dom@19.1.0(react@19.1.0))(react@19.1.0)

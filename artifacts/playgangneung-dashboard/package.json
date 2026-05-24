@@ -53,7 +53,6 @@
     "clsx": "catalog:",
     "cmdk": "^1.1.1",
     "date-fns": "^3.6.0",
-    "embla-carousel-react": "^8.6.0",
     "framer-motion": "catalog:",
     "input-otp": "^1.4.2",
     "lucide-react": "catalog:",
@@ -86,6 +85,7 @@
     "@tiptap/react": "^3.23.2",
     "@tiptap/starter-kit": "^3.23.2",
     "@tosspayments/payment-widget-sdk": "^0.12.1",
+    "embla-carousel-react": "^8.6.0",
     "react-dropzone": "^15.0.0"
   }
 }

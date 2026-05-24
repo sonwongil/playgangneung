@@ -16,7 +16,7 @@ function makeId(ns: string, val: string): string {
   return crypto.createHash("md5").update(`${ns}:${val}`).digest("hex");
 }
 
-async function fetchHtml(url: string, timeoutMs = 15000, referer?: string): Promise<string> {
+async function fetchHtml(url: string, timeoutMs = 8000, referer?: string): Promise<string> {
   const resp = await axios.get(url, {
     headers: {
       "User-Agent": USER_AGENT,
@@ -986,19 +986,31 @@ export async function crawlAll(): Promise<CrawlResult[]> {
     return [];
   }
 
-  const results: CrawlResult[] = [];
+  logger.info({ count: enabled.length }, "전체 크롤링 병렬 시작");
 
-  for (const source of enabled) {
-    logger.info({ url: source.url }, `[HTML] 크롤링 시작: ${source.name}`);
-    const result = await dispatchCrawl(source.url, source.name);
-    logger.info({ count: result.events.length, error: result.error }, `[HTML] 완료: ${source.name}`);
-    results.push({
-      source: source.name,
-      url: source.url,
-      sourceType: "html",
-      ...result,
-    });
-  }
+  const settled = await Promise.allSettled(
+    enabled.map(async (source) => {
+      logger.info({ url: source.url }, `[HTML] 크롤링 시작: ${source.name}`);
+      const result = await dispatchCrawl(source.url, source.name);
+      logger.info({ count: result.events.length, error: result.error }, `[HTML] 완료: ${source.name}`);
+      return {
+        source: source.name,
+        url: source.url,
+        sourceType: "html" as const,
+        ...result,
+      };
+    })
+  );
 
-  return results;
+  return settled.map((s, i) =>
+    s.status === "fulfilled"
+      ? s.value
+      : {
+          source: enabled[i].name,
+          url: enabled[i].url,
+          sourceType: "html" as const,
+          events: [],
+          error: s.reason instanceof Error ? s.reason.message : String(s.reason),
+        }
+  );
 }

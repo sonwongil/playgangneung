@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import ScrollContainer from "react-indiana-drag-scroll";
 import { Link, useLocation } from "wouter";
 import { useClerk, useUser } from "@clerk/react";
 import { useQuery } from "@tanstack/react-query";
@@ -583,43 +584,6 @@ export default function Home() {
   const premiumAds = premiumAdsData?.ads ?? [];
   const [premiumIdx, setPremiumIdx] = useState(0);
   const premiumIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const premiumScrollRef = useRef<HTMLDivElement>(null);
-  const premiumDragRef = useRef({ active: false, startX: 0, scrollLeft: 0, moved: false });
-
-  useEffect(() => {
-    const el = premiumScrollRef.current;
-    if (!el) return;
-    const onWheel = (e: WheelEvent) => {
-      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
-      e.preventDefault();
-      el.scrollLeft += e.deltaY;
-    };
-    el.addEventListener("wheel", onWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onWheel);
-  }, []);
-
-  useEffect(() => {
-    const onMouseMove = (e: MouseEvent) => {
-      const d = premiumDragRef.current;
-      if (!d.active) return;
-      const el = premiumScrollRef.current;
-      if (!el) return;
-      const dx = e.pageX - d.startX;
-      if (!d.moved && Math.abs(dx) > 4) d.moved = true;
-      if (d.moved) el.scrollLeft = d.scrollLeft - dx;
-    };
-    const onMouseUp = () => {
-      premiumDragRef.current.active = false;
-      if (premiumScrollRef.current) premiumScrollRef.current.style.cursor = "grab";
-    };
-    window.addEventListener("mousemove", onMouseMove);
-    window.addEventListener("mouseup", onMouseUp);
-    return () => {
-      window.removeEventListener("mousemove", onMouseMove);
-      window.removeEventListener("mouseup", onMouseUp);
-    };
-  }, []);
-
   const goToPremium = useCallback((idx: number) => {
     setPremiumIdx((prev) => {
       const len = premiumAds.length;
@@ -886,19 +850,10 @@ export default function Home() {
                     전체보기 <ChevronRight className="w-3.5 h-3.5" />
                   </button>
                 </div>
-                <div
-                  ref={premiumScrollRef}
-                  className="flex gap-3 overflow-x-auto pb-1 -mx-3 px-3 cursor-grab active:cursor-grabbing"
-                  style={{ scrollbarWidth: "none" }}
-                  onMouseDown={(e) => {
-                    const el = premiumScrollRef.current;
-                    if (!el) return;
-                    premiumDragRef.current = { active: true, startX: e.pageX, scrollLeft: el.scrollLeft, moved: false };
-                    el.style.cursor = "grabbing";
-                  }}
-                  onClick={(e) => {
-                    if (premiumDragRef.current.moved) e.stopPropagation();
-                  }}
+                <ScrollContainer
+                  className="flex gap-3 pb-1 -mx-3 px-3"
+                  style={{ scrollbarWidth: "none" } as React.CSSProperties}
+                  hideScrollbars
                 >
                   {premiumSectionItems.map((item) => {
                     const isAd = "businessName" in item;
@@ -950,7 +905,7 @@ export default function Home() {
                       </div>
                     );
                   })}
-                </div>
+                </ScrollContainer>
               </section>
             )}
 

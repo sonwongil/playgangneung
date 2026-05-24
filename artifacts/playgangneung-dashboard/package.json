@@ -86,7 +86,6 @@
     "@tiptap/react": "^3.23.2",
     "@tiptap/starter-kit": "^3.23.2",
     "@tosspayments/payment-widget-sdk": "^0.12.1",
-    "react-dropzone": "^15.0.0",
-    "react-indiana-drag-scroll": "^2.2.1"
+    "react-dropzone": "^15.0.0"
   }
 }

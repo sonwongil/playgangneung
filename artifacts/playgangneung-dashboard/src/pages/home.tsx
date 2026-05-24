@@ -557,20 +557,6 @@ export default function Home() {
   const premiumAds = premiumAdsData?.ads ?? [];
   const [premiumIdx, setPremiumIdx] = useState(0);
   const premiumIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const premiumScrollRef = useRef<HTMLDivElement>(null);
-  const premiumDragRef = useRef({ isDragging: false, startX: 0, scrollLeft: 0 });
-
-  useEffect(() => {
-    const el = premiumScrollRef.current;
-    if (!el) return;
-    const onWheel = (e: WheelEvent) => {
-      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
-      e.preventDefault();
-      el.scrollLeft += e.deltaY;
-    };
-    el.addEventListener("wheel", onWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onWheel);
-  }, []);
 
   const goToPremium = useCallback((idx: number) => {
     setPremiumIdx((prev) => {
@@ -745,8 +731,8 @@ export default function Home() {
           </div>
         </header>
 
-        {/* 해시태그 바 + 우측 오렌지 버튼 */}
-        <div className="border-t border-gray-100 flex items-stretch">
+        {/* 해시태그 바 - 가로 스크롤 + 우측 고정 광고 버튼 */}
+        <div className="flex items-stretch border-t border-gray-100">
           <div
             ref={hashtagBarRef}
             className="flex items-center gap-0.5 px-3 py-2 overflow-x-auto flex-1 min-w-0"
@@ -765,6 +751,7 @@ export default function Home() {
             className="hidden sm:flex shrink-0 items-center gap-2 px-3 py-1.5 bg-orange-500 hover:bg-orange-600 transition-colors border-l border-orange-400"
           >
             <Megaphone className="w-3.5 h-3.5 text-white shrink-0" />
+            {/* 모바일: 텍스트 숨김, sm 이상: 표시 */}
             <div className="hidden sm:block leading-none">
               <p className="text-[11px] font-extrabold text-white whitespace-nowrap">공동광고 지원센터</p>
               <p className="text-[9px] text-orange-100 mt-0.5 whitespace-nowrap">하루 15,000원으로 강릉에 노출!</p>
@@ -823,31 +810,8 @@ export default function Home() {
                   </button>
                 </div>
                 <div
-                  ref={premiumScrollRef}
-                  className="flex gap-3 overflow-x-auto pb-1 -mx-3 px-3 cursor-grab active:cursor-grabbing select-none"
+                  className="flex gap-3 overflow-x-auto pb-1 -mx-3 px-3"
                   style={{ scrollbarWidth: "none" }}
-                  onMouseDown={(e) => {
-                    const el = premiumScrollRef.current;
-                    if (!el) return;
-                    premiumDragRef.current = { isDragging: true, startX: e.pageX - el.offsetLeft, scrollLeft: el.scrollLeft };
-                    el.style.cursor = "grabbing";
-                  }}
-                  onMouseMove={(e) => {
-                    const el = premiumScrollRef.current;
-                    if (!el || !premiumDragRef.current.isDragging) return;
-                    e.preventDefault();
-                    const x = e.pageX - el.offsetLeft;
-                    const walk = (x - premiumDragRef.current.startX) * 1.5;
-                    el.scrollLeft = premiumDragRef.current.scrollLeft - walk;
-                  }}
-                  onMouseUp={() => {
-                    premiumDragRef.current.isDragging = false;
-                    if (premiumScrollRef.current) premiumScrollRef.current.style.cursor = "grab";
-                  }}
-                  onMouseLeave={() => {
-                    premiumDragRef.current.isDragging = false;
-                    if (premiumScrollRef.current) premiumScrollRef.current.style.cursor = "grab";
-                  }}
                 >
                   {premiumSectionItems.map((item) => {
                     const isAd = "businessName" in item;

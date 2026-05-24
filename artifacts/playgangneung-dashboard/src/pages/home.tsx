@@ -650,10 +650,8 @@ export default function Home() {
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* ─── 상단 고정 영역 ─── */}
       <div className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
-        {/* ★ 공통 max-w 래퍼 — 이 안의 모든 행은 자동으로 중앙 정렬됨 */}
-        <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <header className="px-3 flex items-center gap-2 w-full" style={{ height: 56 }}>
+        <header className="max-w-6xl mx-auto px-3 flex items-center gap-2 w-full" style={{ height: 56 }}>
           <button className="flex-shrink-0" onClick={() => handleTagClick("전체")}>
             <img src={`${BASE}/logo2.png`} alt="PLAY강릉" style={{ height: 44, width: "auto" }} />
           </button>
@@ -774,7 +772,6 @@ export default function Home() {
             <ChevronRight className="w-3 h-3 text-white/80 shrink-0" />
           </Link>
         </div>
-        </div>{/* /max-w-6xl 공통 래퍼 */}
       </div>
 
       {/* ─── 메인 콘텐츠 ─── */}

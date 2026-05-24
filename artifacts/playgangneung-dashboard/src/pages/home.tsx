@@ -557,6 +557,20 @@ export default function Home() {
   const premiumAds = premiumAdsData?.ads ?? [];
   const [premiumIdx, setPremiumIdx] = useState(0);
   const premiumIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const premiumScrollRef = useRef<HTMLDivElement>(null);
+  const premiumDragRef = useRef({ isDragging: false, startX: 0, scrollLeft: 0 });
+
+  useEffect(() => {
+    const el = premiumScrollRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+      e.preventDefault();
+      el.scrollLeft += e.deltaY;
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, []);
 
   const goToPremium = useCallback((idx: number) => {
     setPremiumIdx((prev) => {
@@ -810,8 +824,31 @@ export default function Home() {
                   </button>
                 </div>
                 <div
-                  className="flex gap-3 overflow-x-auto pb-1 -mx-3 px-3"
+                  ref={premiumScrollRef}
+                  className="flex gap-3 overflow-x-auto pb-1 -mx-3 px-3 cursor-grab active:cursor-grabbing select-none"
                   style={{ scrollbarWidth: "none" }}
+                  onMouseDown={(e) => {
+                    const el = premiumScrollRef.current;
+                    if (!el) return;
+                    premiumDragRef.current = { isDragging: true, startX: e.pageX - el.offsetLeft, scrollLeft: el.scrollLeft };
+                    el.style.cursor = "grabbing";
+                  }}
+                  onMouseMove={(e) => {
+                    const el = premiumScrollRef.current;
+                    if (!el || !premiumDragRef.current.isDragging) return;
+                    e.preventDefault();
+                    const x = e.pageX - el.offsetLeft;
+                    const walk = (x - premiumDragRef.current.startX) * 1.5;
+                    el.scrollLeft = premiumDragRef.current.scrollLeft - walk;
+                  }}
+                  onMouseUp={() => {
+                    premiumDragRef.current.isDragging = false;
+                    if (premiumScrollRef.current) premiumScrollRef.current.style.cursor = "grab";
+                  }}
+                  onMouseLeave={() => {
+                    premiumDragRef.current.isDragging = false;
+                    if (premiumScrollRef.current) premiumScrollRef.current.style.cursor = "grab";
+                  }}
                 >
                   {premiumSectionItems.map((item) => {
                     const isAd = "businessName" in item;

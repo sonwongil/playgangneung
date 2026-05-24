@@ -598,6 +598,16 @@ export default function Home() {
     return () => el.removeEventListener("wheel", onWheel);
   }, []);
 
+  useEffect(() => {
+    const stopDrag = () => {
+      if (!premiumDragRef.current.isDragging) return;
+      premiumDragRef.current.isDragging = false;
+      if (premiumScrollRef.current) premiumScrollRef.current.style.cursor = "grab";
+    };
+    window.addEventListener("mouseup", stopDrag);
+    return () => window.removeEventListener("mouseup", stopDrag);
+  }, []);
+
   const goToPremium = useCallback((idx: number) => {
     setPremiumIdx((prev) => {
       const len = premiumAds.length;
@@ -869,6 +879,7 @@ export default function Home() {
                   className="flex gap-3 overflow-x-auto pb-1 -mx-3 px-3 cursor-grab active:cursor-grabbing select-none"
                   style={{ scrollbarWidth: "none" }}
                   onMouseDown={(e) => {
+                    e.preventDefault();
                     const el = premiumScrollRef.current;
                     if (!el) return;
                     premiumDragRef.current = { isDragging: true, startX: e.pageX - el.offsetLeft, scrollLeft: el.scrollLeft };
@@ -881,14 +892,6 @@ export default function Home() {
                     const x = e.pageX - el.offsetLeft;
                     const walk = (x - premiumDragRef.current.startX) * 1.5;
                     el.scrollLeft = premiumDragRef.current.scrollLeft - walk;
-                  }}
-                  onMouseUp={() => {
-                    premiumDragRef.current.isDragging = false;
-                    if (premiumScrollRef.current) premiumScrollRef.current.style.cursor = "grab";
-                  }}
-                  onMouseLeave={() => {
-                    premiumDragRef.current.isDragging = false;
-                    if (premiumScrollRef.current) premiumScrollRef.current.style.cursor = "grab";
                   }}
                 >
                   {premiumSectionItems.map((item) => {

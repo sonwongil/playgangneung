@@ -421,6 +421,32 @@ function fakeStats(id: string): { likes: string; comments: string; views: string
   };
 }
 
+function SkeletonCard() {
+  return (
+    <div className="rounded-2xl overflow-hidden bg-white shadow-sm">
+      <div className="w-full aspect-[4/3] skeleton-shimmer" />
+      <div className="p-3 space-y-2">
+        <div className="h-3.5 skeleton-shimmer rounded-full w-4/5" />
+        <div className="h-3 skeleton-shimmer rounded-full w-3/5" />
+        <div className="h-3 skeleton-shimmer rounded-full w-2/5" />
+      </div>
+    </div>
+  );
+}
+
+function PremiumSkeletonCard() {
+  return (
+    <div className="shrink-0 w-44">
+      <div className="h-28 rounded-xl skeleton-shimmer mb-2" />
+      <div className="space-y-1.5 px-0.5">
+        <div className="h-3 skeleton-shimmer rounded-full w-5/6" />
+        <div className="h-3 skeleton-shimmer rounded-full w-3/4" />
+        <div className="h-2.5 skeleton-shimmer rounded-full w-1/2" />
+      </div>
+    </div>
+  );
+}
+
 export default function Home() {
   const [activeTag, setActiveTag] = useState<string>("전체");
   const [searchQuery, setSearchQuery] = useState("");
@@ -458,7 +484,7 @@ export default function Home() {
     return () => window.removeEventListener("pageshow", handlePageShow);
   }, []);
 
-  const { data: feedData } = useQuery<{ feed: FeedItem[]; total: number }>({
+  const { data: feedData, isLoading: feedLoading } = useQuery<{ feed: FeedItem[]; total: number }>({
     queryKey: ["public-feed"],
     queryFn: async () => {
       const res = await fetch(`${BASE}/api/feed`);
@@ -809,6 +835,21 @@ export default function Home() {
         {/* 피드 뷰 (스토리/영상 외 모든 탭) */}
         {showFeed && (
           <>
+            {/* 🔥 PLAY 추천 · 프리미엄 콘텐츠 (가로 스크롤 카드) — 로딩 스켈레톤 */}
+            {!isFiltered && premiumAdsData === undefined && (
+              <section className="mb-5">
+                <div className="flex items-center gap-1.5 mb-3">
+                  <span className="text-base leading-none">🔥</span>
+                  <span className="text-sm font-extrabold text-gray-900">PLAY 추천</span>
+                  <span className="text-sm text-gray-300 mx-0.5">|</span>
+                  <span className="text-sm font-bold text-gray-600">프리미엄 콘텐츠</span>
+                </div>
+                <div className="flex gap-3 overflow-x-hidden pb-1 -mx-3 px-3">
+                  {Array.from({ length: 5 }).map((_, i) => <PremiumSkeletonCard key={i} />)}
+                </div>
+              </section>
+            )}
+
             {/* 🔥 PLAY 추천 · 프리미엄 콘텐츠 (가로 스크롤 카드) */}
             {!isFiltered && premiumSectionItems.length > 0 && (
               <section className="mb-5">
@@ -971,6 +1012,11 @@ export default function Home() {
 
             {/* 피드 그리드 */}
             {filteredFeed.length === 0 ? (
+              feedLoading && !isFiltered ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)}
+                </div>
+              ) : (
               <div className="flex flex-col items-center justify-center py-24 text-muted-foreground">
                 <Search className="w-12 h-12 mb-3 opacity-15" />
                 <p className="text-base font-semibold text-gray-600">
@@ -983,6 +1029,7 @@ export default function Home() {
                   </Button>
                 )}
               </div>
+              )
             ) : (
               <>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">

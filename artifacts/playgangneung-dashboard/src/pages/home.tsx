@@ -732,32 +732,33 @@ export default function Home() {
         </header>
 
         {/* 해시태그 바 - 가로 스크롤 + 우측 고정 광고 버튼 */}
-        <div className="flex items-stretch border-t border-gray-100">
-          <div
-            ref={hashtagBarRef}
-            className="flex items-center gap-0.5 px-3 py-2 overflow-x-auto flex-1 min-w-0"
-            style={{ scrollbarWidth: "none" }}
-          >
-            {PREDEFINED_TAGS.filter((tag) => tag !== "전체" && tag !== "오늘의행사").map((tag) => (
-              <HashtagPill key={tag} tag={tag} active={activeTag === tag} onClick={() => handleTagClick(tag)} />
-            ))}
-            {popularTags.map((t) => (
-              <HashtagPill key={t.tag} tag={t.tag} active={activeTag === t.tag} onClick={() => handleTagClick(t.tag)} />
-            ))}
-          </div>
-          {/* 우측 고정 공동광고 버튼 */}
-          <Link
-            href="/ad-submit"
-            className="hidden sm:flex shrink-0 items-center gap-2 px-3 py-1.5 bg-orange-500 hover:bg-orange-600 transition-colors border-l border-orange-400"
-          >
-            <Megaphone className="w-3.5 h-3.5 text-white shrink-0" />
-            {/* 모바일: 텍스트 숨김, sm 이상: 표시 */}
-            <div className="hidden sm:block leading-none">
-              <p className="text-[11px] font-extrabold text-white whitespace-nowrap">공동광고 지원센터</p>
-              <p className="text-[9px] text-orange-100 mt-0.5 whitespace-nowrap">하루 15,000원으로 강릉에 노출!</p>
+        <div className="border-t border-gray-100">
+          <div className="max-w-6xl mx-auto flex items-stretch">
+            <div
+              ref={hashtagBarRef}
+              className="flex items-center gap-0.5 px-3 py-2 overflow-x-auto flex-1 min-w-0"
+              style={{ scrollbarWidth: "none" }}
+            >
+              {PREDEFINED_TAGS.filter((tag) => tag !== "전체" && tag !== "오늘의행사").map((tag) => (
+                <HashtagPill key={tag} tag={tag} active={activeTag === tag} onClick={() => handleTagClick(tag)} />
+              ))}
+              {popularTags.map((t) => (
+                <HashtagPill key={t.tag} tag={t.tag} active={activeTag === t.tag} onClick={() => handleTagClick(t.tag)} />
+              ))}
             </div>
-            <ChevronRight className="w-3 h-3 text-white/80 shrink-0" />
-          </Link>
+            {/* 우측 고정 공동광고 버튼 */}
+            <Link
+              href="/ad-submit"
+              className="hidden sm:flex shrink-0 items-center gap-2 px-3 py-1.5 bg-orange-500 hover:bg-orange-600 transition-colors border-l border-orange-400"
+            >
+              <Megaphone className="w-3.5 h-3.5 text-white shrink-0" />
+              <div className="hidden sm:block leading-none">
+                <p className="text-[11px] font-extrabold text-white whitespace-nowrap">공동광고 지원센터</p>
+                <p className="text-[9px] text-orange-100 mt-0.5 whitespace-nowrap">하루 15,000원으로 강릉에 노출!</p>
+              </div>
+              <ChevronRight className="w-3 h-3 text-white/80 shrink-0" />
+            </Link>
+          </div>
         </div>
       </div>
 

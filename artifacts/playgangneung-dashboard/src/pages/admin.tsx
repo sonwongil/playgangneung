@@ -316,11 +316,10 @@ interface AdminVideo {
   updatedAt: string;
 }
 
-type NavKey = "dashboard" | "ads" | "adCenter" | "stories" | "videos" | "sources" | "settings";
+type NavKey = "dashboard" | "adCenter" | "stories" | "videos" | "sources" | "settings";
 
 const NAV_ITEMS: { icon: React.ReactNode; label: string; key: NavKey }[] = [
   { icon: <LayoutDashboard className="w-4 h-4" />, label: "대시보드", key: "dashboard" },
-  { icon: <Megaphone className="w-4 h-4" />, label: "공동광고 센터", key: "ads" },
   { icon: <BriefcaseBusiness className="w-4 h-4" />, label: "광고센터", key: "adCenter" },
   { icon: <BookOpen className="w-4 h-4" />, label: "스토리", key: "stories" },
   { icon: <Video className="w-4 h-4" />, label: "영상", key: "videos" },
@@ -504,7 +503,7 @@ export default function Admin() {
       if (!r.ok) throw new Error("광고 로드 실패");
       return r.json();
     },
-    enabled: activeNav === "ads" || activeNav === "adCenter",
+    enabled: activeNav === "adCenter",
   });
 
   const { data: sourcesData, isLoading: sourcesLoading } = useQuery<{ sources: Source[] }>({
@@ -1750,85 +1749,6 @@ export default function Admin() {
                               </Button>
                             </div>
                           )}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          )}
-
-          {/* ══ 공동광고 센터 ══════════════════════════════════════════════════════ */}
-          {activeNav === "ads" && (
-            <div className="space-y-2">
-              {/* 검색·필터 바 */}
-              <div className="flex items-center gap-2 mb-2 flex-wrap">
-                <div className="relative flex-1 min-w-[160px]">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
-                  <input
-                    type="text"
-                    placeholder="업체명·제목·연락처 검색..."
-                    value={adsSearch}
-                    onChange={(e) => setAdsSearch(e.target.value)}
-                    className="w-full pl-8 pr-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white"
-                  />
-                </div>
-                <div className="flex items-center gap-1 flex-wrap">
-                  {(["all", "pending", "approved", "scheduled", "published", "rejected"] as const).map((s) => (
-                    <button
-                      key={s}
-                      onClick={() => setAdsStatusFilter(s)}
-                      className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${adsStatusFilter === s ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}
-                    >
-                      {s === "all" ? `전체(${allAds.length})` : `${AD_STATUS[s]?.label ?? s}(${allAds.filter(a => a.status === s).length})`}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <p className="text-xs text-muted-foreground mb-3">공동광고 센터 접수 목록 <span className="font-semibold text-foreground">{ads.length}건</span></p>
-              {adsLoading ? <div className="py-16 text-center text-sm text-muted-foreground">불러오는 중...</div> : ads.length === 0 ? (
-                <div className="py-16 text-center text-sm text-muted-foreground"><Megaphone className="w-8 h-8 mx-auto mb-2 opacity-30" />접수된 광고가 없습니다.</div>
-              ) : ads.map((ad) => {
-                const sc = AD_STATUS[ad.status] ?? AD_STATUS.pending;
-                return (
-                  <Card key={ad.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setSelectedAd(ad)}>
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1 flex-wrap">
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs border font-medium ${sc.cls}`}>{sc.label}</span>
-                            <span className="text-xs font-medium text-muted-foreground">{ad.businessName}</span>
-                            <span className="text-xs text-muted-foreground">{ad.category}</span>
-                            {ad.isPremiumFeatured && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 border border-amber-200">⭐ 프리미엄 노출</span>
-                            )}
-                          </div>
-                          <p className="font-semibold text-sm">{ad.title || ad.businessName}</p>
-                          <p className="text-xs text-muted-foreground mt-0.5">{ad.phone} · {ad.createdAt?.slice(0, 10)}</p>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <button
-                            onClick={async (e) => {
-                              e.stopPropagation();
-                              await fetch(`${BASE}/api/ads/${ad.id}/premium-featured`, {
-                                method: "PATCH",
-                                headers: { "Content-Type": "application/json" },
-                                credentials: "include",
-                                body: JSON.stringify({ isPremiumFeatured: !ad.isPremiumFeatured }),
-                              });
-                              qc.invalidateQueries({ queryKey: ["admin-ads"] });
-                            }}
-                            className={`px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors ${
-                              ad.isPremiumFeatured
-                                ? "bg-amber-500 text-white border-amber-500 hover:bg-amber-600"
-                                : "bg-white text-gray-500 border-gray-300 hover:bg-amber-50 hover:border-amber-300 hover:text-amber-700"
-                            }`}
-                            title="프론트 프리미엄 슬라이더 노출 토글"
-                          >
-                            ⭐ 프리미엄
-                          </button>
-                          <div className="text-xs text-muted-foreground">상세보기 →</div>
                         </div>
                       </div>
                     </CardContent>

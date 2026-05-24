@@ -872,6 +872,7 @@ export default function Home() {
                   onPointerUp={() => { premiumDrag.current.active = false; }}
                   onPointerCancel={() => { premiumDrag.current.active = false; }}
                   onClick={(e) => { if (premiumDrag.current.moved) e.stopPropagation(); }}
+                  onDragStart={(e) => e.preventDefault()}
                 >
                   {premiumSectionItems.map((item) => {
                     const isAd = "businessName" in item;
@@ -888,7 +889,9 @@ export default function Home() {
                     return (
                       <div
                         key={item.id}
+                        draggable={false}
                         onClick={() => {
+                          if (premiumDrag.current.moved) return;
                           if (isAd) {
                             const ad = item as PremiumAd;
                             window.open(ad.url || `${BASE}/content/${ad.id}`, "_blank");
@@ -902,7 +905,8 @@ export default function Home() {
                           <img
                             src={thumbSrc}
                             alt={title}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            draggable={false}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 pointer-events-none"
                             loading="lazy"
                           />
                           {badgeLabel && (

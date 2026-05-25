@@ -366,18 +366,29 @@ router.post("/ads/:id/ai-improve", async (req, res) => {
     const openai = await getOpenAI();
     if (!openai) return res.status(503).json({ error: "AI 연동이 설정되지 않았습니다. 환경변수를 확인하세요." });
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-5-mini",
-      max_completion_tokens: 1000,
-      response_format: { type: "json_object" },
-      messages: [{ role: "user", content: prompt }],
-    });
+    // 최대 2회 시도 (AI 프록시 일시 타임아웃 대응)
+    let raw = "";
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const response = await openai.chat.completions.create({
+          model: "gpt-5-mini",
+          max_completion_tokens: 1000,
+          response_format: { type: "json_object" },
+          messages: [{ role: "user", content: prompt }],
+        });
+        raw = response.choices[0]?.message?.content || "";
+        if (raw) break;
+      } catch (aiErr) {
+        req.log.warn({ aiErr, attempt }, "AI 호출 실패, 재시도");
+        if (attempt === 2) throw aiErr;
+        await new Promise((r) => setTimeout(r, 1500));
+      }
+    }
 
-    const raw = response.choices[0]?.message?.content ?? "{}";
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       req.log.error({ raw }, "AI 응답 파싱 실패 — JSON 없음");
-      return res.status(500).json({ error: "AI 응답 파싱 실패" });
+      return res.status(500).json({ error: "AI 응답을 받지 못했습니다. 잠시 후 다시 시도해주세요." });
     }
 
     const result = JSON.parse(jsonMatch[0]) as {
@@ -422,14 +433,23 @@ router.post("/ads/ai-check-batch", async (req, res) => {
 
 {"aiScore": 0-100, "aiNote": "한 줄 코멘트"}`;
 
-        const response = await openai.chat.completions.create({
-          model: "gpt-5-nano",
-          max_completion_tokens: 200,
-          response_format: { type: "json_object" },
-          messages: [{ role: "user", content: prompt }],
-        });
-
-        const raw = response.choices[0]?.message?.content ?? "{}";
+        let batchRaw = "";
+        for (let attempt = 1; attempt <= 2; attempt++) {
+          try {
+            const response = await openai.chat.completions.create({
+              model: "gpt-5-nano",
+              max_completion_tokens: 200,
+              response_format: { type: "json_object" },
+              messages: [{ role: "user", content: prompt }],
+            });
+            batchRaw = response.choices[0]?.message?.content || "";
+            if (batchRaw) break;
+          } catch (_retryErr) {
+            if (attempt === 2) break;
+            await new Promise((r) => setTimeout(r, 1500));
+          }
+        }
+        const raw = batchRaw;
         const jsonMatch = raw.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
           const result = JSON.parse(jsonMatch[0]) as { aiScore: number; aiNote: string };

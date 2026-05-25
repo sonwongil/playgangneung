@@ -4325,7 +4325,7 @@ export default function Admin() {
                 <p className="text-[10px] text-muted-foreground">키워드로 네이버 블로그 전체에서 강릉 관련 글을 자동 수집합니다.</p>
               </div>
 
-              <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center justify-between flex-wrap gap-2 sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 py-2 -mx-1 px-1 border-b border-border/50">
                 <div className="flex items-center gap-2 flex-wrap">
                   <p className="text-xs text-muted-foreground">스토리 목록 <span className="font-semibold text-foreground">{storiesData?.stories?.length ?? 0}건</span></p>
                   {(storiesData?.stories?.length ?? 0) > 0 && (

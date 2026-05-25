@@ -18,3 +18,9 @@ id = "qouXAFTPwvwuu1nyez5KU"
 uri = "file://docs/광고시스템-사용법.md"
 type = "text"
 title = "PLAY강릉 광고 시스템 사용 가이드"
+
+[[outputs]]
+id = "l3MuPbnTFBrjUnxHJoE5U"
+uri = "file://PLAY강릉_광고시스템_사용가이드.md"
+type = "text"
+title = "PLAY강릉 광고 시스템 사용 가이드 v3.0"

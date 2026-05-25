@@ -217,6 +217,7 @@ router.get("/meta/insights", async (req, res) => {
         ...r,
         businessName: adInfo?.businessName ?? null,
         adTitle: adInfo?.title ?? null,
+        internalAdId: adInfo?.internalId ?? null,
         pools,
         issues,
         tips,

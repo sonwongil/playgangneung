@@ -719,6 +719,7 @@ export default function Admin() {
     collectedAt: string;
     businessName: string | null;
     adTitle: string | null;
+    internalAdId: string | null;
     pools: { poolId: string; poolName: string; poolStatus: string }[];
     issues: string[];
     tips: string[];
@@ -2591,29 +2592,69 @@ export default function Admin() {
 
                 {/* ─ 성과 모니터링 탭 ─ */}
                 {adCenterTab === "monitoring" && (() => {
-                  const insights = metaInsightsData?.insights ?? [];
+                  const allInsights = metaInsightsData?.insights ?? [];
                   const summary = metaInsightsData?.summary;
                   const configured = metaInsightsData?.configured ?? true;
 
-                  const healthColor = (h: string) =>
-                    h === "critical" ? "text-red-600" : h === "warning" ? "text-yellow-600" : "text-green-600";
-                  const healthBg = (h: string) =>
-                    h === "critical" ? "bg-red-50 border-red-200" : h === "warning" ? "bg-yellow-50 border-yellow-200" : "bg-green-50 border-green-200";
-                  const healthIcon = (h: string) =>
-                    h === "critical" ? <ShieldAlert className="w-4 h-4 text-red-500" /> :
-                    h === "warning" ? <ShieldOff className="w-4 h-4 text-yellow-500" /> :
-                    <ShieldCheck className="w-4 h-4 text-green-500" />;
-                  const healthLabel = (h: string) =>
-                    h === "critical" ? "위험" : h === "warning" ? "주의" : "정상";
+                  // ── 필터 적용 ──────────────────────────────────────────────
+                  const insights = allInsights
+                    .filter((ins) => monitoringHealthFilter === "all" || ins.healthStatus === monitoringHealthFilter)
+                    .filter((ins) => {
+                      if (monitoringPoolFilter === "all") return true;
+                      if (monitoringPoolFilter === "none") return ins.pools.length === 0;
+                      return ins.pools.some((p) => p.poolId === monitoringPoolFilter);
+                    })
+                    .sort((a, b) => {
+                      const order = { critical: 0, warning: 1, ok: 2 };
+                      return (order[a.healthStatus as keyof typeof order] ?? 2) - (order[b.healthStatus as keyof typeof order] ?? 2);
+                    });
 
+                  // ── 묶음 목록 (필터용) ──────────────────────────────────────
+                  const allPools = Array.from(
+                    new Map(
+                      allInsights.flatMap((i) => i.pools).map((p) => [p.poolId, p])
+                    ).values()
+                  );
+
+                  // ── 7단계 현재 스텝 판정 ──────────────────────────────────
+                  const getCurrentStep = (ins: MonitoringInsight): number => {
+                    if (ins.impressions === 0 && ins.status === "ACTIVE") return 1;
+                    if (ins.impressions === 0) return 1;
+                    const hasCtrIssue = ins.issues.some((i) => i.includes("CTR"));
+                    const hasFreqIssue = ins.issues.some((i) => i.includes("Frequency"));
+                    const hasCpcIssue = ins.issues.some((i) => i.includes("CPC"));
+                    if (hasCtrIssue && ins.healthStatus === "critical") return 4;
+                    if (hasCtrIssue) return 3;
+                    if (hasCpcIssue) return 5;
+                    if (hasFreqIssue) return 6;
+                    if (ins.issues.length > 0) return 3;
+                    return 7;
+                  };
+
+                  const CYCLE_STEPS = [
+                    { n: 1, label: "광고 노출",    short: "노출" },
+                    { n: 2, label: "CTR 측정",     short: "CTR" },
+                    { n: 3, label: "원인 분석",    short: "분석" },
+                    { n: 4, label: "제목 개선",    short: "제목" },
+                    { n: 5, label: "이미지 개선",  short: "이미지" },
+                    { n: 6, label: "시간대 최적화", short: "시간대" },
+                    { n: 7, label: "재집행",        short: "재집행" },
+                  ];
+
+                  // ── 수집 핸들러 ────────────────────────────────────────────
                   const handleCollect = async () => {
                     setMonitoringCollectLoading(true);
                     try {
-                      const r = await fetch(`${BASE}/api/meta/insights/collect`, { method: "POST", credentials: "include" });
-                      const data = await r.json();
+                      const r = await fetch(`${BASE}/api/meta/insights/collect`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        credentials: "include",
+                        body: JSON.stringify({ datePreset: monitoringDatePreset }),
+                      });
+                      const data = await r.json() as { saved?: number; error?: string };
                       if (!r.ok) throw new Error(data.error ?? "수집 실패");
                       toast({ title: "수집 완료", description: `${data.saved}건 저장됨` });
-                      refetchInsights();
+                      void refetchInsights();
                     } catch (e: unknown) {
                       toast({ title: "수집 실패", description: e instanceof Error ? e.message : String(e), variant: "destructive" });
                     } finally {
@@ -2621,158 +2662,420 @@ export default function Admin() {
                     }
                   };
 
-                  const criticalCount = summary?.critical ?? 0;
-                  const warningCount = summary?.warning ?? 0;
+                  // ── 초안 생성 핸들러 ───────────────────────────────────────
+                  const handleDraft = async (internalAdId: string) => {
+                    try {
+                      const r = await fetch(`${BASE}/api/ads/${internalAdId}/draft`, { method: "POST", credentials: "include" });
+                      if (!r.ok) throw new Error("초안 생성 실패");
+                      toast({ title: "SNS 초안 생성 완료", description: "신청목록 탭에서 확인하세요." });
+                    } catch (e: unknown) {
+                      toast({ title: "초안 생성 실패", description: e instanceof Error ? e.message : String(e), variant: "destructive" });
+                    }
+                  };
+
+                  // ── 카드이미지 생성 핸들러 ─────────────────────────────────
+                  const handleCard = async (internalAdId: string) => {
+                    try {
+                      const r = await fetch(`${BASE}/api/ads/${internalAdId}/card`, { method: "POST", credentials: "include" });
+                      if (!r.ok) throw new Error("카드 생성 실패");
+                      const d = await r.json() as { url?: string };
+                      toast({ title: "카드이미지 생성 완료", description: d.url ? "이미지가 생성되었습니다." : "생성 완료" });
+                    } catch (e: unknown) {
+                      toast({ title: "카드 생성 실패", description: e instanceof Error ? e.message : String(e), variant: "destructive" });
+                    }
+                  };
+
+                  // ── 재집행(Meta push) 핸들러 ───────────────────────────────
+                  const handleReLaunch = async (poolId: string) => {
+                    try {
+                      const r = await fetch(`${BASE}/api/ad-pools/${poolId}/push-to-meta`, { method: "POST", credentials: "include" });
+                      if (!r.ok) throw new Error("Meta 전송 실패");
+                      toast({ title: "Meta 재집행 요청 완료" });
+                    } catch (e: unknown) {
+                      toast({ title: "재집행 실패", description: e instanceof Error ? e.message : String(e), variant: "destructive" });
+                    }
+                  };
+
+                  const PRESET_LABELS = { today: "오늘", yesterday: "어제", last_7d: "최근 7일", last_30d: "최근 30일" };
 
                   return (
                     <div className="space-y-4">
-                      {/* 헤더 + 수집 버튼 */}
-                      <div className="flex items-center justify-between flex-wrap gap-2">
+
+                      {/* ── 헤더 바 ─────────────────────────────────────── */}
+                      <div className="flex items-start justify-between flex-wrap gap-3">
                         <div>
-                          <h3 className="font-semibold text-base">Meta 광고 성과 모니터링</h3>
+                          <h3 className="font-semibold text-base flex items-center gap-2">
+                            <Activity className="w-4 h-4 text-blue-500" />
+                            광고 최적화 모니터링
+                          </h3>
                           {summary?.lastCollectedAt && (
                             <p className="text-xs text-muted-foreground mt-0.5">
                               마지막 수집: {new Date(summary.lastCollectedAt).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })}
                             </p>
                           )}
                         </div>
-                        <Button size="sm" variant="outline" onClick={handleCollect} disabled={monitoringCollectLoading}>
-                          <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${monitoringCollectLoading ? "animate-spin" : ""}`} />
-                          {monitoringCollectLoading ? "수집 중..." : "지금 수집"}
-                        </Button>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {/* 날짜 프리셋 */}
+                          <div className="flex rounded-md border overflow-hidden text-xs">
+                            {(["today", "yesterday", "last_7d", "last_30d"] as const).map((p) => (
+                              <button
+                                key={p}
+                                onClick={() => setMonitoringDatePreset(p)}
+                                className={`px-2.5 py-1.5 border-r last:border-r-0 transition-colors ${monitoringDatePreset === p ? "bg-blue-600 text-white font-semibold" : "bg-white hover:bg-gray-50 text-gray-600"}`}
+                              >
+                                {PRESET_LABELS[p]}
+                              </button>
+                            ))}
+                          </div>
+                          <Button size="sm" onClick={handleCollect} disabled={monitoringCollectLoading} className="bg-blue-600 hover:bg-blue-700 text-white">
+                            <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${monitoringCollectLoading ? "animate-spin" : ""}`} />
+                            {monitoringCollectLoading ? "수집 중..." : "지금 수집"}
+                          </Button>
+                        </div>
                       </div>
 
-                      {/* Meta 미설정 경고 */}
+                      {/* ── Meta 미설정 경고 ─────────────────────────────── */}
                       {!configured && (
                         <Card className="border-yellow-200 bg-yellow-50">
-                          <CardContent className="p-4 flex items-center gap-2 text-sm text-yellow-800">
+                          <CardContent className="p-3 flex items-center gap-2 text-sm text-yellow-800">
                             <AlertTriangle className="w-4 h-4 shrink-0" />
-                            Meta API가 설정되지 않았습니다. Meta연동 탭에서 설정을 확인하세요.
+                            Meta API가 설정되지 않았습니다. Meta연동 탭에서 확인하세요.
                           </CardContent>
                         </Card>
                       )}
 
-                      {/* 요약 카드 */}
+                      {/* ── 요약 카드 ────────────────────────────────────── */}
                       {summary && (
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
                           {[
-                            { label: "전체 광고", value: summary.total, color: "text-foreground" },
-                            { label: "정상", value: summary.ok, color: "text-green-600" },
-                            { label: "주의", value: summary.warning, color: "text-yellow-600" },
-                            { label: "위험", value: summary.critical, color: "text-red-600" },
-                          ].map(({ label, value, color }) => (
+                            { label: "전체 광고", value: summary.total, color: "text-gray-700", sub: null },
+                            { label: "🟢 정상", value: summary.ok, color: "text-green-700", sub: null },
+                            { label: "🟡 주의", value: summary.warning, color: "text-yellow-700", sub: null },
+                            { label: "🔴 위험", value: summary.critical, color: "text-red-700", sub: null },
+                            { label: "총 노출", value: summary.totalImpressions.toLocaleString(), color: "text-blue-700", sub: "회" },
+                            { label: "총 클릭", value: summary.totalClicks.toLocaleString(), color: "text-indigo-700", sub: "회" },
+                            { label: "총 지출", value: `₩${Math.round(summary.totalSpend).toLocaleString()}`, color: "text-orange-700", sub: null },
+                          ].map(({ label, value, color, sub }) => (
                             <Card key={label}>
-                              <CardContent className="p-3 text-center">
-                                <p className="text-xs text-muted-foreground">{label}</p>
-                                <p className={`text-2xl font-bold mt-1 ${color}`}>{value}</p>
+                              <CardContent className="p-2.5 text-center">
+                                <p className="text-[10px] text-muted-foreground leading-tight">{label}</p>
+                                <p className={`text-lg font-bold mt-0.5 leading-tight ${color}`}>{value}</p>
+                                {sub && <p className="text-[10px] text-muted-foreground">{sub}</p>}
                               </CardContent>
                             </Card>
                           ))}
                         </div>
                       )}
 
-                      {/* 위험/주의 알림 배너 */}
-                      {(criticalCount > 0 || warningCount > 0) && (
-                        <Card className="border-orange-200 bg-orange-50">
-                          <CardContent className="p-3 text-sm text-orange-800 flex items-start gap-2">
-                            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-                            <span>
-                              {criticalCount > 0 && <span className="font-semibold text-red-700">{criticalCount}개 광고 위험 상태</span>}
-                              {criticalCount > 0 && warningCount > 0 && ", "}
-                              {warningCount > 0 && <span className="font-semibold text-yellow-700">{warningCount}개 광고 주의 상태</span>}
-                              입니다. 아래 목록에서 확인하세요.
-                            </span>
-                          </CardContent>
-                        </Card>
-                      )}
+                      {/* ── 필터 바 ──────────────────────────────────────── */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <select
+                          className="text-xs border rounded-md px-2 py-1.5 bg-white"
+                          value={monitoringHealthFilter}
+                          onChange={(e) => setMonitoringHealthFilter(e.target.value as typeof monitoringHealthFilter)}
+                        >
+                          <option value="all">전체 상태</option>
+                          <option value="critical">🔴 위험만</option>
+                          <option value="warning">🟡 주의만</option>
+                          <option value="ok">🟢 정상만</option>
+                        </select>
+                        <select
+                          className="text-xs border rounded-md px-2 py-1.5 bg-white"
+                          value={monitoringPoolFilter}
+                          onChange={(e) => setMonitoringPoolFilter(e.target.value)}
+                        >
+                          <option value="all">전체 묶음</option>
+                          <option value="none">묶음 미배정</option>
+                          {allPools.map((p) => (
+                            <option key={p.poolId} value={p.poolId}>{p.poolName}</option>
+                          ))}
+                        </select>
+                        {(monitoringHealthFilter !== "all" || monitoringPoolFilter !== "all") && (
+                          <button
+                            className="text-xs text-blue-600 underline"
+                            onClick={() => { setMonitoringHealthFilter("all"); setMonitoringPoolFilter("all"); }}
+                          >
+                            필터 초기화
+                          </button>
+                        )}
+                        <span className="text-xs text-muted-foreground ml-auto">{insights.length}개 광고</span>
+                      </div>
 
-                      {/* 광고별 카드 목록 */}
+                      {/* ── 광고별 최적화 사이클 카드 ───────────────────── */}
                       {metaInsightsLoading ? (
-                        <div className="text-center py-10 text-muted-foreground text-sm">수집 데이터 로딩 중...</div>
+                        <div className="py-16 text-center text-muted-foreground text-sm">
+                          <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-400" />
+                          데이터 로딩 중...
+                        </div>
                       ) : insights.length === 0 ? (
                         <Card>
-                          <CardContent className="p-8 text-center text-sm text-muted-foreground">
-                            <Activity className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                            <p>수집된 Insights 데이터가 없습니다.</p>
-                            <p className="mt-1">위의 "지금 수집" 버튼을 눌러 데이터를 가져오세요.</p>
+                          <CardContent className="p-10 text-center text-sm text-muted-foreground">
+                            <Activity className="w-10 h-10 mx-auto mb-3 opacity-20" />
+                            <p className="font-medium">수집된 데이터가 없습니다</p>
+                            <p className="mt-1 text-xs">"지금 수집" 버튼을 눌러 Meta에서 데이터를 가져오세요.</p>
                           </CardContent>
                         </Card>
                       ) : (
-                        <div className="space-y-2">
-                          {/* 위험 → 주의 → 정상 순 정렬 */}
-                          {[...insights]
-                            .sort((a, b) => {
-                              const order = { critical: 0, warning: 1, ok: 2 };
-                              return (order[a.healthStatus as keyof typeof order] ?? 2) - (order[b.healthStatus as keyof typeof order] ?? 2);
-                            })
-                            .map((ins) => {
-                              const isExpanded = monitoringExpandedAd === ins.adId;
-                              return (
-                                <Card key={ins.id} className={`border ${healthBg(ins.healthStatus)}`}>
-                                  <CardContent className="p-0">
-                                    <button
-                                      className="w-full text-left p-3 flex items-center gap-3"
-                                      onClick={() => setMonitoringExpandedAd(isExpanded ? null : ins.adId)}
-                                    >
-                                      <span className="shrink-0">{healthIcon(ins.healthStatus)}</span>
-                                      <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-2 flex-wrap">
-                                          <span className="font-medium text-sm truncate max-w-[200px]">{ins.adName || ins.adId}</span>
-                                          <Badge variant="outline" className={`text-xs ${healthColor(ins.healthStatus)}`}>
-                                            {healthLabel(ins.healthStatus)}
-                                          </Badge>
-                                          {ins.status && (
-                                            <Badge variant="secondary" className="text-xs">{ins.status}</Badge>
-                                          )}
-                                        </div>
-                                        {ins.campaignName && (
-                                          <p className="text-xs text-muted-foreground mt-0.5 truncate">{ins.campaignName}</p>
-                                        )}
-                                      </div>
-                                      <div className="shrink-0 text-right text-xs text-muted-foreground hidden sm:block">
-                                        <div>{ins.dateStart} ~ {ins.dateStop}</div>
-                                      </div>
-                                      <span className="shrink-0 text-muted-foreground text-xs">{isExpanded ? "▲" : "▼"}</span>
-                                    </button>
+                        <div className="space-y-3">
+                          {insights.map((ins) => {
+                            const isExpanded = monitoringExpandedAd === ins.adId;
+                            const currentStep = getCurrentStep(ins);
+                            const isOk = ins.healthStatus === "ok";
 
-                                    {/* 건강 이슈 표시 */}
-                                    {ins.healthIssues.length > 0 && (
-                                      <div className="px-3 pb-2 flex flex-wrap gap-1.5">
-                                        {ins.healthIssues.map((issue, i) => (
-                                          <span key={i} className="text-xs bg-white/70 border rounded px-2 py-0.5 text-red-700">{issue}</span>
+                            const cardBorder = ins.healthStatus === "critical"
+                              ? "border-red-200"
+                              : ins.healthStatus === "warning"
+                              ? "border-yellow-200"
+                              : "border-green-200";
+                            const cardBg = ins.healthStatus === "critical"
+                              ? "bg-red-50/40"
+                              : ins.healthStatus === "warning"
+                              ? "bg-yellow-50/40"
+                              : "bg-green-50/30";
+
+                            return (
+                              <Card key={ins.id} className={`border-2 ${cardBorder} ${cardBg}`}>
+                                <CardContent className="p-0">
+
+                                  {/* ── 카드 헤더 (클릭으로 펼침) ────────── */}
+                                  <button
+                                    className="w-full text-left p-3 pb-2"
+                                    onClick={() => setMonitoringExpandedAd(isExpanded ? null : ins.adId)}
+                                  >
+                                    <div className="flex items-start gap-2 flex-wrap">
+                                      {/* 건강 아이콘 */}
+                                      <span className="mt-0.5 shrink-0">
+                                        {ins.healthStatus === "critical"
+                                          ? <ShieldAlert className="w-4 h-4 text-red-500" />
+                                          : ins.healthStatus === "warning"
+                                          ? <ShieldOff className="w-4 h-4 text-yellow-500" />
+                                          : <ShieldCheck className="w-4 h-4 text-green-500" />}
+                                      </span>
+                                      <div className="flex-1 min-w-0">
+                                        {/* 광고주명 + 광고명 */}
+                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                          {ins.businessName && (
+                                            <span className="text-xs font-bold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
+                                              {ins.businessName}
+                                            </span>
+                                          )}
+                                          <span className="text-sm font-semibold truncate max-w-[240px]">
+                                            {ins.adTitle || ins.adName || ins.adId}
+                                          </span>
+                                        </div>
+                                        {/* 배지 줄 */}
+                                        <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                                          {/* 묶음 배지 */}
+                                          {ins.pools.length > 0
+                                            ? ins.pools.map((p) => (
+                                                <span key={p.poolId} className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full font-medium">
+                                                  📦 {p.poolName}
+                                                </span>
+                                              ))
+                                            : (
+                                                <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full">
+                                                  묶음 미배정
+                                                </span>
+                                              )}
+                                          {/* Meta 상태 */}
+                                          {ins.status && (
+                                            <Badge variant="secondary" className="text-[10px] h-4 px-1.5">
+                                              {ins.status}
+                                            </Badge>
+                                          )}
+                                          {/* 날짜 */}
+                                          <span className="text-[10px] text-muted-foreground">{ins.dateStart} ~ {ins.dateStop}</span>
+                                        </div>
+                                      </div>
+                                      <span className="shrink-0 text-muted-foreground text-xs mt-1">{isExpanded ? "▲" : "▼"}</span>
+                                    </div>
+
+                                    {/* ── 7단계 진행 바 ─────────────────── */}
+                                    <div className="mt-3 flex items-center gap-0">
+                                      {CYCLE_STEPS.map((step, idx) => {
+                                        const isDone = isOk ? true : step.n < currentStep;
+                                        const isCurrent = !isOk && step.n === currentStep;
+                                        const isPending = !isOk && step.n > currentStep;
+                                        return (
+                                          <React.Fragment key={step.n}>
+                                            <div className="flex flex-col items-center" style={{ minWidth: 0, flex: 1 }}>
+                                              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold border-2 shrink-0
+                                                ${isDone ? "bg-green-500 border-green-500 text-white"
+                                                  : isCurrent ? (ins.healthStatus === "critical" ? "bg-red-500 border-red-500 text-white animate-pulse" : "bg-yellow-400 border-yellow-400 text-white animate-pulse")
+                                                  : "bg-white border-gray-200 text-gray-300"}`}>
+                                                {isDone ? "✓" : step.n}
+                                              </div>
+                                              <span className={`text-[9px] mt-0.5 hidden sm:block leading-tight text-center
+                                                ${isDone ? "text-green-600 font-medium"
+                                                  : isCurrent ? (ins.healthStatus === "critical" ? "text-red-600 font-bold" : "text-yellow-700 font-bold")
+                                                  : "text-gray-300"}`}>
+                                                {step.short}
+                                              </span>
+                                            </div>
+                                            {idx < CYCLE_STEPS.length - 1 && (
+                                              <div className={`h-0.5 flex-1 mx-0.5 rounded
+                                                ${step.n < currentStep || isOk ? "bg-green-400" : "bg-gray-200"}`} />
+                                            )}
+                                          </React.Fragment>
+                                        );
+                                      })}
+                                    </div>
+                                  </button>
+
+                                  {/* ── 현재 단계 요약 (항상 표시) ────────── */}
+                                  {!isOk && (
+                                    <div className={`mx-3 mb-2 px-3 py-2 rounded-lg text-xs
+                                      ${ins.healthStatus === "critical" ? "bg-red-100 border border-red-200 text-red-800" : "bg-yellow-100 border border-yellow-200 text-yellow-800"}`}>
+                                      <span className="font-semibold">
+                                        {currentStep}단계 · {CYCLE_STEPS[currentStep - 1]?.label}
+                                      </span>
+                                      {ins.issues.length > 0 && (
+                                        <span className="ml-2">{ins.issues[0]}</span>
+                                      )}
+                                    </div>
+                                  )}
+                                  {isOk && (
+                                    <div className="mx-3 mb-2 px-3 py-2 rounded-lg text-xs bg-green-100 border border-green-200 text-green-800">
+                                      ✅ 모든 지표 정상 — 현재 최적 상태로 운영 중입니다
+                                    </div>
+                                  )}
+
+                                  {/* ── 펼침: 상세 지표 + 개선 액션 ────────── */}
+                                  {isExpanded && (
+                                    <div className="border-t bg-white/60 px-3 pt-3 pb-3 space-y-3">
+
+                                      {/* 지표 그리드 */}
+                                      <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
+                                        {[
+                                          { label: "노출", value: ins.impressions.toLocaleString(),
+                                            flag: ins.impressions === 0 ? "red" : "ok" },
+                                          { label: "클릭", value: ins.clicks.toLocaleString(), flag: "ok" },
+                                          { label: "CTR",
+                                            value: ins.ctr != null ? `${ins.ctr.toFixed(2)}%` : "-",
+                                            flag: ins.ctr == null ? "gray" : ins.ctr < 0.3 ? "red" : ins.ctr < 0.7 ? "yellow" : "ok" },
+                                          { label: "CPC",
+                                            value: ins.cpc != null ? `₩${Math.round(ins.cpc).toLocaleString()}` : "-",
+                                            flag: ins.cpc == null ? "gray" : ins.cpc > 2000 ? "red" : ins.cpc > 1000 ? "yellow" : "ok" },
+                                          { label: "지출", value: `₩${Math.round(ins.spend).toLocaleString()}`, flag: "ok" },
+                                          { label: "도달", value: ins.reach.toLocaleString(), flag: "ok" },
+                                          { label: "Freq.",
+                                            value: ins.frequency != null ? ins.frequency.toFixed(1) : "-",
+                                            flag: ins.frequency == null ? "gray" : ins.frequency >= 5 ? "red" : ins.frequency >= 3 ? "yellow" : "ok" },
+                                          { label: "CPP",
+                                            value: ins.cpp != null ? `₩${Math.round(ins.cpp).toLocaleString()}` : "-",
+                                            flag: "ok" },
+                                        ].map(({ label, value, flag }) => (
+                                          <div key={label} className={`rounded border px-2 py-1.5 text-center
+                                            ${flag === "red" ? "bg-red-50 border-red-200" : flag === "yellow" ? "bg-yellow-50 border-yellow-200" : "bg-white"}`}>
+                                            <p className="text-[10px] text-muted-foreground">{label}</p>
+                                            <p className={`text-xs font-bold mt-0.5
+                                              ${flag === "red" ? "text-red-700" : flag === "yellow" ? "text-yellow-700" : "text-gray-800"}`}>
+                                              {value}
+                                            </p>
+                                          </div>
                                         ))}
                                       </div>
-                                    )}
 
-                                    {/* 상세 지표 (펼침) */}
-                                    {isExpanded && (
-                                      <div className="border-t px-3 pb-3 pt-2 bg-white/50">
-                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
-                                          {[
-                                            { label: "노출", value: ins.impressions.toLocaleString() },
-                                            { label: "클릭", value: ins.clicks.toLocaleString() },
-                                            { label: "CTR", value: ins.ctr != null ? `${ins.ctr.toFixed(2)}%` : "-" },
-                                            { label: "CPC", value: ins.cpc != null ? `₩${Math.round(ins.cpc).toLocaleString()}` : "-" },
-                                            { label: "지출", value: `₩${Math.round(ins.spend).toLocaleString()}` },
-                                            { label: "도달", value: ins.reach.toLocaleString() },
-                                            { label: "Frequency", value: ins.frequency != null ? ins.frequency.toFixed(2) : "-" },
-                                            { label: "CPP", value: ins.cpp != null ? `₩${Math.round(ins.cpp).toLocaleString()}` : "-" },
-                                          ].map(({ label, value }) => (
-                                            <div key={label} className="rounded border bg-white/80 px-2 py-1.5">
-                                              <p className="text-xs text-muted-foreground">{label}</p>
-                                              <p className="font-semibold mt-0.5">{value}</p>
+                                      {/* 원인 분석 */}
+                                      {ins.issues.length > 0 && (
+                                        <div className="space-y-1">
+                                          <p className="text-xs font-semibold text-gray-600">🔍 원인 분석</p>
+                                          {ins.issues.map((issue, i) => (
+                                            <div key={i} className="flex items-start gap-1.5 text-xs text-red-700 bg-red-50 rounded px-2 py-1">
+                                              <span className="shrink-0 mt-0.5">⚠</span>
+                                              <span>{issue}</span>
                                             </div>
                                           ))}
                                         </div>
-                                        <p className="text-xs text-muted-foreground mt-2">
+                                      )}
+
+                                      {/* 개선 제안 */}
+                                      {ins.tips.length > 0 && (
+                                        <div className="space-y-1">
+                                          <p className="text-xs font-semibold text-gray-600">💡 개선 제안</p>
+                                          {ins.tips.map((tip, i) => (
+                                            <div key={i} className="flex items-start gap-1.5 text-xs text-blue-800 bg-blue-50 rounded px-2 py-1">
+                                              <span className="shrink-0 mt-0.5">→</span>
+                                              <span>{tip}</span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+
+                                      {/* 시간대 최적화 팁 */}
+                                      {ins.issues.some((i) => i.includes("Frequency")) && (
+                                        <div className="space-y-1">
+                                          <p className="text-xs font-semibold text-gray-600">🕐 시간대 최적화</p>
+                                          {[
+                                            "한국 SNS 최적 노출 시간: 오전 8~9시, 점심 12~1시, 저녁 7~9시",
+                                            "현재 Frequency가 높으므로 게재 일정을 특정 시간대로 제한하세요",
+                                            "Meta 광고관리자 → 광고세트 → 게재 일정에서 요일/시간 지정 가능",
+                                          ].map((tip, i) => (
+                                            <div key={i} className="flex items-start gap-1.5 text-xs text-purple-800 bg-purple-50 rounded px-2 py-1">
+                                              <span className="shrink-0 mt-0.5">→</span>
+                                              <span>{tip}</span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+
+                                      {/* 액션 버튼 */}
+                                      <div className="flex flex-wrap gap-2 pt-1 border-t">
+                                        {ins.internalAdId && (
+                                          <>
+                                            <Button
+                                              size="sm"
+                                              variant="outline"
+                                              className="text-xs h-7"
+                                              onClick={() => void handleDraft(ins.internalAdId!)}
+                                            >
+                                              <MessageSquare className="w-3 h-3 mr-1" />
+                                              제목/문구 재생성
+                                            </Button>
+                                            <Button
+                                              size="sm"
+                                              variant="outline"
+                                              className="text-xs h-7"
+                                              onClick={() => void handleCard(ins.internalAdId!)}
+                                            >
+                                              <ImageIcon className="w-3 h-3 mr-1" />
+                                              카드이미지 재생성
+                                            </Button>
+                                          </>
+                                        )}
+                                        {ins.pools.length > 0 && (
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="text-xs h-7 border-blue-300 text-blue-700"
+                                            onClick={() => void handleReLaunch(ins.pools[0].poolId)}
+                                          >
+                                            <Send className="w-3 h-3 mr-1" />
+                                            Meta 재집행
+                                          </Button>
+                                        )}
+                                        {ins.pools.length === 0 && (
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="text-xs h-7 border-gray-300 text-gray-600"
+                                            onClick={() => setAdCenterTab("meta")}
+                                          >
+                                            <ExternalLink className="w-3 h-3 mr-1" />
+                                            Meta연동 탭에서 집행
+                                          </Button>
+                                        )}
+                                        <p className="text-[10px] text-muted-foreground self-center ml-auto">
                                           수집: {new Date(ins.collectedAt).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })}
                                         </p>
                                       </div>
-                                    )}
-                                  </CardContent>
-                                </Card>
-                              );
-                            })}
+                                    </div>
+                                  )}
+
+                                </CardContent>
+                              </Card>
+                            );
+                          })}
                         </div>
                       )}
                     </div>

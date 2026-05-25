@@ -248,7 +248,7 @@ export async function getCampaignInsights(campaignId: string, datePreset = "last
   );
 }
 
-export async function getAdInsights(adId: string, since: string, until: string) {
+export async function getAdInsightsLegacy(adId: string, since: string, until: string) {
   return metaGet<{ data: InsightRow[] }>(
     `${adId}/insights`,
     {
@@ -504,4 +504,81 @@ export async function updateCampaignStatus(campaignId: string, status: "ACTIVE" 
 
 export async function updateAdSetStatus(adSetId: string, status: "ACTIVE" | "PAUSED") {
   return metaPost<{ success: boolean }>(`${adSetId}`, { status });
+}
+
+// ─── 광고별 Insights (CTR/CPC/Frequency 포함) ────────────────────────────────────
+export interface AdInsightRow {
+  adId: string;
+  adName: string;
+  adSetId: string;
+  adSetName: string;
+  campaignId: string;
+  campaignName: string;
+  dateStart: string;
+  dateStop: string;
+  impressions: number;
+  clicks: number;
+  spend: number;
+  reach: number;
+  frequency: number | null;
+  ctr: number | null;
+  cpc: number | null;
+  cpp: number | null;
+  status: string;
+}
+
+export async function getAdInsights(
+  datePreset: "today" | "yesterday" | "last_7d" | "last_30d" = "today",
+): Promise<MetaResult<{ insights: AdInsightRow[] }>> {
+  const creds = getCredentials();
+  if (!creds) return { ok: false, error: "META_ACCESS_TOKEN / META_AD_ACCOUNT_ID 환경변수가 설정되지 않았습니다" };
+
+  const fields = [
+    "ad_id", "ad_name",
+    "adset_id", "adset_name",
+    "campaign_id", "campaign_name",
+    "date_start", "date_stop",
+    "impressions", "clicks", "spend", "reach",
+    "frequency", "ctr", "cpc", "cpp",
+  ].join(",");
+
+  const [insightsRes, adsRes] = await Promise.all([
+    metaGet<{ data: Array<Record<string, string>> }>(
+      `act_${creds.adAccountId}/insights`,
+      { fields, date_preset: datePreset, level: "ad", limit: "200" },
+    ),
+    metaGet<{ data: Array<{ id: string; name: string; status: string }> }>(
+      `act_${creds.adAccountId}/ads`,
+      { fields: "id,name,status", limit: "200" },
+    ),
+  ]);
+
+  if (!insightsRes.ok) return insightsRes;
+
+  const statusMap = new Map<string, string>();
+  if (adsRes.ok) {
+    for (const a of adsRes.data.data ?? []) statusMap.set(a.id, a.status);
+  }
+
+  const insights: AdInsightRow[] = (insightsRes.data.data ?? []).map((r) => ({
+    adId: r["ad_id"] ?? "",
+    adName: r["ad_name"] ?? "",
+    adSetId: r["adset_id"] ?? "",
+    adSetName: r["adset_name"] ?? "",
+    campaignId: r["campaign_id"] ?? "",
+    campaignName: r["campaign_name"] ?? "",
+    dateStart: r["date_start"] ?? "",
+    dateStop: r["date_stop"] ?? "",
+    impressions: Number(r["impressions"] ?? 0),
+    clicks: Number(r["clicks"] ?? 0),
+    spend: Number(r["spend"] ?? 0),
+    reach: Number(r["reach"] ?? 0),
+    frequency: r["frequency"] != null ? Number(r["frequency"]) : null,
+    ctr: r["ctr"] != null ? Number(r["ctr"]) : null,
+    cpc: r["cpc"] != null ? Number(r["cpc"]) : null,
+    cpp: r["cpp"] != null ? Number(r["cpp"]) : null,
+    status: statusMap.get(r["ad_id"] ?? "") ?? "UNKNOWN",
+  }));
+
+  return { ok: true, data: { insights } };
 }

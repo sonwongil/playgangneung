@@ -18,6 +18,7 @@ import adProductsRouter from "./adProducts.js";
 import tagsRouter from "./tags.js";
 import bannerConfigRouter from "./bannerConfig.js";
 import metaSpendRouter from "./metaSpend.js";
+import metaInsightsRouter from "./metaInsights.js";
 
 const router: IRouter = Router();
 
@@ -44,5 +45,6 @@ router.use(adProductsRouter);
 router.use(tagsRouter);
 router.use(bannerConfigRouter);
 router.use(metaSpendRouter);
+router.use(metaInsightsRouter);
 
 export default router;

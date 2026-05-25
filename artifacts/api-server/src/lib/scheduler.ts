@@ -7,7 +7,8 @@ import { appendEvents } from "./storage.js";
 import { logger } from "./logger.js";
 import { db, adPoolsTable, adPerformancesTable, adsTable, adAlertsTable, eventsTable } from "@workspace/db";
 import { sql, and, inArray, isNotNull, ne, lt } from "drizzle-orm";
-import { getCampaignInsights, getAdInsights, isConfigured } from "./metaApi.js";
+import { getCampaignInsights, getAdInsightsLegacy, isConfigured } from "./metaApi.js";
+import { collectAndSave } from "../routes/metaInsights.js";
 
 const CONFIG_FILE = path.resolve(process.cwd(), "data/config.json");
 
@@ -90,7 +91,7 @@ async function collectMetaPerformance() {
       type InsightRow = { date_start: string; impressions?: string; clicks?: string; spend?: string; reach?: string; ctr?: string; cpc?: string };
       if (adsWithMeta.length > 0) {
         for (const ad of adsWithMeta) {
-          const adInsights = await getAdInsights(ad.metaAdId!, since, until);
+          const adInsights = await getAdInsightsLegacy(ad.metaAdId!, since, until);
           if (!adInsights.ok) { logger.warn({ adId: ad.id, error: adInsights.error }, "광고 단위 성과 수집 실패"); continue; }
           const adRows = (adInsights.data as { data: InsightRow[] }).data ?? [];
           for (const row of adRows) {
@@ -192,6 +193,7 @@ let currentTask: cron.ScheduledTask | null = null;
 let performanceTask: cron.ScheduledTask | null = null;
 let expireTask: cron.ScheduledTask | null = null;
 let purgeTask: cron.ScheduledTask | null = null;
+let insightsTask: cron.ScheduledTask | null = null;
 
 function applySchedule(hour: number, minute: number) {
   if (currentTask) { currentTask.stop(); currentTask = null; }
@@ -217,8 +219,21 @@ export async function startScheduler() {
   if (purgeTask) { purgeTask.stop(); }
   purgeTask = cron.schedule("0 3 * * *", purgeOldUnapprovedEvents, { timezone: "Asia/Seoul" });
   logger.info(`미승인 크롤 콘텐츠 자동 삭제 스케줄 등록 완료 (매일 03:00 KST, ${PURGE_DAYS}일 경과 시 삭제)`);
-  // 서버 시작 시 즉시 1회 실행 (누락 항목 정리)
   void purgeOldUnapprovedEvents();
+  // 1시간마다 Meta Ad Insights 수집
+  if (insightsTask) { insightsTask.stop(); }
+  insightsTask = cron.schedule("5 * * * *", async () => {
+    if (!isConfigured()) return;
+    logger.info("Meta Ad Insights 자동 수집 시작 (1시간 주기)");
+    try {
+      const r = await collectAndSave("today");
+      if (r.ok) logger.info({ collected: r.collected, saved: r.saved }, "Meta Ad Insights 자동 수집 완료");
+      else logger.warn({ error: r.error }, "Meta Ad Insights 자동 수집 실패");
+    } catch (err) {
+      logger.error({ err }, "Meta Ad Insights 자동 수집 오류");
+    }
+  }, { timezone: "Asia/Seoul" });
+  logger.info("Meta Ad Insights 수집 스케줄 등록 완료 (매시 05분)");
 }
 
 export async function reschedule(hour: number, minute: number) {

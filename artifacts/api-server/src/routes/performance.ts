@@ -2,7 +2,7 @@ import { Router } from "express";
 import crypto from "crypto";
 import { db, adPerformancesTable, adPoolsTable, adsTable } from "@workspace/db";
 import { eq, and, gte, lte, desc, sql, inArray, isNotNull } from "drizzle-orm";
-import { getCampaignInsights, getAdInsights, isConfigured, getLastRateLimit } from "../lib/metaApi.js";
+import { getCampaignInsights, getAdInsightsLegacy, isConfigured, getLastRateLimit } from "../lib/metaApi.js";
 
 /** 중복 방지용 결정론적 ID — (adId, poolId, date, source) 기반 sha256 앞 16자 */
 function perfId(adId: string, poolId: string | null, date: string, source: string): string {
@@ -278,7 +278,7 @@ router.post("/ad-pools/:id/collect-performance", async (req, res) => {
     if (adsWithMeta.length > 0) {
       // 광고 단위 성과 수집 (정확한 광고별 데이터)
       for (const ad of adsWithMeta) {
-        const insights = await getAdInsights(ad.metaAdId!, since, until);
+        const insights = await getAdInsightsLegacy(ad.metaAdId!, since, until);
         if (!insights.ok) { req.log.warn({ adId: ad.id, error: insights.error }, "광고 단위 성과 수집 실패"); continue; }
         const rows = (insights.data as { data: { date_start: string; impressions?: string; clicks?: string; spend?: string; reach?: string; ctr?: string; cpc?: string }[] }).data ?? [];
         for (const row of rows) {

@@ -73,3 +73,31 @@ export const metaCampaignBudgetsTable = pgTable("meta_campaign_budgets", {
 });
 
 export type MetaCampaignBudgetRow = typeof metaCampaignBudgetsTable.$inferSelect;
+
+export const metaAdInsightsTable = pgTable("meta_ad_insights", {
+  id: text("id").primaryKey(),
+  adId: text("ad_id").notNull(),
+  adName: text("ad_name").notNull().default(""),
+  adSetId: text("ad_set_id"),
+  adSetName: text("ad_set_name"),
+  campaignId: text("campaign_id"),
+  campaignName: text("campaign_name"),
+  dateStart: text("date_start").notNull(),
+  dateStop: text("date_stop").notNull(),
+  impressions: integer("impressions").notNull().default(0),
+  clicks: integer("clicks").notNull().default(0),
+  spend: real("spend").notNull().default(0),
+  reach: integer("reach").notNull().default(0),
+  frequency: real("frequency"),
+  ctr: real("ctr"),
+  cpc: real("cpc"),
+  cpp: real("cpp"),
+  status: text("status"),
+  healthStatus: text("health_status").notNull().default("ok"),
+  healthIssues: jsonb("health_issues").$type<string[]>().notNull().default([]),
+  collectedAt: timestamp("collected_at").notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex("meta_ad_insights_uniq").on(t.adId, t.dateStart),
+]);
+
+export type MetaAdInsightRow = typeof metaAdInsightsTable.$inferSelect;

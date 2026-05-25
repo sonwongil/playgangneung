@@ -62,6 +62,10 @@ import {
   Search,
   GripVertical,
   RotateCcw,
+  Activity,
+  ShieldAlert,
+  ShieldCheck,
+  ShieldOff,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -455,7 +459,7 @@ export default function Admin() {
   const [adCopied, setAdCopied] = useState(false);
   const [adCardUrls, setAdCardUrls] = useState<Record<string, string[]>>({});
   const [adCardLoading, setAdCardLoading] = useState<Record<string, boolean>>({});
-  const [adCenterTab, setAdCenterTab] = useState<"overview" | "applications" | "createPool" | "rotation" | "meta" | "performance" | "billing">("overview");
+  const [adCenterTab, setAdCenterTab] = useState<"overview" | "applications" | "createPool" | "rotation" | "meta" | "monitoring" | "performance" | "billing">("overview");
   const [selectedPoolId, setSelectedPoolId] = useState<string | null>(null);
   const [generatingRotationId, setGeneratingRotationId] = useState<string | null>(null);
   const [alertDetectLoading, setAlertDetectLoading] = useState(false);
@@ -695,6 +699,34 @@ export default function Admin() {
     },
     enabled: !!(activeNav === "adCenter" && adCenterTab === "meta"),
     refetchInterval: 60000,
+  });
+
+  const [monitoringExpandedAd, setMonitoringExpandedAd] = useState<string | null>(null);
+  const [monitoringCollectLoading, setMonitoringCollectLoading] = useState(false);
+  const [monitoringDatePreset, setMonitoringDatePreset] = useState<"today" | "yesterday" | "last_7d" | "last_30d">("today");
+
+  const { data: metaInsightsData, isLoading: metaInsightsLoading, refetch: refetchInsights } = useQuery<{
+    configured: boolean;
+    insights: Array<{
+      id: string; adId: string; adName: string;
+      adSetId: string | null; adSetName: string | null;
+      campaignId: string | null; campaignName: string | null;
+      dateStart: string; dateStop: string;
+      impressions: number; clicks: number; spend: number; reach: number;
+      frequency: number | null; ctr: number | null; cpc: number | null; cpp: number | null;
+      status: string | null; healthStatus: string; healthIssues: string[];
+      collectedAt: string;
+    }>;
+    summary: { total: number; ok: number; warning: number; critical: number; lastCollectedAt: string | null };
+  }>({
+    queryKey: ["meta-insights"],
+    queryFn: async () => {
+      const r = await fetch(`${BASE}/api/meta/insights`, { credentials: "include" });
+      if (!r.ok) throw new Error("Insights 조회 실패");
+      return r.json();
+    },
+    enabled: !!(activeNav === "adCenter" && adCenterTab === "monitoring"),
+    refetchInterval: !!(activeNav === "adCenter" && adCenterTab === "monitoring") ? 120000 : false,
   });
 
   const { data: metaSpendData, isLoading: metaSpendLoading, refetch: refetchMetaSpend } = useQuery<MetaSpendData>({
@@ -1804,6 +1836,7 @@ export default function Admin() {
               { key: "createPool",    label: "묶음만들기", icon: <Layers className="w-3.5 h-3.5" />,           stub: false },
               { key: "rotation",      label: "순환편성표", icon: <CalendarClock className="w-3.5 h-3.5" />,    stub: false },
               { key: "meta",          label: "Meta연동",   icon: <ExternalLink className="w-3.5 h-3.5" />,     stub: false },
+              { key: "monitoring",    label: "성과모니터링", icon: <Activity className="w-3.5 h-3.5" />,       stub: false },
               { key: "performance",   label: "성과리포트", icon: <TrendingUp className="w-3.5 h-3.5" />,       stub: false },
               { key: "billing",       label: "정산관리",   icon: <CircleDollarSign className="w-3.5 h-3.5" />, stub: false },
             ] as const;
@@ -2538,6 +2571,196 @@ export default function Admin() {
                           </ul>
                         </CardContent>
                       </Card>
+                    </div>
+                  );
+                })()}
+
+                {/* ─ 성과 모니터링 탭 ─ */}
+                {adCenterTab === "monitoring" && (() => {
+                  const insights = metaInsightsData?.insights ?? [];
+                  const summary = metaInsightsData?.summary;
+                  const configured = metaInsightsData?.configured ?? true;
+
+                  const healthColor = (h: string) =>
+                    h === "critical" ? "text-red-600" : h === "warning" ? "text-yellow-600" : "text-green-600";
+                  const healthBg = (h: string) =>
+                    h === "critical" ? "bg-red-50 border-red-200" : h === "warning" ? "bg-yellow-50 border-yellow-200" : "bg-green-50 border-green-200";
+                  const healthIcon = (h: string) =>
+                    h === "critical" ? <ShieldAlert className="w-4 h-4 text-red-500" /> :
+                    h === "warning" ? <ShieldOff className="w-4 h-4 text-yellow-500" /> :
+                    <ShieldCheck className="w-4 h-4 text-green-500" />;
+                  const healthLabel = (h: string) =>
+                    h === "critical" ? "위험" : h === "warning" ? "주의" : "정상";
+
+                  const handleCollect = async () => {
+                    setMonitoringCollectLoading(true);
+                    try {
+                      const r = await fetch(`${BASE}/api/meta/insights/collect`, { method: "POST", credentials: "include" });
+                      const data = await r.json();
+                      if (!r.ok) throw new Error(data.error ?? "수집 실패");
+                      toast({ title: "수집 완료", description: `${data.saved}건 저장됨` });
+                      refetchInsights();
+                    } catch (e: unknown) {
+                      toast({ title: "수집 실패", description: e instanceof Error ? e.message : String(e), variant: "destructive" });
+                    } finally {
+                      setMonitoringCollectLoading(false);
+                    }
+                  };
+
+                  const criticalCount = summary?.critical ?? 0;
+                  const warningCount = summary?.warning ?? 0;
+
+                  return (
+                    <div className="space-y-4">
+                      {/* 헤더 + 수집 버튼 */}
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <div>
+                          <h3 className="font-semibold text-base">Meta 광고 성과 모니터링</h3>
+                          {summary?.lastCollectedAt && (
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              마지막 수집: {new Date(summary.lastCollectedAt).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })}
+                            </p>
+                          )}
+                        </div>
+                        <Button size="sm" variant="outline" onClick={handleCollect} disabled={monitoringCollectLoading}>
+                          <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${monitoringCollectLoading ? "animate-spin" : ""}`} />
+                          {monitoringCollectLoading ? "수집 중..." : "지금 수집"}
+                        </Button>
+                      </div>
+
+                      {/* Meta 미설정 경고 */}
+                      {!configured && (
+                        <Card className="border-yellow-200 bg-yellow-50">
+                          <CardContent className="p-4 flex items-center gap-2 text-sm text-yellow-800">
+                            <AlertTriangle className="w-4 h-4 shrink-0" />
+                            Meta API가 설정되지 않았습니다. Meta연동 탭에서 설정을 확인하세요.
+                          </CardContent>
+                        </Card>
+                      )}
+
+                      {/* 요약 카드 */}
+                      {summary && (
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                          {[
+                            { label: "전체 광고", value: summary.total, color: "text-foreground" },
+                            { label: "정상", value: summary.ok, color: "text-green-600" },
+                            { label: "주의", value: summary.warning, color: "text-yellow-600" },
+                            { label: "위험", value: summary.critical, color: "text-red-600" },
+                          ].map(({ label, value, color }) => (
+                            <Card key={label}>
+                              <CardContent className="p-3 text-center">
+                                <p className="text-xs text-muted-foreground">{label}</p>
+                                <p className={`text-2xl font-bold mt-1 ${color}`}>{value}</p>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* 위험/주의 알림 배너 */}
+                      {(criticalCount > 0 || warningCount > 0) && (
+                        <Card className="border-orange-200 bg-orange-50">
+                          <CardContent className="p-3 text-sm text-orange-800 flex items-start gap-2">
+                            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                            <span>
+                              {criticalCount > 0 && <span className="font-semibold text-red-700">{criticalCount}개 광고 위험 상태</span>}
+                              {criticalCount > 0 && warningCount > 0 && ", "}
+                              {warningCount > 0 && <span className="font-semibold text-yellow-700">{warningCount}개 광고 주의 상태</span>}
+                              입니다. 아래 목록에서 확인하세요.
+                            </span>
+                          </CardContent>
+                        </Card>
+                      )}
+
+                      {/* 광고별 카드 목록 */}
+                      {metaInsightsLoading ? (
+                        <div className="text-center py-10 text-muted-foreground text-sm">수집 데이터 로딩 중...</div>
+                      ) : insights.length === 0 ? (
+                        <Card>
+                          <CardContent className="p-8 text-center text-sm text-muted-foreground">
+                            <Activity className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                            <p>수집된 Insights 데이터가 없습니다.</p>
+                            <p className="mt-1">위의 "지금 수집" 버튼을 눌러 데이터를 가져오세요.</p>
+                          </CardContent>
+                        </Card>
+                      ) : (
+                        <div className="space-y-2">
+                          {/* 위험 → 주의 → 정상 순 정렬 */}
+                          {[...insights]
+                            .sort((a, b) => {
+                              const order = { critical: 0, warning: 1, ok: 2 };
+                              return (order[a.healthStatus as keyof typeof order] ?? 2) - (order[b.healthStatus as keyof typeof order] ?? 2);
+                            })
+                            .map((ins) => {
+                              const isExpanded = monitoringExpandedAd === ins.adId;
+                              return (
+                                <Card key={ins.id} className={`border ${healthBg(ins.healthStatus)}`}>
+                                  <CardContent className="p-0">
+                                    <button
+                                      className="w-full text-left p-3 flex items-center gap-3"
+                                      onClick={() => setMonitoringExpandedAd(isExpanded ? null : ins.adId)}
+                                    >
+                                      <span className="shrink-0">{healthIcon(ins.healthStatus)}</span>
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                          <span className="font-medium text-sm truncate max-w-[200px]">{ins.adName || ins.adId}</span>
+                                          <Badge variant="outline" className={`text-xs ${healthColor(ins.healthStatus)}`}>
+                                            {healthLabel(ins.healthStatus)}
+                                          </Badge>
+                                          {ins.status && (
+                                            <Badge variant="secondary" className="text-xs">{ins.status}</Badge>
+                                          )}
+                                        </div>
+                                        {ins.campaignName && (
+                                          <p className="text-xs text-muted-foreground mt-0.5 truncate">{ins.campaignName}</p>
+                                        )}
+                                      </div>
+                                      <div className="shrink-0 text-right text-xs text-muted-foreground hidden sm:block">
+                                        <div>{ins.dateStart} ~ {ins.dateStop}</div>
+                                      </div>
+                                      <span className="shrink-0 text-muted-foreground text-xs">{isExpanded ? "▲" : "▼"}</span>
+                                    </button>
+
+                                    {/* 건강 이슈 표시 */}
+                                    {ins.healthIssues.length > 0 && (
+                                      <div className="px-3 pb-2 flex flex-wrap gap-1.5">
+                                        {ins.healthIssues.map((issue, i) => (
+                                          <span key={i} className="text-xs bg-white/70 border rounded px-2 py-0.5 text-red-700">{issue}</span>
+                                        ))}
+                                      </div>
+                                    )}
+
+                                    {/* 상세 지표 (펼침) */}
+                                    {isExpanded && (
+                                      <div className="border-t px-3 pb-3 pt-2 bg-white/50">
+                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
+                                          {[
+                                            { label: "노출", value: ins.impressions.toLocaleString() },
+                                            { label: "클릭", value: ins.clicks.toLocaleString() },
+                                            { label: "CTR", value: ins.ctr != null ? `${ins.ctr.toFixed(2)}%` : "-" },
+                                            { label: "CPC", value: ins.cpc != null ? `₩${Math.round(ins.cpc).toLocaleString()}` : "-" },
+                                            { label: "지출", value: `₩${Math.round(ins.spend).toLocaleString()}` },
+                                            { label: "도달", value: ins.reach.toLocaleString() },
+                                            { label: "Frequency", value: ins.frequency != null ? ins.frequency.toFixed(2) : "-" },
+                                            { label: "CPP", value: ins.cpp != null ? `₩${Math.round(ins.cpp).toLocaleString()}` : "-" },
+                                          ].map(({ label, value }) => (
+                                            <div key={label} className="rounded border bg-white/80 px-2 py-1.5">
+                                              <p className="text-xs text-muted-foreground">{label}</p>
+                                              <p className="font-semibold mt-0.5">{value}</p>
+                                            </div>
+                                          ))}
+                                        </div>
+                                        <p className="text-xs text-muted-foreground mt-2">
+                                          수집: {new Date(ins.collectedAt).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })}
+                                        </p>
+                                      </div>
+                                    )}
+                                  </CardContent>
+                                </Card>
+                              );
+                            })}
+                        </div>
+                      )}
                     </div>
                   );
                 })()}

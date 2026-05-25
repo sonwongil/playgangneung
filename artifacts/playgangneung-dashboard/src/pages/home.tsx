@@ -338,13 +338,25 @@ function FeedCard({ item, onTagClick }: { item: FeedItem; onTagClick?: (tag: str
 const STORY_GRADIENTS = ["from-blue-800 to-blue-600", "from-purple-800 to-purple-600", "from-emerald-800 to-emerald-600", "from-rose-800 to-rose-600", "from-orange-800 to-orange-600"];
 
 function StoryCard({ item }: { item: StoryItem }) {
+  const [imgFailed, setImgFailed] = useState(false);
   const firstImage = item.images[0];
+  const showImg = !!(firstImage && !imgFailed);
   const gradient = STORY_GRADIENTS[item.id.charCodeAt(0) % STORY_GRADIENTS.length];
   return (
     <a href={item.sourceUrl || "#"} target="_blank" rel="noopener noreferrer" className="block rounded-2xl overflow-hidden cursor-pointer hover:shadow-xl transition-shadow duration-300 group bg-gray-900">
       <div className="relative h-44 overflow-hidden">
-        {firstImage ? <img src={proxyImg(firstImage)} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" onError={(e) => { e.currentTarget.style.display = "none"; e.currentTarget.parentElement?.querySelector(".story-fallback")?.classList.remove("hidden"); }} /> : null}
-        <div className={`story-fallback w-full h-full bg-gradient-to-br ${gradient} absolute inset-0 ${firstImage ? "hidden" : ""}`} />
+        {/* 그라디언트 배경 — 항상 표시, 이미지 로드 성공 시 가려짐 */}
+        <div className={`w-full h-full bg-gradient-to-br ${gradient} absolute inset-0`} />
+        {/* 이미지 — 로드 성공 시만 표시 */}
+        {showImg && (
+          <img
+            src={proxyImg(firstImage)}
+            alt={item.title}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 absolute inset-0"
+            loading="lazy"
+            onError={() => setImgFailed(true)}
+          />
+        )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
         <div className="absolute bottom-0 left-0 right-0 p-3">
           {item.author && <div className="flex items-center gap-1.5 mb-1.5"><div className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-[10px] font-bold text-white shrink-0">{item.author[0]}</div><span className="text-[11px] text-white/70 truncate">{item.author}</span></div>}
@@ -953,6 +965,42 @@ export default function Home() {
                   </span>
                 </div>
               </Link>
+            )}
+
+            {/* 📖 최신 스토리 (전체 탭) */}
+            {!isFiltered && stories.length > 0 && (
+              <section className="mb-5">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-base leading-none">📖</span>
+                    <span className="text-sm font-extrabold text-gray-900">스토리</span>
+                  </div>
+                  <button onClick={() => handleTagClick("스토리")} className="flex items-center gap-0.5 text-xs text-gray-400 hover:text-gray-700 transition-colors font-medium">
+                    전체보기 <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {stories.slice(0, 3).map((s) => <StoryCard key={s.id} item={s} />)}
+                </div>
+              </section>
+            )}
+
+            {/* 🎬 최신 영상 (전체 탭) */}
+            {!isFiltered && videos.length > 0 && (
+              <section className="mb-5">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-base leading-none">🎬</span>
+                    <span className="text-sm font-extrabold text-gray-900">영상</span>
+                  </div>
+                  <button onClick={() => handleTagClick("영상")} className="flex items-center gap-0.5 text-xs text-gray-400 hover:text-gray-700 transition-colors font-medium">
+                    전체보기 <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {videos.slice(0, 3).map((v) => <VideoCard key={v.id} item={v} />)}
+                </div>
+              </section>
             )}
 
             {/* 🔥 인기 태그 (전체 탭 + 인기 태그 존재할 때) */}

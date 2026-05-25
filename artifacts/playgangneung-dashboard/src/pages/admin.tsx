@@ -704,22 +704,36 @@ export default function Admin() {
   const [monitoringExpandedAd, setMonitoringExpandedAd] = useState<string | null>(null);
   const [monitoringCollectLoading, setMonitoringCollectLoading] = useState(false);
   const [monitoringDatePreset, setMonitoringDatePreset] = useState<"today" | "yesterday" | "last_7d" | "last_30d">("today");
+  const [monitoringPoolFilter, setMonitoringPoolFilter] = useState<string>("all");
+  const [monitoringHealthFilter, setMonitoringHealthFilter] = useState<"all" | "critical" | "warning" | "ok">("all");
+  const [monitoringShowTips, setMonitoringShowTips] = useState<string | null>(null);
+
+  interface MonitoringInsight {
+    id: string; adId: string; adName: string;
+    adSetId: string | null; adSetName: string | null;
+    campaignId: string | null; campaignName: string | null;
+    dateStart: string; dateStop: string;
+    impressions: number; clicks: number; spend: number; reach: number;
+    frequency: number | null; ctr: number | null; cpc: number | null; cpp: number | null;
+    status: string | null; healthStatus: string; healthIssues: string[];
+    collectedAt: string;
+    businessName: string | null;
+    adTitle: string | null;
+    pools: { poolId: string; poolName: string; poolStatus: string }[];
+    issues: string[];
+    tips: string[];
+  }
 
   const { data: metaInsightsData, isLoading: metaInsightsLoading, refetch: refetchInsights } = useQuery<{
     configured: boolean;
-    insights: Array<{
-      id: string; adId: string; adName: string;
-      adSetId: string | null; adSetName: string | null;
-      campaignId: string | null; campaignName: string | null;
-      dateStart: string; dateStop: string;
-      impressions: number; clicks: number; spend: number; reach: number;
-      frequency: number | null; ctr: number | null; cpc: number | null; cpp: number | null;
-      status: string | null; healthStatus: string; healthIssues: string[];
-      collectedAt: string;
-    }>;
-    summary: { total: number; ok: number; warning: number; critical: number; lastCollectedAt: string | null };
+    insights: MonitoringInsight[];
+    summary: {
+      total: number; ok: number; warning: number; critical: number;
+      totalSpend: number; totalImpressions: number; totalClicks: number;
+      lastCollectedAt: string | null;
+    };
   }>({
-    queryKey: ["meta-insights"],
+    queryKey: ["meta-insights", monitoringDatePreset],
     queryFn: async () => {
       const r = await fetch(`${BASE}/api/meta/insights`, { credentials: "include" });
       if (!r.ok) throw new Error("Insights 조회 실패");

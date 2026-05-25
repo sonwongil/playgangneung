@@ -209,6 +209,56 @@ interface MetaRateLimit {
   warning: string | null;
 }
 
+interface MetaCampaignSpend {
+  id: string;
+  name: string;
+  status: string;
+  dailyBudget: number | null;
+  lifetimeBudget: number | null;
+  todaySpend: number;
+  impressions: number;
+  clicks: number;
+  reach: number;
+  internalDailyLimit: number | null;
+  usagePct: number | null;
+}
+
+interface MetaSpendData {
+  configured: boolean;
+  account: {
+    todaySpend: number;
+    amountSpent: number | null;
+    spendCap: number | null;
+    currency: string;
+  } | null;
+  campaigns: MetaCampaignSpend[];
+  fetchedAt: string;
+}
+
+interface MetaAdSetSpend {
+  id: string;
+  name: string;
+  status: string;
+  dailyBudget: number | null;
+  todaySpend: number;
+  impressions: number;
+  clicks: number;
+}
+
+interface MetaAdSpend {
+  id: string;
+  name: string;
+  status: string;
+  todaySpend: number;
+  impressions: number;
+  clicks: number;
+}
+
+interface MetaCampaignDetail {
+  adsets: MetaAdSetSpend[];
+  ads: MetaAdSpend[];
+}
+
 interface AdProduct {
   id: string;
   name: string;
@@ -596,6 +646,13 @@ export default function Admin() {
   const [metaPushLoading, setMetaPushLoading] = useState<string | null>(null);
   const [billingExpireLoading, setBillingExpireLoading] = useState(false);
   const [refundLoading, setRefundLoading] = useState<string | null>(null);
+  const [expandedCampaign, setExpandedCampaign] = useState<string | null>(null);
+  const [campaignDetail, setCampaignDetail] = useState<Record<string, MetaCampaignDetail>>({});
+  const [campaignDetailLoading, setCampaignDetailLoading] = useState<string | null>(null);
+  const [editingBudgetId, setEditingBudgetId] = useState<string | null>(null);
+  const [editingBudgetValue, setEditingBudgetValue] = useState("");
+  const [budgetSaveLoading, setBudgetSaveLoading] = useState(false);
+  const [pauseLoading, setPauseLoading] = useState<string | null>(null);
   const [showProductForm, setShowProductForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState<AdProduct | null>(null);
   const [productForm, setProductForm] = useState({ name: "", description: "", amount: "", adDurationDays: "", productType: "ad_run", isActive: true, sortOrder: "0", marginRate: "30" });
@@ -650,6 +707,17 @@ export default function Admin() {
     },
     enabled: !!(activeNav === "adCenter" && adCenterTab === "meta"),
     refetchInterval: 60000,
+  });
+
+  const { data: metaSpendData, isLoading: metaSpendLoading, refetch: refetchMetaSpend } = useQuery<MetaSpendData>({
+    queryKey: ["meta-spend"],
+    queryFn: async () => {
+      const r = await fetch(`${BASE}/api/meta/spend`, { credentials: "include" });
+      if (!r.ok) throw new Error("Meta 지출 조회 실패");
+      return r.json();
+    },
+    enabled: !!(activeNav === "adCenter" && adCenterTab === "billing"),
+    refetchInterval: !!(activeNav === "adCenter" && adCenterTab === "billing") ? 120000 : false,
   });
 
   const { data: storiesData, isLoading: storiesLoading, refetch: refetchStories } = useQuery<{ stories: AdminStory[] }>({
@@ -3128,8 +3196,333 @@ export default function Admin() {
                     else toast({ title: "순서 저장 실패", variant: "destructive" });
                   }
 
+                  async function loadCampaignDetail(campaignId: string) {
+                    if (campaignDetail[campaignId]) {
+                      setExpandedCampaign((prev) => (prev === campaignId ? null : campaignId));
+                      return;
+                    }
+                    setCampaignDetailLoading(campaignId);
+                    setExpandedCampaign(campaignId);
+                    try {
+                      const r = await fetch(`${BASE}/api/meta/spend/campaign/${campaignId}`, { credentials: "include" });
+                      if (r.ok) {
+                        const d = await r.json() as MetaCampaignDetail;
+                        setCampaignDetail((prev) => ({ ...prev, [campaignId]: d }));
+                      }
+                    } finally {
+                      setCampaignDetailLoading(null);
+                    }
+                  }
+
+                  async function saveBudgetLimit(campaignId: string, campaignName: string) {
+                    const val = Number(editingBudgetValue);
+                    if (isNaN(val) || val < 0) { toast({ description: "올바른 금액을 입력하세요.", variant: "destructive" }); return; }
+                    setBudgetSaveLoading(true);
+                    try {
+                      const r = await fetch(`${BASE}/api/meta/budget-limits`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        credentials: "include",
+                        body: JSON.stringify({ campaignId, campaignName, dailyLimit: val }),
+                      });
+                      if (r.ok) { toast({ description: "예산 한도가 저장되었습니다." }); setEditingBudgetId(null); void refetchMetaSpend(); }
+                      else toast({ description: "저장 실패", variant: "destructive" });
+                    } finally { setBudgetSaveLoading(false); }
+                  }
+
+                  async function deleteBudgetLimit(campaignId: string) {
+                    const r = await fetch(`${BASE}/api/meta/budget-limits/${campaignId}`, { method: "DELETE", credentials: "include" });
+                    if (r.ok) { toast({ description: "한도가 삭제되었습니다." }); void refetchMetaSpend(); }
+                    else toast({ description: "삭제 실패", variant: "destructive" });
+                  }
+
+                  async function pauseEntity(type: "campaign" | "adset", id: string, currentStatus: string) {
+                    const nextStatus = currentStatus === "PAUSED" ? "resume" : "pause";
+                    const endpoint = type === "campaign" ? `campaigns` : `adsets`;
+                    setPauseLoading(id);
+                    try {
+                      const r = await fetch(`${BASE}/api/meta/${endpoint}/${id}/${nextStatus}`, { method: "POST", credentials: "include" });
+                      if (r.ok) {
+                        toast({ description: nextStatus === "pause" ? "일시정지 처리되었습니다." : "재개되었습니다." });
+                        void refetchMetaSpend();
+                        setCampaignDetail({});
+                      } else {
+                        const d = await r.json() as { error?: string };
+                        toast({ description: d.error ?? "처리 실패", variant: "destructive" });
+                      }
+                    } finally { setPauseLoading(null); }
+                  }
+
+                  const campaigns = metaSpendData?.campaigns ?? [];
+                  const account = metaSpendData?.account ?? null;
+                  const warnings = campaigns.filter((c) => c.usagePct != null && c.usagePct >= 80);
+
                   return (
                     <div className="space-y-4">
+
+                      {/* ── Meta 실시간 광고비 모니터링 ──────────────────────────── */}
+                      <div className="border rounded-xl overflow-hidden">
+                        <div className="flex items-center justify-between px-4 py-3 bg-blue-50 border-b border-blue-100">
+                          <p className="text-sm font-semibold text-blue-900 flex items-center gap-1.5">
+                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="#1877F2"><path d="M24 12.073C24 5.404 18.627 0 12 0S0 5.404 0 12.073C0 18.1 4.388 23.094 10.125 24v-8.437H7.078v-3.49h3.047V9.41c0-3.025 1.792-4.697 4.533-4.697 1.312 0 2.686.236 2.686.236v2.97h-1.513c-1.491 0-1.956.93-1.956 1.886v2.267h3.328l-.532 3.49h-2.796V24C19.612 23.094 24 18.1 24 12.073z"/></svg>
+                            Meta 실시간 광고비 모니터링
+                          </p>
+                          <Button size="sm" variant="outline" className="h-6 text-[10px] border-blue-200" onClick={() => void refetchMetaSpend()} disabled={metaSpendLoading}>
+                            <RefreshCw className={`w-3 h-3 mr-1 ${metaSpendLoading ? "animate-spin" : ""}`} />
+                            {metaSpendData?.fetchedAt ? new Date(metaSpendData.fetchedAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" }) : "새로고침"}
+                          </Button>
+                        </div>
+
+                        {metaSpendLoading && (
+                          <div className="py-8 text-center text-sm text-muted-foreground">
+                            <RefreshCw className="w-4 h-4 animate-spin mx-auto mb-1 text-blue-400" />Meta API에서 데이터 불러오는 중…
+                          </div>
+                        )}
+
+                        {!metaSpendLoading && metaSpendData && (
+                          <div className="p-4 space-y-4">
+
+                            {/* 경고 배너 */}
+                            {warnings.length > 0 && (
+                              <div className="space-y-1.5">
+                                {warnings.map((c) => (
+                                  <div key={c.id} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium ${
+                                    (c.usagePct ?? 0) >= 100 ? "bg-red-50 text-red-700 border border-red-200" :
+                                    (c.usagePct ?? 0) >= 95 ? "bg-orange-50 text-orange-700 border border-orange-200" :
+                                    "bg-yellow-50 text-yellow-700 border border-yellow-200"
+                                  }`}>
+                                    <span className="text-base">{(c.usagePct ?? 0) >= 100 ? "🚨" : (c.usagePct ?? 0) >= 95 ? "⚠️" : "⚡"}</span>
+                                    <span>
+                                      <strong>{c.name}</strong> — 내부 한도 대비 <strong>{c.usagePct}%</strong> 소진
+                                      {(c.usagePct ?? 0) >= 100 && " (한도 초과! 즉시 검토 필요)"}
+                                      {(c.usagePct ?? 0) >= 95 && (c.usagePct ?? 0) < 100 && " (95% 도달 — 주의)"}
+                                      {(c.usagePct ?? 0) >= 80 && (c.usagePct ?? 0) < 95 && " (80% 도달)"}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* 계정 요약 카드 */}
+                            {account && (
+                              <div className="grid grid-cols-3 gap-3">
+                                <div className="bg-gray-50 rounded-lg p-3 text-center">
+                                  <p className="text-[10px] text-gray-500 mb-0.5">오늘 지출</p>
+                                  <p className="text-lg font-bold text-blue-700">₩{Math.round(account.todaySpend).toLocaleString()}</p>
+                                </div>
+                                <div className="bg-gray-50 rounded-lg p-3 text-center">
+                                  <p className="text-[10px] text-gray-500 mb-0.5">누적 지출 (이번달)</p>
+                                  <p className="text-lg font-bold text-gray-800">
+                                    {account.amountSpent != null ? `₩${Math.round(account.amountSpent).toLocaleString()}` : "—"}
+                                  </p>
+                                </div>
+                                <div className="bg-gray-50 rounded-lg p-3 text-center">
+                                  <p className="text-[10px] text-gray-500 mb-0.5">지출 한도 (계정)</p>
+                                  <p className="text-lg font-bold text-gray-800">
+                                    {account.spendCap != null ? `₩${Math.round(account.spendCap).toLocaleString()}` : "없음"}
+                                  </p>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* 캠페인 테이블 */}
+                            {campaigns.length === 0 ? (
+                              <p className="text-xs text-center text-muted-foreground py-4">캠페인이 없거나 Meta API에서 데이터를 가져오지 못했습니다.</p>
+                            ) : (
+                              <div className="overflow-x-auto rounded-lg border">
+                                <table className="w-full text-xs">
+                                  <thead className="bg-gray-50 border-b">
+                                    <tr>
+                                      {["", "캠페인명", "오늘 지출", "일 예산 (Meta)", "내부 한도", "소진율", "상태", "제어"].map((h) => (
+                                        <th key={h} className="px-3 py-2 text-left text-gray-600 font-medium whitespace-nowrap">{h}</th>
+                                      ))}
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {campaigns.map((c) => {
+                                      const pct = c.usagePct;
+                                      const isExpanded = expandedCampaign === c.id;
+                                      const detail = campaignDetail[c.id];
+                                      return (
+                                        <>
+                                          <tr key={c.id} className={`border-b hover:bg-gray-50 ${isExpanded ? "bg-blue-50/30" : ""}`}>
+                                            <td className="px-2 py-2">
+                                              <button
+                                                onClick={() => void loadCampaignDetail(c.id)}
+                                                className="text-gray-400 hover:text-blue-600 transition-colors"
+                                                title={isExpanded ? "접기" : "광고세트/광고 보기"}
+                                              >
+                                                {campaignDetailLoading === c.id ? (
+                                                  <RefreshCw className="w-3 h-3 animate-spin" />
+                                                ) : (
+                                                  <span className="text-xs">{isExpanded ? "▲" : "▶"}</span>
+                                                )}
+                                              </button>
+                                            </td>
+                                            <td className="px-3 py-2 font-medium text-gray-800 max-w-[180px] truncate">{c.name}</td>
+                                            <td className="px-3 py-2 font-mono font-semibold text-blue-700 whitespace-nowrap">
+                                              ₩{Math.round(c.todaySpend).toLocaleString()}
+                                            </td>
+                                            <td className="px-3 py-2 text-gray-600 whitespace-nowrap">
+                                              {c.dailyBudget != null ? `₩${Math.round(c.dailyBudget).toLocaleString()}` : "—"}
+                                            </td>
+                                            <td className="px-3 py-2 whitespace-nowrap">
+                                              {editingBudgetId === c.id ? (
+                                                <div className="flex items-center gap-1">
+                                                  <input
+                                                    type="number"
+                                                    value={editingBudgetValue}
+                                                    onChange={(e) => setEditingBudgetValue(e.target.value)}
+                                                    className="w-24 h-6 border rounded px-1.5 text-xs"
+                                                    placeholder="0"
+                                                    autoFocus
+                                                    onKeyDown={(e) => { if (e.key === "Enter") void saveBudgetLimit(c.id, c.name); if (e.key === "Escape") setEditingBudgetId(null); }}
+                                                  />
+                                                  <button onClick={() => void saveBudgetLimit(c.id, c.name)} disabled={budgetSaveLoading} className="text-blue-600 hover:text-blue-800 text-[10px] font-medium">저장</button>
+                                                  <button onClick={() => setEditingBudgetId(null)} className="text-gray-400 hover:text-gray-600 text-[10px]">취소</button>
+                                                </div>
+                                              ) : (
+                                                <div className="flex items-center gap-1">
+                                                  <span className="text-gray-700">
+                                                    {c.internalDailyLimit != null ? `₩${c.internalDailyLimit.toLocaleString()}` : "미설정"}
+                                                  </span>
+                                                  <button
+                                                    onClick={() => { setEditingBudgetId(c.id); setEditingBudgetValue(c.internalDailyLimit != null ? String(c.internalDailyLimit) : ""); }}
+                                                    className="text-blue-400 hover:text-blue-700 text-[10px] underline"
+                                                  >수정</button>
+                                                  {c.internalDailyLimit != null && (
+                                                    <button onClick={() => void deleteBudgetLimit(c.id)} className="text-red-300 hover:text-red-500 text-[10px]">✕</button>
+                                                  )}
+                                                </div>
+                                              )}
+                                            </td>
+                                            <td className="px-3 py-2 whitespace-nowrap">
+                                              {pct != null ? (
+                                                <div className="flex items-center gap-2">
+                                                  <div className="w-16 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                                                    <div
+                                                      className={`h-full rounded-full ${pct >= 100 ? "bg-red-500" : pct >= 95 ? "bg-orange-500" : pct >= 80 ? "bg-yellow-400" : "bg-green-400"}`}
+                                                      style={{ width: `${Math.min(100, pct)}%` }}
+                                                    />
+                                                  </div>
+                                                  <span className={`font-mono font-semibold ${pct >= 100 ? "text-red-600" : pct >= 95 ? "text-orange-600" : pct >= 80 ? "text-yellow-600" : "text-green-600"}`}>
+                                                    {pct}%
+                                                  </span>
+                                                </div>
+                                              ) : <span className="text-gray-400 text-[10px]">한도 미설정</span>}
+                                            </td>
+                                            <td className="px-3 py-2 whitespace-nowrap">
+                                              <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${c.status === "ACTIVE" ? "bg-green-100 text-green-700" : c.status === "PAUSED" ? "bg-yellow-100 text-yellow-700" : "bg-gray-100 text-gray-500"}`}>
+                                                {c.status}
+                                              </span>
+                                            </td>
+                                            <td className="px-3 py-2 whitespace-nowrap">
+                                              <button
+                                                onClick={() => void pauseEntity("campaign", c.id, c.status)}
+                                                disabled={pauseLoading === c.id}
+                                                className={`px-2 py-1 rounded text-[10px] font-medium transition-colors ${
+                                                  c.status === "PAUSED"
+                                                    ? "bg-green-100 text-green-700 hover:bg-green-200"
+                                                    : "bg-red-100 text-red-700 hover:bg-red-200"
+                                                }`}
+                                              >
+                                                {pauseLoading === c.id ? <RefreshCw className="w-2.5 h-2.5 animate-spin inline" /> : c.status === "PAUSED" ? "재개" : "정지"}
+                                              </button>
+                                            </td>
+                                          </tr>
+
+                                          {/* 확장: 광고세트 목록 */}
+                                          {isExpanded && detail && (
+                                            <tr key={`${c.id}-detail`}>
+                                              <td colSpan={8} className="bg-blue-50/20 border-b px-6 py-3">
+                                                <div className="space-y-3">
+                                                  {detail.adsets.length > 0 && (
+                                                    <div>
+                                                      <p className="text-[10px] font-semibold text-blue-700 mb-1.5">📦 광고세트</p>
+                                                      <table className="w-full text-[11px]">
+                                                        <thead>
+                                                          <tr className="text-gray-500">
+                                                            <th className="text-left font-medium pb-1">이름</th>
+                                                            <th className="text-right font-medium pb-1">오늘 지출</th>
+                                                            <th className="text-right font-medium pb-1">일 예산</th>
+                                                            <th className="text-center font-medium pb-1">상태</th>
+                                                            <th className="text-center font-medium pb-1">제어</th>
+                                                          </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                          {detail.adsets.map((a) => (
+                                                            <tr key={a.id} className="border-t border-blue-100">
+                                                              <td className="py-1 text-gray-700 max-w-[200px] truncate">{a.name}</td>
+                                                              <td className="py-1 text-right font-mono text-blue-600">₩{Math.round(a.todaySpend).toLocaleString()}</td>
+                                                              <td className="py-1 text-right text-gray-500">{a.dailyBudget != null ? `₩${Math.round(a.dailyBudget).toLocaleString()}` : "—"}</td>
+                                                              <td className="py-1 text-center">
+                                                                <span className={`px-1 py-0.5 rounded text-[10px] ${a.status === "ACTIVE" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}>{a.status}</span>
+                                                              </td>
+                                                              <td className="py-1 text-center">
+                                                                <button
+                                                                  onClick={() => void pauseEntity("adset", a.id, a.status)}
+                                                                  disabled={pauseLoading === a.id}
+                                                                  className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${a.status === "PAUSED" ? "bg-green-100 text-green-700 hover:bg-green-200" : "bg-red-100 text-red-700 hover:bg-red-200"}`}
+                                                                >
+                                                                  {pauseLoading === a.id ? <RefreshCw className="w-2 h-2 animate-spin inline" /> : a.status === "PAUSED" ? "재개" : "정지"}
+                                                                </button>
+                                                              </td>
+                                                            </tr>
+                                                          ))}
+                                                        </tbody>
+                                                      </table>
+                                                    </div>
+                                                  )}
+                                                  {detail.ads.length > 0 && (
+                                                    <div>
+                                                      <p className="text-[10px] font-semibold text-purple-700 mb-1.5">🎯 광고</p>
+                                                      <table className="w-full text-[11px]">
+                                                        <thead>
+                                                          <tr className="text-gray-500">
+                                                            <th className="text-left font-medium pb-1">이름</th>
+                                                            <th className="text-right font-medium pb-1">오늘 지출</th>
+                                                            <th className="text-right font-medium pb-1">노출</th>
+                                                            <th className="text-right font-medium pb-1">클릭</th>
+                                                            <th className="text-center font-medium pb-1">상태</th>
+                                                          </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                          {detail.ads.map((a) => (
+                                                            <tr key={a.id} className="border-t border-purple-100">
+                                                              <td className="py-1 text-gray-700 max-w-[200px] truncate">{a.name}</td>
+                                                              <td className="py-1 text-right font-mono text-blue-600">₩{Math.round(a.todaySpend).toLocaleString()}</td>
+                                                              <td className="py-1 text-right text-gray-500">{a.impressions.toLocaleString()}</td>
+                                                              <td className="py-1 text-right text-gray-500">{a.clicks.toLocaleString()}</td>
+                                                              <td className="py-1 text-center">
+                                                                <span className={`px-1 py-0.5 rounded text-[10px] ${a.status === "ACTIVE" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}>{a.status}</span>
+                                                              </td>
+                                                            </tr>
+                                                          ))}
+                                                        </tbody>
+                                                      </table>
+                                                    </div>
+                                                  )}
+                                                  {detail.adsets.length === 0 && detail.ads.length === 0 && (
+                                                    <p className="text-xs text-gray-400">이 캠페인에 광고세트/광고가 없습니다.</p>
+                                                  )}
+                                                </div>
+                                              </td>
+                                            </tr>
+                                          )}
+                                        </>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {!metaSpendLoading && !metaSpendData && (
+                          <div className="py-6 text-center text-xs text-muted-foreground">Meta API 데이터를 불러오지 못했습니다.</div>
+                        )}
+                      </div>
 
                       {/* ── 광고 상품 관리 ──────────────────────────────────────── */}
                       <div className="border rounded-xl overflow-hidden">

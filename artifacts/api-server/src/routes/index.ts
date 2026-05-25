@@ -17,6 +17,7 @@ import paymentRouter from "./payment.js";
 import adProductsRouter from "./adProducts.js";
 import tagsRouter from "./tags.js";
 import bannerConfigRouter from "./bannerConfig.js";
+import metaSpendRouter from "./metaSpend.js";
 
 const router: IRouter = Router();
 
@@ -42,5 +43,6 @@ router.use(paymentRouter);
 router.use(adProductsRouter);
 router.use(tagsRouter);
 router.use(bannerConfigRouter);
+router.use(metaSpendRouter);
 
 export default router;

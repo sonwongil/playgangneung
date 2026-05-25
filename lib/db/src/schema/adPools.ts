@@ -64,3 +64,12 @@ export const adAlertsTable = pgTable("ad_alerts", {
 });
 
 export type AdAlertRow = typeof adAlertsTable.$inferSelect;
+
+export const metaCampaignBudgetsTable = pgTable("meta_campaign_budgets", {
+  campaignId: text("campaign_id").primaryKey(),
+  campaignName: text("campaign_name").notNull().default(""),
+  dailyLimit: integer("daily_limit").notNull().default(0),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export type MetaCampaignBudgetRow = typeof metaCampaignBudgetsTable.$inferSelect;

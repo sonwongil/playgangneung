@@ -310,3 +310,198 @@ export function parseRateLimitHeader(header: string | null): RateLimitStatus | n
 export function isConfigured(): boolean {
   return !!(process.env["META_ACCESS_TOKEN"] && process.env["META_AD_ACCOUNT_ID"]);
 }
+
+// ─── 광고계정 오늘 지출 + amount_spent/spend_cap ─────────────────────────────────
+export interface AccountSpendData {
+  todaySpend: number;
+  amountSpent: number | null;
+  spendCap: number | null;
+  currency: string;
+}
+
+export async function getAccountSpend(): Promise<{ ok: true; data: AccountSpendData } | { ok: false; error: string }> {
+  const creds = getCredentials();
+  if (!creds) return { ok: false, error: "META_ACCESS_TOKEN / META_AD_ACCOUNT_ID 환경변수가 설정되지 않았습니다" };
+
+  const [insightsRes, accountRes] = await Promise.all([
+    metaGet<{ data: Array<{ spend: string; impressions: string; clicks: string }> }>(
+      `act_${creds.adAccountId}/insights`,
+      { fields: "spend,impressions,clicks", date_preset: "today", level: "account" },
+    ),
+    metaGet<{ amount_spent: string; spend_cap: string; currency: string }>(
+      `act_${creds.adAccountId}`,
+      { fields: "amount_spent,spend_cap,currency" },
+    ),
+  ]);
+
+  const todaySpend = insightsRes.ok ? Number(insightsRes.data.data?.[0]?.spend ?? 0) : 0;
+  const amountSpent = accountRes.ok && accountRes.data.amount_spent ? Number(accountRes.data.amount_spent) / 100 : null;
+  const spendCap = accountRes.ok && accountRes.data.spend_cap && accountRes.data.spend_cap !== "0"
+    ? Number(accountRes.data.spend_cap) / 100
+    : null;
+  const currency = accountRes.ok ? (accountRes.data.currency ?? "KRW") : "KRW";
+
+  return { ok: true, data: { todaySpend, amountSpent, spendCap, currency } };
+}
+
+// ─── 캠페인 목록 + 오늘 지출 ────────────────────────────────────────────────────
+export interface CampaignSpendRow {
+  id: string;
+  name: string;
+  status: string;
+  dailyBudget: number | null;
+  lifetimeBudget: number | null;
+  todaySpend: number;
+  impressions: number;
+  clicks: number;
+  reach: number;
+}
+
+export async function getCampaignsWithSpend(): Promise<{ ok: true; data: { campaigns: CampaignSpendRow[] } } | { ok: false; error: string }> {
+  const creds = getCredentials();
+  if (!creds) return { ok: false, error: "META_ACCESS_TOKEN / META_AD_ACCOUNT_ID 환경변수가 설정되지 않았습니다" };
+
+  const [campaignsRes, insightsRes] = await Promise.all([
+    metaGet<{ data: Array<{ id: string; name: string; status: string; daily_budget?: string; lifetime_budget?: string }> }>(
+      `act_${creds.adAccountId}/campaigns`,
+      { fields: "id,name,status,daily_budget,lifetime_budget", limit: "50" },
+    ),
+    metaGet<{ data: Array<{ campaign_id: string; spend: string; impressions: string; clicks: string; reach: string }> }>(
+      `act_${creds.adAccountId}/insights`,
+      { fields: "campaign_id,spend,impressions,clicks,reach", date_preset: "today", level: "campaign", limit: "50" },
+    ),
+  ]);
+
+  if (!campaignsRes.ok) return campaignsRes;
+
+  const insightMap = new Map<string, { spend: number; impressions: number; clicks: number; reach: number }>();
+  if (insightsRes.ok) {
+    for (const row of insightsRes.data.data ?? []) {
+      insightMap.set(row.campaign_id, {
+        spend: Number(row.spend ?? 0),
+        impressions: Number(row.impressions ?? 0),
+        clicks: Number(row.clicks ?? 0),
+        reach: Number(row.reach ?? 0),
+      });
+    }
+  }
+
+  const campaigns: CampaignSpendRow[] = (campaignsRes.data.data ?? []).map((c) => ({
+    id: c.id,
+    name: c.name,
+    status: c.status,
+    dailyBudget: c.daily_budget ? Number(c.daily_budget) / 100 : null,
+    lifetimeBudget: c.lifetime_budget ? Number(c.lifetime_budget) / 100 : null,
+    todaySpend: insightMap.get(c.id)?.spend ?? 0,
+    impressions: insightMap.get(c.id)?.impressions ?? 0,
+    clicks: insightMap.get(c.id)?.clicks ?? 0,
+    reach: insightMap.get(c.id)?.reach ?? 0,
+  }));
+
+  return { ok: true, data: { campaigns } };
+}
+
+// ─── 광고세트 목록 + 오늘 지출 ──────────────────────────────────────────────────
+export interface AdSetSpendRow {
+  id: string;
+  name: string;
+  status: string;
+  dailyBudget: number | null;
+  todaySpend: number;
+  impressions: number;
+  clicks: number;
+}
+
+export async function getAdSetsWithSpend(campaignId: string): Promise<{ ok: true; data: { adsets: AdSetSpendRow[] } } | { ok: false; error: string }> {
+  const [adsetsRes, insightsRes] = await Promise.all([
+    metaGet<{ data: Array<{ id: string; name: string; status: string; daily_budget?: string }> }>(
+      `${campaignId}/adsets`,
+      { fields: "id,name,status,daily_budget", limit: "50" },
+    ),
+    metaGet<{ data: Array<{ adset_id: string; spend: string; impressions: string; clicks: string }> }>(
+      `${campaignId}/insights`,
+      { fields: "adset_id,spend,impressions,clicks", date_preset: "today", level: "adset", limit: "50" },
+    ),
+  ]);
+
+  if (!adsetsRes.ok) return adsetsRes;
+
+  const insightMap = new Map<string, { spend: number; impressions: number; clicks: number }>();
+  if (insightsRes.ok) {
+    for (const row of insightsRes.data.data ?? []) {
+      insightMap.set(row.adset_id, {
+        spend: Number(row.spend ?? 0),
+        impressions: Number(row.impressions ?? 0),
+        clicks: Number(row.clicks ?? 0),
+      });
+    }
+  }
+
+  const adsets: AdSetSpendRow[] = (adsetsRes.data.data ?? []).map((a) => ({
+    id: a.id,
+    name: a.name,
+    status: a.status,
+    dailyBudget: a.daily_budget ? Number(a.daily_budget) / 100 : null,
+    todaySpend: insightMap.get(a.id)?.spend ?? 0,
+    impressions: insightMap.get(a.id)?.impressions ?? 0,
+    clicks: insightMap.get(a.id)?.clicks ?? 0,
+  }));
+
+  return { ok: true, data: { adsets } };
+}
+
+// ─── 광고 목록 + 오늘 지출 ──────────────────────────────────────────────────────
+export interface AdSpendRow {
+  id: string;
+  name: string;
+  status: string;
+  todaySpend: number;
+  impressions: number;
+  clicks: number;
+}
+
+export async function getAdsWithSpend(campaignId: string): Promise<{ ok: true; data: { ads: AdSpendRow[] } } | { ok: false; error: string }> {
+  const [adsRes, insightsRes] = await Promise.all([
+    metaGet<{ data: Array<{ id: string; name: string; status: string }> }>(
+      `${campaignId}/ads`,
+      { fields: "id,name,status", limit: "50" },
+    ),
+    metaGet<{ data: Array<{ ad_id: string; spend: string; impressions: string; clicks: string }> }>(
+      `${campaignId}/insights`,
+      { fields: "ad_id,spend,impressions,clicks", date_preset: "today", level: "ad", limit: "50" },
+    ),
+  ]);
+
+  if (!adsRes.ok) return adsRes;
+
+  const insightMap = new Map<string, { spend: number; impressions: number; clicks: number }>();
+  if (insightsRes.ok) {
+    for (const row of insightsRes.data.data ?? []) {
+      insightMap.set(row.ad_id, {
+        spend: Number(row.spend ?? 0),
+        impressions: Number(row.impressions ?? 0),
+        clicks: Number(row.clicks ?? 0),
+      });
+    }
+  }
+
+  const ads: AdSpendRow[] = (adsRes.data.data ?? []).map((a) => ({
+    id: a.id,
+    name: a.name,
+    status: a.status,
+    todaySpend: insightMap.get(a.id)?.spend ?? 0,
+    impressions: insightMap.get(a.id)?.impressions ?? 0,
+    clicks: insightMap.get(a.id)?.clicks ?? 0,
+  }));
+
+  return { ok: true, data: { ads } };
+}
+
+// ─── 캠페인/광고세트 상태 변경 (ACTIVE/PAUSED) ──────────────────────────────────
+export async function updateCampaignStatus(campaignId: string, status: "ACTIVE" | "PAUSED") {
+  return metaPost<{ success: boolean }>(`${campaignId}`, { status });
+}
+
+export async function updateAdSetStatus(adSetId: string, status: "ACTIVE" | "PAUSED") {
+  return metaPost<{ success: boolean }>(`${adSetId}`, { status });
+}

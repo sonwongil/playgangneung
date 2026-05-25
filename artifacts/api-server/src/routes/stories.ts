@@ -150,6 +150,63 @@ router.post("/stories/crawl", async (req, res) => {
   }
 });
 
+// ─── URL에서 제목·본문·이미지·작성자 자동 추출 ───────────────────────────────
+router.post("/stories/extract-url", async (req, res) => {
+  const { url } = req.body as { url?: string };
+  if (!url?.trim()) return res.status(400).json({ error: "url 필수" });
+
+  try {
+    const isNaver = url.includes("naver");
+    const fetchUrl = isNaver
+      ? url.replace("blog.naver.com", "m.blog.naver.com").split("?")[0]
+      : url;
+
+    const { default: axios } = await import("axios");
+    const https = await import("https");
+    const httpsAgent = new https.Agent({ rejectUnauthorized: false });
+
+    const resp = await axios.get(fetchUrl, {
+      headers: {
+        "User-Agent": isNaver
+          ? "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148"
+          : "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36",
+        "Accept-Language": "ko-KR,ko;q=0.9",
+        Referer: isNaver ? "https://m.blog.naver.com/" : url,
+      },
+      httpsAgent,
+      timeout: 10000,
+      responseType: "text",
+    });
+
+    const cheerio = await import("cheerio");
+    const $ = cheerio.load(resp.data as string);
+
+    const ogTitle   = $('meta[property="og:title"]').attr("content")?.trim()
+                   ?? $("title").text().trim()
+                   ?? "";
+    const ogDesc    = $('meta[property="og:description"]').attr("content")?.trim()
+                   ?? $('meta[name="description"]').attr("content")?.trim()
+                   ?? "";
+    const ogAuthor  = $('meta[name="author"]').attr("content")?.trim()
+                   ?? $('meta[property="og:site_name"]').attr("content")?.trim()
+                   ?? "";
+
+    let images: string[] = [];
+    if (isNaver) {
+      images = await fetchNaverBlogImages(url, 5);
+    }
+    if (images.length === 0) {
+      const ogImg = $('meta[property="og:image"]').attr("content")?.trim();
+      if (ogImg) images = [ogImg];
+    }
+
+    return res.json({ title: ogTitle, body: ogDesc, images, author: ogAuthor });
+  } catch (err) {
+    req.log.warn({ err, url }, "URL 자동 추출 실패");
+    return res.status(500).json({ error: "URL에서 정보를 가져오지 못했습니다" });
+  }
+});
+
 // ─── 이미지 없는 스토리 재추출 ────────────────────────────────────────────────
 router.post("/stories/refetch-images", async (req, res) => {
   try {

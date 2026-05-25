@@ -442,6 +442,7 @@ export default function Admin() {
   const [previewVideo, setPreviewVideo] = useState<AdminVideo | null>(null);
   const [selectedStoryIds, setSelectedStoryIds] = useState<Set<string>>(new Set());
   const [storyImgRefetching, setStoryImgRefetching] = useState(false);
+  const [storyUrlExtracting, setStoryUrlExtracting] = useState(false);
   const [selectedVideoIds, setSelectedVideoIds] = useState<Set<string>>(new Set());
   const [isCrawlingStories, setIsCrawlingStories] = useState(false);
   const [isCrawlingVideos, setIsCrawlingVideos] = useState(false);
@@ -4468,10 +4469,54 @@ export default function Admin() {
                 <DialogContent className="max-w-lg" onInteractOutside={(e) => e.preventDefault()}>
                   <DialogHeader><DialogTitle>새 스토리 등록</DialogTitle></DialogHeader>
                   <div className="space-y-3 py-2">
+                    {/* 원문 링크 + 자동 추출 버튼 */}
+                    <div>
+                      <Label className="text-xs">원문 링크</Label>
+                      <div className="flex gap-2 mt-1">
+                        <Input
+                          className="h-8 text-sm flex-1"
+                          value={storyForm.sourceUrl}
+                          onChange={(e) => setStoryForm(f => ({ ...f, sourceUrl: e.target.value }))}
+                          placeholder="https://blog.naver.com/..."
+                        />
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 px-3 text-xs shrink-0"
+                          disabled={!storyForm.sourceUrl.trim() || storyUrlExtracting}
+                          onClick={async () => {
+                            setStoryUrlExtracting(true);
+                            try {
+                              const r = await fetch(`${BASE}/api/stories/extract-url`, {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                credentials: "include",
+                                body: JSON.stringify({ url: storyForm.sourceUrl.trim() }),
+                              });
+                              const d = await r.json() as { title?: string; body?: string; images?: string[]; author?: string; error?: string };
+                              if (!r.ok || d.error) { toast({ description: d.error ?? "추출 실패", variant: "destructive" }); return; }
+                              setStoryForm(f => ({
+                                ...f,
+                                title: d.title || f.title,
+                                body: d.body || f.body,
+                                imagesStr: d.images?.length ? d.images.join(", ") : f.imagesStr,
+                                author: d.author || f.author,
+                              }));
+                              toast({ description: "제목·본문·이미지를 자동으로 채웠습니다. 확인 후 수정하세요." });
+                            } finally {
+                              setStoryUrlExtracting(false);
+                            }
+                          }}
+                        >
+                          {storyUrlExtracting
+                            ? <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                            : "자동 추출"}
+                        </Button>
+                      </div>
+                    </div>
                     <div><Label className="text-xs">제목 *</Label><Input className="h-8 text-sm mt-1" value={storyForm.title} onChange={(e) => setStoryForm(f => ({ ...f, title: e.target.value }))} /></div>
                     <div><Label className="text-xs">본문</Label><Textarea className="text-sm mt-1 min-h-[80px]" value={storyForm.body} onChange={(e) => setStoryForm(f => ({ ...f, body: e.target.value }))} /></div>
                     <div><Label className="text-xs">이미지 URL (쉼표 구분)</Label><Input className="h-8 text-sm mt-1" value={storyForm.imagesStr} onChange={(e) => setStoryForm(f => ({ ...f, imagesStr: e.target.value }))} placeholder="https://..." /></div>
-                    <div><Label className="text-xs">원문 링크</Label><Input className="h-8 text-sm mt-1" value={storyForm.sourceUrl} onChange={(e) => setStoryForm(f => ({ ...f, sourceUrl: e.target.value }))} placeholder="https://..." /></div>
                     <div><Label className="text-xs">작성자/출처</Label><Input className="h-8 text-sm mt-1" value={storyForm.author} onChange={(e) => setStoryForm(f => ({ ...f, author: e.target.value }))} /></div>
                     <div><Label className="text-xs">태그 (쉼표 구분)</Label><Input className="h-8 text-sm mt-1" value={storyForm.tagsStr} onChange={(e) => setStoryForm(f => ({ ...f, tagsStr: e.target.value }))} placeholder="강릉,바다,카페" /></div>
                   </div>

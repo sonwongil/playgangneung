@@ -321,15 +321,6 @@ interface RotationSlot {
   aiReason: string | null;
 }
 
-interface AiImproveResult {
-  adId: string;
-  aiScore: number;
-  improvedTitle: string;
-  improvedDescription: string;
-  aiNote: string;
-  issues: string[];
-}
-
 interface BlogSource {
   id: string;
   name: string;
@@ -466,9 +457,6 @@ export default function Admin() {
   const [adCardLoading, setAdCardLoading] = useState<Record<string, boolean>>({});
   const [adCenterTab, setAdCenterTab] = useState<"overview" | "applications" | "createPool" | "rotation" | "meta" | "aiSettings" | "performance" | "billing">("overview");
   const [selectedPoolId, setSelectedPoolId] = useState<string | null>(null);
-  const [aiImproveResult, setAiImproveResult] = useState<AiImproveResult | null>(null);
-  const [aiImprovingId, setAiImprovingId] = useState<string | null>(null);
-  const [aiCheckBatchLoading, setAiCheckBatchLoading] = useState(false);
   const [generatingRotationId, setGeneratingRotationId] = useState<string | null>(null);
   const [alertDetectLoading, setAlertDetectLoading] = useState(false);
   const [poolForm, setPoolForm] = useState({
@@ -1032,16 +1020,6 @@ export default function Admin() {
     onError: () => toast({ title: "상태 변경 실패", variant: "destructive" }),
   });
 
-  const [aiNoteEdit, setAiNoteEdit] = useState<{ adId: string; score: string; note: string } | null>(null);
-  const aiNoteMutation = useMutation({
-    mutationFn: async ({ id, aiScore, aiNote }: { id: string; aiScore: number | null; aiNote: string }) => {
-      const r = await fetch(`${BASE}/api/ads/${id}/ai-note`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ aiScore, aiNote }) });
-      if (!r.ok) throw new Error(); return r.json();
-    },
-    onSuccess: () => { toast({ title: "AI 검수 저장 완료" }); qc.invalidateQueries({ queryKey: ["admin-ads"] }); setAiNoteEdit(null); },
-    onError: () => toast({ title: "AI 검수 저장 실패", variant: "destructive" }),
-  });
-
   const adDeleteMutation = useMutation({
     mutationFn: async (id: string) => {
       const r = await fetch(`${BASE}/api/ads/${id}`, { method: "DELETE", credentials: "include" }); if (!r.ok) throw new Error(); return r.json();
@@ -1114,39 +1092,6 @@ export default function Admin() {
       toast({ title: e.message ?? "리포트 발송 실패", variant: "destructive" });
     } finally {
       setSendReportLoading(null);
-    }
-  }
-
-  async function handleAiImprove(adId: string) {
-    setAiImprovingId(adId);
-    try {
-      const r = await fetch(`${BASE}/api/ads/${adId}/ai-improve`, { method: "POST", credentials: "include" });
-      const d = await r.json() as AiImproveResult & { success?: boolean; error?: string };
-      if (!r.ok) throw new Error(d.error ?? "AI 보정 실패");
-      setAiImproveResult({ ...d, adId });
-      qc.invalidateQueries({ queryKey: ["admin-ads"] });
-      toast({ title: `AI 검수 완료 — ${d.aiScore}점` });
-    } catch (e: any) {
-      toast({ title: e.message ?? "AI 보정 실패", variant: "destructive" });
-    } finally {
-      setAiImprovingId(null);
-    }
-  }
-
-  async function handleAiCheckBatch() {
-    setAiCheckBatchLoading(true);
-    try {
-      const r = await fetch(`${BASE}/api/ads/ai-check-batch`, { method: "POST", credentials: "include" });
-      const d = await r.json() as { checked: number; skipped: number; total: number; error?: string };
-      if (!r.ok) throw new Error(d.error ?? "배치 점검 실패");
-      qc.invalidateQueries({ queryKey: ["admin-ads"] });
-      qc.invalidateQueries({ queryKey: ["ad-center-stats"] });
-      qc.invalidateQueries({ queryKey: ["ad-center-alerts"] });
-      toast({ title: `AI 배치 점검 완료`, description: `${d.checked}건 점검, ${d.skipped}건 건너뜀` });
-    } catch (e: any) {
-      toast({ title: e.message ?? "배치 점검 실패", variant: "destructive" });
-    } finally {
-      setAiCheckBatchLoading(false);
     }
   }
 
@@ -2025,14 +1970,12 @@ export default function Admin() {
                               <th className="px-3 py-2.5 text-left font-medium hidden md:table-cell">카테고리</th>
                               <th className="px-3 py-2.5 text-left font-medium hidden md:table-cell">기간</th>
                               <th className="px-3 py-2.5 text-left font-medium">상태</th>
-                              <th className="px-3 py-2.5 text-left font-medium hidden lg:table-cell">AI점검</th>
                               <th className="px-3 py-2.5 text-right font-medium">액션</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y">
                             {ads.map((ad) => {
                               const sc = AD_STATUS[ad.status] ?? AD_STATUS.pending;
-                              const isEditingAiNote = aiNoteEdit?.adId === ad.id;
                               return (
                                 <React.Fragment key={ad.id}>
                                 <tr className="hover:bg-gray-50 transition-colors">
@@ -2051,16 +1994,6 @@ export default function Admin() {
                                   <td className="px-3 py-2.5">
                                     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs border font-medium ${sc.cls}`}>{sc.label}</span>
                                   </td>
-                                  <td className="px-3 py-2.5 hidden lg:table-cell">
-                                    {ad.aiScore !== null && ad.aiScore !== undefined ? (
-                                      <div className="flex items-center gap-1">
-                                        <span className={`text-xs font-bold ${ad.aiScore >= 80 ? "text-green-600" : ad.aiScore >= 60 ? "text-yellow-600" : "text-red-600"}`}>{ad.aiScore}점</span>
-                                        {ad.aiNote && <span className="text-[10px] text-muted-foreground line-clamp-1 max-w-[100px]" title={ad.aiNote}>{ad.aiNote}</span>}
-                                      </div>
-                                    ) : (
-                                      <span className="text-xs text-muted-foreground">미검수</span>
-                                    )}
-                                  </td>
                                   <td className="px-3 py-2.5">
                                     <div className="flex items-center gap-1 justify-end flex-wrap">
                                       {ad.status === "pending" && (
@@ -2075,16 +2008,6 @@ export default function Admin() {
                                           </Button>
                                         </>
                                       )}
-                                      <Button size="sm" variant="outline" className="h-7 px-2 text-xs text-blue-700 border-blue-200"
-                                        disabled={aiImprovingId === ad.id}
-                                        onClick={() => handleAiImprove(ad.id)}>
-                                        <Sparkles className={`w-3 h-3 ${aiImprovingId === ad.id ? "animate-spin" : ""}`} />
-                                        {aiImprovingId === ad.id ? "분석중..." : "AI검수"}
-                                      </Button>
-                                      <Button size="sm" variant="outline" className="h-7 px-2 text-xs"
-                                        onClick={() => setAiNoteEdit(isEditingAiNote ? null : { adId: ad.id, score: String(ad.aiScore ?? ""), note: ad.aiNote ?? "" })}>
-                                        <Pencil className="w-3 h-3" />수동수정
-                                      </Button>
                                       {ad.status === "approved" && (
                                         <Button size="sm" variant="outline" className="h-7 px-2 text-xs text-purple-700 border-purple-200"
                                           onClick={() => {
@@ -2104,33 +2027,6 @@ export default function Admin() {
                                     </div>
                                   </td>
                                 </tr>
-                                {isEditingAiNote && (
-                                  <tr className="bg-blue-50 border-b">
-                                    <td colSpan={6} className="px-4 py-3">
-                                      <div className="flex items-center gap-2 flex-wrap">
-                                        <span className="text-xs font-medium text-blue-700 flex items-center gap-1"><Sparkles className="w-3 h-3" />AI 검수 점수 · 문구 입력</span>
-                                        <input
-                                          type="number" min={0} max={100} placeholder="점수 (0-100)"
-                                          value={aiNoteEdit.score}
-                                          onChange={(e) => setAiNoteEdit((p) => p ? { ...p, score: e.target.value } : p)}
-                                          className="w-24 h-7 px-2 rounded border text-xs border-blue-200 bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
-                                        />
-                                        <input
-                                          type="text" placeholder="AI 검수 코멘트 (선택)"
-                                          value={aiNoteEdit.note}
-                                          onChange={(e) => setAiNoteEdit((p) => p ? { ...p, note: e.target.value } : p)}
-                                          className="flex-1 min-w-[200px] h-7 px-2 rounded border text-xs border-blue-200 bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
-                                        />
-                                        <Button size="sm" className="h-7 px-3 text-xs bg-blue-600 hover:bg-blue-700 text-white"
-                                          disabled={aiNoteMutation.isPending}
-                                          onClick={() => aiNoteMutation.mutate({ id: aiNoteEdit.adId, aiScore: aiNoteEdit.score !== "" ? Number(aiNoteEdit.score) : null, aiNote: aiNoteEdit.note })}>
-                                          저장
-                                        </Button>
-                                        <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setAiNoteEdit(null)}>취소</Button>
-                                      </div>
-                                    </td>
-                                  </tr>
-                                )}
                                 </React.Fragment>
                               );
                             })}
@@ -2437,31 +2333,6 @@ export default function Admin() {
                 {/* ─ AI 설정 탭 ─ */}
                 {adCenterTab === "aiSettings" && (
                   <div className="space-y-5 max-w-2xl">
-                    {/* 배치 AI 점검 */}
-                    <Card>
-                      <CardContent className="p-5 space-y-3">
-                        <div className="flex items-center gap-2">
-                          <Sparkles className="w-4 h-4 text-blue-500" />
-                          <p className="font-semibold text-sm">AI 일괄 점검</p>
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          AI 검수가 안 된 광고를 한 번에 점검합니다. 문구 품질 점수(0~100)와 개선 포인트를 자동으로 저장합니다.
-                        </p>
-                        <div className="flex items-center gap-3">
-                          <Button
-                            size="sm"
-                            className="gap-1.5"
-                            disabled={aiCheckBatchLoading}
-                            onClick={handleAiCheckBatch}
-                          >
-                            <Sparkles className={`w-3.5 h-3.5 ${aiCheckBatchLoading ? "animate-spin" : ""}`} />
-                            {aiCheckBatchLoading ? "점검 중..." : "미검수 광고 일괄 점검"}
-                          </Button>
-                          <span className="text-xs text-muted-foreground">최대 10건씩 처리됩니다</span>
-                        </div>
-                      </CardContent>
-                    </Card>
-
                     {/* AI 편성 전략 설명 */}
                     <Card>
                       <CardContent className="p-5 space-y-3">
@@ -2509,7 +2380,6 @@ export default function Admin() {
                         <div className="space-y-2 text-xs text-muted-foreground pt-1 border-t">
                           <p className="font-medium text-foreground">감지 규칙</p>
                           {[
-                            "AI 점수 60점 미만 → 문구 보정 필요 경고",
                             "접수 후 2일 이상 미처리 → 처리 지연 알림",
                             "운영 기간 종료 묶음 → 상태 업데이트 오류 알림",
                             "동일 광고 연속 3시간 이상 → 과노출 감지 경고",
@@ -5323,68 +5193,6 @@ export default function Admin() {
         </DialogContent>
       </Dialog>
     )}
-    {/* ══ AI 검수 결과 다이얼로그 ═══════════════════════════════════════════ */}
-    {aiImproveResult && (
-      <Dialog open onOpenChange={() => setAiImproveResult(null)}>
-        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-blue-500" />AI 검수 결과
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            {/* 점수 */}
-            <div className="flex items-center gap-3">
-              <div className={`w-14 h-14 rounded-full flex items-center justify-center text-lg font-bold border-4 ${
-                aiImproveResult.aiScore >= 80 ? "border-green-400 text-green-700 bg-green-50"
-                : aiImproveResult.aiScore >= 60 ? "border-yellow-400 text-yellow-700 bg-yellow-50"
-                : "border-red-400 text-red-700 bg-red-50"
-              }`}>
-                {aiImproveResult.aiScore}
-              </div>
-              <div>
-                <p className="font-semibold text-sm">
-                  {aiImproveResult.aiScore >= 80 ? "우수 — 바로 사용 가능합니다" : aiImproveResult.aiScore >= 60 ? "보통 — 보정 문구 적용을 권장합니다" : "미흡 — 문구 개선이 필요합니다"}
-                </p>
-                <p className="text-xs text-muted-foreground mt-0.5">{aiImproveResult.aiNote}</p>
-              </div>
-            </div>
-            {/* 문제점 */}
-            {aiImproveResult.issues.length > 0 && (
-              <div>
-                <p className="text-xs font-semibold text-muted-foreground mb-1.5">지적 사항</p>
-                <div className="space-y-1">
-                  {aiImproveResult.issues.map((issue, i) => (
-                    <div key={i} className="flex items-start gap-2 text-xs">
-                      <AlertTriangle className="w-3 h-3 text-yellow-500 shrink-0 mt-0.5" />
-                      <span>{issue}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            {/* 개선 제안 */}
-            <div className="space-y-2">
-              <p className="text-xs font-semibold text-muted-foreground">AI 개선 문구</p>
-              <div className="rounded-lg border bg-blue-50/50 p-3 space-y-2">
-                <div>
-                  <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">제목</p>
-                  <p className="text-sm font-medium mt-0.5">{aiImproveResult.improvedTitle}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">설명</p>
-                  <p className="text-xs mt-0.5 whitespace-pre-line">{aiImproveResult.improvedDescription}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-          <DialogFooter className="pt-1">
-            <Button variant="outline" size="sm" onClick={() => setAiImproveResult(null)}>닫기</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    )}
-
     {/* ══ 수동 피드 등록 다이얼로그 ══════════════════════════════════════════ */}
     <Dialog open={showManualDialog} onOpenChange={(o) => { if (!o) resetManualDialog(); }}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto" onInteractOutside={(e) => e.preventDefault()}>

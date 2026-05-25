@@ -369,12 +369,16 @@ router.post("/ads/:id/ai-improve", async (req, res) => {
     const response = await openai.chat.completions.create({
       model: "gpt-5-mini",
       max_completion_tokens: 1000,
+      response_format: { type: "json_object" },
       messages: [{ role: "user", content: prompt }],
     });
 
     const raw = response.choices[0]?.message?.content ?? "{}";
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) return res.status(500).json({ error: "AI 응답 파싱 실패" });
+    if (!jsonMatch) {
+      req.log.error({ raw }, "AI 응답 파싱 실패 — JSON 없음");
+      return res.status(500).json({ error: "AI 응답 파싱 실패" });
+    }
 
     const result = JSON.parse(jsonMatch[0]) as {
       aiScore: number;
@@ -421,6 +425,7 @@ router.post("/ads/ai-check-batch", async (req, res) => {
         const response = await openai.chat.completions.create({
           model: "gpt-5-nano",
           max_completion_tokens: 200,
+          response_format: { type: "json_object" },
           messages: [{ role: "user", content: prompt }],
         });
 

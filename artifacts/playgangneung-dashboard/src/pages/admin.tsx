@@ -455,7 +455,7 @@ export default function Admin() {
   const [adCopied, setAdCopied] = useState(false);
   const [adCardUrls, setAdCardUrls] = useState<Record<string, string[]>>({});
   const [adCardLoading, setAdCardLoading] = useState<Record<string, boolean>>({});
-  const [adCenterTab, setAdCenterTab] = useState<"overview" | "applications" | "createPool" | "rotation" | "meta" | "aiSettings" | "performance" | "billing">("overview");
+  const [adCenterTab, setAdCenterTab] = useState<"overview" | "applications" | "createPool" | "rotation" | "meta" | "performance" | "billing">("overview");
   const [selectedPoolId, setSelectedPoolId] = useState<string | null>(null);
   const [generatingRotationId, setGeneratingRotationId] = useState<string | null>(null);
   const [alertDetectLoading, setAlertDetectLoading] = useState(false);
@@ -1804,7 +1804,6 @@ export default function Admin() {
               { key: "createPool",    label: "묶음만들기", icon: <Layers className="w-3.5 h-3.5" />,           stub: false },
               { key: "rotation",      label: "순환편성표", icon: <CalendarClock className="w-3.5 h-3.5" />,    stub: false },
               { key: "meta",          label: "Meta연동",   icon: <ExternalLink className="w-3.5 h-3.5" />,     stub: false },
-              { key: "aiSettings",    label: "AI설정",     icon: <Settings className="w-3.5 h-3.5" />,         stub: false },
               { key: "performance",   label: "성과리포트", icon: <TrendingUp className="w-3.5 h-3.5" />,       stub: false },
               { key: "billing",       label: "정산관리",   icon: <CircleDollarSign className="w-3.5 h-3.5" />, stub: false },
             ] as const;
@@ -2327,72 +2326,6 @@ export default function Admin() {
                     })() : selectedPoolId ? (
                       <div className="py-12 text-center text-sm text-muted-foreground">편성표 불러오는 중...</div>
                     ) : null}
-                  </div>
-                )}
-
-                {/* ─ AI 설정 탭 ─ */}
-                {adCenterTab === "aiSettings" && (
-                  <div className="space-y-5 max-w-2xl">
-                    {/* AI 편성 전략 설명 */}
-                    <Card>
-                      <CardContent className="p-5 space-y-3">
-                        <div className="flex items-center gap-2">
-                          <CalendarClock className="w-4 h-4 text-purple-500" />
-                          <p className="font-semibold text-sm">AI 편성 전략 안내</p>
-                        </div>
-                        <div className="space-y-2">
-                          {[
-                            { mode: "균등 분배 (equal)", desc: "모든 광고에 동일한 시간 배정. 공정한 노출을 보장합니다.", color: "bg-blue-50 border-blue-200" },
-                            { mode: "성과 기반 (performance)", desc: "AI 점수가 높은 광고를 피크타임(09~21시)에 집중 배정. 클릭률 극대화 전략.", color: "bg-orange-50 border-orange-200" },
-                            { mode: "과노출 방지 (overexposure_prevention)", desc: "동일 광고 연속 2시간 초과 금지. 광고 피로도 최소화 및 고른 노출 보장.", color: "bg-yellow-50 border-yellow-200" },
-                            { mode: "신규 광고 보정 (new_ad_boost)", desc: "최근 3일 이내 등록된 신규 광고를 피크타임에 우선 배정. 초기 노출을 높입니다.", color: "bg-green-50 border-green-200" },
-                            { mode: "수동 (manual)", desc: "AI가 기본 편성표를 생성하고, 직접 슬롯을 조정할 수 있습니다.", color: "bg-gray-50 border-gray-200" },
-                          ].map((s) => (
-                            <div key={s.mode} className={`rounded-lg border p-3 ${s.color}`}>
-                              <p className="text-xs font-semibold mb-0.5">{s.mode}</p>
-                              <p className="text-[11px] text-muted-foreground">{s.desc}</p>
-                            </div>
-                          ))}
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    {/* AI 알림 감지 */}
-                    <Card>
-                      <CardContent className="p-5 space-y-3">
-                        <div className="flex items-center gap-2">
-                          <Bell className="w-4 h-4 text-yellow-500" />
-                          <p className="font-semibold text-sm">AI 알림 감지 & 저장</p>
-                        </div>
-                        <p className="text-xs text-muted-foreground">감지된 알림은 대시보드 알림 패널에 영구 저장됩니다.</p>
-                        <div className="flex items-center gap-3">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="gap-1.5 border-yellow-300 text-yellow-700 hover:bg-yellow-50"
-                            disabled={alertDetectLoading}
-                            onClick={handleAlertDetect}
-                          >
-                            <AlertTriangle className={`w-3.5 h-3.5 ${alertDetectLoading ? "animate-pulse" : ""}`} />
-                            {alertDetectLoading ? "감지 중..." : "알림 지금 감지"}
-                          </Button>
-                        </div>
-                        <div className="space-y-2 text-xs text-muted-foreground pt-1 border-t">
-                          <p className="font-medium text-foreground">감지 규칙</p>
-                          {[
-                            "접수 후 2일 이상 미처리 → 처리 지연 알림",
-                            "운영 기간 종료 묶음 → 상태 업데이트 오류 알림",
-                            "동일 광고 연속 3시간 이상 → 과노출 감지 경고",
-                          ].map((rule, i) => (
-                            <div key={i} className="flex items-start gap-2">
-                              <AlertTriangle className="w-3 h-3 text-yellow-500 shrink-0 mt-0.5" />
-                              <span>{rule}</span>
-                            </div>
-                          ))}
-                        </div>
-                        <p className="text-[10px] text-muted-foreground pt-1 border-t">Phase 3에서 Meta CTR 데이터 기반 저CTR 알림이 추가됩니다.</p>
-                      </CardContent>
-                    </Card>
                   </div>
                 )}
 

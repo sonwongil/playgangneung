@@ -4362,6 +4362,15 @@ export default function Admin() {
                     </>
                   )}
                 </div>
+                <Button size="sm" variant="outline" className="h-7 px-3 text-xs gap-1"
+                  onClick={async () => {
+                    const r = await fetch(`${BASE}/api/stories/refetch-images`, { method: "POST", credentials: "include" });
+                    const d = await r.json() as { message?: string; updated?: number; checked?: number };
+                    toast({ description: d.message ?? "완료" });
+                    if ((d.updated ?? 0) > 0) refetchStories();
+                  }}>
+                  <ImageIcon className="w-3 h-3" />이미지 재추출
+                </Button>
                 <Button size="sm" onClick={() => setShowStoryDialog(true)} className="h-7 px-3 text-xs gap-1">
                   <PlusCircle className="w-3 h-3" />직접 등록
                 </Button>

@@ -441,6 +441,7 @@ export default function Admin() {
   const [previewStory, setPreviewStory] = useState<AdminStory | null>(null);
   const [previewVideo, setPreviewVideo] = useState<AdminVideo | null>(null);
   const [selectedStoryIds, setSelectedStoryIds] = useState<Set<string>>(new Set());
+  const [storyImgRefetching, setStoryImgRefetching] = useState(false);
   const [selectedVideoIds, setSelectedVideoIds] = useState<Set<string>>(new Set());
   const [isCrawlingStories, setIsCrawlingStories] = useState(false);
   const [isCrawlingVideos, setIsCrawlingVideos] = useState(false);
@@ -4363,13 +4364,29 @@ export default function Admin() {
                   )}
                 </div>
                 <Button size="sm" variant="outline" className="h-7 px-3 text-xs gap-1"
+                  disabled={storyImgRefetching}
                   onClick={async () => {
-                    const r = await fetch(`${BASE}/api/stories/refetch-images`, { method: "POST", credentials: "include" });
-                    const d = await r.json() as { message?: string; updated?: number; checked?: number };
-                    toast({ description: d.message ?? "완료" });
-                    if ((d.updated ?? 0) > 0) refetchStories();
+                    setStoryImgRefetching(true);
+                    try {
+                      const body: { ids?: string[] } = {};
+                      if (selectedStoryIds.size > 0) body.ids = [...selectedStoryIds];
+                      const r = await fetch(`${BASE}/api/stories/refetch-images`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        credentials: "include",
+                        body: JSON.stringify(body),
+                      });
+                      const d = await r.json() as { message?: string; updated?: number; checked?: number };
+                      toast({ description: d.message ?? "완료" });
+                      if ((d.updated ?? 0) > 0) refetchStories();
+                    } finally {
+                      setStoryImgRefetching(false);
+                    }
                   }}>
-                  <ImageIcon className="w-3 h-3" />이미지 재추출
+                  {storyImgRefetching
+                    ? <><span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />처리 중...</>
+                    : <><ImageIcon className="w-3 h-3" />{selectedStoryIds.size > 0 ? `이미지 재추출 (${selectedStoryIds.size})` : "이미지 재추출"}</>
+                  }
                 </Button>
                 <Button size="sm" onClick={() => setShowStoryDialog(true)} className="h-7 px-3 text-xs gap-1">
                   <PlusCircle className="w-3 h-3" />직접 등록

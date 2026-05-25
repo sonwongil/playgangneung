@@ -153,15 +153,28 @@ router.post("/stories/crawl", async (req, res) => {
 // ─── 이미지 없는 스토리 재추출 ────────────────────────────────────────────────
 router.post("/stories/refetch-images", async (req, res) => {
   try {
-    // images가 비어있고 sourceUrl이 naver인 스토리 최대 30개
-    const rows = await db
-      .select({ id: storiesTable.id, sourceUrl: storiesTable.sourceUrl })
-      .from(storiesTable)
-      .where(sql`jsonb_array_length(${storiesTable.images}) = 0 AND ${storiesTable.sourceUrl} LIKE '%naver%'`)
-      .limit(30);
+    const { ids } = req.body as { ids?: string[] };
+    const targetIds = Array.isArray(ids) && ids.length > 0 ? ids : null;
 
-    if (rows.length === 0) {
-      return res.json({ updated: 0, message: "이미지 없는 네이버 스토리가 없습니다" });
+    let rows: { id: string; sourceUrl: string }[];
+
+    if (targetIds) {
+      // 선택된 ID들 — 이미지 유무 관계없이 강제 재추출
+      rows = await db
+        .select({ id: storiesTable.id, sourceUrl: storiesTable.sourceUrl })
+        .from(storiesTable)
+        .where(inArray(storiesTable.id, targetIds));
+    } else {
+      // 선택 없음 — 이미지가 비어있는 네이버 스토리 최대 30개
+      rows = await db
+        .select({ id: storiesTable.id, sourceUrl: storiesTable.sourceUrl })
+        .from(storiesTable)
+        .where(sql`jsonb_array_length(${storiesTable.images}) = 0 AND ${storiesTable.sourceUrl} LIKE '%naver%'`)
+        .limit(30);
+
+      if (rows.length === 0) {
+        return res.json({ updated: 0, checked: 0, message: "이미지 없는 네이버 스토리가 없습니다" });
+      }
     }
 
     let updated = 0;
@@ -169,6 +182,10 @@ router.post("/stories/refetch-images", async (req, res) => {
 
     for (const row of rows) {
       try {
+        if (!row.sourceUrl?.includes("naver")) {
+          errors.push(`${row.id}: 네이버 블로그 URL이 아닙니다`);
+          continue;
+        }
         const imgs = await fetchNaverBlogImages(row.sourceUrl, 5);
         if (imgs.length > 0) {
           await db
@@ -177,14 +194,13 @@ router.post("/stories/refetch-images", async (req, res) => {
             .where(eq(storiesTable.id, row.id));
           updated++;
         }
-        // 네이버 API 과부하 방지
         await new Promise((r) => setTimeout(r, 300));
       } catch (err) {
         errors.push(`${row.id}: ${err instanceof Error ? err.message : String(err)}`);
       }
     }
 
-    req.log.info({ updated, total: rows.length }, "이미지 재추출 완료");
+    req.log.info({ updated, total: rows.length, targetIds }, "이미지 재추출 완료");
     return res.json({
       updated,
       checked: rows.length,

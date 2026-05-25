@@ -30,44 +30,38 @@ interface BuiltSlot {
 export function buildStrategySlots(poolId: string, aiMode: string, adsRows: AdsRow[]): BuiltSlot[] {
   if (adsRows.length === 0) return [];
   const n = adsRows.length;
-  type WeightedAd = { adId: string; weight: number; aiScore: number; createdAt: Date };
-  const weightedAds: WeightedAd[] = adsRows.map((a) => ({
-    adId: a.id,
-    weight: 1 / n,
-    aiScore: (a.aiScore as number | null) ?? 70,
-    createdAt: a.createdAt,
-  }));
-
-  const sortedByScore = [...weightedAds].sort((a, b) => b.aiScore - a.aiScore);
   const cutoff = Date.now() - 3 * 86400000;
-  const newAds = weightedAds.filter((a) => a.createdAt.getTime() >= cutoff);
+  const newAds = adsRows.filter((a) => a.createdAt.getTime() >= cutoff);
   const primeHours = new Set<number>([9,10,11,12,13,14,15,16,17,18,19,20,21]);
+
+  // [공정 노출 정책]
+  // aiScore는 노출 순서 결정에 미사용.
+  // 광고주는 계약(플랜) 기준 공정 노출을 보장받음.
+  // aiScore < 60 → 관리자 개선 알림(adCenter alerts)으로만 활용.
 
   const slots: BuiltSlot[] = [];
   for (let hour = 0; hour < 24; hour++) {
     const isPrime = primeHours.has(hour);
-    let chosen: WeightedAd = weightedAds[hour % n];
+    let chosen: AdsRow = adsRows[hour % n];
     let status = "active";
     let reason = "균등 순환 배정";
 
     if (aiMode === "performance") {
-      chosen = isPrime
-        ? sortedByScore[Math.floor((hour / 24) * sortedByScore.length) % sortedByScore.length]
-        : weightedAds[hour % n];
-      if (isPrime && sortedByScore[0]?.adId === chosen.adId) status = "boost";
+      // 피크/비피크 모두 계약 기준 균등 순환 — AI 점수로 광고 간 차별 없음
+      chosen = adsRows[hour % n];
       reason = isPrime
-        ? `피크타임 — AI점수 상위 광고 (${chosen.aiScore}점)`
-        : "비피크 균등 배정";
+        ? `피크타임 균등 순환 — 계약 기준 공정 노출 (${hour}시)`
+        : `비피크 균등 순환 (${hour}시)`;
     } else if (aiMode === "overexposure_prevention") {
       const prev1 = slots[hour - 1]?.adId;
       const prev2 = slots[hour - 2]?.adId;
       let idx = hour % n;
       let tries = 0;
-      while (tries < n && weightedAds[idx % n].adId === prev1 && weightedAds[idx % n].adId === prev2) {
+      while (tries < n && adsRows[idx % n].id === prev1 && adsRows[idx % n].id === prev2) {
         idx++;
         tries++;
       }
-      chosen = weightedAds[idx % n];
+      chosen = adsRows[idx % n];
       reason = `과노출 방지 — 연속 2시간 이상 동일 광고 제한 (${hour}시)`;
     } else if (aiMode === "new_ad_boost") {
       if (isPrime && newAds.length > 0) {
@@ -75,20 +69,19 @@ export function buildStrategySlots(poolId: string, aiMode: string, adsRows: AdsR
         status = "boost";
         reason = `신규 광고 피크타임 부스트 (${hour}시)`;
       } else {
-        chosen = weightedAds[hour % n];
+        chosen = adsRows[hour % n];
         reason = newAds.length > 0 ? "비피크 균등 배정" : "신규 광고 없음 — 균등 배정";
       }
     } else {
-      // equal / manual
       reason = `${aiMode === "manual" ? "수동 기준" : "균등"} 순환 배정`;
     }
 
     slots.push({
       id: crypto.randomUUID(),
       poolId,
-      adId: chosen.adId,
+      adId: chosen.id,
       hourSlot: hour,
-      weight: Math.round(chosen.weight * 100) || 1,
+      weight: Math.round((1 / n) * 100) || 1,
       status,
       aiReason: reason,
     });

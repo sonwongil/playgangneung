@@ -4503,6 +4503,38 @@ export default function Admin() {
                         </div>
                         {/* 액션 푸터 */}
                         <div className="border-t p-4 flex flex-col gap-2 shrink-0">
+                          {/* SNS 공유 버튼 (승인/발행 상태일 때) */}
+                          {(s.status === "approved" || s.status === "published") && (() => {
+                            const storySnsText = [
+                              s.title,
+                              s.body ? `\n${s.body}` : "",
+                              s.tags?.length ? `\n\n${s.tags.filter(Boolean).map((t: string) => `#${t}`).join(" ")}` : "",
+                              `\n\n🏠 PLAY강릉 바로가기 → https://playgangneung.com`,
+                            ].join("");
+                            return (
+                              <div className="space-y-1.5">
+                                <p className="text-xs text-muted-foreground font-medium">문구가 클립보드에 복사되며 해당 플랫폼이 열립니다</p>
+                                <div className="flex flex-wrap gap-2">
+                                  <a href="https://www.facebook.com/profile.php?id=61589314617028&locale=ko_KR" target="_blank" rel="noopener noreferrer"
+                                    onClick={() => { void navigator.clipboard.writeText(storySnsText); toast({ description: "문구가 복사됐습니다." }); }}>
+                                    <Button size="sm" className="h-8 px-3 text-xs text-white bg-[#1877F2] hover:bg-[#1565C0]">페이스북</Button>
+                                  </a>
+                                  <a href="https://www.instagram.com/playgangneung/" target="_blank" rel="noopener noreferrer"
+                                    onClick={() => { void navigator.clipboard.writeText(storySnsText); toast({ description: "문구가 복사됐습니다." }); }}>
+                                    <Button size="sm" className="h-8 px-3 text-xs text-white bg-[#E1306C] hover:bg-[#C2185B]">인스타그램</Button>
+                                  </a>
+                                  <a href="https://business.facebook.com/latest/composer?asset_id=1135888279600983&business_id=1004678568916594&ir_qe_exposed=1&nav_ref=internal_nav&ref=biz_web_content_manager_calendar_view&context_ref=CONTENT_CALENDAR" target="_blank" rel="noopener noreferrer"
+                                    onClick={() => { void navigator.clipboard.writeText(storySnsText); toast({ description: "문구가 복사됐습니다." }); }}>
+                                    <Button size="sm" className="h-8 px-3 text-xs text-white bg-[#3b5bdb] hover:bg-[#2f4ac4]">Meta Suite</Button>
+                                  </a>
+                                  <Button size="sm" variant="outline" className="h-8 px-3 text-xs"
+                                    onClick={() => { void navigator.clipboard.writeText(storySnsText); toast({ description: "문구가 복사됐습니다." }); }}>
+                                    <Copy className="w-3 h-3 mr-1" />문구 복사
+                                  </Button>
+                                </div>
+                              </div>
+                            );
+                          })()}
                           {s.sourceUrl && (
                             <a href={s.sourceUrl} target="_blank" rel="noopener noreferrer"
                               className="flex items-center justify-center gap-2 w-full h-9 rounded-md border text-sm font-medium hover:bg-gray-50 transition-colors">
@@ -4889,15 +4921,15 @@ export default function Admin() {
                               <p className="text-xs text-muted-foreground font-medium">문구가 클립보드에 복사되며 해당 플랫폼이 열립니다</p>
                               <div className="flex flex-wrap gap-2">
                                 <a href="https://www.facebook.com/profile.php?id=61589314617028&locale=ko_KR" target="_blank" rel="noopener noreferrer"
-                                  onClick={() => navigator.clipboard.writeText(videoSnsCaption)}>
+                                  onClick={() => navigator.clipboard.writeText(`${videoSnsCaption}\n\n🏠 PLAY강릉 바로가기 → https://playgangneung.com`)}>
                                   <Button size="sm" className="h-8 px-3 text-xs text-white bg-[#1877F2] hover:bg-[#1565C0]">페이스북</Button>
                                 </a>
                                 <a href="https://www.instagram.com/playgangneung/" target="_blank" rel="noopener noreferrer"
-                                  onClick={() => navigator.clipboard.writeText(videoSnsCaption)}>
+                                  onClick={() => navigator.clipboard.writeText(`${videoSnsCaption}\n\n🏠 PLAY강릉 바로가기 → https://playgangneung.com`)}>
                                   <Button size="sm" className="h-8 px-3 text-xs text-white bg-[#E1306C] hover:bg-[#C2185B]">인스타그램</Button>
                                 </a>
                                 <a href="https://business.facebook.com/latest/composer?asset_id=1135888279600983&business_id=1004678568916594&ir_qe_exposed=1&nav_ref=internal_nav&ref=biz_web_content_manager_calendar_view&context_ref=CONTENT_CALENDAR" target="_blank" rel="noopener noreferrer"
-                                  onClick={() => navigator.clipboard.writeText(videoSnsCaption)}>
+                                  onClick={() => navigator.clipboard.writeText(`${videoSnsCaption}\n\n🏠 PLAY강릉 바로가기 → https://playgangneung.com`)}>
                                   <Button size="sm" className="h-8 px-3 text-xs text-white bg-[#3b5bdb] hover:bg-[#2f4ac4]">Meta Suite</Button>
                                 </a>
                                 <a href={`https://www.youtube.com/watch?v=${v.youtubeId}`} target="_blank" rel="noopener noreferrer">

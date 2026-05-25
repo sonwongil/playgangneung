@@ -52,6 +52,58 @@ async function fetchXml(url: string, timeoutMs = 12000): Promise<string> {
 const GANGNEUNG_KEYWORDS = /강릉|경포|주문진|사천|옥계|성산|구정|연곡|왕산|강동|노암|포남|교동|남문|내곡|홍제|성내|임당|옥천|강릉시/;
 const JUNK = /이메일.*자동수집|정보통신망법|저작권|무단전재|copyright|all rights reserved/i;
 
+/** RSS / HTML 내 이미지를 최대 maxCount장까지 추출 (프로필·아이콘 제외, blur→고해상도 치환) */
+function extractImagesFromHtml(html: string, maxCount = 5): string[] {
+  const seen = new Set<string>();
+  const imgs: string[] = [];
+  // data-lazy-src 우선, 없으면 src
+  const lazyMatches = html.matchAll(/data-lazy-src=["']([^"']+\.(jpg|jpeg|png|webp)[^"']*)/gi);
+  for (const m of lazyMatches) {
+    const url = normalizeImgUrl(m[1]);
+    if (url && !seen.has(url)) { seen.add(url); imgs.push(url); }
+    if (imgs.length >= maxCount) return imgs;
+  }
+  const srcMatches = html.matchAll(/\bsrc=["']([^"']+\.(jpg|jpeg|png|webp)[^"']*)/gi);
+  for (const m of srcMatches) {
+    const url = normalizeImgUrl(m[1]);
+    if (url && !seen.has(url)) { seen.add(url); imgs.push(url); }
+    if (imgs.length >= maxCount) return imgs;
+  }
+  return imgs;
+}
+
+/** 섬네일 URL을 w800 고해상도로 정규화하고 프로필/아이콘은 제거 */
+function normalizeImgUrl(raw: string): string | null {
+  // 프로필·스토어 아이콘·광고 이미지 제외
+  if (/blogpfthumb|storep-phinf|dthumb-phinf|ogq_|type=p\d|\.gif/i.test(raw)) return null;
+  // blur 저해상도 → w800 고해상도
+  let url = raw.replace(/type=w\d+_blur$/i, "type=w800").replace(/type=s3$/i, "type=w800");
+  return url;
+}
+
+/** 네이버 블로그 포스트에서 이미지 추출 (모바일 HTML) */
+export async function fetchNaverBlogImages(postUrl: string, maxCount = 5): Promise<string[]> {
+  try {
+    // m.blog.naver.com 모바일 URL로 변환
+    const mobileUrl = postUrl
+      .replace("blog.naver.com", "m.blog.naver.com")
+      .split("?")[0]; // fromRss 파라미터 제거
+    const resp = await axios.get(mobileUrl, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148",
+        "Accept-Language": "ko-KR,ko;q=0.9",
+        Referer: "https://m.blog.naver.com/",
+      },
+      httpsAgent,
+      timeout: 8000,
+    });
+    return extractImagesFromHtml(resp.data as string, maxCount);
+  } catch {
+    return [];
+  }
+}
+
 function parseRss(
   xmlStr: string,
   sourceName: string,
@@ -78,24 +130,17 @@ function parseRss(
     if (strictFilter && !GANGNEUNG_KEYWORDS.test(title + " " + desc)) return;
     if (JUNK.test(desc)) return;
 
-    // 이미지 추출
-    let image = $el.find("enclosure[type^='image']").attr("url") ?? "";
-    if (!image) {
-      const encoded = $el.find("content\\:encoded, encoded").first().text();
-      const imgMatch = encoded.match(/src=["']([^"']+\.(jpg|jpeg|png|webp)[^"']*)/i);
-      if (imgMatch) image = imgMatch[1];
-    }
-    // Naver blog description에서도 이미지 추출
-    if (!image) {
-      const imgMatch = rawDesc.match(/src=["']([^"']+\.(jpg|jpeg|png|webp)[^"']*)/i);
-      if (imgMatch) image = imgMatch[1];
-    }
+    // 이미지 추출: enclosure → content:encoded → description 순서로 최대 5장
+    const encUrl = $el.find("enclosure[type^='image']").attr("url");
+    const encoded = $el.find("content\\:encoded, encoded").first().text();
+    const combined = (encUrl ? `src="${encUrl}" ` : "") + encoded + " " + rawDesc;
+    const images = extractImagesFromHtml(combined, 5);
 
     stories.push({
       id: makeId("story", link),
       title,
       body: desc,
-      images: image ? [image] : [],
+      images,
       sourceUrl: link,
       author: sourceName,
       tags: [...defaultTags, pubDate ? new Date(pubDate).getFullYear().toString() : ""].filter(Boolean),

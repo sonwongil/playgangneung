@@ -1,8 +1,8 @@
 import { Router } from "express";
 import { db, storiesTable } from "@workspace/db";
-import { desc, eq, inArray, or } from "drizzle-orm";
+import { desc, eq, inArray, or, sql } from "drizzle-orm";
 import crypto from "crypto";
-import { crawlStories } from "../lib/storyCrawler.js";
+import { crawlStories, fetchNaverBlogImages } from "../lib/storyCrawler.js";
 import { searchNaverBlog } from "../lib/naverBlog.js";
 
 const router = Router();
@@ -147,6 +147,53 @@ router.post("/stories/crawl", async (req, res) => {
   } catch (err) {
     req.log.error({ err }, "스토리 크롤링 실패");
     return res.status(500).json({ error: "스토리 크롤링 실패" });
+  }
+});
+
+// ─── 이미지 없는 스토리 재추출 ────────────────────────────────────────────────
+router.post("/stories/refetch-images", async (req, res) => {
+  try {
+    // images가 비어있고 sourceUrl이 naver인 스토리 최대 30개
+    const rows = await db
+      .select({ id: storiesTable.id, sourceUrl: storiesTable.sourceUrl })
+      .from(storiesTable)
+      .where(sql`jsonb_array_length(${storiesTable.images}) = 0 AND ${storiesTable.sourceUrl} LIKE '%naver%'`)
+      .limit(30);
+
+    if (rows.length === 0) {
+      return res.json({ updated: 0, message: "이미지 없는 네이버 스토리가 없습니다" });
+    }
+
+    let updated = 0;
+    const errors: string[] = [];
+
+    for (const row of rows) {
+      try {
+        const imgs = await fetchNaverBlogImages(row.sourceUrl, 5);
+        if (imgs.length > 0) {
+          await db
+            .update(storiesTable)
+            .set({ images: imgs, updatedAt: new Date() })
+            .where(eq(storiesTable.id, row.id));
+          updated++;
+        }
+        // 네이버 API 과부하 방지
+        await new Promise((r) => setTimeout(r, 300));
+      } catch (err) {
+        errors.push(`${row.id}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+
+    req.log.info({ updated, total: rows.length }, "이미지 재추출 완료");
+    return res.json({
+      updated,
+      checked: rows.length,
+      errors,
+      message: `${rows.length}개 중 ${updated}개 이미지 추출 성공`,
+    });
+  } catch (err) {
+    req.log.error({ err }, "이미지 재추출 실패");
+    return res.status(500).json({ error: "이미지 재추출 실패" });
   }
 });
 

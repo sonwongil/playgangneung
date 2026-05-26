@@ -600,17 +600,14 @@ export default function AdminEventDetail() {
               <button
                 className="flex items-center justify-center gap-1.5 w-full h-9 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold transition-colors"
                 onClick={async () => {
-                  let fetchUrl: string;
-                  if (editThumbnail.startsWith("/api/")) {
-                    fetchUrl = `${BASE}${editThumbnail}`;
-                  } else {
-                    fetchUrl = `${BASE}/api/proxy/image?url=${encodeURIComponent(editThumbnail)}&download=1`;
-                  }
+                  const fetchUrl = editThumbnail.startsWith("/api/")
+                    ? `${BASE}${editThumbnail}`
+                    : `${BASE}/api/proxy/download?url=${encodeURIComponent(editThumbnail)}`;
                   try {
                     const r = await fetch(fetchUrl, { credentials: "include" });
                     if (!r.ok) throw new Error(`status ${r.status}`);
                     const blob = await r.blob();
-                    const ext = blob.type.split("/")[1]?.replace("jpeg", "jpg") ?? "jpg";
+                    const ext = blob.type.split("/")[1]?.replace("jpeg", "jpg").split(";")[0] ?? "jpg";
                     const blobUrl = URL.createObjectURL(blob);
                     const a = document.createElement("a");
                     a.href = blobUrl; a.download = `photo-대표.${ext}`; a.click();

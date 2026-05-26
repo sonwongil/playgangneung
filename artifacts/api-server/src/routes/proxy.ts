@@ -104,6 +104,57 @@ router.get("/proxy/image", async (req, res) => {
   }
 });
 
+// 관리자 전용 이미지 다운로드 — 도메인 제한 없이 모든 URL 허용
+router.get("/proxy/download", async (req, res) => {
+  if (!req.session?.isAdmin) {
+    res.status(401).json({ error: "로그인이 필요합니다" });
+    return;
+  }
+
+  const rawUrl = req.query["url"] as string | undefined;
+  if (!rawUrl) { res.status(400).json({ error: "url 파라미터 필요" }); return; }
+
+  let parsed: URL;
+  try { parsed = new URL(rawUrl); } catch { res.status(400).json({ error: "유효하지 않은 URL" }); return; }
+
+  if (!["http:", "https:"].includes(parsed.protocol)) {
+    res.status(400).json({ error: "http/https URL만 허용" });
+    return;
+  }
+
+  const NAVER_HOSTS = ["postfiles.pstatic.net", "blogfiles.pstatic.net", "mblogthumb-phinf.pstatic.net", "phinf.pstatic.net", "blogpfthumb-phinf.pstatic.net", "blogimgs.naver.net"];
+  const referer = NAVER_HOSTS.includes(parsed.hostname)
+    ? "https://blog.naver.com/"
+    : `${parsed.protocol}//${parsed.hostname}/`;
+
+  try {
+    const upstream = await fetch(rawUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Referer": referer,
+        "Accept": "image/webp,image/apng,image/*,*/*;q=0.8",
+      },
+      signal: AbortSignal.timeout(10000),
+    });
+
+    if (!upstream.ok) { res.status(502).json({ error: `업스트림 오류: ${upstream.status}` }); return; }
+
+    const contentType = upstream.headers.get("content-type") ?? "image/jpeg";
+    const buffer = Buffer.from(await upstream.arrayBuffer());
+    const ext = contentType.split("/")[1]?.replace("jpeg", "jpg").split(";")[0] ?? "jpg";
+
+    res.set({
+      "Content-Type": contentType,
+      "Content-Disposition": `attachment; filename="image.${ext}"`,
+      "Cache-Control": "no-store",
+    });
+    res.send(buffer);
+  } catch (err) {
+    req.log.warn({ err, url: rawUrl }, "이미지 다운로드 프록시 실패");
+    res.status(502).json({ error: "이미지 가져오기 실패" });
+  }
+});
+
 router.get("/proxy/page", async (req, res) => {
   const rawUrl = req.query["url"] as string | undefined;
   if (!rawUrl) { res.status(400).send("url 파라미터 필요"); return; }

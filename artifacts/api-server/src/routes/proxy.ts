@@ -140,7 +140,7 @@ router.get("/proxy/download", async (req, res) => {
     if (!upstream.ok) { res.status(502).json({ error: `업스트림 오류: ${upstream.status}` }); return; }
 
     const contentType = upstream.headers.get("content-type") ?? "image/jpeg";
-    const buffer = Buffer.from(await upstream.arrayBuffer());
+    const contentLength = upstream.headers.get("content-length");
     const ext = contentType.split("/")[1]?.replace("jpeg", "jpg").split(";")[0] ?? "jpg";
 
     res.set({
@@ -148,10 +148,18 @@ router.get("/proxy/download", async (req, res) => {
       "Content-Disposition": `attachment; filename="image.${ext}"`,
       "Cache-Control": "no-store",
     });
-    res.send(buffer);
+    if (contentLength) res.set("Content-Length", contentLength);
+
+    if (upstream.body) {
+      const { Readable } = await import("stream");
+      Readable.fromWeb(upstream.body as import("stream/web").ReadableStream).pipe(res);
+    } else {
+      const buffer = Buffer.from(await upstream.arrayBuffer());
+      res.send(buffer);
+    }
   } catch (err) {
     req.log.warn({ err, url: rawUrl }, "이미지 다운로드 프록시 실패");
-    res.status(502).json({ error: "이미지 가져오기 실패" });
+    if (!res.headersSent) res.status(502).json({ error: "이미지 가져오기 실패" });
   }
 });
 

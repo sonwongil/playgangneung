@@ -3,10 +3,10 @@
 # PLAY강릉 — Cafe24 VPS 배포 스크립트
 #
 # 사전 조건:
-#   - Node.js 20+ 설치  (nvm 권장: nvm install 20)
-#   - pnpm 설치         (npm install -g pnpm)
-#   - PM2 설치          (npm install -g pm2)
-#   - .env 파일 존재    (cp .env.example .env && vi .env)
+#   - Node.js 24 설치  (scripts/vps-first-setup.sh 참고)
+#   - pnpm 설치        (npm install -g pnpm)
+#   - PM2 설치         (npm install -g pm2)
+#   - .env 파일 존재   (cp .env.example .env && vi .env)
 #   - PostgreSQL 실행 중, DATABASE_URL 설정 완료
 #
 # 사용법:
@@ -28,6 +28,15 @@ else
   echo "❌ .env 파일이 없습니다. cp .env.example .env 후 값을 입력하세요."
   exit 1
 fi
+
+# ── 런타임 디렉토리 보호 (재clone/git clean 후에도 유지) ──
+# data/, public/cards/, public/uploads/는 .gitignore로 보호되므로
+# 최초 배포 또는 clone 후 디렉토리가 없을 경우 생성
+mkdir -p artifacts/api-server/data
+mkdir -p artifacts/api-server/public/cards
+mkdir -p artifacts/api-server/public/uploads
+mkdir -p logs
+echo "✅ 런타임 디렉토리 확인 완료"
 
 # ── 의존성 설치 ───────────────────────────────────────────
 echo ""

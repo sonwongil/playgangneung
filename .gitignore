@@ -58,3 +58,14 @@ artifacts/**/.env.local
 # PM2 로그
 logs/
 *.log
+
+# ── 런타임 생성 데이터 (git clean/reclone 삭제 방지) ─────
+# 디렉토리 구조는 .gitkeep으로 보존, 실제 데이터 파일은 제외
+artifacts/api-server/data/*.json
+artifacts/api-server/data/sessions/
+artifacts/api-server/public/cards/*.png
+artifacts/api-server/public/cards/*.jpg
+artifacts/api-server/public/uploads/*
+!artifacts/api-server/data/.gitkeep
+!artifacts/api-server/public/cards/.gitkeep
+!artifacts/api-server/public/uploads/.gitkeep

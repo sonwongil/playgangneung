@@ -17,10 +17,10 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo "▶ 시스템 패키지 업데이트..."
 apt-get update -y && apt-get upgrade -y
 
-# ── Node.js 20 설치 (nvm 경유) ───────────────────────────
-echo "▶ Node.js 20 설치..."
+# ── Node.js 24 설치 (NodeSource 공식 스크립트) ───────────
+echo "▶ Node.js 24 설치..."
 if ! command -v node &> /dev/null; then
-  curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+  curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
   apt-get install -y nodejs
 fi
 echo "  Node.js: $(node -v)"
@@ -40,6 +40,7 @@ echo "  PM2: $(pm2 -v)"
 echo "▶ Nginx 설치..."
 apt-get install -y nginx
 systemctl enable nginx
+sudo systemctl start nginx
 
 # ── Certbot (Let's Encrypt SSL) 설치 ─────────────────────
 echo "▶ Certbot 설치..."

@@ -508,23 +508,6 @@ export default function AdminEventDetail() {
               onChange={(e) => { setEditHashtagsStr(e.target.value); setIsDraftDirty(true); }}
             />
 
-            {/* 자세히보기 버튼 미리보기 */}
-            <div className="rounded-xl border border-blue-100 bg-blue-50/40 p-3 space-y-1.5">
-              <span className="text-[11px] font-bold text-blue-700">🔗 자세히보기 링크 (복사 시 자동 포함)</span>
-              <a
-                href={`${window.location.origin}/content/${eventId}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block w-fit"
-              >
-                <img
-                  src="/btn-jabochigi.png"
-                  alt="자세히보기"
-                  className="h-10 object-contain hover:opacity-80 transition-opacity"
-                />
-              </a>
-              <p className="text-[10px] text-blue-400">클릭하면 콘텐츠 상세 페이지로 이동합니다.</p>
-            </div>
 
             {/* CTA 고정 미리보기 */}
             <div className="rounded-xl border border-violet-100 bg-violet-50/50 p-3 space-y-1.5">
@@ -617,15 +600,22 @@ export default function AdminEventDetail() {
               <button
                 className="flex items-center justify-center gap-1.5 w-full h-9 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold transition-colors"
                 onClick={async () => {
-                  const src = editThumbnail.startsWith("/api/") ? `${BASE}${editThumbnail}` : editThumbnail;
+                  let fetchUrl: string;
+                  if (editThumbnail.startsWith("/api/")) {
+                    fetchUrl = `${BASE}${editThumbnail}`;
+                  } else {
+                    fetchUrl = `${BASE}/api/proxy/image?url=${encodeURIComponent(editThumbnail)}&download=1`;
+                  }
                   try {
-                    const r = await fetch(src, { credentials: "include" });
+                    const r = await fetch(fetchUrl, { credentials: "include" });
+                    if (!r.ok) throw new Error(`status ${r.status}`);
                     const blob = await r.blob();
+                    const ext = blob.type.split("/")[1]?.replace("jpeg", "jpg") ?? "jpg";
                     const blobUrl = URL.createObjectURL(blob);
                     const a = document.createElement("a");
-                    a.href = blobUrl; a.download = "photo-대표.jpg"; a.click();
+                    a.href = blobUrl; a.download = `photo-대표.${ext}`; a.click();
                     setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
-                  } catch { window.open(src, "_blank"); }
+                  } catch { window.open(editThumbnail, "_blank"); }
                 }}
               >
                 <Download className="w-3.5 h-3.5" />대표 이미지 저장

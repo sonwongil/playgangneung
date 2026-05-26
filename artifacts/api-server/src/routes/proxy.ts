@@ -84,11 +84,19 @@ router.get("/proxy/image", async (req, res) => {
     const contentType = upstream.headers.get("content-type") ?? "image/jpeg";
     const buffer = Buffer.from(await upstream.arrayBuffer());
 
-    res.set({
+    const headers: Record<string, string> = {
       "Content-Type": contentType,
       "Cache-Control": "public, max-age=86400",
       "Access-Control-Allow-Origin": "*",
-    });
+    };
+
+    if (req.query["download"] === "1") {
+      const ext = contentType.split("/")[1]?.replace("jpeg", "jpg") ?? "jpg";
+      const filename = `image.${ext}`;
+      headers["Content-Disposition"] = `attachment; filename="${filename}"`;
+    }
+
+    res.set(headers);
     res.send(buffer);
   } catch (err) {
     req.log.warn({ err, url: rawUrl }, "이미지 프록시 실패");

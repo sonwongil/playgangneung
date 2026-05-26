@@ -4,6 +4,11 @@ import { DATA_DIR } from "./paths.js";
 
 const isProd = process.env["NODE_ENV"] === "production";
 
+/** GCS 사용 여부: 프로덕션이고 버킷 ID가 설정된 경우만 (VPS에서는 로컬 파일시스템 사용) */
+function useGcs(): boolean {
+  return isProd && !!process.env["DEFAULT_OBJECT_STORAGE_BUCKET_ID"];
+}
+
 // ── 로컬 파일시스템 (개발 전용) ──────────────────────────────────────────────
 
 async function localRead<T>(fileName: string, fallback: T): Promise<T> {
@@ -66,9 +71,9 @@ async function gcsWrite<T>(fileName: string, data: T): Promise<void> {
 // ── 공개 API ────────────────────────────────────────────────────────────────
 
 export async function gcsReadJson<T>(fileName: string, fallback: T): Promise<T> {
-  return isProd ? gcsRead(fileName, fallback) : localRead(fileName, fallback);
+  return useGcs() ? gcsRead(fileName, fallback) : localRead(fileName, fallback);
 }
 
 export async function gcsWriteJson<T>(fileName: string, data: T): Promise<void> {
-  return isProd ? gcsWrite(fileName, data) : localWrite(fileName, data);
+  return useGcs() ? gcsWrite(fileName, data) : localWrite(fileName, data);
 }

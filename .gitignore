@@ -47,3 +47,14 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# 환경변수 파일 (절대 커밋 금지)
+.env
+.env.local
+.env.*.local
+artifacts/**/.env
+artifacts/**/.env.local
+
+# PM2 로그
+logs/
+*.log

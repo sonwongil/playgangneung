@@ -222,28 +222,55 @@ router.post("/stories/refetch-images", async (req, res) => {
         .from(storiesTable)
         .where(inArray(storiesTable.id, targetIds));
     } else {
-      // 선택 없음 — 이미지가 비어있는 네이버 스토리 최대 30개
+      // 선택 없음 — 이미지가 비어있는 스토리 최대 30개 (모든 소스)
       rows = await db
         .select({ id: storiesTable.id, sourceUrl: storiesTable.sourceUrl })
         .from(storiesTable)
-        .where(sql`jsonb_array_length(${storiesTable.images}) = 0 AND ${storiesTable.sourceUrl} LIKE '%naver%'`)
+        .where(sql`jsonb_array_length(${storiesTable.images}) = 0 AND ${storiesTable.sourceUrl} IS NOT NULL AND ${storiesTable.sourceUrl} != ''`)
         .limit(30);
 
       if (rows.length === 0) {
-        return res.json({ updated: 0, checked: 0, message: "이미지 없는 네이버 스토리가 없습니다" });
+        return res.json({ updated: 0, checked: 0, message: "이미지 없는 스토리가 없습니다" });
       }
     }
 
     let updated = 0;
     const errors: string[] = [];
 
+    const { default: axios } = await import("axios");
+    const https = await import("https");
+    const cheerio = await import("cheerio");
+    const httpsAgent = new https.Agent({ rejectUnauthorized: false });
+
     for (const row of rows) {
       try {
-        if (!row.sourceUrl?.includes("naver")) {
-          errors.push(`${row.id}: 네이버 블로그 URL이 아닙니다`);
-          continue;
+        let imgs: string[] = [];
+
+        if (row.sourceUrl?.includes("naver")) {
+          // 네이버 블로그: 모바일 HTML에서 다중 이미지 추출
+          imgs = await fetchNaverBlogImages(row.sourceUrl, 5);
         }
-        const imgs = await fetchNaverBlogImages(row.sourceUrl, 5);
+
+        // 네이버가 아니거나 이미지를 못 찾은 경우 — OG 이미지 fallback
+        if (imgs.length === 0 && row.sourceUrl) {
+          try {
+            const resp = await axios.get(row.sourceUrl, {
+              headers: {
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36",
+                "Accept-Language": "ko-KR,ko;q=0.9",
+              },
+              httpsAgent,
+              timeout: 8000,
+              responseType: "text",
+            });
+            const $ = cheerio.load(resp.data as string);
+            const ogImg = $('meta[property="og:image"]').attr("content")?.trim();
+            if (ogImg) imgs = [ogImg];
+          } catch {
+            // OG 추출 실패 무시
+          }
+        }
+
         if (imgs.length > 0) {
           await db
             .update(storiesTable)

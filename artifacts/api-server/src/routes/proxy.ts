@@ -9,13 +9,36 @@ const ALLOWED_HOSTS = [
   "www.gncaf.or.kr",
   "gncaf.or.kr",
   "images.unsplash.com",
-  // 네이버 블로그 이미지
+  // 네이버 블로그/뉴스 이미지 (pstatic.net 계열 전체)
   "postfiles.pstatic.net",
   "blogfiles.pstatic.net",
   "mblogthumb-phinf.pstatic.net",
+  "blogthumb.pstatic.net",
   "phinf.pstatic.net",
   "blogpfthumb-phinf.pstatic.net",
   "blogimgs.naver.net",
+  "imgnews.pstatic.net",
+  "cafefiles.pstatic.net",
+  "cafeptthumb.pstatic.net",
+  "sstatic.naver.net",
+  "static.naver.net",
+  // 다음/카카오 이미지
+  "img1.daumcdn.net",
+  "img2.daumcdn.net",
+  "img3.daumcdn.net",
+  "img4.daumcdn.net",
+  "t1.daumcdn.net",
+  "t2.daumcdn.net",
+  "k.kakaocdn.net",
+  "mud-kage.kakaocdn.net",
+  // 인스타그램
+  "scontent.cdninstagram.com",
+  // 유튜브 썸네일
+  "img.youtube.com",
+  "i.ytimg.com",
+  // 기타 이미지 호스트
+  "cdn.kado.net",
+  "www.gscaltex.com",
 ];
 
 router.get("/proxy/image", async (req, res) => {

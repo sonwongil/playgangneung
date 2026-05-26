@@ -590,37 +590,31 @@ export default function AdminEventDetail() {
                 )}
               </div>
             )}
-            {editThumbnail && (() => {
-              // 외부 URL은 프록시 경유 → 브라우저 캐시(24h) 공유: 표시·다운로드 동일 URL 사용
-              const proxyUrl = editThumbnail.startsWith("/api/")
-                ? `${BASE}${editThumbnail}`
-                : `${BASE}/api/proxy/image?url=${encodeURIComponent(editThumbnail)}`;
-              return (
-                <>
-                  <div className="rounded-xl overflow-hidden border bg-gray-50 max-h-48">
-                    <img src={proxyUrl} alt="대표 이미지" className="w-full h-full object-contain max-h-48"
-                      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-                  </div>
-                  <button
-                    className="flex items-center justify-center gap-1.5 w-full h-9 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold transition-colors"
-                    onClick={async () => {
-                      try {
-                        // 표시에 쓴 proxyUrl과 동일 → 브라우저 캐시 히트 → 즉시 다운로드
-                        const r = await fetch(proxyUrl, { credentials: "include" });
-                        const blob = await r.blob();
-                        const blobUrl = URL.createObjectURL(blob);
-                        const a = document.createElement("a");
-                        a.href = blobUrl; a.download = "photo-대표.jpg";
-                        document.body.appendChild(a); a.click(); document.body.removeChild(a);
-                        setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
-                      } catch { window.open(editThumbnail, "_blank"); }
-                    }}
-                  >
-                    <Download className="w-3.5 h-3.5" />대표 이미지 저장
-                  </button>
-                </>
-              );
-            })()}
+            {editThumbnail && (
+              <div className="rounded-xl overflow-hidden border bg-gray-50 max-h-48">
+                <img src={editThumbnail} alt="대표 이미지" className="w-full h-full object-contain max-h-48"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+              </div>
+            )}
+            {editThumbnail && (
+              <button
+                className="flex items-center justify-center gap-1.5 w-full h-9 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold transition-colors"
+                onClick={async () => {
+                  const src = editThumbnail.startsWith("/api/") ? `${BASE}${editThumbnail}` : editThumbnail;
+                  try {
+                    const r = await fetch(src, { credentials: "include" });
+                    const blob = await r.blob();
+                    const blobUrl = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = blobUrl; a.download = "photo-대표.jpg";
+                    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                    setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
+                  } catch { window.open(src, "_blank"); }
+                }}
+              >
+                <Download className="w-3.5 h-3.5" />대표 이미지 저장
+              </button>
+            )}
 
             {/* 추가 이미지 */}
             <div className="border-t border-dashed border-gray-200 pt-3 space-y-2">

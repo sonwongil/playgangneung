@@ -43,7 +43,7 @@ const CATEGORY_THUMBNAILS: Record<string, string> = {
   기타: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=800&q=80",
 };
 
-const SITE_URL = process.env["SITE_URL"] ?? "https://play-gangneung-dashboard.replit.app";
+const SITE_URL = process.env["SITE_URL"] ?? "https://playgangneung.com";
 
 const PROXY_HOSTS = ["www.gn.go.kr", "gn.go.kr", "gn.moonhwain.net", "www.gncaf.or.kr", "gncaf.or.kr"];
 

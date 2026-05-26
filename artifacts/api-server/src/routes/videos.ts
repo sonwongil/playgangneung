@@ -1,10 +1,18 @@
 import { Router } from "express";
+import { requireAdmin } from "../middlewares/requireAdmin.js";
 import { db, videosTable } from "@workspace/db";
 import { desc, eq, inArray, or } from "drizzle-orm";
 import crypto from "crypto";
 import { fetchYoutubeInfo, crawlYoutubeVideos } from "../lib/youtube.js";
 
 const router = Router();
+
+router.use((req, res, next) => {
+  if (["POST", "PATCH", "DELETE", "PUT"].includes(req.method)) {
+    return requireAdmin(req, res, next);
+  }
+  next();
+});
 
 router.get("/videos", async (req, res) => {
   try {

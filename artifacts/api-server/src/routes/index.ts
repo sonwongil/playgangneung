@@ -23,7 +23,7 @@ import metaInsightsRouter from "./metaInsights.js";
 const router: IRouter = Router();
 
 router.get("/config", (_req, res) => {
-  res.json({ siteUrl: process.env["SITE_URL"] ?? "https://play-gangneung-dashboard.replit.app" });
+  res.json({ siteUrl: process.env["SITE_URL"] ?? "https://playgangneung.com" });
 });
 
 router.use(authRouter);

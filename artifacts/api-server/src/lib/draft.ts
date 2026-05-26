@@ -66,7 +66,7 @@ function getCategory(event: CrawledEvent): string {
 
 // ─── 초안 생성 ───────────────────────────────────────────────────────────────
 
-const SITE_URL = process.env["SITE_URL"] ?? "https://play-gangneung-dashboard.replit.app";
+const SITE_URL = process.env["SITE_URL"] ?? "https://playgangneung.com";
 
 export function generateSocialDraft(event: CrawledEvent): SocialDraft {
   const category = getCategory(event);

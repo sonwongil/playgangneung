@@ -2,7 +2,7 @@ import crypto from "crypto";
 import { db, authTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 
-const DEFAULT_PASSWORD = "1235";
+const DEFAULT_PASSWORD = process.env["ADMIN_DEFAULT_PASSWORD"] ?? "1235";
 
 function hashPassword(password: string, salt: string): string {
   return crypto.scryptSync(password, salt, 64).toString("hex");

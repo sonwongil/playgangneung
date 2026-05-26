@@ -98,7 +98,7 @@ function rowToAd(row: typeof adsTable.$inferSelect): Ad {
 }
 
 function buildAdDraft(ad: Ad): SocialDraft {
-  const SITE_URL = process.env["SITE_URL"] ?? "https://play-gangneung-dashboard.replit.app";
+  const SITE_URL = process.env["SITE_URL"] ?? "https://playgangneung.com";
   const EMOJI_MAP: Record<string, string> = { 맛집: "🍽️", 행사: "🎉", 핫플: "📍", 지역소식: "📢" };
   const HASHTAG_MAP: Record<string, string[]> = {
     맛집:    ["PLAY강릉", "강릉맛집", "강릉", "강릉여행", "강릉카페", "강원도맛집", "강릉핫플", "맛스타그램"],
@@ -478,7 +478,7 @@ async function dispatchReport(row: typeof adsTable.$inferSelect): Promise<{
   reportUrl: string;
   notConfigured: boolean;
 }> {
-  const SITE_URL = process.env["SITE_URL"] ?? "https://play-gangneung-dashboard.replit.app";
+  const SITE_URL = process.env["SITE_URL"] ?? "https://playgangneung.com";
 
   // 토큰 발급 (없으면 새로 생성)
   let token = row.reportToken;

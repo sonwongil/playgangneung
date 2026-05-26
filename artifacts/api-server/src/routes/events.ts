@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { requireAdmin } from "../middlewares/requireAdmin.js";
 import multer from "multer";
 import fs from "fs/promises";
 import path from "path";
@@ -41,6 +42,13 @@ const upload = multer({
 
 const router = Router();
 
+router.use((req, res, next) => {
+  if (["POST", "PATCH", "DELETE", "PUT"].includes(req.method)) {
+    return requireAdmin(req, res, next);
+  }
+  next();
+});
+
 type EnrichedEvent = CrawledEvent;
 
 
@@ -61,23 +69,6 @@ router.get("/events", async (req, res) => {
     req.log.error({ err }, "이벤트 목록 조회 실패");
     res.status(500).json({ success: false, error: "이벤트 목록 조회 실패" });
   }
-});
-
-router.post("/crawl", async (req, res) => {
-  let added = 0;
-  let total = 0;
-  try {
-    req.log.info("전체 크롤링 시작 (POST /crawl)");
-    const results = await crawlAll();
-    const allEvents = results.flatMap((r) => r.events);
-    const result = await appendEvents(allEvents);
-    added = result.added;
-    total = result.total;
-    req.log.info({ added, updated: result.updated, total }, "전체 크롤링 완료");
-  } catch (err) {
-    req.log.warn({ err }, "크롤링 중 일부 오류 발생 (계속 진행)");
-  }
-  return res.json({ success: true, added, total, message: "크롤링 완료" });
 });
 
 router.post("/events/crawl", async (req, res) => {
@@ -442,7 +433,7 @@ router.post("/events/generate-cards-batch", async (req, res) => {
 
 router.post("/events/regenerate-drafts", async (req, res) => {
   try {
-    const siteUrl = process.env["SITE_URL"] ?? "https://play-gangneung-dashboard.replit.app";
+    const siteUrl = process.env["SITE_URL"] ?? "https://playgangneung.com";
     const contentPattern = `${siteUrl}/content/`;
 
     const events = await readEvents();

@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { requireAdmin } from "../middlewares/requireAdmin.js";
 import { db, storiesTable } from "@workspace/db";
 import { desc, eq, inArray, or, sql } from "drizzle-orm";
 import crypto from "crypto";
@@ -6,6 +7,13 @@ import { crawlStories, fetchNaverBlogImages } from "../lib/storyCrawler.js";
 import { searchNaverBlog } from "../lib/naverBlog.js";
 
 const router = Router();
+
+router.use((req, res, next) => {
+  if (["POST", "PATCH", "DELETE", "PUT"].includes(req.method)) {
+    return requireAdmin(req, res, next);
+  }
+  next();
+});
 
 router.get("/stories", async (req, res) => {
   try {

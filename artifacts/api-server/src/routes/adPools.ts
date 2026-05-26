@@ -420,7 +420,7 @@ JSON 배열만 반환 (설명 없이):
 
 // ─── 카드 이미지 공개 URL 조회 헬퍼 ─────────────────────────────────────────────
 async function resolveCardImageUrl(adId: string, imageUrl: string | null): Promise<string | null> {
-  const SITE_URL = process.env["SITE_URL"] ?? "https://play-gangneung-dashboard.replit.app";
+  const SITE_URL = process.env["SITE_URL"] ?? "https://playgangneung.com";
   // 1) 생성된 카드이미지 우선 (thumb → 기본)
   for (const suffix of [`${adId}-thumb.png`, `${adId}.png`]) {
     try {
@@ -458,7 +458,7 @@ router.post("/ad-pools/:id/push-to-meta", async (req, res) => {
   try {
     const { id } = req.params;
     const force = req.query["force"] === "true";
-    const SITE_URL = process.env["SITE_URL"] ?? "https://play-gangneung-dashboard.replit.app";
+    const SITE_URL = process.env["SITE_URL"] ?? "https://playgangneung.com";
     const pageId = process.env["META_PAGE_ID"] as string;
 
     const [pool] = await db.select().from(adPoolsTable).where(eq(adPoolsTable.id, id));

@@ -199,7 +199,7 @@ export async function createAd(opts: CreateAdOptions) {
       link_data: {
         message: opts.body,
         name: opts.title,
-        link: opts.linkUrl ?? `https://play-gangneung-dashboard.replit.app`,
+        link: opts.linkUrl ?? (process.env["SITE_URL"] ?? "https://playgangneung.com"),
         call_to_action: { type: "LEARN_MORE" },
         ...imageField,
       },

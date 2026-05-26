@@ -57,12 +57,29 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ["react", "react-dom"],
+          clerk: ["@clerk/react"],
+          query: ["@tanstack/react-query"],
+          ui: ["@radix-ui/react-dialog", "@radix-ui/react-select", "@radix-ui/react-tabs"],
+        },
+      },
+    },
   },
   server: {
     port,
     strictPort: true,
     host: "0.0.0.0",
     allowedHosts: true,
+    warmup: {
+      clientFiles: [
+        "./src/main.tsx",
+        "./src/App.tsx",
+        "./src/pages/home.tsx",
+      ],
+    },
     fs: {
       strict: true,
     },

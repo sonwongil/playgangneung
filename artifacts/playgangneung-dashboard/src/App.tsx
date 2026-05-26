@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { lazy, Suspense, useEffect, useRef } from "react";
 import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ClerkProvider, SignIn, SignUp, Show, useClerk } from "@clerk/react";
@@ -7,20 +7,22 @@ import { shadcn } from "@clerk/themes";
 import { koKR } from "@clerk/localizations";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
-import Admin from "@/pages/admin";
-import AdminEventDetail from "@/pages/admin-event-detail";
-import AdSubmit from "@/pages/ad-submit";
-import Login from "@/pages/login";
-import AdReport from "@/pages/ad-report";
-import MyAd from "@/pages/my-ad";
-import Checkout from "@/pages/checkout";
-import CheckoutSuccess from "@/pages/checkout-success";
-import CheckoutFail from "@/pages/checkout-fail";
-import Privacy from "@/pages/privacy";
-import DataDeletion from "@/pages/data-deletion";
-import Terms from "@/pages/terms";
+
+// 비공개/관리자 페이지 — 홈 첫 로드와 분리 (lazy chunk)
+const Admin              = lazy(() => import("@/pages/admin"));
+const AdminEventDetail   = lazy(() => import("@/pages/admin-event-detail"));
+const AdSubmit           = lazy(() => import("@/pages/ad-submit"));
+const Login              = lazy(() => import("@/pages/login"));
+const AdReport           = lazy(() => import("@/pages/ad-report"));
+const MyAd               = lazy(() => import("@/pages/my-ad"));
+const Checkout           = lazy(() => import("@/pages/checkout"));
+const CheckoutSuccess    = lazy(() => import("@/pages/checkout-success"));
+const CheckoutFail       = lazy(() => import("@/pages/checkout-fail"));
+const Privacy            = lazy(() => import("@/pages/privacy"));
+const DataDeletion       = lazy(() => import("@/pages/data-deletion"));
+const Terms              = lazy(() => import("@/pages/terms"));
+const NotFound           = lazy(() => import("@/pages/not-found"));
 
 const queryClient = new QueryClient();
 
@@ -92,6 +94,15 @@ const clerkAppearance = {
   },
 };
 
+function PageLoader() {
+  return (
+    <div className="min-h-screen flex items-center justify-center text-sm text-gray-400">
+      <span className="w-5 h-5 border-2 border-gray-300 border-t-orange-500 rounded-full animate-spin mr-2" />
+      로딩 중...
+    </div>
+  );
+}
+
 function SignInPage() {
   return (
     <div className="flex min-h-[100dvh] items-center justify-center bg-gray-50 px-4 py-8">
@@ -151,11 +162,7 @@ function useAdminAuth() {
 function AdminGuard() {
   const { isLoading, isAdmin } = useAdminAuth();
   if (isLoading)
-    return (
-      <div className="min-h-screen flex items-center justify-center text-sm text-gray-400">
-        확인 중...
-      </div>
-    );
+    return <PageLoader />;
   if (!isAdmin) return null;
   return <Admin />;
 }
@@ -163,11 +170,7 @@ function AdminGuard() {
 function AdminEventDetailGuard() {
   const { isLoading, isAdmin } = useAdminAuth();
   if (isLoading)
-    return (
-      <div className="min-h-screen flex items-center justify-center text-sm text-gray-400">
-        확인 중...
-      </div>
-    );
+    return <PageLoader />;
   if (!isAdmin) return null;
   return <AdminEventDetail />;
 }
@@ -211,24 +214,26 @@ function AdSubmitGuard() {
 
 function Router() {
   return (
-    <Switch>
-      <Route path="/" component={Home} />
-      <Route path="/admin/events/:id" component={AdminEventDetailGuard} />
-      <Route path="/admin" component={AdminGuard} />
-      <Route path="/login" component={Login} />
-      <Route path="/sign-in/*?" component={SignInPage} />
-      <Route path="/sign-up/*?" component={SignUpPage} />
-      <Route path="/ad-submit" component={AdSubmitGuard} />
-      <Route path="/report/:token" component={AdReport} />
-      <Route path="/my-ad" component={MyAd} />
-      <Route path="/checkout/success" component={CheckoutSuccess} />
-      <Route path="/checkout/fail" component={CheckoutFail} />
-      <Route path="/checkout" component={Checkout} />
-      <Route path="/privacy" component={Privacy} />
-      <Route path="/data-deletion" component={DataDeletion} />
-      <Route path="/terms" component={Terms} />
-      <Route component={NotFound} />
-    </Switch>
+    <Suspense fallback={<PageLoader />}>
+      <Switch>
+        <Route path="/" component={Home} />
+        <Route path="/admin/events/:id" component={AdminEventDetailGuard} />
+        <Route path="/admin" component={AdminGuard} />
+        <Route path="/login" component={Login} />
+        <Route path="/sign-in/*?" component={SignInPage} />
+        <Route path="/sign-up/*?" component={SignUpPage} />
+        <Route path="/ad-submit" component={AdSubmitGuard} />
+        <Route path="/report/:token" component={AdReport} />
+        <Route path="/my-ad" component={MyAd} />
+        <Route path="/checkout/success" component={CheckoutSuccess} />
+        <Route path="/checkout/fail" component={CheckoutFail} />
+        <Route path="/checkout" component={Checkout} />
+        <Route path="/privacy" component={Privacy} />
+        <Route path="/data-deletion" component={DataDeletion} />
+        <Route path="/terms" component={Terms} />
+        <Route component={NotFound} />
+      </Switch>
+    </Suspense>
   );
 }
 

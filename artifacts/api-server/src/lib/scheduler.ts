@@ -194,6 +194,7 @@ let performanceTask: cron.ScheduledTask | null = null;
 let expireTask: cron.ScheduledTask | null = null;
 let purgeTask: cron.ScheduledTask | null = null;
 let insightsTask: cron.ScheduledTask | null = null;
+let keepAliveTask: cron.ScheduledTask | null = null;
 
 function applySchedule(hour: number, minute: number) {
   if (currentTask) { currentTask.stop(); currentTask = null; }
@@ -234,6 +235,17 @@ export async function startScheduler() {
     }
   }, { timezone: "Asia/Seoul" });
   logger.info("Meta Ad Insights 수집 스케줄 등록 완료 (매시 05분)");
+
+  // DB 커넥션 워밍업 — 4분마다 경량 쿼리로 커넥션 풀 유지
+  if (keepAliveTask) { keepAliveTask.stop(); }
+  keepAliveTask = cron.schedule("*/4 * * * *", async () => {
+    try {
+      await db.execute(sql`SELECT 1`);
+    } catch {
+      // 조용히 무시
+    }
+  });
+  logger.info("DB 커넥션 keep-alive 스케줄 등록 완료 (4분 주기)");
 }
 
 export async function reschedule(hour: number, minute: number) {

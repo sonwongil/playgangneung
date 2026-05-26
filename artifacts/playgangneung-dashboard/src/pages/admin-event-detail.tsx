@@ -600,19 +600,16 @@ export default function AdminEventDetail() {
               <button
                 className="flex items-center justify-center gap-1.5 w-full h-9 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold transition-colors"
                 onClick={async () => {
-                  const fetchUrl = editThumbnail.startsWith("/api/")
-                    ? `${BASE}${editThumbnail}`
-                    : `${BASE}/api/proxy/download?url=${encodeURIComponent(editThumbnail)}`;
+                  const src = editThumbnail.startsWith("/api/") ? `${BASE}${editThumbnail}` : editThumbnail;
                   try {
-                    const r = await fetch(fetchUrl, { credentials: "include" });
-                    if (!r.ok) throw new Error(`status ${r.status}`);
+                    const r = await fetch(src, { credentials: "include" });
                     const blob = await r.blob();
-                    const ext = blob.type.split("/")[1]?.replace("jpeg", "jpg").split(";")[0] ?? "jpg";
                     const blobUrl = URL.createObjectURL(blob);
                     const a = document.createElement("a");
-                    a.href = blobUrl; a.download = `photo-대표.${ext}`; a.click();
+                    a.href = blobUrl; a.download = "photo-대표.jpg";
+                    document.body.appendChild(a); a.click(); document.body.removeChild(a);
                     setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
-                  } catch { window.open(editThumbnail, "_blank"); }
+                  } catch { window.open(src, "_blank"); }
                 }}
               >
                 <Download className="w-3.5 h-3.5" />대표 이미지 저장

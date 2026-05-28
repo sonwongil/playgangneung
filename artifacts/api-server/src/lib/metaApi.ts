@@ -87,22 +87,42 @@ async function metaGet<T = Record<string, unknown>>(
 // ─── 캠페인 생성 ────────────────────────────────────────────────────────────────
 export interface CreateCampaignOptions {
   name: string;
-  objective: string; // OUTCOME_AWARENESS | OUTCOME_TRAFFIC | OUTCOME_ENGAGEMENT | OUTCOME_SALES
+  objective: string;
   status?: "ACTIVE" | "PAUSED";
-  dailyBudget?: number; // 원 단위 (KRW cents → 나누기 100 필요)
   startTime?: string;
   stopTime?: string;
 }
 
+// Meta Marketing API objective 매핑
+// 화면 표시 값 → Meta API 공식 값
+export const OBJECTIVE_MAP: Record<string, string> = {
+  // 새 목표 (Meta 화면과 1:1 매핑)
+  awareness:             "OUTCOME_AWARENESS",      // 페이지 방문 수 및 팔로워 늘리기
+  messages:              "MESSAGES",               // 메시지 수신 늘리기
+  post_engagement:       "POST_ENGAGEMENT",         // Facebook 콘텐츠 홍보하기
+  instagram_engagement:  "POST_ENGAGEMENT",         // Instagram 콘텐츠 홍보하기
+  page_likes:            "PAGE_LIKES",              // 페이지 좋아요 늘리기
+  traffic:               "OUTCOME_TRAFFIC",         // 웹사이트 방문자 늘리기
+  // 레거시 (기존 데이터 호환)
+  engagement:            "POST_ENGAGEMENT",
+  conversion:            "OUTCOME_SALES",
+};
+
+// objective별 Ad Set 최적화 설정
+export const ADSET_OPTIMIZATION: Record<string, { optimization_goal: string; billing_event: string }> = {
+  awareness:             { optimization_goal: "REACH",            billing_event: "IMPRESSIONS" },
+  messages:              { optimization_goal: "REPLIES",          billing_event: "IMPRESSIONS" },
+  post_engagement:       { optimization_goal: "POST_ENGAGEMENT",  billing_event: "IMPRESSIONS" },
+  instagram_engagement:  { optimization_goal: "POST_ENGAGEMENT",  billing_event: "IMPRESSIONS" },
+  page_likes:            { optimization_goal: "PAGE_LIKES",       billing_event: "IMPRESSIONS" },
+  traffic:               { optimization_goal: "LINK_CLICKS",      billing_event: "LINK_CLICKS" },
+  engagement:            { optimization_goal: "POST_ENGAGEMENT",  billing_event: "IMPRESSIONS" },
+  conversion:            { optimization_goal: "OFFSITE_CONVERSIONS", billing_event: "IMPRESSIONS" },
+};
+
 export async function createCampaign(opts: CreateCampaignOptions) {
   const creds = getCredentials();
   if (!creds) return { ok: false as const, error: "미설정" };
-  const OBJECTIVE_MAP: Record<string, string> = {
-    awareness: "OUTCOME_AWARENESS",
-    traffic: "OUTCOME_TRAFFIC",
-    engagement: "OUTCOME_ENGAGEMENT",
-    conversion: "OUTCOME_SALES",
-  };
   return metaPost<{ id: string }>(`act_${creds.adAccountId}/campaigns`, {
     name: opts.name,
     objective: OBJECTIVE_MAP[opts.objective] ?? "OUTCOME_AWARENESS",
@@ -116,23 +136,26 @@ export async function createCampaign(opts: CreateCampaignOptions) {
 export interface CreateAdSetOptions {
   name: string;
   campaignId: string;
-  dailyBudget: number; // KRW 원 단위
+  dailyBudget: number; // KRW 원 단위 (Meta API는 KRW를 원 단위 그대로 수신, × 100 불필요)
   startTime: string; // ISO8601
   endTime: string;
+  objective?: string; // optimization_goal 자동 결정용
   targeting?: Record<string, unknown>;
 }
 
 export async function createAdSet(opts: CreateAdSetOptions) {
   const creds = getCredentials();
   if (!creds) return { ok: false as const, error: "미설정" };
+  const optGoal = ADSET_OPTIMIZATION[opts.objective ?? "awareness"] ?? { optimization_goal: "REACH", billing_event: "IMPRESSIONS" };
   return metaPost<{ id: string }>(`act_${creds.adAccountId}/adsets`, {
     name: opts.name,
     campaign_id: opts.campaignId,
-    daily_budget: Math.max(opts.dailyBudget * 100, 100), // centavos (KRW × 100)
+    // KRW는 소수점 없는 통화 → Meta API에 원 단위 그대로 (USD의 cents와 달리 × 100 불필요)
+    daily_budget: Math.max(opts.dailyBudget, 1000),
     start_time: opts.startTime,
     end_time: opts.endTime,
-    billing_event: "IMPRESSIONS",
-    optimization_goal: "REACH",
+    billing_event: optGoal.billing_event,
+    optimization_goal: optGoal.optimization_goal,
     bid_strategy: "LOWEST_COST_WITHOUT_CAP",
     targeting: opts.targeting ?? {
       geo_locations: { countries: ["KR"], cities: [{ key: "635526", radius: 50, distance_unit: "kilometer" }] },

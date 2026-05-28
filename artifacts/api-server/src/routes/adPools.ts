@@ -478,81 +478,36 @@ router.post("/ad-pools/:id/push-to-meta", async (req, res) => {
     }
     const metaCampaignId = (campaignRes as { ok: true; data: { id: string } }).data.id;
 
-    const aiMode = pool.aiMode as AdPoolAiMode;
-    const dailyBudgetPerDay = Math.max(Math.round(pool.totalBudget / 30), 1000);
+    // 기간(일수) 계산 — 최소 1일
+    const periodDays = Math.max(
+      Math.round((new Date(pool.endDate).getTime() - new Date(pool.startDate).getTime()) / 86400000) + 1,
+      1,
+    );
+    // 일 예산: 전체예산 ÷ 기간(일), 최소 10,000원 (Meta KRW 계정 최솟값 기준)
+    const dailyBudgetPerDay = Math.max(Math.round(pool.totalBudget / periodDays), 10000);
     const startTime = new Date(`${pool.startDate}T00:00:00+09:00`).toISOString();
     const endTime = new Date(`${pool.endDate}T23:59:59+09:00`).toISOString();
 
-    // ── STEP 2. 전략별 광고세트 생성 ──────────────────────────────────────────────
-    let firstAdSetId = "";
-    const adAdSetMap: Record<string, string> = {};
-
-    if (aiMode === "performance") {
-      const budgetPerAd = Math.max(Math.round(dailyBudgetPerDay / adIdList.length), 100);
-      for (const adId of adIdList) {
-        const setRes = await createAdSet({
-          name: `[PLAY강릉] ${pool.name} - 광고 ${adId.slice(-6)}`,
-          campaignId: metaCampaignId, dailyBudget: budgetPerAd, startTime, endTime,
-        });
-        if (setRes.ok) {
-          const setId = (setRes as { ok: true; data: { id: string } }).data.id;
-          adAdSetMap[adId] = setId;
-          if (!firstAdSetId) firstAdSetId = setId;
-        }
-      }
-    } else if (aiMode === "new_ad_boost") {
-      const adsForCategory = await db.select().from(adsTable).where(inArray(adsTable.id, adIdList));
-      const byCategory: Record<string, string[]> = {};
-      for (const a of adsForCategory) {
-        const cat = a.category || "기타";
-        byCategory[cat] = [...(byCategory[cat] ?? []), a.id];
-      }
-      const budgetPerCat = Math.max(Math.round(dailyBudgetPerDay / Math.max(Object.keys(byCategory).length, 1)), 100);
-      for (const [cat, catAdIds] of Object.entries(byCategory)) {
-        const setRes = await createAdSet({
-          name: `[PLAY강릉] ${pool.name} - ${cat}`,
-          campaignId: metaCampaignId, dailyBudget: budgetPerCat, startTime, endTime,
-        });
-        if (setRes.ok) {
-          const setId = (setRes as { ok: true; data: { id: string } }).data.id;
-          for (const adId of catAdIds) adAdSetMap[adId] = setId;
-          if (!firstAdSetId) firstAdSetId = setId;
-        }
-      }
-    } else if (aiMode === "overexposure_prevention") {
-      const adsForPeriod = await db.select().from(adsTable).where(inArray(adsTable.id, adIdList));
-      const byPeriod: Record<string, string[]> = {};
-      for (const a of adsForPeriod) {
-        const month = (a.date ?? "").slice(0, 7) || "기타";
-        byPeriod[month] = [...(byPeriod[month] ?? []), a.id];
-      }
-      const budgetPerPeriod = Math.max(Math.round(dailyBudgetPerDay / Math.max(Object.keys(byPeriod).length, 1)), 100);
-      for (const [period, periodAdIds] of Object.entries(byPeriod)) {
-        const setRes = await createAdSet({
-          name: `[PLAY강릉] ${pool.name} - ${period}`,
-          campaignId: metaCampaignId, dailyBudget: budgetPerPeriod, startTime, endTime,
-        });
-        if (setRes.ok) {
-          const setId = (setRes as { ok: true; data: { id: string } }).data.id;
-          for (const adId of periodAdIds) adAdSetMap[adId] = setId;
-          if (!firstAdSetId) firstAdSetId = setId;
-        }
-      }
-    } else {
-      const adSetRes = await createAdSet({
-        name: `[PLAY강릉] ${pool.name} 광고세트`,
-        campaignId: metaCampaignId, dailyBudget: dailyBudgetPerDay, startTime, endTime,
-      });
-      if (!adSetRes.ok) {
-        return res.status(502).json({ error: `광고세트 생성 실패: ${adSetRes.error}`, failedStep: "adset" });
-      }
-      firstAdSetId = (adSetRes as { ok: true; data: { id: string } }).data.id;
-      for (const adId of adIdList) adAdSetMap[adId] = firstAdSetId;
+    // ── STEP 2. 광고세트 1개 생성 (소상공인 광고 자동 순환) ──────────────────────
+    // Meta 공동광고 구조: Campaign 1개 → AdSet 1개(통합 예산+타겟) → Ad N개(소상공인별 자동 순환)
+    const adSetRes = await createAdSet({
+      name: `[PLAY강릉] ${pool.name} 광고세트`,
+      campaignId: metaCampaignId,
+      dailyBudget: dailyBudgetPerDay,
+      objective: pool.objective,
+      startTime,
+      endTime,
+    });
+    if (!adSetRes.ok) {
+      return res.status(502).json({ error: `광고세트 생성 실패: ${adSetRes.error}`, failedStep: "adset" });
     }
+    const firstAdSetId = (adSetRes as { ok: true; data: { id: string } }).data.id;
+    const adAdSetMap: Record<string, string> = {};
+    for (const adId of adIdList) adAdSetMap[adId] = firstAdSetId;
 
-    const createdAdSetIds = [...new Set(Object.values(adAdSetMap))].filter(Boolean);
-    if (!firstAdSetId || createdAdSetIds.length === 0) {
-      return res.status(502).json({ error: "광고세트 생성에 모두 실패했습니다. Meta 연결 설정을 확인해주세요.", failedStep: "adset" });
+    const createdAdSetIds = [firstAdSetId];
+    if (!firstAdSetId) {
+      return res.status(502).json({ error: "광고세트 생성에 실패했습니다. Meta 연결 설정을 확인해주세요.", failedStep: "adset" });
     }
 
     // ── STEP 3. 광고별 이미지업로드 → Creative → Ad ────────────────────────────
@@ -684,7 +639,7 @@ router.post("/ad-pools/:id/push-to-meta", async (req, res) => {
       success: true,
       steps: {
         campaign: { ok: true, id: metaCampaignId },
-        adSets: { ok: true, count: createdAdSetIds.length, strategy: aiMode },
+        adSets: { ok: true, count: createdAdSetIds.length, strategy: "single_adset_rotation" },
         ads: { created: created.length, skipped: skipped.length },
       },
       metaCampaignId,

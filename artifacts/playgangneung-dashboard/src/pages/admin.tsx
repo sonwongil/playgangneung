@@ -137,7 +137,7 @@ interface Source {
 interface AdPool {
   id: string;
   name: string;
-  objective: "awareness" | "conversion" | "traffic" | "engagement";
+  objective: "awareness" | "messages" | "post_engagement" | "instagram_engagement" | "page_likes" | "traffic" | "conversion" | "engagement";
   adIds: string[];
   totalBudget: number;
   startDate: string;
@@ -1834,10 +1834,14 @@ export default function Admin() {
               ended:  { label: "종료", cls: "bg-red-100 text-red-600 border-red-200" },
             };
             const OBJECTIVE_LABEL: Record<string, string> = {
-              awareness: "브랜드 인지도",
-              conversion: "전환/신청",
-              traffic: "방문 유도",
-              engagement: "참여/반응",
+              awareness:            "팔로워·방문 늘리기",
+              messages:             "메시지 수신 늘리기",
+              post_engagement:      "Facebook 콘텐츠 홍보",
+              instagram_engagement: "Instagram 콘텐츠 홍보",
+              page_likes:           "페이지 좋아요 늘리기",
+              traffic:              "웹사이트 방문자 늘리기",
+              engagement:           "참여/반응",
+              conversion:           "전환/신청",
             };
             const AI_MODE_LABEL: Record<string, string> = {
               equal: "균등 분배",
@@ -2105,19 +2109,69 @@ export default function Admin() {
                           />
                         </div>
 
-                        {/* 광고 목적 */}
-                        <div className="space-y-1">
-                          <Label className="text-xs font-medium">광고 목적</Label>
-                          <div className="flex gap-2 flex-wrap">
+                        {/* 광고 목적 — Meta 화면과 동일한 카드 구조 */}
+                        <div className="space-y-2">
+                          <Label className="text-xs font-medium">캠페인 목표 선택</Label>
+                          <p className="text-[11px] text-muted-foreground">Meta 광고 관리자와 동일한 목표로 캠페인이 생성됩니다.</p>
+                          <div className="grid grid-cols-3 gap-2">
                             {([
-                              { value: "awareness", label: "브랜드 인지도" },
-                              { value: "traffic", label: "방문 유도" },
-                              { value: "conversion", label: "전환/신청" },
-                              { value: "engagement", label: "참여/반응" },
-                            ] as const).map((o) => (
-                              <label key={o.value} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs cursor-pointer transition-colors ${poolForm.objective === o.value ? "bg-purple-600 text-white border-purple-600" : "border-gray-200 hover:border-purple-300"}`}>
-                                <input type="radio" name="objective" value={o.value} className="hidden" checked={poolForm.objective === o.value} onChange={() => setPoolForm((p) => ({ ...p, objective: o.value }))} />
-                                {o.label}
+                              {
+                                value: "awareness",
+                                label: "페이지 방문 수 및 팔로워 늘리기",
+                                desc: "더 많은 사람이 페이지를 발견하고 팔로우하도록 광고를 만들어보세요",
+                                icon: (
+                                  <svg className="w-6 h-6 mx-auto mb-1 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a4 4 0 00-5.657-3.657M9 20H4v-2a4 4 0 015.657-3.657M15 7a4 4 0 11-8 0 4 4 0 018 0zm6 4a3 3 0 11-6 0 3 3 0 016 0zm-18 0a3 3 0 116 0 3 3 0 01-6 0z" /></svg>
+                                ),
+                              },
+                              {
+                                value: "messages",
+                                label: "메시지 수신 늘리기",
+                                desc: "페이지의 행동 유도 버튼을 포함하는 광고를 만들어보세요.",
+                                icon: (
+                                  <svg className="w-6 h-6 mx-auto mb-1 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+                                ),
+                              },
+                              {
+                                value: "post_engagement",
+                                label: "Facebook 콘텐츠 홍보하기",
+                                desc: "더 많은 사람이 게시물을 보고 참여하도록 유도하세요.",
+                                icon: (
+                                  <svg className="w-6 h-6 mx-auto mb-1 text-blue-600" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                                ),
+                              },
+                              {
+                                value: "instagram_engagement",
+                                label: "Instagram 콘텐츠 홍보하기",
+                                desc: "더 많은 사람이 Instagram 게시물을 보고 참여하도록 유도하세요.",
+                                icon: (
+                                  <svg className="w-6 h-6 mx-auto mb-1" viewBox="0 0 24 24" fill="url(#ig)"><defs><linearGradient id="ig" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" stopColor="#f09433"/><stop offset="25%" stopColor="#e6683c"/><stop offset="50%" stopColor="#dc2743"/><stop offset="75%" stopColor="#cc2366"/><stop offset="100%" stopColor="#bc1888"/></linearGradient></defs><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
+                                ),
+                              },
+                              {
+                                value: "page_likes",
+                                label: "페이지 좋아요 늘리기",
+                                desc: "더 많은 사람이 페이지를 발견하고 좋아요를 누르도록 광고를 만들어보세요.",
+                                icon: (
+                                  <svg className="w-6 h-6 mx-auto mb-1 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905a3.61 3.61 0 01-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" /></svg>
+                                ),
+                              },
+                              {
+                                value: "traffic",
+                                label: "웹사이트 방문자 늘리기",
+                                desc: "사람들을 웹사이트로 이동하도록 광고를 만듭니다.",
+                                icon: (
+                                  <svg className="w-6 h-6 mx-auto mb-1 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5" /></svg>
+                                ),
+                              },
+                            ] as { value: AdPool["objective"]; label: string; desc: string; icon: React.ReactNode }[]).map((o) => (
+                              <label
+                                key={o.value}
+                                className={`flex flex-col items-center text-center p-3 rounded-xl border cursor-pointer transition-all select-none ${poolForm.objective === o.value ? "border-blue-500 bg-blue-50 ring-1 ring-blue-400" : "border-gray-200 hover:border-blue-200 hover:bg-gray-50"}`}
+                              >
+                                <input type="radio" name="objective" value={o.value} className="sr-only" checked={poolForm.objective === o.value} onChange={() => setPoolForm((p) => ({ ...p, objective: o.value }))} />
+                                {o.icon}
+                                <span className="text-[11px] font-semibold leading-tight text-gray-800 mb-1">{o.label}</span>
+                                <span className="text-[10px] text-muted-foreground leading-tight">{o.desc}</span>
                               </label>
                             ))}
                           </div>

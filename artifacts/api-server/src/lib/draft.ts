@@ -104,7 +104,16 @@ export function generateSocialDraft(event: CrawledEvent): SocialDraft {
     parts.push(descBlock);
   }
 
-  const caption = parts.join("\n").trim();
+  // 원본 보기 + PLAY강릉 링크
+  const contentUrl = `${SITE_URL}/content/${event.id}`;
+  const sourceLine = event.link ? `🔗 원본 보기 👉 ${event.link}` : "";
+  const playLine = `강릉 행사 더 보기 👉 PLAY강릉\n${contentUrl}`;
+
+  const footerParts: string[] = [""];
+  if (sourceLine) footerParts.push(sourceLine);
+  footerParts.push(playLine);
+
+  const caption = (parts.join("\n").trim() + footerParts.join("\n")).trim();
 
   // 해시태그 (카테고리별 6~8개)
   const hashtagPool = BASE_HASHTAGS_BY_CATEGORY[category] ?? DEFAULT_HASHTAGS;

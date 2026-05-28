@@ -230,14 +230,27 @@ function FeedCard({ item, onTagClick }: { item: FeedItem; onTagClick?: (tag: str
   const adCfg = item.isAd && item.adPlan ? AD_PLAN_CONFIG[item.adPlan] : null;
   const gradient = CATEGORY_GRADIENT[category] ?? "from-gray-700 to-gray-900";
 
-  function openCard() {
-    if (item.isAd) { setShowDetail(true); return; }
-    window.open(`/content/${item.id}`, "_blank", "noopener,noreferrer");
+  const cardHref = item.isAd
+    ? "#"
+    : (item.sourceUrl || item.link || `/content/${item.id}`);
+
+  function openCard(e: React.MouseEvent) {
+    if (item.isAd) {
+      e.preventDefault();
+      setShowDetail(true);
+    }
+    // 일반 피드는 <a> href가 직접 처리 → 팝업 차단 없음
   }
 
   return (
     <>
-      <div onClick={openCard} className="block cursor-pointer">
+      <a
+        href={cardHref}
+        target={item.isAd ? undefined : "_blank"}
+        rel="noopener noreferrer"
+        onClick={openCard}
+        className="block cursor-pointer"
+      >
         <Card className={`overflow-hidden hover:shadow-lg transition-shadow duration-300 group ${adCfg?.ring ?? ""}`}>
           {adCfg && (item.adPlan === "premium" || item.adPlan === "main") && (
             <div className={`${adCfg.banner} flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold`}>
@@ -299,7 +312,7 @@ function FeedCard({ item, onTagClick }: { item: FeedItem; onTagClick?: (tag: str
             </div>
           </CardContent>
         </Card>
-      </div>
+      </a>
 
       {item.isAd && (
         <Sheet open={showDetail} onOpenChange={setShowDetail}>

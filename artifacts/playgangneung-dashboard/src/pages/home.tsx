@@ -911,19 +911,17 @@ export default function Home() {
                     const stats = fakeStats(item.id);
                     const badgeLabel = adPlan === "premium" ? "프리미엄광고" : adPlan === "main" ? "직접광고" : adPlan === "basic" ? "광고" : null;
                     const badgeColor = adPlan === "premium" ? "bg-amber-400 text-amber-900" : adPlan === "main" ? "bg-pink-500 text-white" : "bg-gray-700 text-white";
+                    const premiumHref = isAd
+                      ? ((item as PremiumAd).url || `${BASE}/content/${item.id}`)
+                      : ((item as FeedItem).sourceUrl || (item as FeedItem).link || `/content/${item.id}`);
                     return (
-                      <div
+                      <a
                         key={item.id}
+                        href={premiumHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
                         draggable={false}
-                        onClick={() => {
-                          if (premiumDrag.current.moved) return;
-                          if (isAd) {
-                            const ad = item as PremiumAd;
-                            window.open(ad.url || `${BASE}/content/${ad.id}`, "_blank");
-                          } else {
-                            window.open(`/content/${item.id}`, "_blank", "noopener,noreferrer");
-                          }
-                        }}
+                        onClick={(e) => { if (premiumDrag.current.moved) e.preventDefault(); }}
                         className="shrink-0 w-44 cursor-pointer group"
                       >
                         <div className="relative h-28 rounded-xl overflow-hidden bg-gray-100 mb-2">
@@ -949,7 +947,7 @@ export default function Home() {
                           <span className="flex items-center gap-0.5"><MessageCircle className="w-3 h-3" />{stats.comments}</span>
                           <span className="flex items-center gap-0.5"><Eye className="w-3 h-3" />{stats.views}</span>
                         </div>
-                      </div>
+                      </a>
                     );
                   })}
                 </div>

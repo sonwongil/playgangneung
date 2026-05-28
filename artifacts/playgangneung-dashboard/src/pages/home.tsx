@@ -880,25 +880,26 @@ export default function Home() {
                   ref={premiumScrollRef}
                   className="flex gap-3 overflow-x-auto pb-1 -mx-3 px-3 cursor-grab active:cursor-grabbing select-none"
                   style={{ scrollbarWidth: "none", WebkitOverflowScrolling: "touch" } as React.CSSProperties}
-                  onPointerDown={(e) => {
-                    // 모바일(touch)은 브라우저 네이티브 스크롤 사용 — pointer capture 금지
-                    // capture 적용 시 자식 <a> 태그 터치 이벤트가 차단됨
-                    if (e.pointerType === "touch") return;
+                  onMouseDown={(e) => {
+                    // setPointerCapture 미사용: capture 시 click이 <a> 대신 컨테이너로 가서 링크 이동 불가
+                    // document 레벨 mousemove/mouseup으로 드래그 감지 → <a> click 정상 작동
                     const el = premiumScrollRef.current;
                     if (!el) return;
-                    el.setPointerCapture(e.pointerId);
                     premiumDrag.current = { active: true, startX: e.clientX, scrollLeft: el.scrollLeft, moved: false };
+                    const handleMove = (ev: MouseEvent) => {
+                      const dx = ev.clientX - premiumDrag.current.startX;
+                      if (!premiumDrag.current.moved && Math.abs(dx) > 5) premiumDrag.current.moved = true;
+                      if (premiumDrag.current.moved && premiumScrollRef.current)
+                        premiumScrollRef.current.scrollLeft = premiumDrag.current.scrollLeft - dx;
+                    };
+                    const handleUp = () => {
+                      premiumDrag.current.active = false;
+                      document.removeEventListener("mousemove", handleMove);
+                      document.removeEventListener("mouseup", handleUp);
+                    };
+                    document.addEventListener("mousemove", handleMove);
+                    document.addEventListener("mouseup", handleUp);
                   }}
-                  onPointerMove={(e) => {
-                    const d = premiumDrag.current;
-                    if (!d.active) return;
-                    const dx = e.clientX - d.startX;
-                    if (!d.moved && Math.abs(dx) > 5) d.moved = true;
-                    if (d.moved && premiumScrollRef.current)
-                      premiumScrollRef.current.scrollLeft = d.scrollLeft - dx;
-                  }}
-                  onPointerUp={() => { premiumDrag.current.active = false; }}
-                  onPointerCancel={() => { premiumDrag.current.active = false; }}
                   onClick={(e) => { if (premiumDrag.current.moved) e.stopPropagation(); }}
                   onDragStart={(e) => e.preventDefault()}
                 >

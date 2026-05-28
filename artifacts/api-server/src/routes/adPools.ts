@@ -95,11 +95,17 @@ export type AdPoolAiMode = "equal" | "performance" | "overexposure_prevention" |
 
 export type AdPoolRotationMode = "equal" | "performance";
 
+export interface AdDateRange {
+  startDate: string; // "YYYY-MM-DD" (KST)
+  endDate: string;   // "YYYY-MM-DD" (KST)
+}
+
 export interface AdPool {
   id: string;
   name: string;
   objective: AdPoolObjective;
   adIds: string[];
+  adDates: Record<string, AdDateRange>; // adId → 개별 집행 기간 (없으면 pool startDate/endDate 사용)
   totalBudget: number;
   startDate: string;
   endDate: string;
@@ -124,6 +130,7 @@ function rowToPool(row: typeof adPoolsTable.$inferSelect): AdPool {
     startDate: row.startDate,
     endDate: row.endDate,
     aiMode: (row.aiMode as AdPoolAiMode) ?? "equal",
+    adDates: ((row.adDates ?? {}) as Record<string, AdDateRange>),
     rotationMode: ((row as Record<string, unknown>)["rotationMode"] as AdPoolRotationMode) ?? "equal",
     status: (row.status as AdPoolStatus) ?? "draft",
     metaCampaignId: row.metaCampaignId ?? null,
@@ -170,6 +177,7 @@ router.post("/ad-pools", async (req, res) => {
       name: body.name ?? "새 묶음",
       objective: body.objective ?? "awareness",
       adIds,
+      adDates: (body.adDates ?? {}) as Record<string, AdDateRange>,
       totalBudget: body.totalBudget ?? 0,
       startDate: body.startDate ?? "",
       endDate: body.endDate ?? "",
@@ -206,6 +214,7 @@ router.patch("/ad-pools/:id", async (req, res) => {
     if ("startDate" in body) patch.startDate = body.startDate;
     if ("endDate" in body) patch.endDate = body.endDate;
     if ("aiMode" in body) patch.aiMode = body.aiMode;
+    if ("adDates" in body) patch.adDates = body.adDates;
     if ("rotationMode" in body) patch.rotationMode = (body as Record<string, unknown>)["rotationMode"];
     await db.update(adPoolsTable).set(patch).where(eq(adPoolsTable.id, id));
     const [row] = await db.select().from(adPoolsTable).where(eq(adPoolsTable.id, id));
@@ -498,25 +507,43 @@ router.post("/ad-pools/:id/push-to-meta", async (req, res) => {
     // ┌─ 균등 노출 (equal): 광고주별 AdSet 1개 + 동일 예산 → Meta가 예산 재배분 불가 → 공정 노출 보장
     // └─ 성과 최적화 (performance): 단일 AdSet → Meta 자동 최적화 → CTR 높은 광고 집중 노출
     const rotationMode = ((pool as Record<string, unknown>)["rotationMode"] as string) ?? "equal";
+    const poolAdDates = ((pool.adDates ?? {}) as Record<string, AdDateRange>);
+
+    // 광고별 날짜 헬퍼 — adDates 있으면 개별 날짜, 없으면 풀 날짜 사용
+    const getAdTimes = (adId: string) => {
+      const d = poolAdDates[adId];
+      const s = d?.startDate ?? pool.startDate;
+      const e = d?.endDate ?? pool.endDate;
+      return {
+        startTime: new Date(`${s}T00:00:00+09:00`).toISOString(),
+        endTime:   new Date(`${e}T23:59:59+09:00`).toISOString(),
+        days: Math.max(Math.round((new Date(e).getTime() - new Date(s).getTime()) / 86400000) + 1, 1),
+      };
+    };
+
     const adAdSetMap: Record<string, string> = {};
     let firstAdSetId = "";
 
     if (rotationMode === "equal") {
       // 광고주별 AdSet 1개, 동일 일 예산 (Meta의 예산 재배분 차단)
-      const budgetPerAdSet = Math.max(Math.round(dailyBudgetPerDay / adIdList.length), 10000);
+      // 예산: 각 광고의 집행 일수 비례 분배 (기본값: 동일 금액)
+      const totalDays = adIdList.reduce((sum, id) => sum + getAdTimes(id).days, 0) || adIdList.length;
       const adsForNames = await db.select().from(adsTable).where(inArray(adsTable.id, adIdList));
       const adNameMap: Record<string, string> = {};
       for (const a of adsForNames) adNameMap[a.id] = a.title ?? a.id.slice(-6);
 
       for (const adId of adIdList) {
         const adLabel = adNameMap[adId] ?? adId.slice(-6);
+        const { startTime: adStartTime, endTime: adEndTime, days } = getAdTimes(adId);
+        // 일수 비례 예산 (최소 10,000원/일)
+        const adBudget = Math.max(Math.round((pool.totalBudget * days / totalDays) / days), 10000);
         const setRes = await createAdSet({
           name: `[PLAY강릉] ${pool.name} - ${adLabel}`,
           campaignId: metaCampaignId,
-          dailyBudget: budgetPerAdSet,
+          dailyBudget: adBudget,
           objective: pool.objective,
-          startTime,
-          endTime,
+          startTime: adStartTime,
+          endTime: adEndTime,
         });
         if (setRes.ok) {
           const setId = (setRes as { ok: true; data: { id: string } }).data.id;
@@ -525,7 +552,7 @@ router.post("/ad-pools/:id/push-to-meta", async (req, res) => {
         }
       }
     } else {
-      // 단일 AdSet — Meta 자동 최적화 (성과 최적화 모드)
+      // 단일 AdSet — Meta 자동 최적화 (성과 최적화 모드, 풀 전체 날짜 사용)
       const adSetRes = await createAdSet({
         name: `[PLAY강릉] ${pool.name} 광고세트`,
         campaignId: metaCampaignId,

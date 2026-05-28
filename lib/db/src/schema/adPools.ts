@@ -5,6 +5,7 @@ export const adPoolsTable = pgTable("ad_pools", {
   name: text("name").notNull().default(""),
   objective: text("objective").notNull().default("awareness"),
   adIds: jsonb("ad_ids").$type<string[]>().notNull().default([]),
+  adDates: jsonb("ad_dates").$type<Record<string, { startDate: string; endDate: string }>>().notNull().default({}),
   totalBudget: integer("total_budget").notNull().default(0),
   startDate: text("start_date").notNull().default(""),
   endDate: text("end_date").notNull().default(""),

@@ -139,6 +139,7 @@ interface AdPool {
   name: string;
   objective: "awareness" | "messages" | "post_engagement" | "instagram_engagement" | "page_likes" | "traffic" | "conversion" | "engagement";
   adIds: string[];
+  adDates: Record<string, { startDate: string; endDate: string }>;
   totalBudget: number;
   startDate: string;
   endDate: string;
@@ -468,7 +469,9 @@ export default function Admin() {
   const [alertDetectLoading, setAlertDetectLoading] = useState(false);
   const [poolForm, setPoolForm] = useState({
     name: "", objective: "awareness" as AdPool["objective"],
-    selectedAdIds: [] as string[], totalBudget: 0,
+    selectedAdIds: [] as string[],
+    adDates: {} as Record<string, { startDate: string; endDate: string }>,
+    totalBudget: 0,
     startDate: new Date().toISOString().slice(0, 10),
     endDate: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10),
     aiMode: "equal" as AdPool["aiMode"],
@@ -1029,7 +1032,7 @@ export default function Admin() {
       setAdCenterTab("rotation");
       setSelectedPoolId(d.pool.id);
       setPoolForm({
-        name: "", objective: "awareness", selectedAdIds: [], totalBudget: 0,
+        name: "", objective: "awareness", selectedAdIds: [], adDates: {}, totalBudget: 0,
         startDate: new Date().toISOString().slice(0, 10),
         endDate: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10),
         aiMode: "equal",
@@ -2232,40 +2235,147 @@ export default function Admin() {
                           </div>
                         </div>
 
-                        {/* 참여 광고 체크박스 */}
-                        <div className="space-y-1">
-                          <Label className="text-xs font-medium">참여 광고 선택</Label>
-                          {approvedAds.length === 0 ? (
-                            <p className="text-xs text-muted-foreground py-2">승인된 광고가 없습니다. 먼저 광고를 승인하세요.</p>
-                          ) : (
-                            <div className="border rounded-lg divide-y max-h-48 overflow-y-auto">
-                              {approvedAds.map((ad) => (
-                                <label key={ad.id} className="flex items-center gap-2.5 px-3 py-2 hover:bg-gray-50 cursor-pointer">
-                                  <input
-                                    type="checkbox"
-                                    className="w-3.5 h-3.5 accent-purple-600"
-                                    checked={poolForm.selectedAdIds.includes(ad.id)}
-                                    onChange={(e) => {
-                                      setPoolForm((p) => ({
-                                        ...p,
-                                        selectedAdIds: e.target.checked
-                                          ? [...p.selectedAdIds, ad.id]
-                                          : p.selectedAdIds.filter((id) => id !== ad.id),
-                                      }));
-                                    }}
-                                  />
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-medium line-clamp-1">{ad.businessName || ad.title}</p>
-                                    <p className="text-[11px] text-muted-foreground">{ad.category} · {AD_STATUS[ad.status]?.label}</p>
-                                  </div>
-                                </label>
-                              ))}
+                        {/* 참여 광고 선택 + 개별 기간 설정 */}
+                        {(() => {
+                          // KST 기준 날짜 헬퍼
+                          const kstTomorrow = () => {
+                            const d = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
+                            d.setDate(d.getDate() + 1);
+                            return d.toISOString().slice(0, 10);
+                          };
+                          const addDays = (dateStr: string, n: number) => {
+                            const d = new Date(dateStr + "T00:00:00");
+                            d.setDate(d.getDate() + n);
+                            return d.toISOString().slice(0, 10);
+                          };
+                          const applyPreset = (adId: string, days: number) => {
+                            setPoolForm((p) => {
+                              const start = p.adDates[adId]?.startDate || kstTomorrow();
+                              return { ...p, adDates: { ...p.adDates, [adId]: { startDate: start, endDate: addDays(start, days - 1) } } };
+                            });
+                          };
+                          const setAdDate = (adId: string, field: "startDate" | "endDate", val: string) => {
+                            setPoolForm((p) => ({ ...p, adDates: { ...p.adDates, [adId]: { ...p.adDates[adId], [field]: val } } }));
+                          };
+
+                          return (
+                            <div className="space-y-1.5">
+                              <div className="flex items-center justify-between">
+                                <Label className="text-xs font-medium">참여 광고 선택 및 집행 기간</Label>
+                                {poolForm.selectedAdIds.length > 0 && (
+                                  <span className="text-[11px] text-purple-700 font-semibold">{poolForm.selectedAdIds.length}개 선택</span>
+                                )}
+                              </div>
+                              <p className="text-[11px] text-muted-foreground">광고를 선택하면 기간을 개별 설정할 수 있습니다. 기본값: 내일부터 7일</p>
+                              {approvedAds.length === 0 ? (
+                                <p className="text-xs text-muted-foreground py-2 border rounded-lg px-3">승인된 광고가 없습니다. 먼저 광고를 승인하세요.</p>
+                              ) : (
+                                <div className="border rounded-xl divide-y overflow-hidden">
+                                  {approvedAds.map((ad) => {
+                                    const isSelected = poolForm.selectedAdIds.includes(ad.id);
+                                    const adDate = poolForm.adDates[ad.id];
+                                    return (
+                                      <div key={ad.id} className={`transition-colors ${isSelected ? "bg-purple-50/60" : "bg-white hover:bg-gray-50/80"}`}>
+                                        {/* 체크박스 행 */}
+                                        <label className="flex items-center gap-2.5 px-3 py-2.5 cursor-pointer select-none">
+                                          <input
+                                            type="checkbox"
+                                            className="w-3.5 h-3.5 accent-purple-600 shrink-0"
+                                            checked={isSelected}
+                                            onChange={(e) => {
+                                              const tomorrow = kstTomorrow();
+                                              setPoolForm((p) => {
+                                                const newIds = e.target.checked
+                                                  ? [...p.selectedAdIds, ad.id]
+                                                  : p.selectedAdIds.filter((id) => id !== ad.id);
+                                                const newDates = { ...p.adDates };
+                                                if (e.target.checked && !newDates[ad.id]) {
+                                                  newDates[ad.id] = { startDate: tomorrow, endDate: addDays(tomorrow, 6) };
+                                                }
+                                                if (!e.target.checked) delete newDates[ad.id];
+                                                return { ...p, selectedAdIds: newIds, adDates: newDates };
+                                              });
+                                            }}
+                                          />
+                                          <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-medium line-clamp-1">{ad.businessName || ad.title}</p>
+                                            <p className="text-[11px] text-muted-foreground">{ad.category} · {AD_STATUS[ad.status]?.label}</p>
+                                          </div>
+                                          {isSelected && adDate && (
+                                            <span className="text-[11px] text-purple-600 font-medium shrink-0 hidden sm:block">
+                                              {adDate.startDate} ~ {adDate.endDate}
+                                            </span>
+                                          )}
+                                        </label>
+
+                                        {/* 기간 설정 — 선택된 광고만 표시 */}
+                                        {isSelected && (
+                                          <div className="px-3 pb-3 space-y-2" onClick={(e) => e.stopPropagation()}>
+                                            {/* 프리셋 버튼 */}
+                                            <div className="flex items-center gap-1.5 flex-wrap">
+                                              <span className="text-[11px] text-muted-foreground font-medium">빠른 설정:</span>
+                                              {([
+                                                { label: "내일 1일", days: 1 },
+                                                { label: "3일", days: 3 },
+                                                { label: "7일", days: 7 },
+                                                { label: "14일", days: 14 },
+                                                { label: "30일", days: 30 },
+                                              ]).map(({ label, days }) => (
+                                                <button
+                                                  key={days}
+                                                  type="button"
+                                                  className="text-[11px] px-2 py-0.5 rounded-full border border-purple-300 bg-white hover:bg-purple-50 text-purple-700 font-medium transition-colors"
+                                                  onClick={() => applyPreset(ad.id, days)}
+                                                >
+                                                  {label}
+                                                </button>
+                                              ))}
+                                            </div>
+                                            {/* 날짜 직접 입력 */}
+                                            <div className="flex items-center gap-2">
+                                              <div className="flex-1 space-y-0.5">
+                                                <p className="text-[10px] text-muted-foreground">시작일</p>
+                                                <input
+                                                  type="date"
+                                                  className="w-full text-xs border border-gray-300 rounded-md px-2 py-1 bg-white focus:border-purple-400 focus:outline-none"
+                                                  value={adDate?.startDate || ""}
+                                                  onChange={(e) => {
+                                                    const newStart = e.target.value;
+                                                    setPoolForm((p) => {
+                                                      const cur = p.adDates[ad.id];
+                                                      const newEnd = cur?.endDate && cur.endDate >= newStart ? cur.endDate : addDays(newStart, 6);
+                                                      return { ...p, adDates: { ...p.adDates, [ad.id]: { startDate: newStart, endDate: newEnd } } };
+                                                    });
+                                                  }}
+                                                />
+                                              </div>
+                                              <span className="text-sm text-muted-foreground mt-4">~</span>
+                                              <div className="flex-1 space-y-0.5">
+                                                <p className="text-[10px] text-muted-foreground">종료일</p>
+                                                <input
+                                                  type="date"
+                                                  className="w-full text-xs border border-gray-300 rounded-md px-2 py-1 bg-white focus:border-purple-400 focus:outline-none"
+                                                  value={adDate?.endDate || ""}
+                                                  min={adDate?.startDate || ""}
+                                                  onChange={(e) => setAdDate(ad.id, "endDate", e.target.value)}
+                                                />
+                                              </div>
+                                            </div>
+                                            {adDate?.startDate && adDate?.endDate && (
+                                              <p className="text-[11px] text-purple-600">
+                                                📅 {adDate.startDate} ~ {adDate.endDate} ({Math.max(Math.round((new Date(adDate.endDate).getTime() - new Date(adDate.startDate).getTime()) / 86400000) + 1, 1)}일간 집행)
+                                              </p>
+                                            )}
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
                             </div>
-                          )}
-                          {poolForm.selectedAdIds.length > 0 && (
-                            <p className="text-xs text-purple-700 font-medium">{poolForm.selectedAdIds.length}개 선택됨</p>
-                          )}
-                        </div>
+                          );
+                        })()}
 
                         {/* 공동예산 */}
                         <div className="space-y-1">
@@ -2320,16 +2430,27 @@ export default function Admin() {
                         <Button
                           className="w-full bg-purple-600 hover:bg-purple-700 gap-2"
                           disabled={!poolForm.name.trim() || poolForm.selectedAdIds.length === 0 || createPoolMutation.isPending}
-                          onClick={() => createPoolMutation.mutate({
-                            name: poolForm.name,
-                            objective: poolForm.objective,
-                            adIds: poolForm.selectedAdIds,
-                            totalBudget: poolForm.totalBudget,
-                            startDate: poolForm.startDate,
-                            endDate: poolForm.endDate,
-                            aiMode: poolForm.aiMode,
-                            rotationMode: poolForm.rotationMode,
-                          } as AdPool)}
+                          onClick={() => {
+                            // pool 전체 기간 = 개별 광고 날짜의 min/max (없으면 poolForm 날짜)
+                            const allDates = Object.values(poolForm.adDates);
+                            const derivedStart = allDates.length > 0
+                              ? allDates.reduce((min, d) => d.startDate < min ? d.startDate : min, allDates[0].startDate)
+                              : poolForm.startDate;
+                            const derivedEnd = allDates.length > 0
+                              ? allDates.reduce((max, d) => d.endDate > max ? d.endDate : max, allDates[0].endDate)
+                              : poolForm.endDate;
+                            createPoolMutation.mutate({
+                              name: poolForm.name,
+                              objective: poolForm.objective,
+                              adIds: poolForm.selectedAdIds,
+                              adDates: poolForm.adDates,
+                              totalBudget: poolForm.totalBudget,
+                              startDate: derivedStart,
+                              endDate: derivedEnd,
+                              aiMode: poolForm.aiMode,
+                              rotationMode: poolForm.rotationMode,
+                            } as AdPool);
+                          }}
                         >
                           <Layers className="w-4 h-4" />
                           {createPoolMutation.isPending ? "생성 중..." : "묶음 저장"}

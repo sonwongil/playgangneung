@@ -422,7 +422,7 @@ function HashtagPill({ tag, active, onClick }: { tag: string; active: boolean; o
   return (
     <button
       onClick={onClick}
-      className={`shrink-0 px-3 py-1.5 rounded-full text-[18px] font-bold transition-all ${
+      className={`shrink-0 px-3 py-1.5 rounded-full text-[18px] font-bold transition-all cursor-pointer ${
         active
           ? "bg-gray-900 text-white shadow-sm"
           : "text-gray-600 hover:text-gray-900"
@@ -881,6 +881,9 @@ export default function Home() {
                   className="flex gap-3 overflow-x-auto pb-1 -mx-3 px-3 cursor-grab active:cursor-grabbing select-none"
                   style={{ scrollbarWidth: "none", WebkitOverflowScrolling: "touch" } as React.CSSProperties}
                   onPointerDown={(e) => {
+                    // 모바일(touch)은 브라우저 네이티브 스크롤 사용 — pointer capture 금지
+                    // capture 적용 시 자식 <a> 태그 터치 이벤트가 차단됨
+                    if (e.pointerType === "touch") return;
                     const el = premiumScrollRef.current;
                     if (!el) return;
                     el.setPointerCapture(e.pointerId);

@@ -93,6 +93,8 @@ export type AdPoolStatus = "draft" | "active" | "paused" | "ended";
 export type AdPoolObjective = "awareness" | "conversion" | "traffic" | "engagement";
 export type AdPoolAiMode = "equal" | "performance" | "overexposure_prevention" | "new_ad_boost" | "manual";
 
+export type AdPoolRotationMode = "equal" | "performance";
+
 export interface AdPool {
   id: string;
   name: string;
@@ -102,6 +104,7 @@ export interface AdPool {
   startDate: string;
   endDate: string;
   aiMode: AdPoolAiMode;
+  rotationMode: AdPoolRotationMode; // "equal"=광고주별 AdSet(공정 균등) | "performance"=단일 AdSet(Meta 자동 최적화)
   status: AdPoolStatus;
   metaCampaignId: string | null;
   metaAdSetId: string | null;
@@ -121,6 +124,7 @@ function rowToPool(row: typeof adPoolsTable.$inferSelect): AdPool {
     startDate: row.startDate,
     endDate: row.endDate,
     aiMode: (row.aiMode as AdPoolAiMode) ?? "equal",
+    rotationMode: ((row as Record<string, unknown>)["rotationMode"] as AdPoolRotationMode) ?? "equal",
     status: (row.status as AdPoolStatus) ?? "draft",
     metaCampaignId: row.metaCampaignId ?? null,
     metaAdSetId: row.metaAdSetId ?? null,
@@ -170,6 +174,7 @@ router.post("/ad-pools", async (req, res) => {
       startDate: body.startDate ?? "",
       endDate: body.endDate ?? "",
       aiMode: body.aiMode ?? "equal",
+      rotationMode: (body as Record<string, unknown>)["rotationMode"] as string ?? "equal",
       status: "draft",
     });
     // 광고가 있으면 전략에 따라 편성표 자동 생성
@@ -201,6 +206,7 @@ router.patch("/ad-pools/:id", async (req, res) => {
     if ("startDate" in body) patch.startDate = body.startDate;
     if ("endDate" in body) patch.endDate = body.endDate;
     if ("aiMode" in body) patch.aiMode = body.aiMode;
+    if ("rotationMode" in body) patch.rotationMode = (body as Record<string, unknown>)["rotationMode"];
     await db.update(adPoolsTable).set(patch).where(eq(adPoolsTable.id, id));
     const [row] = await db.select().from(adPoolsTable).where(eq(adPoolsTable.id, id));
     if (!row) return res.status(404).json({ error: "묶음을 찾을 수 없습니다" });
@@ -488,25 +494,55 @@ router.post("/ad-pools/:id/push-to-meta", async (req, res) => {
     const startTime = new Date(`${pool.startDate}T00:00:00+09:00`).toISOString();
     const endTime = new Date(`${pool.endDate}T23:59:59+09:00`).toISOString();
 
-    // ── STEP 2. 광고세트 1개 생성 (소상공인 광고 자동 순환) ──────────────────────
-    // Meta 공동광고 구조: Campaign 1개 → AdSet 1개(통합 예산+타겟) → Ad N개(소상공인별 자동 순환)
-    const adSetRes = await createAdSet({
-      name: `[PLAY강릉] ${pool.name} 광고세트`,
-      campaignId: metaCampaignId,
-      dailyBudget: dailyBudgetPerDay,
-      objective: pool.objective,
-      startTime,
-      endTime,
-    });
-    if (!adSetRes.ok) {
-      return res.status(502).json({ error: `광고세트 생성 실패: ${adSetRes.error}`, failedStep: "adset" });
-    }
-    const firstAdSetId = (adSetRes as { ok: true; data: { id: string } }).data.id;
+    // ── STEP 2. 로테이션 방식에 따라 광고세트 생성 ────────────────────────────────
+    // ┌─ 균등 노출 (equal): 광고주별 AdSet 1개 + 동일 예산 → Meta가 예산 재배분 불가 → 공정 노출 보장
+    // └─ 성과 최적화 (performance): 단일 AdSet → Meta 자동 최적화 → CTR 높은 광고 집중 노출
+    const rotationMode = ((pool as Record<string, unknown>)["rotationMode"] as string) ?? "equal";
     const adAdSetMap: Record<string, string> = {};
-    for (const adId of adIdList) adAdSetMap[adId] = firstAdSetId;
+    let firstAdSetId = "";
 
-    const createdAdSetIds = [firstAdSetId];
-    if (!firstAdSetId) {
+    if (rotationMode === "equal") {
+      // 광고주별 AdSet 1개, 동일 일 예산 (Meta의 예산 재배분 차단)
+      const budgetPerAdSet = Math.max(Math.round(dailyBudgetPerDay / adIdList.length), 10000);
+      const adsForNames = await db.select().from(adsTable).where(inArray(adsTable.id, adIdList));
+      const adNameMap: Record<string, string> = {};
+      for (const a of adsForNames) adNameMap[a.id] = a.title ?? a.id.slice(-6);
+
+      for (const adId of adIdList) {
+        const adLabel = adNameMap[adId] ?? adId.slice(-6);
+        const setRes = await createAdSet({
+          name: `[PLAY강릉] ${pool.name} - ${adLabel}`,
+          campaignId: metaCampaignId,
+          dailyBudget: budgetPerAdSet,
+          objective: pool.objective,
+          startTime,
+          endTime,
+        });
+        if (setRes.ok) {
+          const setId = (setRes as { ok: true; data: { id: string } }).data.id;
+          adAdSetMap[adId] = setId;
+          if (!firstAdSetId) firstAdSetId = setId;
+        }
+      }
+    } else {
+      // 단일 AdSet — Meta 자동 최적화 (성과 최적화 모드)
+      const adSetRes = await createAdSet({
+        name: `[PLAY강릉] ${pool.name} 광고세트`,
+        campaignId: metaCampaignId,
+        dailyBudget: dailyBudgetPerDay,
+        objective: pool.objective,
+        startTime,
+        endTime,
+      });
+      if (!adSetRes.ok) {
+        return res.status(502).json({ error: `광고세트 생성 실패: ${adSetRes.error}`, failedStep: "adset" });
+      }
+      firstAdSetId = (adSetRes as { ok: true; data: { id: string } }).data.id;
+      for (const adId of adIdList) adAdSetMap[adId] = firstAdSetId;
+    }
+
+    const createdAdSetIds = [...new Set(Object.values(adAdSetMap))].filter(Boolean);
+    if (!firstAdSetId || createdAdSetIds.length === 0) {
       return res.status(502).json({ error: "광고세트 생성에 실패했습니다. Meta 연결 설정을 확인해주세요.", failedStep: "adset" });
     }
 

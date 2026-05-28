@@ -9,6 +9,7 @@ export const adPoolsTable = pgTable("ad_pools", {
   startDate: text("start_date").notNull().default(""),
   endDate: text("end_date").notNull().default(""),
   aiMode: text("ai_mode").notNull().default("equal"),
+  rotationMode: text("rotation_mode").notNull().default("equal"), // "equal"=공정 균등 노출 | "performance"=Meta 자동 최적화
   status: text("status").notNull().default("draft"),
   metaCampaignId: text("meta_campaign_id"),
   metaAdSetId: text("meta_ad_set_id"),

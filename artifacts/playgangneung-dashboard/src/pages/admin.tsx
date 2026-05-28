@@ -143,6 +143,7 @@ interface AdPool {
   startDate: string;
   endDate: string;
   aiMode: "equal" | "performance" | "overexposure_prevention" | "new_ad_boost" | "manual";
+  rotationMode: "equal" | "performance";
   status: "draft" | "active" | "paused" | "ended";
   metaCampaignId?: string | null;
   metaAdSetId?: string | null;
@@ -471,6 +472,7 @@ export default function Admin() {
     startDate: new Date().toISOString().slice(0, 10),
     endDate: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10),
     aiMode: "equal" as AdPool["aiMode"],
+    rotationMode: "equal" as AdPool["rotationMode"],
   });
   const [, navigate] = useLocation();
   const { toast } = useToast();
@@ -1031,6 +1033,7 @@ export default function Admin() {
         startDate: new Date().toISOString().slice(0, 10),
         endDate: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10),
         aiMode: "equal",
+        rotationMode: "equal",
       });
     },
     onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
@@ -1843,6 +1846,10 @@ export default function Admin() {
               engagement:           "참여/반응",
               conversion:           "전환/신청",
             };
+            const ROTATION_MODE_CFG: Record<string, { label: string; cls: string; icon: string }> = {
+              equal:       { label: "균등 노출", cls: "bg-blue-100 text-blue-700 border-blue-200", icon: "⚖️" },
+              performance: { label: "성과 최적화", cls: "bg-orange-100 text-orange-700 border-orange-200", icon: "⚡" },
+            };
             const AI_MODE_LABEL: Record<string, string> = {
               equal: "균등 분배",
               performance: "성과 기반",
@@ -1979,9 +1986,14 @@ export default function Admin() {
                               <Card key={pool.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => { setSelectedPoolId(pool.id); setAdCenterTab("rotation"); }}>
                                 <CardContent className="p-3 flex items-center gap-3">
                                   <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2 mb-0.5">
+                                    <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                                       <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] border font-medium ${sc.cls}`}>{sc.label}</span>
                                       <span className="text-[10px] text-muted-foreground">{OBJECTIVE_LABEL[pool.objective] ?? pool.objective}</span>
+                                      {pool.rotationMode && (
+                                        <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] border font-medium ${(ROTATION_MODE_CFG[pool.rotationMode] ?? ROTATION_MODE_CFG.equal).cls}`}>
+                                          {(ROTATION_MODE_CFG[pool.rotationMode] ?? ROTATION_MODE_CFG.equal).icon} {(ROTATION_MODE_CFG[pool.rotationMode] ?? ROTATION_MODE_CFG.equal).label}
+                                        </span>
+                                      )}
                                     </div>
                                     <p className="font-semibold text-sm line-clamp-1">{pool.name}</p>
                                     <p className="text-xs text-muted-foreground">{pool.startDate} ~ {pool.endDate} · {pool.adIds.length}개 광고</p>
@@ -2177,6 +2189,49 @@ export default function Admin() {
                           </div>
                         </div>
 
+                        {/* 노출 방식 — 공정 균등 vs 성과 최적화 */}
+                        <div className="space-y-2">
+                          <Label className="text-xs font-medium">노출 방식 <span className="text-blue-600 font-bold">*</span></Label>
+                          <p className="text-[11px] text-muted-foreground">PLAY강릉 공동광고의 핵심 정책: 모든 광고주 공정 노출이 기본값입니다.</p>
+                          <div className="grid grid-cols-2 gap-2">
+                            {([
+                              {
+                                value: "equal",
+                                icon: "⚖️",
+                                label: "균등 노출 우선",
+                                desc: "광고주별 독립 예산 집행 — Meta가 예산을 재배분하지 않아 모든 광고주가 동등하게 노출됩니다.",
+                                badge: "기본값",
+                                badgeCls: "bg-blue-600 text-white",
+                                border: "border-blue-500 bg-blue-50 ring-1 ring-blue-400",
+                                inactive: "border-gray-200 hover:border-blue-200 hover:bg-gray-50",
+                              },
+                              {
+                                value: "performance",
+                                icon: "⚡",
+                                label: "성과 최적화 우선",
+                                desc: "Meta 자동 최적화 — CTR이 높은 광고에 예산이 집중됩니다. 공정 노출을 보장하지 않습니다.",
+                                badge: "권장 안함",
+                                badgeCls: "bg-orange-500 text-white",
+                                border: "border-orange-400 bg-orange-50 ring-1 ring-orange-300",
+                                inactive: "border-gray-200 hover:border-orange-200 hover:bg-gray-50",
+                              },
+                            ] as { value: AdPool["rotationMode"]; icon: string; label: string; desc: string; badge: string; badgeCls: string; border: string; inactive: string }[]).map((m) => (
+                              <label
+                                key={m.value}
+                                className={`flex flex-col p-3 rounded-xl border cursor-pointer transition-all select-none ${poolForm.rotationMode === m.value ? m.border : m.inactive}`}
+                              >
+                                <input type="radio" name="rotationMode" value={m.value} className="sr-only" checked={poolForm.rotationMode === m.value} onChange={() => setPoolForm((p) => ({ ...p, rotationMode: m.value }))} />
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="text-base">{m.icon}</span>
+                                  <span className="text-xs font-bold text-gray-800 flex-1">{m.label}</span>
+                                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${m.badgeCls}`}>{m.badge}</span>
+                                </div>
+                                <span className="text-[11px] text-muted-foreground leading-tight">{m.desc}</span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+
                         {/* 참여 광고 체크박스 */}
                         <div className="space-y-1">
                           <Label className="text-xs font-medium">참여 광고 선택</Label>
@@ -2273,7 +2328,8 @@ export default function Admin() {
                             startDate: poolForm.startDate,
                             endDate: poolForm.endDate,
                             aiMode: poolForm.aiMode,
-                          })}
+                            rotationMode: poolForm.rotationMode,
+                          } as AdPool)}
                         >
                           <Layers className="w-4 h-4" />
                           {createPoolMutation.isPending ? "생성 중..." : "묶음 저장"}
@@ -2800,16 +2856,26 @@ export default function Admin() {
                         </Card>
                       )}
 
+                      {/* ── 공정 노출 정책 안내 ───────────────────────────── */}
+                      <div className="flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-xl p-3">
+                        <span className="text-xl shrink-0">⚖️</span>
+                        <div className="text-xs text-blue-800 space-y-0.5">
+                          <p className="font-semibold text-sm">PLAY강릉 공동광고 공정 노출 정책</p>
+                          <p>모든 광고주는 설정된 기간 동안 <strong>균등하게 노출</strong>됩니다. 성과 낮은 광고는 <strong>자동 중단되지 않습니다.</strong></p>
+                          <p className="text-blue-600">⚠️ 아래 경고는 소재 개선 권고사항이며, 광고 중단은 관리자가 직접 결정해야 합니다.</p>
+                        </div>
+                      </div>
+
                       {/* ── 요약 카드 ────────────────────────────────────── */}
                       {summary && (
                         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
                           {[
                             { label: "전체 광고", value: summary.total, color: "text-gray-700", sub: null },
+                            { label: "⭐ 반응 우수", value: summary.ok, color: "text-emerald-700", sub: null },
                             { label: "🟢 정상", value: summary.ok, color: "text-green-700", sub: null },
-                            { label: "🟡 주의", value: summary.warning, color: "text-yellow-700", sub: null },
-                            { label: "🔴 위험", value: summary.critical, color: "text-red-700", sub: null },
+                            { label: "🟡 개선 필요", value: summary.warning, color: "text-yellow-700", sub: null },
+                            { label: "🔴 매우 저조", value: summary.critical, color: "text-red-700", sub: null },
                             { label: "총 노출", value: summary.totalImpressions.toLocaleString(), color: "text-blue-700", sub: "회" },
-                            { label: "총 클릭", value: summary.totalClicks.toLocaleString(), color: "text-indigo-700", sub: "회" },
                             { label: "총 지출", value: `₩${Math.round(summary.totalSpend).toLocaleString()}`, color: "text-orange-700", sub: null },
                           ].map(({ label, value, color, sub }) => (
                             <Card key={label}>
@@ -2878,16 +2944,31 @@ export default function Admin() {
                             const currentStep = getCurrentStep(ins);
                             const isOk = ins.healthStatus === "ok";
 
-                            const cardBorder = ins.healthStatus === "critical"
-                              ? "border-red-200"
-                              : ins.healthStatus === "warning"
-                              ? "border-yellow-200"
-                              : "border-green-200";
-                            const cardBg = ins.healthStatus === "critical"
-                              ? "bg-red-50/40"
-                              : ins.healthStatus === "warning"
-                              ? "bg-yellow-50/40"
-                              : "bg-green-50/30";
+                            // ── PLAY강릉 4단계 공정 노출 상태 ────────────────
+                            const ctr = ins.ctr ?? 0;
+                            const hasEnoughData = ins.impressions >= 1000;
+                            const playStatus = !hasEnoughData
+                              ? { level: "normal", label: "정상", badge: "🟢", color: "text-green-700", bg: "bg-green-50/40", border: "border-green-200" }
+                              : ctr >= 2
+                              ? { level: "excellent", label: "반응 우수", badge: "⭐", color: "text-emerald-700", bg: "bg-emerald-50/40", border: "border-emerald-300" }
+                              : ctr >= 0.7
+                              ? { level: "normal", label: "정상", badge: "🟢", color: "text-green-700", bg: "bg-green-50/40", border: "border-green-200" }
+                              : ctr >= 0.3
+                              ? { level: "warning", label: "개선 필요", badge: "🟡", color: "text-yellow-700", bg: "bg-yellow-50/40", border: "border-yellow-300" }
+                              : { level: "critical", label: "매우 저조", badge: "🔴", color: "text-red-700", bg: "bg-red-50/40", border: "border-red-300" };
+
+                            // ── 경고 태그 (소재 개선 권고, 자동 중단 없음) ────
+                            const adWarnings: string[] = [];
+                            if (hasEnoughData) {
+                              if (ctr < 0.7) adWarnings.push("⚠️ CTR 낮음");
+                              if (ctr < 0.3 && ins.impressions > 0) adWarnings.push("⚠️ 문구 반응 저조");
+                              if (ins.impressions > 3000 && (ins.clicks ?? 0) < 5) adWarnings.push("⚠️ 이미지 품질 낮음 가능성");
+                            }
+                            if (ins.impressions === 0 && ins.status === "ACTIVE") adWarnings.push("⚠️ 노출 없음 — Meta 검토 필요");
+                            if ((ins.frequency ?? 0) >= 4) adWarnings.push("⚠️ 광고 피로도 주의");
+
+                            const cardBorder = playStatus.border;
+                            const cardBg = playStatus.bg;
 
                             return (
                               <Card key={ins.id} className={`border-2 ${cardBorder} ${cardBg}`}>
@@ -2899,14 +2980,8 @@ export default function Admin() {
                                     onClick={() => setMonitoringExpandedAd(isExpanded ? null : ins.adId)}
                                   >
                                     <div className="flex items-start gap-2 flex-wrap">
-                                      {/* 건강 아이콘 */}
-                                      <span className="mt-0.5 shrink-0">
-                                        {ins.healthStatus === "critical"
-                                          ? <ShieldAlert className="w-4 h-4 text-red-500" />
-                                          : ins.healthStatus === "warning"
-                                          ? <ShieldOff className="w-4 h-4 text-yellow-500" />
-                                          : <ShieldCheck className="w-4 h-4 text-green-500" />}
-                                      </span>
+                                      {/* 4단계 상태 아이콘 */}
+                                      <span className="mt-0.5 shrink-0 text-lg leading-none">{playStatus.badge}</span>
                                       <div className="flex-1 min-w-0">
                                         {/* 광고주명 + 광고명 */}
                                         <div className="flex items-center gap-1.5 flex-wrap">
@@ -2917,6 +2992,10 @@ export default function Admin() {
                                           )}
                                           <span className="text-sm font-semibold truncate max-w-[240px]">
                                             {ins.adTitle || ins.adName || ins.adId}
+                                          </span>
+                                          {/* 4단계 상태 레이블 */}
+                                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${playStatus.color} ${playStatus.bg} border-current`}>
+                                            {playStatus.label}{!hasEnoughData ? " (데이터 부족)" : ""}
                                           </span>
                                         </div>
                                         {/* 배지 줄 */}
@@ -2942,6 +3021,17 @@ export default function Admin() {
                                           {/* 날짜 */}
                                           <span className="text-[10px] text-muted-foreground">{ins.dateStart} ~ {ins.dateStop}</span>
                                         </div>
+                                        {/* ── 경고 태그 (소재 개선 권고, 자동 중단 없음) ── */}
+                                        {adWarnings.length > 0 && (
+                                          <div className="flex flex-wrap gap-1 mt-1.5">
+                                            {adWarnings.map((w) => (
+                                              <span key={w} className="text-[10px] bg-amber-50 border border-amber-300 text-amber-700 px-1.5 py-0.5 rounded-full font-medium">
+                                                {w}
+                                              </span>
+                                            ))}
+                                            <span className="text-[10px] text-muted-foreground italic">— 관리자 수동 조치 필요</span>
+                                          </div>
+                                        )}
                                       </div>
                                       <span className="shrink-0 text-muted-foreground text-xs mt-1">{isExpanded ? "▲" : "▼"}</span>
                                     </div>

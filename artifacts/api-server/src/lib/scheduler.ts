@@ -2,6 +2,7 @@ import * as cron from "node-cron";
 import fs from "fs/promises";
 import path from "path";
 import crypto from "crypto";
+import { spawn } from "child_process";
 import { crawlAll } from "./crawler.js";
 import { appendEvents } from "./storage.js";
 import { logger } from "./logger.js";
@@ -189,12 +190,51 @@ async function purgeOldUnapprovedEvents() {
   }
 }
 
+// ─── DB 자동 백업 (매일 새벽 04:00 KST) ──────────────────────────────────────
+async function runBackup() {
+  // api-server 프로세스는 artifacts/api-server/ 에서 실행 → ../../ = workspace root
+  const workspaceRoot = path.resolve(process.cwd(), "../..");
+  const scriptPath = path.join(workspaceRoot, "scripts", "backup.sh");
+
+  logger.info({ scriptPath }, "DB 자동 백업 시작");
+
+  return new Promise<void>((resolve) => {
+    const proc = spawn("bash", [scriptPath], {
+      env: { ...process.env },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    const lines: string[] = [];
+    proc.stdout?.on("data", (chunk: Buffer) => {
+      chunk.toString().split("\n").filter(Boolean).forEach((l) => lines.push(l));
+    });
+    proc.stderr?.on("data", (chunk: Buffer) => {
+      chunk.toString().split("\n").filter(Boolean).forEach((l) => lines.push(`[stderr] ${l}`));
+    });
+
+    proc.on("close", (code) => {
+      if (code === 0) {
+        logger.info({ lines }, "DB 자동 백업 완료");
+      } else {
+        logger.error({ code, lines }, "DB 자동 백업 실패");
+      }
+      resolve();
+    });
+
+    proc.on("error", (err) => {
+      logger.error({ err }, "DB 자동 백업 스크립트 실행 오류");
+      resolve();
+    });
+  });
+}
+
 let currentTask: cron.ScheduledTask | null = null;
 let performanceTask: cron.ScheduledTask | null = null;
 let expireTask: cron.ScheduledTask | null = null;
 let purgeTask: cron.ScheduledTask | null = null;
 let insightsTask: cron.ScheduledTask | null = null;
 let keepAliveTask: cron.ScheduledTask | null = null;
+let backupTask: cron.ScheduledTask | null = null;
 
 function applySchedule(hour: number, minute: number) {
   if (currentTask) { currentTask.stop(); currentTask = null; }
@@ -246,6 +286,11 @@ export async function startScheduler() {
     }
   });
   logger.info("DB 커넥션 keep-alive 스케줄 등록 완료 (4분 주기)");
+
+  // 매일 새벽 04:00 KST 자동 백업 (DB + uploads/cards)
+  if (backupTask) { backupTask.stop(); }
+  backupTask = cron.schedule("0 4 * * *", runBackup, { timezone: "Asia/Seoul" });
+  logger.info("DB 자동 백업 스케줄 등록 완료 (매일 04:00 KST)");
 }
 
 export async function reschedule(hour: number, minute: number) {

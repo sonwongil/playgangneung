@@ -599,13 +599,16 @@ export default function AdminEventDetail() {
             {editThumbnail && (
               <button
                 className="flex items-center justify-center gap-1.5 w-full h-9 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold transition-colors"
-                onClick={() => {
+                onClick={async () => {
                   const href = editThumbnail.startsWith("/api/")
                     ? `${BASE}${editThumbnail}`
                     : `${BASE}/api/proxy/download?url=${encodeURIComponent(editThumbnail)}`;
+                  const r = await fetch(href);
+                  const blob = await r.blob();
+                  const blobUrl = URL.createObjectURL(blob);
                   const a = document.createElement("a");
-                  a.href = href; a.download = "photo-대표.jpg";
-                  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                  a.href = blobUrl; a.download = "photo-대표.jpg"; a.click();
+                  setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
                 }}
               >
                 <Download className="w-3.5 h-3.5" />대표 이미지 저장

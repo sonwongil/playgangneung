@@ -878,11 +878,12 @@ export default function Home() {
                 </div>
                 <div
                   ref={premiumScrollRef}
-                  className="flex gap-3 overflow-x-auto pb-1 -mx-3 px-3 cursor-grab active:cursor-grabbing select-none"
-                  style={{ scrollbarWidth: "none", WebkitOverflowScrolling: "touch" } as React.CSSProperties}
+                  className="flex gap-3 overflow-x-auto pb-1 -mx-3 px-3 cursor-grab active:cursor-grabbing"
+                  style={{ scrollbarWidth: "none", WebkitOverflowScrolling: "touch", touchAction: "pan-x" } as React.CSSProperties}
                   onMouseDown={(e) => {
-                    // setPointerCapture 미사용: capture 시 click이 <a> 대신 컨테이너로 가서 링크 이동 불가
-                    // document 레벨 mousemove/mouseup으로 드래그 감지 → <a> click 정상 작동
+                    // 데스크톱 마우스 드래그: setPointerCapture 미사용 (capture 시 자식 <a> click 차단됨)
+                    // document 레벨 리스너로 드래그 감지 → <a> click 정상 작동
+                    // 모바일은 touchAction: pan-x + 네이티브 스크롤이 처리
                     const el = premiumScrollRef.current;
                     if (!el) return;
                     premiumDrag.current = { active: true, startX: e.clientX, scrollLeft: el.scrollLeft, moved: false };

@@ -45,7 +45,8 @@ if [ "$EXIT_CODE" -eq 0 ]; then
   if [ "$DRY_RUN" -eq 1 ]; then
     log "ℹ️  [dry-run] DB 덤프 → $DB_FILE"
   else
-    if pg_dump "$DATABASE_URL" 2>>"$LOG_FILE" | gzip -9 > "$DB_TMP"; then
+    # --clean --if-exists: 덤프에 DROP 구문 포함 → restore 시 기존 테이블과 충돌 방지
+    if pg_dump --clean --if-exists "$DATABASE_URL" 2>>"$LOG_FILE" | gzip -9 > "$DB_TMP"; then
       mv "$DB_TMP" "$DB_FILE"
       SIZE=$(du -sh "$DB_FILE" | cut -f1)
       log "✅ DB 백업 완료: ${DATE}.sql.gz ($SIZE)"

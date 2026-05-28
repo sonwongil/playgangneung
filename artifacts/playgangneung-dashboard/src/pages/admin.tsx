@@ -416,7 +416,10 @@ export default function Admin() {
   const [manualThumbnail, setManualThumbnail] = useState("");
   const [urlInput, setUrlInput] = useState("");
   const [isExtracting, setIsExtracting] = useState(false);
-  const todayStr = () => new Date().toISOString().slice(0, 10);
+  // KST(UTC+9) 기준 날짜 문자열 반환 — new Date().toISOString()은 UTC 날짜를 반환하므로 사용 금지
+  const kstNow = (offsetDays = 0) =>
+    new Date(Date.now() + (9 + offsetDays * 24) * 3600 * 1000).toISOString().slice(0, 10);
+  const todayStr = () => kstNow(0);
   const [manualForm, setManualForm] = useState({
     title: "", description: "", link: "", source: "", contact: "",
     category: "행사", startDate: todayStr(), endDate: todayStr(), location: "", videoUrl: "",
@@ -472,8 +475,8 @@ export default function Admin() {
     selectedAdIds: [] as string[],
     adDates: {} as Record<string, { startDate: string; endDate: string }>,
     totalBudget: 0,
-    startDate: new Date().toISOString().slice(0, 10),
-    endDate: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10),
+    startDate: new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10),
+    endDate: new Date(Date.now() + (30 * 24 + 9) * 3600 * 1000).toISOString().slice(0, 10),
     aiMode: "equal" as AdPool["aiMode"],
     rotationMode: "equal" as AdPool["rotationMode"],
   });
@@ -631,12 +634,12 @@ export default function Admin() {
   });
 
   const [perfPoolId, setPerfPoolId] = useState<string | null>(null);
-  const [perfSince, setPerfSince] = useState(() => new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10));
-  const [perfUntil, setPerfUntil] = useState(() => new Date().toISOString().slice(0, 10));
+  const [perfSince, setPerfSince] = useState(() => new Date(Date.now() + 9 * 3600 * 1000 - 30 * 86400000).toISOString().slice(0, 10));
+  const [perfUntil, setPerfUntil] = useState(() => new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10));
   const [seedLoading, setSeedLoading] = useState(false);
   const [showManualForm, setShowManualForm] = useState(false);
   const [manualAdId, setManualAdId] = useState("");
-  const [manualDate, setManualDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [manualDate, setManualDate] = useState(() => new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10));
   const [manualImpressions, setManualImpressions] = useState("");
   const [manualClicks, setManualClicks] = useState("");
   const [manualSpend, setManualSpend] = useState("");
@@ -1033,8 +1036,8 @@ export default function Admin() {
       setSelectedPoolId(d.pool.id);
       setPoolForm({
         name: "", objective: "awareness", selectedAdIds: [], adDates: {}, totalBudget: 0,
-        startDate: new Date().toISOString().slice(0, 10),
-        endDate: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10),
+        startDate: new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10),
+        endDate: new Date(Date.now() + (30 * 24 + 9) * 3600 * 1000).toISOString().slice(0, 10),
         aiMode: "equal",
         rotationMode: "equal",
       });
@@ -2238,15 +2241,13 @@ export default function Admin() {
                         {/* 참여 광고 선택 + 개별 기간 설정 */}
                         {(() => {
                           // KST 기준 날짜 헬퍼
-                          const kstTomorrow = () => {
-                            const d = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
-                            d.setDate(d.getDate() + 1);
-                            return d.toISOString().slice(0, 10);
-                          };
+                          // KST(UTC+9) 내일 날짜 — UTC 오프셋 방식으로 정확하게 계산
+                          const kstTomorrow = () =>
+                            new Date(Date.now() + (9 + 24) * 3600 * 1000).toISOString().slice(0, 10);
+                          // 날짜 문자열에 n일 추가 — Date.UTC로 타임존 완전 무관하게 계산
                           const addDays = (dateStr: string, n: number) => {
-                            const d = new Date(dateStr + "T00:00:00");
-                            d.setDate(d.getDate() + n);
-                            return d.toISOString().slice(0, 10);
+                            const [y, m, d] = dateStr.split("-").map(Number);
+                            return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
                           };
                           const applyPreset = (adId: string, days: number) => {
                             setPoolForm((p) => {

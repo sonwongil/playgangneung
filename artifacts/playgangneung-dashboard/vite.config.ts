@@ -29,7 +29,28 @@ export default defineConfig({
     VitePWA({
       registerType: "autoUpdate",
       injectRegister: "auto",
-      manifest: false,
+      // manifest.webmanifest 을 직접 생성 — dist/public/manifest.webmanifest 에 출력됨
+      // (index.html 의 <link rel="manifest"> 태그도 자동 주입)
+      manifest: {
+        name: "PLAY강릉",
+        short_name: "PLAY강릉",
+        description: "강릉 행사·맛집·핫플·지역소식 한눈에",
+        start_url: "/",
+        scope: "/",
+        display: "standalone",
+        orientation: "portrait",
+        background_color: "#ffffff",
+        theme_color: "#2563eb",
+        lang: "ko",
+        icons: [
+          {
+            src: "logo.png",
+            sizes: "1254x1254",
+            type: "image/png",
+            purpose: "any maskable",
+          },
+        ],
+      },
       devOptions: {
         enabled: false,
       },

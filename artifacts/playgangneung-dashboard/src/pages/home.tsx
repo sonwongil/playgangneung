@@ -479,6 +479,10 @@ export default function Home() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<Event & { prompt: () => Promise<void> } | null>(null);
   const [installGuide, setInstallGuide] = useState(false);
+  // standalone(PWA) 모드 감지 — 이미 설치된 경우 설치 버튼 숨김
+  const [isStandalone, setIsStandalone] = useState(
+    () => window.matchMedia("(display-mode: standalone)").matches || (navigator as unknown as { standalone?: boolean }).standalone === true,
+  );
   const menuRef = useRef<HTMLDivElement>(null);
   const hashtagBarRef = useRef<HTMLDivElement>(null);
   const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
@@ -490,6 +494,14 @@ export default function Home() {
     const handler = (e: Event) => { e.preventDefault(); setInstallPrompt(e as Event & { prompt: () => Promise<void> }); };
     window.addEventListener("beforeinstallprompt", handler);
     return () => window.removeEventListener("beforeinstallprompt", handler);
+  }, []);
+
+  // standalone 상태 변화 추적 (설치 직후 버튼 자동 숨김)
+  useEffect(() => {
+    const mq = window.matchMedia("(display-mode: standalone)");
+    const onChange = (e: MediaQueryListEvent) => setIsStandalone(e.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
   }, []);
 
   useEffect(() => {
@@ -679,6 +691,25 @@ export default function Home() {
     setShowAll(false);
   }
 
+  // 설치 버튼 표시 조건:
+  //  - standalone(PWA) 모드가 아닐 것
+  //  - iOS(Safari) 이거나, Android에서 beforeinstallprompt가 준비된 상태
+  const canInstall = !isStandalone && (isIOS || !!installPrompt);
+
+  async function handleInstall() {
+    setMenuOpen(false);
+    if (isIOS) {
+      // Safari는 자동 설치창이 없으므로 안내 모달 표시
+      setInstallGuide(true);
+      return;
+    }
+    if (installPrompt) {
+      // Android/Chrome: 브라우저 네이티브 설치 다이얼로그 바로 호출
+      await installPrompt.prompt();
+      setInstallPrompt(null);
+    }
+  }
+
   const showFeed = activeTag !== "스토리" && activeTag !== "영상";
   const display = showAll ? filteredFeed : filteredFeed.slice(0, 12);
   const isSearching = searchQuery.trim() !== "";
@@ -746,17 +777,15 @@ export default function Home() {
             </button>
             {menuOpen && (
               <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden">
-                <button
-                  onClick={async () => {
-                    setMenuOpen(false);
-                    if (installPrompt) { await installPrompt.prompt(); setInstallPrompt(null); }
-                    else setInstallGuide(true);
-                  }}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100"
-                >
-                  <Smartphone className="w-4 h-4 shrink-0" />
-                  홈화면에 추가
-                </button>
+                {canInstall && (
+                  <button
+                    onClick={handleInstall}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100"
+                  >
+                    <Smartphone className="w-4 h-4 shrink-0" />
+                    홈 화면에 추가
+                  </button>
+                )}
                 {isSignedIn ? (
                   <button
                     onClick={async () => {
@@ -1134,31 +1163,55 @@ export default function Home() {
         </div>
       </footer>
 
-      {/* 홈화면 추가 안내 모달 */}
+      {/* iOS Safari 홈 화면 추가 안내 — 작고 비방해적인 바텀시트 */}
       {installGuide && (
-        <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/50" onClick={() => setInstallGuide(false)}>
-          <div className="w-full max-w-sm bg-white rounded-t-2xl p-6 pb-10 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center gap-3 mb-5">
-              <img src={`${BASE}/logo.png`} alt="" className="w-12 h-12 rounded-2xl object-contain bg-blue-50 p-1 border border-blue-100" />
-              <div>
-                <p className="font-bold text-gray-900 text-base">PLAY강릉 홈화면 추가</p>
-                <p className="text-xs text-gray-500">앱처럼 바로 실행할 수 있습니다</p>
+        <div
+          className="fixed inset-0 z-[100] flex items-end justify-center bg-black/40"
+          onClick={() => setInstallGuide(false)}
+        >
+          <div
+            className="w-full max-w-sm bg-white rounded-t-2xl px-5 pt-4 pb-8 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* 헤더 */}
+            <div className="flex items-center gap-3 mb-4">
+              <img
+                src={`${BASE}/logo.png`}
+                alt=""
+                className="w-9 h-9 rounded-xl object-contain bg-blue-50 p-0.5 border border-blue-100 flex-shrink-0"
+              />
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-gray-900 text-sm leading-tight">홈 화면에 추가</p>
+                <p className="text-xs text-gray-400 mt-0.5">Safari 브라우저에서 아이콘으로 바로 실행</p>
               </div>
+              <button
+                onClick={() => setInstallGuide(false)}
+                className="flex-shrink-0 p-1 text-gray-400 hover:text-gray-600 rounded-lg"
+                aria-label="닫기"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
-            {isIOS ? (
-              <ol className="space-y-3 text-sm text-gray-700">
-                <li className="flex gap-3"><span className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center">1</span><span>Safari 하단의 <strong>공유 버튼(□↑)</strong>을 누릅니다</span></li>
-                <li className="flex gap-3"><span className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center">2</span><span>스크롤해서 <strong>"홈 화면에 추가"</strong>를 선택합니다</span></li>
-                <li className="flex gap-3"><span className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center">3</span><span>오른쪽 위 <strong>"추가"</strong>를 누르면 완료!</span></li>
-              </ol>
-            ) : (
-              <ol className="space-y-3 text-sm text-gray-700">
-                <li className="flex gap-3"><span className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center">1</span><span>Chrome 주소창 오른쪽 <strong>⋮ 메뉴</strong>를 누릅니다</span></li>
-                <li className="flex gap-3"><span className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center">2</span><span><strong>"홈 화면에 추가"</strong> 또는 <strong>"앱 설치"</strong>를 선택합니다</span></li>
-                <li className="flex gap-3"><span className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center">3</span><span><strong>"추가"</strong>를 누르면 홈화면에 아이콘이 생깁니다</span></li>
-              </ol>
-            )}
-            <button onClick={() => setInstallGuide(false)} className="mt-6 w-full py-3 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-colors">확인</button>
+
+            {/* 2단계 안내 */}
+            <ol className="space-y-2.5 text-sm text-gray-700">
+              <li className="flex items-center gap-3">
+                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center">
+                  1
+                </span>
+                <span>
+                  Safari 하단 <strong>공유 버튼 □↑</strong> 탭
+                </span>
+              </li>
+              <li className="flex items-center gap-3">
+                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center">
+                  2
+                </span>
+                <span>
+                  <strong>"홈 화면에 추가"</strong> 선택 → <strong>"추가"</strong>
+                </span>
+              </li>
+            </ol>
           </div>
         </div>
       )}

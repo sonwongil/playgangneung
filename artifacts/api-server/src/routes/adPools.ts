@@ -717,4 +717,52 @@ router.post("/ad-pools/:id/push-to-meta", async (req, res) => {
   }
 });
 
+// ─── 풀 내 광고 검수 상태 일괄 갱신 ───────────────────────────────────────────
+router.post("/ad-pools/:id/refresh-meta-status", async (req, res) => {
+  if (!req.session?.isAdmin) return res.status(401).json({ error: "로그인이 필요합니다" });
+
+  const { isConfigured, getAdEffectiveStatus } = await import("../lib/metaApi.js");
+  if (!isConfigured()) {
+    return res.status(503).json({ error: "Meta API 환경변수 미설정", configured: false });
+  }
+
+  try {
+    const { id } = req.params;
+    const [pool] = await db.select().from(adPoolsTable).where(eq(adPoolsTable.id, id));
+    if (!pool) return res.status(404).json({ error: "묶음을 찾을 수 없습니다" });
+
+    const adIdList = (pool.adIds as string[]) ?? [];
+    if (adIdList.length === 0) return res.json({ success: true, updated: 0, total: 0, results: [] });
+
+    const adsRows = await db.select().from(adsTable).where(inArray(adsTable.id, adIdList));
+    type StatusResult = { adId: string; adName: string; metaAdId: string; metaStatus: string | null; error?: string };
+    const results: StatusResult[] = [];
+
+    for (const adRow of adsRows) {
+      if (!adRow.metaAdId) {
+        results.push({ adId: adRow.id, adName: adRow.title, metaAdId: "", metaStatus: null, error: "Meta Ad 없음" });
+        continue;
+      }
+      const statusRes = await getAdEffectiveStatus(adRow.metaAdId);
+      if (statusRes.ok) {
+        const effective = statusRes.data.effective_status;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await db.update(adsTable).set({ metaStatus: effective } as any).where(eq(adsTable.id, adRow.id));
+        results.push({ adId: adRow.id, adName: adRow.title, metaAdId: adRow.metaAdId, metaStatus: effective });
+        req.log.info({ adId: adRow.id, metaAdId: adRow.metaAdId, effective }, "Meta 광고 검수 상태 갱신");
+      } else {
+        results.push({ adId: adRow.id, adName: adRow.title, metaAdId: adRow.metaAdId, metaStatus: adRow.metaStatus ?? null, error: statusRes.error });
+        req.log.warn({ adId: adRow.id, err: statusRes.error }, "Meta 광고 검수 상태 조회 실패");
+      }
+    }
+
+    const updated = results.filter((r) => !r.error).length;
+    req.log.info({ poolId: id, updated, total: results.length }, "Meta 검수 상태 일괄 갱신 완료");
+    return res.json({ success: true, updated, total: results.length, results });
+  } catch (err) {
+    req.log.error({ err }, "Meta 검수 상태 갱신 실패");
+    return res.status(500).json({ error: "검수 상태 갱신 실패" });
+  }
+});
+
 export default router;

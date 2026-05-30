@@ -124,6 +124,8 @@ interface Ad {
   reportToken?: string | null;
   reportSentAt?: string | null;
   isPremiumFeatured?: boolean;
+  metaAdId?: string | null;
+  metaStatus?: string | null;
 }
 
 interface Source {
@@ -568,7 +570,7 @@ export default function Admin() {
     },
   });
 
-  const { data: adsData, isLoading: adsLoading } = useQuery<{ ads: Ad[] }>({
+  const { data: adsData, isLoading: adsLoading, refetch: refetchAds } = useQuery<{ ads: Ad[] }>({
     queryKey: ["admin-ads"],
     queryFn: async () => {
       const r = await fetch(`${BASE}/api/ads`, { credentials: "include" });
@@ -666,6 +668,7 @@ export default function Admin() {
   const [manualReach, setManualReach] = useState("");
   const [manualLoading, setManualLoading] = useState(false);
   const [metaPushLoading, setMetaPushLoading] = useState<string | null>(null);
+  const [metaStatusRefreshLoading, setMetaStatusRefreshLoading] = useState<string | null>(null);
   const [billingExpireLoading, setBillingExpireLoading] = useState(false);
   const [refundLoading, setRefundLoading] = useState<string | null>(null);
   const [bankConfirmLoading, setBankConfirmLoading] = useState<string | null>(null);
@@ -2790,6 +2793,39 @@ export default function Admin() {
                                       <AlertTriangle className="w-3 h-3 text-yellow-500" />Meta 미연동
                                     </p>
                                   )}
+                                  {/* 광고별 Meta 검수 상태 배지 */}
+                                  {pool.adIds.length > 0 && (
+                                    <div className="mt-2 space-y-1">
+                                      {pool.adIds.map((adId) => {
+                                        const ad = adsData?.ads.find((a) => a.id === adId);
+                                        if (!ad) return null;
+                                        const s = ad.metaStatus;
+                                        const { label, cls } = s === "ACTIVE"
+                                          ? { label: "승인됨", cls: "bg-green-100 text-green-700 border-green-200" }
+                                          : s === "DISAPPROVED"
+                                          ? { label: "거부됨", cls: "bg-red-100 text-red-700 border-red-200" }
+                                          : s === "PENDING_REVIEW" || s === "IN_REVIEW"
+                                          ? { label: "검수 중", cls: "bg-yellow-100 text-yellow-700 border-yellow-200" }
+                                          : s === "WITH_ISSUES"
+                                          ? { label: "문제 있음", cls: "bg-orange-100 text-orange-700 border-orange-200" }
+                                          : s === "PAUSED"
+                                          ? { label: "검수 대기", cls: "bg-gray-100 text-gray-600 border-gray-200" }
+                                          : s
+                                          ? { label: s, cls: "bg-gray-100 text-gray-500 border-gray-200" }
+                                          : { label: "상태 미확인", cls: "bg-gray-100 text-gray-400 border-gray-200" };
+                                        return (
+                                          <div key={adId} className="flex items-center gap-1.5 text-[11px]">
+                                            <span className="truncate max-w-[130px] text-muted-foreground">{ad.title || ad.businessName}</span>
+                                            {ad.metaAdId ? (
+                                              <Badge variant="outline" className={`text-[9px] px-1.5 py-0 h-4 ${cls}`}>{label}</Badge>
+                                            ) : (
+                                              <span className="text-[10px] text-muted-foreground italic">Meta Ad 없음</span>
+                                            )}
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
                                 </div>
                                 <div className="flex flex-col gap-2 shrink-0">
                                   {(() => {
@@ -2867,6 +2903,39 @@ export default function Admin() {
                                             }}
                                           >
                                             <RefreshCw className="w-3 h-3 mr-1" />성과 수집
+                                          </Button>
+                                        )}
+                                        {pool.metaCampaignId && (
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="text-xs text-blue-600 border-blue-200 hover:bg-blue-50"
+                                            disabled={metaStatusRefreshLoading === pool.id}
+                                            onClick={async () => {
+                                              setMetaStatusRefreshLoading(pool.id);
+                                              try {
+                                                const r = await fetch(`${BASE}/api/ad-pools/${pool.id}/refresh-meta-status`, {
+                                                  method: "POST", credentials: "include",
+                                                });
+                                                const d = await r.json() as { success?: boolean; updated?: number; total?: number; error?: string; configured?: boolean };
+                                                if (!r.ok) {
+                                                  toast({ description: d.error ?? "검수 상태 조회 실패", variant: "destructive" });
+                                                } else {
+                                                  toast({ description: `검수 상태 갱신 완료 (${d.updated ?? 0}/${d.total ?? 0}개)` });
+                                                  void refetchAds();
+                                                }
+                                              } catch {
+                                                toast({ description: "검수 상태 조회 실패", variant: "destructive" });
+                                              } finally {
+                                                setMetaStatusRefreshLoading(null);
+                                              }
+                                            }}
+                                          >
+                                            {metaStatusRefreshLoading === pool.id
+                                              ? <RefreshCw className="w-3 h-3 animate-spin mr-1" />
+                                              : <RefreshCw className="w-3 h-3 mr-1" />
+                                            }
+                                            검수 상태 확인
                                           </Button>
                                         )}
                                       </>

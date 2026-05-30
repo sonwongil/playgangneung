@@ -520,6 +520,19 @@ export async function getAdsWithSpend(campaignId: string): Promise<{ ok: true; d
   return { ok: true, data: { ads } };
 }
 
+// ─── 광고 effective_status / 검수 피드백 조회 ────────────────────────────────────
+export interface AdStatusResult {
+  id: string;
+  name: string;
+  /** Meta effective_status: ACTIVE | PAUSED | DISAPPROVED | PENDING_REVIEW | IN_REVIEW | WITH_ISSUES | ARCHIVED */
+  effective_status: string;
+  ad_review_feedback?: Record<string, unknown>;
+}
+
+export async function getAdEffectiveStatus(adId: string): Promise<MetaResult<AdStatusResult>> {
+  return metaGet<AdStatusResult>(adId, { fields: "id,name,effective_status,ad_review_feedback" });
+}
+
 // ─── 캠페인/광고세트 상태 변경 (ACTIVE/PAUSED) ──────────────────────────────────
 export async function updateCampaignStatus(campaignId: string, status: "ACTIVE" | "PAUSED") {
   return metaPost<{ success: boolean }>(`${campaignId}`, { status });

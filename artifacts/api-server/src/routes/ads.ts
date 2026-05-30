@@ -66,6 +66,8 @@ export interface Ad {
   aiNote: string | null;
   reportSentAt?: string | null;
   isPremiumFeatured: boolean;
+  metaAdId?: string | null;
+  metaStatus?: string | null;
 }
 
 function rowToAd(row: typeof adsTable.$inferSelect): Ad {
@@ -94,6 +96,8 @@ function rowToAd(row: typeof adsTable.$inferSelect): Ad {
     aiNote: row.aiNote ?? null,
     reportSentAt: row.reportSentAt?.toISOString() ?? null,
     isPremiumFeatured: row.isPremiumFeatured ?? false,
+    metaAdId: row.metaAdId ?? null,
+    metaStatus: row.metaStatus ?? null,
   };
 }
 

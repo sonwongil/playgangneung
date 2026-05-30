@@ -146,7 +146,7 @@ export default function Checkout() {
         return;
       }
       const { orderId: oid } = await r.json() as { orderId: string; amount: number; orderName: string };
-      const dName = `PLAY-${customerName.slice(0, 4)}-${oid.slice(-4)}`;
+      const dName = customerName.trim();
       setOrderId(oid);
       setDepositName(dName);
       setStep("bank_info");
@@ -307,24 +307,13 @@ export default function Checkout() {
                 </div>
               </div>
 
-              {/* 입금자명 강조 */}
-              <div className="rounded-xl bg-red-50 border border-red-200 p-4 space-y-2">
-                <p className="text-xs font-bold text-red-700 uppercase tracking-wide">⚠️ 반드시 아래 입금자명으로 입금해주세요</p>
-                <div className="flex items-center justify-between">
-                  <span className="text-xl font-extrabold text-red-600 tracking-wider">{depositName}</span>
-                  <button
-                    onClick={() => copyText(depositName, "deposit")}
-                    className="text-blue-500 hover:text-blue-700 flex items-center gap-0.5 text-xs border border-blue-200 rounded px-2 py-1"
-                  >
-                    {copied === "deposit"
-                      ? <><CheckCircle2 className="w-3.5 h-3.5 text-green-500" /> 복사됨</>
-                      : <><Copy className="w-3.5 h-3.5" /> 복사</>
-                    }
-                  </button>
-                </div>
-                <p className="text-[11px] text-red-500">
-                  입금자명이 다르면 확인이 어려울 수 있습니다.
+              {/* 입금자명 안내 */}
+              <div className="rounded-xl bg-blue-50 border border-blue-200 p-4 space-y-1.5">
+                <p className="text-xs font-semibold text-blue-800">입금자명</p>
+                <p className="text-sm text-blue-700">
+                  광고 신청 시 입력한 이름으로 입금해 주세요.
                 </p>
+                <p className="text-base font-bold text-blue-900">{depositName}</p>
               </div>
 
               {/* QR 코드 */}

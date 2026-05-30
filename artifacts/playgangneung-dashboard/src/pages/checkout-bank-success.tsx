@@ -95,19 +95,10 @@ export default function CheckoutBankSuccess() {
               <div className="border-t pt-3">
                 <div className="flex justify-between items-center">
                   <span className="text-gray-500">입금자명</span>
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-red-600">{depositName}</span>
-                    <button
-                      onClick={() => copy(depositName, "deposit")}
-                      className="text-blue-500 hover:text-blue-700"
-                    >
-                      <Copy className="w-3.5 h-3.5" />
-                    </button>
-                    {copied === "deposit" && <span className="text-xs text-blue-500">복사됨!</span>}
-                  </div>
+                  <span className="font-bold text-gray-800">{depositName}</span>
                 </div>
-                <p className="text-xs text-red-600 mt-1.5 font-medium text-right">
-                  ⚠️ 반드시 이 입금자명으로 입금해주세요
+                <p className="text-xs text-blue-600 mt-1.5 text-right">
+                  광고 신청 시 입력한 이름으로 입금해 주세요.
                 </p>
               </div>
             </div>

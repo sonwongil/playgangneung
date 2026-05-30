@@ -1259,20 +1259,20 @@ export default function Home() {
           </div>
 
           {/* 액션 버튼 */}
-          <div className="px-6 pb-6 pt-2 flex gap-3">
-            <button
-              onClick={() => setShowJointAdModal(false)}
-              className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-600 text-sm font-semibold hover:bg-gray-50 transition-colors"
-            >
-              취소
-            </button>
+          <div className="px-6 pb-6 pt-2 flex flex-col gap-2">
             <Link
               href="/ad-submit"
               onClick={() => setShowJointAdModal(false)}
-              className="flex-1 py-3 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-sm font-bold text-center transition-colors shadow-md"
+              className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold text-center transition-colors shadow-md"
             >
-              광고 신청하기 →
+              공동광고 신청하기
             </Link>
+            <button
+              onClick={() => setShowJointAdModal(false)}
+              className="w-full py-3 rounded-xl text-gray-400 text-sm font-medium hover:bg-gray-50 transition-colors"
+            >
+              나중에 할게요
+            </button>
           </div>
         </DialogContent>
       </Dialog>

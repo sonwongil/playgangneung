@@ -477,6 +477,7 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showAll, setShowAll] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [showJointAdModal, setShowJointAdModal] = useState(false);
   const [isEditingModal, setIsEditingModal] = useState(false);
   const [showTipModal, setShowTipModal] = useState(false);
@@ -785,8 +786,49 @@ export default function Home() {
             <img src={`${BASE}/logo2.png`} alt="PLAY강릉" style={{ height: 44, width: "auto" }} />
           </button>
 
-          {/* 검색창 */}
-          <div className="flex-1 relative">
+          {/* 모바일: 소식 제보 버튼 (검색 닫혔을 때) */}
+          {!mobileSearchOpen && (
+            <button
+              className="sm:hidden flex-1 flex items-center justify-center gap-2 h-9 rounded-full bg-teal-600 hover:bg-teal-700 active:bg-teal-800 transition-colors"
+              onClick={() => { setTipDone(false); setTipError(""); setTipForm({ title: "", description: "", category: "지역소식", startDate: "", endDate: "", location: "", link: "", contact: "" }); setShowTipModal(true); }}
+            >
+              <FileText className="w-4 h-4 text-white shrink-0" />
+              <span className="text-sm font-extrabold text-white">소식 제보</span>
+            </button>
+          )}
+
+          {/* 모바일: 검색창 (열렸을 때) */}
+          {mobileSearchOpen && (
+            <div className="sm:hidden flex-1 relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              <input
+                autoFocus
+                type="text"
+                value={searchQuery}
+                onChange={(e) => { setSearchQuery(e.target.value); setShowAll(false); }}
+                placeholder="행사, 맛집, 핫플..."
+                className="w-full pl-9 pr-8 py-2 rounded-full text-sm bg-gray-100 text-gray-900 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-300 placeholder:text-gray-400 transition-colors"
+              />
+              {searchQuery && (
+                <button onClick={clearSearch} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* 모바일: 돋보기 토글 버튼 */}
+          <button
+            className="sm:hidden flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-full hover:bg-gray-100 transition-colors"
+            onClick={() => { if (mobileSearchOpen) clearSearch(); setMobileSearchOpen(v => !v); }}
+          >
+            {mobileSearchOpen
+              ? <X className="w-5 h-5 text-gray-600" />
+              : <Search className="w-5 h-5 text-gray-600" />}
+          </button>
+
+          {/* 데스크톱: 검색창 */}
+          <div className="hidden sm:block flex-1 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
             <input
               type="text"
@@ -1288,15 +1330,6 @@ export default function Home() {
           </div>
         </div>
       )}
-
-      {/* ─── 모바일 소식 제보 FAB ─────────────────────────────────────────── */}
-      <button
-        onClick={() => { setTipDone(false); setTipError(""); setTipForm({ title: "", description: "", category: "지역소식", startDate: "", endDate: "", location: "", link: "", contact: "" }); setShowTipModal(true); }}
-        className="sm:hidden fixed bottom-20 right-4 z-40 flex items-center gap-2 px-5 py-3 bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white rounded-full shadow-xl transition-colors"
-      >
-        <FileText className="w-5 h-5 shrink-0" />
-        <span className="text-sm font-extrabold">소식 제보</span>
-      </button>
 
       {/* ─── 강릉 소식 제보 모달 ─────────────────────────────────────────── */}
       <Dialog open={showTipModal} onOpenChange={(open) => { if (!tipLoading) setShowTipModal(open); }}>

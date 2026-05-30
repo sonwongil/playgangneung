@@ -1115,12 +1115,6 @@ export default function Home() {
                   <div className="flex-1 min-w-0">
                     <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">지역 소상공인을 위한</p>
                     <p className="text-base font-extrabold text-white leading-tight truncate">공동광고 지원센터</p>
-                    <p className="text-xs text-slate-300 mt-0.5 truncate">
-                      {(() => {
-                        const sub = bannerConfig?.subtitle ?? "하루 15,000원으로 강릉에 노출하세요!";
-                        return sub.length > 22 ? sub.slice(0, 22) + "…" : sub;
-                      })()}
-                    </p>
                   </div>
                   <span className="shrink-0 bg-orange-500 text-white font-bold text-[11px] rounded-xl px-3 py-2 shadow-lg text-center leading-tight whitespace-nowrap">
                     지금 바로<br />시작하기 →
@@ -1240,8 +1234,7 @@ export default function Home() {
                         >
                           <div className="flex items-center justify-between">
                             <div>
-                              <p className="text-xs font-bold text-white/80">📢 공동광고 모집중</p>
-                              <p className="text-sm font-bold">하루 1만5천원부터 지역광고 참여</p>
+                              <p className="text-sm font-bold">📢 공동광고 모집중</p>
                             </div>
                             <span className="text-xs font-semibold bg-white/20 rounded-lg px-3 py-1.5">참여하기 →</span>
                           </div>

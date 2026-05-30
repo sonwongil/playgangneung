@@ -13,23 +13,25 @@ const isDev = process.env.NODE_ENV !== "production";
 
 /**
  * 프로덕션 빌드 시 VITE_TOSS_CLIENT_KEY 검증 플러그인.
- * [보안] 테스트 키(test_ck_) 또는 미설정 상태로 프로덕션 번들이 생성되는 것을 차단.
- * NODE_ENV=production 일 때만 검증 → 개발/테스트 빌드에는 영향 없음.
+ * [보안] VITE_ENABLE_TOSS_PAYMENT=true 일 때만 키 검증 수행.
+ *   - 기본값 false → 계좌이체 전용 운영 시 빌드 차단 없음.
+ *   - true 설정 시 테스트 키(test_ck_) 또는 미설정 상태로 프로덕션 번들 생성 차단.
  */
 function tossClientKeyGuard() {
   return {
     name: "toss-client-key-guard",
     buildStart() {
       if (process.env.NODE_ENV !== "production") return;
+      if (process.env.VITE_ENABLE_TOSS_PAYMENT !== "true") return;
       const key = process.env.VITE_TOSS_CLIENT_KEY;
       if (!key) {
         throw new Error(
-          "[build] VITE_TOSS_CLIENT_KEY 미설정 — 프로덕션 빌드 불가. Replit Secrets에 live_ck_... 키를 등록하세요.",
+          "[build] VITE_ENABLE_TOSS_PAYMENT=true 이지만 VITE_TOSS_CLIENT_KEY 미설정 — Replit Secrets에 live_ck_... 키를 등록하세요.",
         );
       }
       if (key.startsWith("test_ck_")) {
         throw new Error(
-          "[build] VITE_TOSS_CLIENT_KEY가 테스트 키(test_ck_)입니다 — 프로덕션 빌드 불가. live_ck_... 키로 교체하세요.",
+          "[build] VITE_TOSS_CLIENT_KEY가 테스트 키(test_ck_)입니다 — live_ck_... 키로 교체하세요.",
         );
       }
     },

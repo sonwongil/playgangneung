@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
-import { loadTossPayments, ANONYMOUS, type TossPaymentsWidgets } from "@tosspayments/tosspayments-sdk";
+import type { TossPaymentsWidgets } from "@tosspayments/tosspayments-sdk";
 import QRCode from "qrcode";
 import { Copy, CheckCircle2, Banknote, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -15,9 +15,13 @@ const BANK_NAME    = "신한은행";
 const BANK_ACCOUNT = "110-333-486550";
 const BANK_HOLDER  = "손원길";
 
-// [보안] 토스 키 검증 — 카드 결제 활성화 시 사용
+// 토스 결제 활성화 여부 — VITE_ENABLE_TOSS_PAYMENT=true 일 때만 카드 결제 사용
+const TOSS_ENABLED = import.meta.env.VITE_ENABLE_TOSS_PAYMENT === "true";
+
+// [보안] 토스 활성화 시에만 키 검증
 const _RAW_CLIENT_KEY = import.meta.env.VITE_TOSS_CLIENT_KEY as string | undefined;
 const _isKeyInvalid =
+  !TOSS_ENABLED ||
   !_RAW_CLIENT_KEY ||
   (import.meta.env.PROD && _RAW_CLIENT_KEY.startsWith("test_ck_"));
 const CLIENT_KEY = _RAW_CLIENT_KEY ?? "";
@@ -81,12 +85,14 @@ export default function Checkout() {
       });
   }, []);
 
-  // ── 토스 위젯 초기화 (카드 선택 시만) ─────────────────────────────────────
+  // ── 토스 위젯 초기화 (카드 선택 + TOSS_ENABLED 시만) ─────────────────────
   useEffect(() => {
     if (paymentMethod !== "card" || _isKeyInvalid || !product) return;
     let cancelled = false;
 
     async function initWidget() {
+      const { loadTossPayments, ANONYMOUS } = await import("@tosspayments/tosspayments-sdk");
+      if (cancelled) return;
       const tossPayments = await loadTossPayments(CLIENT_KEY);
       if (cancelled) return;
       const widgets = tossPayments.widgets({ customerKey: ANONYMOUS });

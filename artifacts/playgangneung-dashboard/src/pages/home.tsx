@@ -924,7 +924,7 @@ export default function Home() {
         <div className="flex items-stretch border-t border-gray-100">
           <div
             ref={hashtagBarRef}
-            className="flex items-center justify-center gap-0.5 px-3 py-2 overflow-x-auto flex-1 min-w-0"
+            className="flex items-center justify-start gap-0.5 px-3 py-2 overflow-x-auto flex-1 min-w-0"
             style={{ scrollbarWidth: "none" }}
           >
             {PREDEFINED_TAGS.filter((tag) => tag !== "전체" && tag !== "오늘의행사").map((tag) => (

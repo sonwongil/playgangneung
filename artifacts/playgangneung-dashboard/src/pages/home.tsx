@@ -837,6 +837,12 @@ export default function Home() {
             </button>
             {menuOpen && (
               <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden">
+                <button
+                  onClick={() => { setMenuOpen(false); setTipDone(false); setTipError(""); setTipForm({ title: "", description: "", category: "지역소식", startDate: "", endDate: "", location: "", link: "", contact: "" }); setShowTipModal(true); }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold text-teal-700 hover:bg-teal-50 transition-colors border-b border-gray-100"
+                >
+                  <FileText className="w-4 h-4 shrink-0 text-teal-600" />소식 제보하기
+                </button>
                 {canInstall && (
                   <button
                     onClick={handleInstall}
@@ -889,10 +895,10 @@ export default function Home() {
           {/* 강릉 소식 제보하기 버튼 */}
           <button
             onClick={() => { setTipDone(false); setTipError(""); setTipForm({ title: "", description: "", category: "지역소식", startDate: "", endDate: "", location: "", link: "", contact: "" }); setShowTipModal(true); }}
-            className="hidden sm:flex shrink-0 items-center gap-1.5 px-3 py-1.5 bg-teal-600 hover:bg-teal-700 transition-colors border-l border-teal-500"
+            className="hidden sm:flex shrink-0 items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 transition-colors border-l border-teal-500"
           >
-            <FileText className="w-3.5 h-3.5 text-white shrink-0" />
-            <p className="text-[11px] font-extrabold text-white whitespace-nowrap">소식 제보</p>
+            <FileText className="w-4 h-4 text-white shrink-0" />
+            <p className="text-xs font-extrabold text-white whitespace-nowrap">소식 제보</p>
           </button>
           {/* 우측 고정 공동광고 버튼 */}
           <button
@@ -1286,10 +1292,10 @@ export default function Home() {
       {/* ─── 모바일 소식 제보 FAB ─────────────────────────────────────────── */}
       <button
         onClick={() => { setTipDone(false); setTipError(""); setTipForm({ title: "", description: "", category: "지역소식", startDate: "", endDate: "", location: "", link: "", contact: "" }); setShowTipModal(true); }}
-        className="sm:hidden fixed bottom-20 right-4 z-40 flex items-center gap-1.5 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white rounded-full shadow-lg transition-colors"
+        className="sm:hidden fixed bottom-20 right-4 z-40 flex items-center gap-2 px-5 py-3 bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white rounded-full shadow-xl transition-colors"
       >
-        <FileText className="w-4 h-4 shrink-0" />
-        <span className="text-xs font-extrabold">소식 제보</span>
+        <FileText className="w-5 h-5 shrink-0" />
+        <span className="text-sm font-extrabold">소식 제보</span>
       </button>
 
       {/* ─── 강릉 소식 제보 모달 ─────────────────────────────────────────── */}

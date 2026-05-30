@@ -3527,6 +3527,15 @@ export default function Admin() {
                               <PlusCircle className="w-3 h-3 mr-1" />
                               수동 입력
                             </Button>
+                            <a
+                              href={perfPoolId ? `${BASE}/api/ad-pools/${perfPoolId}/performance/export?since=${perfSince}&until=${perfUntil}` : "#"}
+                              download
+                              onClick={(e) => { if (!perfPoolId) e.preventDefault(); }}
+                              className={`inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${perfPoolId ? "border-green-600 text-green-700 hover:bg-green-50 cursor-pointer" : "border-gray-200 text-gray-400 cursor-not-allowed pointer-events-none"}`}
+                            >
+                              <Download className="w-3 h-3" />
+                              CSV 내보내기
+                            </a>
                           </div>
                         </CardContent>
                       </Card>

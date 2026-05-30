@@ -510,6 +510,75 @@ router.post("/ads/:id/report-token", async (req, res) => {
   }
 });
 
+// ─── 풀별 성과 CSV 내보내기 ──────────────────────────────────────────────────────
+router.get("/ad-pools/:id/performance/export", async (req, res) => {
+  if (!req.session?.isAdmin) return res.status(401).json({ error: "로그인이 필요합니다" });
+  try {
+    const { id } = req.params;
+    const since = (req.query["since"] as string) ?? new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+    const until = (req.query["until"] as string) ?? new Date().toISOString().slice(0, 10);
+
+    const [pool] = await db.select().from(adPoolsTable).where(eq(adPoolsTable.id, id));
+    if (!pool) return res.status(404).json({ error: "묶음을 찾을 수 없습니다" });
+
+    const rows = await db
+      .select()
+      .from(adPerformancesTable)
+      .where(
+        and(
+          eq(adPerformancesTable.poolId, id),
+          gte(adPerformancesTable.date, since),
+          lte(adPerformancesTable.date, until),
+        )
+      )
+      .orderBy(adPerformancesTable.date);
+
+    const adIdSet = [...new Set(rows.map((r) => r.adId))];
+    const adMap: Record<string, { title: string; businessName: string }> = {};
+    if (adIdSet.length > 0) {
+      const adRows = await db
+        .select({ id: adsTable.id, title: adsTable.title, businessName: adsTable.businessName })
+        .from(adsTable)
+        .where(inArray(adsTable.id, adIdSet));
+      for (const a of adRows) adMap[a.id] = { title: a.title, businessName: a.businessName };
+    }
+
+    const escCsv = (v: string | number) => {
+      const s = String(v);
+      return s.includes(",") || s.includes('"') || s.includes("\n") ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+
+    const header = ["날짜", "광고 제목", "업체명", "노출", "클릭", "CTR(%)", "지출(₩)", "도달", "출처"].join(",");
+    const lines = rows.map((r) => {
+      const title = adMap[r.adId]?.title ?? r.adId.slice(-8);
+      const businessName = adMap[r.adId]?.businessName ?? "";
+      const ctr = r.impressions > 0 ? Number(((r.clicks / r.impressions) * 100).toFixed(2)) : 0;
+      return [
+        escCsv(r.date),
+        escCsv(title),
+        escCsv(businessName),
+        r.impressions,
+        r.clicks,
+        ctr,
+        r.spend,
+        r.reach,
+        escCsv(r.source),
+      ].join(",");
+    });
+
+    const csv = [header, ...lines].join("\r\n");
+    const filename = `performance_${pool.name.replace(/[^a-zA-Z0-9가-힣]/g, "_")}_${since}_${until}.csv`;
+
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`);
+    // UTF-8 BOM — 엑셀에서 한글 깨짐 방지
+    return res.send("\uFEFF" + csv);
+  } catch (err) {
+    req.log.error({ err }, "성과 CSV 내보내기 실패");
+    return res.status(500).json({ error: "내보내기 실패" });
+  }
+});
+
 // ─── 풀별 성과 행 목록 (수동·샘플·Meta 개별 행 전체) ────────────────────────────
 router.get("/ad-pools/:id/performance/rows", async (req, res) => {
   if (!req.session?.isAdmin) return res.status(401).json({ error: "로그인이 필요합니다" });

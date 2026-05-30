@@ -655,6 +655,11 @@ export default function Home() {
     stat3Label: string;
     stat3Value: string;
     ctaText: string;
+    banner1Sub: string;
+    banner1Title: string;
+    banner1Cta: string;
+    banner2Badge: string;
+    banner2Cta: string;
   }
 
   const { data: premiumAdsData } = useQuery<{ ads: PremiumAd[] }>({
@@ -1105,19 +1110,23 @@ export default function Home() {
               </section>
             )}
 
-            {/* 📢 공동광고 지원센터 배너 (다크 네이비) */}
+            {/* 📢 배너 1 — 공동광고 지원센터 (다크 네이비) */}
             {!isFiltered && (
               <button
                 onClick={() => setShowJointAdModal(true)}
-                className="w-full text-left block mb-5 rounded-2xl overflow-hidden bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950 px-4 py-3 hover:shadow-xl transition-shadow"
+                className="w-full block mb-5 rounded-2xl overflow-hidden bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950 px-5 py-4 hover:shadow-xl transition-shadow"
               >
-                <div className="flex items-center gap-3">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">지역 소상공인을 위한</p>
-                    <p className="text-base font-extrabold text-white leading-tight truncate">공동광고 지원센터</p>
+                <div className="flex items-center justify-center gap-4">
+                  <div className="text-center">
+                    {bannerConfig?.banner1Sub && (
+                      <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">{bannerConfig.banner1Sub}</p>
+                    )}
+                    <p className="text-base font-extrabold text-white leading-tight">
+                      {bannerConfig?.banner1Title || "공동광고 지원센터"}
+                    </p>
                   </div>
-                  <span className="shrink-0 bg-orange-500 text-white font-bold text-[11px] rounded-xl px-3 py-2 shadow-lg text-center leading-tight whitespace-nowrap">
-                    지금 바로<br />시작하기 →
+                  <span className="shrink-0 bg-orange-500 text-white font-bold text-[11px] rounded-xl px-3 py-2 shadow-lg text-center leading-tight whitespace-pre-line">
+                    {bannerConfig?.banner1Cta || "지금 바로\n시작하기 →"}
                   </span>
                 </div>
               </button>
@@ -1232,11 +1241,9 @@ export default function Home() {
                           onClick={() => setShowJointAdModal(true)}
                           className="w-full text-left col-span-2 sm:col-span-3 lg:col-span-4 mt-3 mb-1 block rounded-xl bg-gradient-to-r from-orange-500 to-amber-400 px-4 py-3 text-white hover:shadow-md transition-shadow"
                         >
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-sm font-bold">📢 공동광고 모집중</p>
-                            </div>
-                            <span className="text-xs font-semibold bg-white/20 rounded-lg px-3 py-1.5">참여하기 →</span>
+                          <div className="flex items-center justify-center gap-4">
+                            <p className="text-sm font-bold">{bannerConfig?.banner2Badge || "📢 공동광고 모집중"}</p>
+                            <span className="text-xs font-semibold bg-white/20 rounded-lg px-3 py-1.5 whitespace-nowrap">{bannerConfig?.banner2Cta || "참여하기 →"}</span>
                           </div>
                         </button>
                       )}

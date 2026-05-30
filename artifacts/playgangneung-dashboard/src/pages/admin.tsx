@@ -451,11 +451,16 @@ export default function Admin() {
   });
   const [pwForm, setPwForm] = useState({ current: "", next: "", confirm: "" });
   const [bannerForm, setBannerForm] = useState({
-    subtitle: "하루 15,000원으로 강릉에 노출하세요!",
+    subtitle: "",
     stat1Label: "광고 신청", stat1Value: "누적 120건+",
     stat2Label: "PLAY강릉 팔로워", stat2Value: "55만명+",
     stat3Label: "월 방문자", stat3Value: "10만명+",
     ctaText: "지금 바로 시작하세요!",
+    banner1Sub: "지역 소상공인을 위한",
+    banner1Title: "공동광고 지원센터",
+    banner1Cta: "지금 바로\n시작하기 →",
+    banner2Badge: "📢 공동광고 모집중",
+    banner2Cta: "참여하기 →",
   });
   const [bannerLoaded, setBannerLoaded] = useState(false);
   const [newSourceName, setNewSourceName] = useState("");
@@ -606,6 +611,7 @@ export default function Admin() {
   useQuery<{
     subtitle: string; stat1Label: string; stat1Value: string;
     stat2Label: string; stat2Value: string; stat3Label: string; stat3Value: string; ctaText: string;
+    banner1Sub: string; banner1Title: string; banner1Cta: string; banner2Badge: string; banner2Cta: string;
   }>({
     queryKey: ["banner-config"],
     queryFn: async () => {
@@ -614,7 +620,7 @@ export default function Admin() {
       return r.json();
     },
     enabled: activeNav === "settings" && !bannerLoaded,
-    onSuccess: (d: { subtitle: string; stat1Label: string; stat1Value: string; stat2Label: string; stat2Value: string; stat3Label: string; stat3Value: string; ctaText: string }) => { setBannerForm({ ...d }); setBannerLoaded(true); },
+    onSuccess: (d: { subtitle: string; stat1Label: string; stat1Value: string; stat2Label: string; stat2Value: string; stat3Label: string; stat3Value: string; ctaText: string; banner1Sub: string; banner1Title: string; banner1Cta: string; banner2Badge: string; banner2Cta: string; }) => { setBannerForm({ ...d }); setBannerLoaded(true); },
   } as any);
 
   const { data: adCenterStatsData } = useQuery<{ stats: AdCenterStats }>({
@@ -5836,63 +5842,63 @@ export default function Admin() {
                   </Button>
                 </CardContent>
               </Card>
-              {/* 공동광고 배너 설정 */}
+              {/* 배너 관리 */}
               <Card>
-                <CardContent className="p-5 space-y-4">
+                <CardContent className="p-5 space-y-5">
                   <p className="font-semibold text-sm flex items-center gap-2">
-                    <Megaphone className="w-4 h-4 text-orange-500" />공동광고 지원센터 배너 설정
+                    <Megaphone className="w-4 h-4 text-orange-500" />배너 관리
                   </p>
-                  <p className="text-xs text-muted-foreground">공개 홈페이지의 공동광고 지원센터 배너 문구와 통계를 수정합니다.</p>
-                  <div className="space-y-3">
-                    <div>
-                      <Label className="text-xs text-muted-foreground">부제 (한 줄 문구)</Label>
-                      <Input className="mt-1" value={bannerForm.subtitle} onChange={(e) => setBannerForm((p) => ({ ...p, subtitle: e.target.value }))} placeholder="하루 15,000원으로 강릉에 노출하세요!" />
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <Label className="text-xs text-muted-foreground">통계 1 라벨</Label>
-                        <Input className="mt-1" value={bannerForm.stat1Label} onChange={(e) => setBannerForm((p) => ({ ...p, stat1Label: e.target.value }))} placeholder="광고 신청" />
-                      </div>
-                      <div>
-                        <Label className="text-xs text-muted-foreground">통계 1 값</Label>
-                        <Input className="mt-1" value={bannerForm.stat1Value} onChange={(e) => setBannerForm((p) => ({ ...p, stat1Value: e.target.value }))} placeholder="누적 120건+" />
-                      </div>
-                      <div>
-                        <Label className="text-xs text-muted-foreground">통계 2 라벨</Label>
-                        <Input className="mt-1" value={bannerForm.stat2Label} onChange={(e) => setBannerForm((p) => ({ ...p, stat2Label: e.target.value }))} placeholder="PLAY강릉 팔로워" />
-                      </div>
-                      <div>
-                        <Label className="text-xs text-muted-foreground">통계 2 값</Label>
-                        <Input className="mt-1" value={bannerForm.stat2Value} onChange={(e) => setBannerForm((p) => ({ ...p, stat2Value: e.target.value }))} placeholder="55만명+" />
-                      </div>
-                      <div>
-                        <Label className="text-xs text-muted-foreground">통계 3 라벨</Label>
-                        <Input className="mt-1" value={bannerForm.stat3Label} onChange={(e) => setBannerForm((p) => ({ ...p, stat3Label: e.target.value }))} placeholder="월 방문자" />
-                      </div>
-                      <div>
-                        <Label className="text-xs text-muted-foreground">통계 3 값</Label>
-                        <Input className="mt-1" value={bannerForm.stat3Value} onChange={(e) => setBannerForm((p) => ({ ...p, stat3Value: e.target.value }))} placeholder="10만명+" />
-                      </div>
+                  <p className="text-xs text-muted-foreground">공개 홈페이지에 표시되는 배너 문구를 직접 수정하세요. 저장하면 즉시 반영됩니다.</p>
+
+                  {/* 배너 1 */}
+                  <div className="border border-slate-200 rounded-xl p-4 space-y-3 bg-slate-50">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-700 text-white">배너 1</span>
+                      <span className="text-xs text-muted-foreground">홈 상단 · 다크 배너 (스토리 위)</span>
                     </div>
                     <div>
-                      <Label className="text-xs text-muted-foreground">CTA 버튼 텍스트</Label>
-                      <Input className="mt-1" value={bannerForm.ctaText} onChange={(e) => setBannerForm((p) => ({ ...p, ctaText: e.target.value }))} placeholder="지금 바로 시작하세요!" />
+                      <Label className="text-xs text-muted-foreground">작은 제목 (윗줄)</Label>
+                      <Input className="mt-1" value={bannerForm.banner1Sub} onChange={(e) => setBannerForm((p) => ({ ...p, banner1Sub: e.target.value }))} placeholder="지역 소상공인을 위한" />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">큰 제목 (아랫줄)</Label>
+                      <Input className="mt-1" value={bannerForm.banner1Title} onChange={(e) => setBannerForm((p) => ({ ...p, banner1Title: e.target.value }))} placeholder="공동광고 지원센터" />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">버튼 텍스트</Label>
+                      <Input className="mt-1" value={bannerForm.banner1Cta} onChange={(e) => setBannerForm((p) => ({ ...p, banner1Cta: e.target.value }))} placeholder="지금 바로 시작하기 →" />
+                    </div>
+                    {/* 미리보기 */}
+                    <div className="rounded-xl bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950 px-4 py-3 flex items-center justify-center gap-3 text-xs">
+                      <div className="text-center">
+                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">{bannerForm.banner1Sub || "지역 소상공인을 위한"}</p>
+                        <p className="text-sm font-extrabold text-white">{bannerForm.banner1Title || "공동광고 지원센터"}</p>
+                      </div>
+                      <span className="shrink-0 bg-orange-500 text-white font-bold text-[10px] rounded-lg px-2 py-1.5 text-center leading-tight whitespace-pre-line">{bannerForm.banner1Cta || "지금 바로\n시작하기 →"}</span>
                     </div>
                   </div>
-                  {/* 미리보기 */}
-                  <div className="rounded-xl bg-gradient-to-br from-orange-500 via-amber-500 to-yellow-400 p-3 text-xs">
-                    <p className="text-white/80 font-bold mb-0.5">지역 소상공인을 위한</p>
-                    <p className="text-white font-extrabold mb-1">📢 공동광고 지원센터</p>
-                    <p className="text-white/90 text-[11px] mb-2">{bannerForm.subtitle}</p>
-                    <div className="flex gap-2 flex-wrap">
-                      {[{ l: bannerForm.stat1Label, v: bannerForm.stat1Value }, { l: bannerForm.stat2Label, v: bannerForm.stat2Value }, { l: bannerForm.stat3Label, v: bannerForm.stat3Value }].map((s, i) => (
-                        <div key={i} className="bg-white/20 rounded-lg px-2 py-1 text-center">
-                          <p className="text-white font-bold text-[11px]">{s.v}</p>
-                          <p className="text-white/70 text-[9px]">{s.l}</p>
-                        </div>
-                      ))}
+
+                  {/* 배너 2 */}
+                  <div className="border border-orange-200 rounded-xl p-4 space-y-3 bg-orange-50">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-orange-500 text-white">배너 2</span>
+                      <span className="text-xs text-muted-foreground">카드 목록 중간 · 주황색 배너</span>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">배너 문구</Label>
+                      <Input className="mt-1" value={bannerForm.banner2Badge} onChange={(e) => setBannerForm((p) => ({ ...p, banner2Badge: e.target.value }))} placeholder="📢 공동광고 모집중" />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">버튼 텍스트</Label>
+                      <Input className="mt-1" value={bannerForm.banner2Cta} onChange={(e) => setBannerForm((p) => ({ ...p, banner2Cta: e.target.value }))} placeholder="참여하기 →" />
+                    </div>
+                    {/* 미리보기 */}
+                    <div className="rounded-xl bg-gradient-to-r from-orange-500 to-amber-400 px-4 py-3 flex items-center justify-center gap-4 text-xs">
+                      <p className="text-sm font-bold text-white">{bannerForm.banner2Badge || "📢 공동광고 모집중"}</p>
+                      <span className="text-xs font-semibold bg-white/20 rounded-lg px-3 py-1.5 text-white whitespace-nowrap">{bannerForm.banner2Cta || "참여하기 →"}</span>
                     </div>
                   </div>
+
                   <Button
                     className="w-full gap-2 bg-orange-500 hover:bg-orange-600"
                     disabled={saveBannerMutation.isPending}

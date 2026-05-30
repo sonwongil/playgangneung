@@ -16,10 +16,15 @@ export interface BannerConfig {
   stat3Label: string;
   stat3Value: string;
   ctaText: string;
+  banner1Sub: string;
+  banner1Title: string;
+  banner1Cta: string;
+  banner2Badge: string;
+  banner2Cta: string;
 }
 
 const DEFAULT_CONFIG: BannerConfig = {
-  subtitle: "하루 15,000원으로 강릉에 노출하세요!",
+  subtitle: "",
   stat1Label: "광고 신청",
   stat1Value: "누적 120건+",
   stat2Label: "PLAY강릉 팔로워",
@@ -27,6 +32,11 @@ const DEFAULT_CONFIG: BannerConfig = {
   stat3Label: "월 방문자",
   stat3Value: "10만명+",
   ctaText: "지금 바로 시작하세요!",
+  banner1Sub: "지역 소상공인을 위한",
+  banner1Title: "공동광고 지원센터",
+  banner1Cta: "지금 바로\n시작하기 →",
+  banner2Badge: "📢 공동광고 모집중",
+  banner2Cta: "참여하기 →",
 };
 
 async function readConfig(): Promise<BannerConfig> {

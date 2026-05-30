@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { Link, useLocation } from "wouter";
 import { useClerk, useUser } from "@clerk/react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -9,7 +9,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import {
   CalendarDays, MapPin, Megaphone, Star, Pin, Search, X, Play,
   Menu, Smartphone, ChevronLeft, ChevronRight, LogIn, LogOut, Flame,
-  Heart, MessageCircle, Eye, Users, TrendingUp, Pencil,
+  Heart, MessageCircle, Eye, Users, TrendingUp, Pencil, Check,
 } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -478,6 +478,9 @@ export default function Home() {
   const [showAll, setShowAll] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [showJointAdModal, setShowJointAdModal] = useState(false);
+  const [isEditingModal, setIsEditingModal] = useState(false);
+  const [editDraft, setEditDraft] = useState<Record<string, string>>({});
+  const [isSavingModal, setIsSavingModal] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<Event & { prompt: () => Promise<void> } | null>(null);
   const [installGuide, setInstallGuide] = useState(false);
   // standalone(PWA) 모드 감지 — 이미 설치된 경우 설치 버튼 숨김
@@ -574,6 +577,54 @@ export default function Home() {
     },
     staleTime: 60_000,
   });
+
+  const queryClient = useQueryClient();
+
+  interface JointAdModalConfig {
+    subtitle: string;
+    title: string;
+    body: string;
+    highlightTitle: string;
+    highlightBody: string;
+    footerText: string;
+  }
+
+  const JOINT_AD_DEFAULTS: JointAdModalConfig = {
+    subtitle: "지역 소상공인을 위한",
+    title: "공동광고 지원센터 안내",
+    body: "혼자 광고를 진행하면 적은 예산으로는 충분한 노출과 광고 최적화가 어려울 수 있습니다. 예를 들어 3만원의 광고비로 단독 광고를 진행하면 짧은 기간 동안 제한된 사용자에게만 노출될 수 있지만, 여러 업체가 함께 참여하는 공동광고는 더 큰 규모의 광고 캠페인으로 운영되어 보다 안정적이고 지속적인 노출 기회를 만들 수 있습니다.\n\n카페, 음식점, 숙박업, 체험시설, 공연, 행사 등 강릉을 알리고 싶은 누구나 참여할 수 있습니다.\n\n광고는 참여 업체별로 공정하게 운영되며, 광고 성과 향상을 위해 지속적으로 관리됩니다.",
+    highlightTitle: "PLAY강릉 공동광고란?",
+    highlightBody: "여러 참여 업체의 광고를 함께 운영하여 강릉 지역의 잠재 고객에게 효율적으로 홍보할 수 있도록 지원합니다. 광고 운영 경험이 없어도 신청만 하면 광고 제작과 집행을 지원받을 수 있습니다.",
+    footerText: "아래 내용을 확인하신 후 광고 신청을 진행해 주세요.",
+  };
+
+  const { data: jointAdConfig } = useQuery<JointAdModalConfig>({
+    queryKey: ["joint-ad-modal"],
+    queryFn: async () => {
+      const res = await fetch(`${BASE}/api/joint-ad-modal`);
+      if (!res.ok) return JOINT_AD_DEFAULTS;
+      return res.json();
+    },
+    staleTime: 300_000,
+  });
+
+  const modalCfg: JointAdModalConfig = jointAdConfig ?? JOINT_AD_DEFAULTS;
+
+  async function saveJointAdModal() {
+    setIsSavingModal(true);
+    try {
+      await fetch(`${BASE}/api/joint-ad-modal`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editDraft),
+        credentials: "include",
+      });
+      await queryClient.invalidateQueries({ queryKey: ["joint-ad-modal"] });
+      setIsEditingModal(false);
+    } finally {
+      setIsSavingModal(false);
+    }
+  }
 
   interface PremiumAd {
     id: string;
@@ -1217,63 +1268,145 @@ export default function Home() {
       )}
 
       {/* ─── 공동광고 안내 모달 ─────────────────────────────────────────── */}
-      <Dialog open={showJointAdModal} onOpenChange={setShowJointAdModal}>
+      <Dialog open={showJointAdModal} onOpenChange={(open) => {
+        if (!open) { setIsEditingModal(false); }
+        setShowJointAdModal(open);
+      }}>
         <DialogContent className="max-w-md w-full rounded-2xl p-0 overflow-hidden">
           {/* 헤더 */}
           <div className="bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950 px-6 py-5">
-            <div className="flex items-center gap-2 mb-1">
-              <Megaphone className="w-5 h-5 text-orange-400 shrink-0" />
-              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">지역 소상공인을 위한</p>
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center gap-2">
+                <Megaphone className="w-5 h-5 text-orange-400 shrink-0" />
+                {isEditingModal ? (
+                  <input
+                    className="text-[10px] font-semibold text-slate-300 uppercase tracking-widest bg-slate-700 rounded px-2 py-0.5 w-40"
+                    value={editDraft.subtitle ?? modalCfg.subtitle}
+                    onChange={(e) => setEditDraft((d) => ({ ...d, subtitle: e.target.value }))}
+                  />
+                ) : (
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">{modalCfg.subtitle}</p>
+                )}
+              </div>
+              {authData?.isAdmin && (
+                <div className="flex gap-1">
+                  {isEditingModal ? (
+                    <>
+                      <button
+                        onClick={saveJointAdModal}
+                        disabled={isSavingModal}
+                        className="flex items-center gap-1 px-2 py-1 rounded-lg bg-green-500 hover:bg-green-400 text-white text-xs font-semibold transition-colors disabled:opacity-50"
+                      >
+                        <Check className="w-3 h-3" />
+                        {isSavingModal ? "저장중..." : "저장"}
+                      </button>
+                      <button
+                        onClick={() => setIsEditingModal(false)}
+                        className="flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-600 hover:bg-slate-500 text-white text-xs transition-colors"
+                      >
+                        <X className="w-3 h-3" />
+                        취소
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        setEditDraft({ ...modalCfg });
+                        setIsEditingModal(true);
+                      }}
+                      className="flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-600 hover:bg-slate-500 text-white text-xs font-semibold transition-colors"
+                    >
+                      <Pencil className="w-3 h-3" />
+                      편집
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
-            <h2 className="text-xl font-extrabold text-white leading-tight">공동광고 지원센터 안내</h2>
+            {isEditingModal ? (
+              <input
+                className="text-xl font-extrabold text-white leading-tight bg-slate-700 rounded px-2 py-1 w-full mt-1"
+                value={editDraft.title ?? modalCfg.title}
+                onChange={(e) => setEditDraft((d) => ({ ...d, title: e.target.value }))}
+              />
+            ) : (
+              <h2 className="text-xl font-extrabold text-white leading-tight">{modalCfg.title}</h2>
+            )}
           </div>
 
           {/* 본문 */}
           <div className="px-6 py-5 space-y-4 max-h-[55vh] overflow-y-auto text-sm text-gray-700 leading-relaxed">
-            <p>
-              혼자 광고를 진행하면 적은 예산으로는 충분한 노출과 광고 최적화가 어려울 수 있습니다.
-              예를 들어 3만원의 광고비로 단독 광고를 진행하면 짧은 기간 동안 제한된 사용자에게만 노출될 수 있지만,
-              여러 업체가 함께 참여하는 <strong className="text-gray-900">공동광고</strong>는 더 큰 규모의 광고 캠페인으로
-              운영되어 보다 안정적이고 지속적인 노출 기회를 만들 수 있습니다.
-            </p>
-
-            <div className="rounded-xl bg-orange-50 border border-orange-100 px-4 py-3 space-y-2">
-              <p className="font-bold text-orange-800 text-sm">PLAY강릉 공동광고란?</p>
-              <p className="text-orange-700 text-xs leading-relaxed">
-                여러 참여 업체의 광고를 함께 운영하여 강릉 지역의 잠재 고객에게 효율적으로 홍보할 수 있도록 지원합니다.
-                광고 운영 경험이 없어도 신청만 하면 광고 제작과 집행을 지원받을 수 있습니다.
-              </p>
-            </div>
-
-            <p>
-              카페, 음식점, 숙박업, 체험시설, 공연, 행사 등 <strong className="text-gray-900">강릉을 알리고 싶은 누구나</strong> 참여할 수 있습니다.
-            </p>
-
-            <p>
-              광고는 참여 업체별로 공정하게 운영되며, 광고 성과 향상을 위해 지속적으로 관리됩니다.
-            </p>
-
-            <p className="text-xs text-gray-500 border-t pt-3">
-              아래 내용을 확인하신 후 광고 신청을 진행해 주세요.
-            </p>
+            {isEditingModal ? (
+              <>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-gray-500">본문 내용 (단락은 빈 줄로 구분)</label>
+                  <textarea
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    rows={6}
+                    value={editDraft.body ?? modalCfg.body}
+                    onChange={(e) => setEditDraft((d) => ({ ...d, body: e.target.value }))}
+                  />
+                </div>
+                <div className="rounded-xl bg-orange-50 border border-orange-100 px-4 py-3 space-y-2">
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-orange-600">강조 박스 제목</label>
+                    <input
+                      className="w-full rounded-lg border border-orange-200 px-2 py-1 text-sm font-bold text-orange-800 bg-white focus:outline-none focus:ring-2 focus:ring-orange-400"
+                      value={editDraft.highlightTitle ?? modalCfg.highlightTitle}
+                      onChange={(e) => setEditDraft((d) => ({ ...d, highlightTitle: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-orange-600">강조 박스 내용</label>
+                    <textarea
+                      className="w-full rounded-lg border border-orange-200 px-2 py-1 text-xs text-orange-700 leading-relaxed bg-white resize-none focus:outline-none focus:ring-2 focus:ring-orange-400"
+                      rows={3}
+                      value={editDraft.highlightBody ?? modalCfg.highlightBody}
+                      onChange={(e) => setEditDraft((d) => ({ ...d, highlightBody: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-gray-500">하단 안내 문구</label>
+                  <input
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-xs text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    value={editDraft.footerText ?? modalCfg.footerText}
+                    onChange={(e) => setEditDraft((d) => ({ ...d, footerText: e.target.value }))}
+                  />
+                </div>
+              </>
+            ) : (
+              <>
+                {modalCfg.body.split("\n\n").map((para, i) => (
+                  <p key={i}>{para}</p>
+                ))}
+                <div className="rounded-xl bg-orange-50 border border-orange-100 px-4 py-3 space-y-2">
+                  <p className="font-bold text-orange-800 text-sm">{modalCfg.highlightTitle}</p>
+                  <p className="text-orange-700 text-xs leading-relaxed">{modalCfg.highlightBody}</p>
+                </div>
+                <p className="text-xs text-gray-500 border-t pt-3">{modalCfg.footerText}</p>
+              </>
+            )}
           </div>
 
           {/* 액션 버튼 */}
-          <div className="px-6 pb-6 pt-2 flex flex-col gap-2">
-            <Link
-              href="/ad-submit"
-              onClick={() => setShowJointAdModal(false)}
-              className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold text-center transition-colors shadow-md"
-            >
-              공동광고 신청하기
-            </Link>
-            <button
-              onClick={() => setShowJointAdModal(false)}
-              className="w-full py-3 rounded-xl text-gray-400 text-sm font-medium hover:bg-gray-50 transition-colors"
-            >
-              나중에 할게요
-            </button>
-          </div>
+          {!isEditingModal && (
+            <div className="px-6 pb-6 pt-2 flex flex-col gap-2">
+              <Link
+                href="/ad-submit"
+                onClick={() => setShowJointAdModal(false)}
+                className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold text-center transition-colors shadow-md"
+              >
+                공동광고 신청하기
+              </Link>
+              <button
+                onClick={() => setShowJointAdModal(false)}
+                className="w-full py-3 rounded-xl text-gray-400 text-sm font-medium hover:bg-gray-50 transition-colors"
+              >
+                나중에 할게요
+              </button>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

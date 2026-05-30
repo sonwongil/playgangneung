@@ -17,6 +17,7 @@ import paymentRouter from "./payment.js";
 import adProductsRouter from "./adProducts.js";
 import tagsRouter from "./tags.js";
 import bannerConfigRouter from "./bannerConfig.js";
+import jointAdConfigRouter from "./jointAdConfig.js";
 import metaSpendRouter from "./metaSpend.js";
 import metaInsightsRouter from "./metaInsights.js";
 
@@ -44,6 +45,7 @@ router.use(paymentRouter);
 router.use(adProductsRouter);
 router.use(tagsRouter);
 router.use(bannerConfigRouter);
+router.use(jointAdConfigRouter);
 router.use(metaSpendRouter);
 router.use(metaInsightsRouter);
 

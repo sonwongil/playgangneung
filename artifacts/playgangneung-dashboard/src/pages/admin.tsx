@@ -669,6 +669,7 @@ export default function Admin() {
   const [manualLoading, setManualLoading] = useState(false);
   const [metaPushLoading, setMetaPushLoading] = useState<string | null>(null);
   const [metaStatusRefreshLoading, setMetaStatusRefreshLoading] = useState<string | null>(null);
+  const [metaToggleLoading, setMetaToggleLoading] = useState<string | null>(null);
   const [billingExpireLoading, setBillingExpireLoading] = useState(false);
   const [refundLoading, setRefundLoading] = useState<string | null>(null);
   const [bankConfirmLoading, setBankConfirmLoading] = useState<string | null>(null);
@@ -2165,6 +2166,40 @@ export default function Admin() {
                                             toast({ description: `${ad.businessName} 을 묶음 만들기에 추가했습니다.` });
                                           }}>
                                           <Layers className="w-3 h-3" />공동광고추가
+                                        </Button>
+                                      )}
+                                      {ad.metaAdId && (
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          className={`h-7 px-2 text-xs ${ad.metaStatus === "ACTIVE" ? "text-green-700 border-green-300 bg-green-50 hover:bg-green-100" : "text-gray-500 border-gray-300 hover:bg-gray-50"}`}
+                                          disabled={metaToggleLoading === ad.id}
+                                          title={ad.metaStatus === "ACTIVE" ? "Meta 광고 일시정지" : "Meta 광고 활성화"}
+                                          onClick={async () => {
+                                            setMetaToggleLoading(ad.id);
+                                            try {
+                                              const r = await fetch(`${BASE}/api/ads/${ad.id}/meta-toggle`, { method: "POST", credentials: "include" });
+                                              const d = await r.json() as { success?: boolean; metaStatus?: string; error?: string };
+                                              if (!r.ok) {
+                                                toast({ description: d.error ?? "Meta 상태 변경 실패", variant: "destructive" });
+                                              } else {
+                                                toast({ description: d.metaStatus === "ACTIVE" ? "✅ Meta 광고가 활성화되었습니다" : "⏸ Meta 광고가 일시정지되었습니다" });
+                                                refetchAds();
+                                              }
+                                            } catch {
+                                              toast({ description: "Meta 상태 변경 실패", variant: "destructive" });
+                                            } finally {
+                                              setMetaToggleLoading(null);
+                                            }
+                                          }}
+                                        >
+                                          {metaToggleLoading === ad.id ? (
+                                            <RefreshCw className="w-3 h-3 animate-spin" />
+                                          ) : ad.metaStatus === "ACTIVE" ? (
+                                            <><span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block mr-1" />ON</>
+                                          ) : (
+                                            <><span className="w-1.5 h-1.5 rounded-full bg-gray-400 inline-block mr-1" />OFF</>
+                                          )}
                                         </Button>
                                       )}
                                       <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setSelectedAd(ad)}>

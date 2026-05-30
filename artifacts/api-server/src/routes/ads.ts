@@ -5,6 +5,7 @@ import path from "path";
 import fs from "fs/promises";
 import { db, adsTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
+import { updateAdStatus } from "../lib/metaApi.js";
 import { sendMail, isMailConfigured, buildReportEmailHtml, sendSms, isSmsConfigured, buildReportSmsText } from "../lib/mailer.js";
 import { generateCardImage } from "../lib/card.js";
 import { UPLOADS_DIR, CARDS_DIR } from "../lib/paths.js";
@@ -577,6 +578,34 @@ router.post("/ads/:id/send-report", async (req, res) => {
   } catch (err) {
     req.log.error({ err }, "리포트 발송 실패");
     return res.status(500).json({ error: "발송 실패" });
+  }
+});
+
+// ─── Meta 광고 ON/OFF 원격 제어 ────────────────────────────────────────────────
+router.post("/ads/:id/meta-toggle", async (req, res) => {
+  if (!req.session?.isAdmin) return res.status(401).json({ error: "인증 필요" });
+  try {
+    const { id } = req.params;
+    const [row] = await db.select().from(adsTable).where(eq(adsTable.id, id));
+    if (!row) return res.status(404).json({ error: "광고를 찾을 수 없습니다" });
+    if (!row.metaAdId) return res.status(400).json({ error: "Meta Ad ID가 없습니다. 먼저 Meta에 반영하세요." });
+
+    const currentStatus = row.metaStatus ?? "PAUSED";
+    const newStatus: "ACTIVE" | "PAUSED" = currentStatus === "ACTIVE" ? "PAUSED" : "ACTIVE";
+
+    const result = await updateAdStatus(row.metaAdId, newStatus);
+    if (!result.ok) {
+      req.log.warn({ id, metaAdId: row.metaAdId, error: result.error }, "Meta 광고 상태 변경 실패");
+      return res.status(502).json({ error: `Meta API 오류: ${result.error}` });
+    }
+
+    await db.update(adsTable).set({ metaStatus: newStatus } as Partial<typeof adsTable.$inferInsert>).where(eq(adsTable.id, id));
+    const [updated] = await db.select().from(adsTable).where(eq(adsTable.id, id));
+    req.log.info({ id, metaAdId: row.metaAdId, newStatus }, "Meta 광고 ON/OFF 변경");
+    return res.json({ success: true, metaStatus: newStatus, ad: rowToAd(updated) });
+  } catch (err) {
+    req.log.error({ err }, "Meta 광고 ON/OFF 변경 실패");
+    return res.status(500).json({ error: "Meta 광고 상태 변경 실패" });
   }
 });
 

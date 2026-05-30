@@ -542,6 +542,10 @@ export async function updateAdSetStatus(adSetId: string, status: "ACTIVE" | "PAU
   return metaPost<{ success: boolean }>(`${adSetId}`, { status });
 }
 
+export async function updateAdStatus(adId: string, status: "ACTIVE" | "PAUSED") {
+  return metaPost<{ success: boolean }>(`${adId}`, { status });
+}
+
 // ─── 광고별 Insights (CTR/CPC/Frequency 포함) ────────────────────────────────────
 export interface AdInsightRow {
   adId: string;

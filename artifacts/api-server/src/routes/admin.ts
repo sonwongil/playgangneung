@@ -17,6 +17,7 @@ function sourceTypeBadge(t: SourceType): string {
     rss: { label: "RSS", cls: "badge-rss" },
     html: { label: "HTML", cls: "badge-html" },
     manual: { label: "수동", cls: "badge-manual" },
+    tip: { label: "제보", cls: "badge-manual" },
   };
   const { label, cls } = map[t] ?? { label: t, cls: "badge-html" };
   return `<span class="src-badge ${cls}">${label}</span>`;
@@ -28,6 +29,7 @@ function statusBadge(s: EventStatus): string {
     approved: { label: "발행 승인", cls: "status-approved" },
     rejected: { label: "제외", cls: "status-rejected" },
     published: { label: "발행완료", cls: "status-approved" },
+    submitted: { label: "제보대기", cls: "status-draft" },
   };
   const { label, cls } = map[s] ?? { label: s, cls: "status-draft" };
   return `<span class="status-badge ${cls}">${label}</span>`;

@@ -591,4 +591,63 @@ router.delete("/events/:id", async (req, res) => {
   }
 });
 
+// ─── 공개 소식 제보 (인증 불필요) ───────────────────────────────────────────────
+router.post("/submit", async (req, res) => {
+  try {
+    const {
+      title, description, link, contact,
+      category, startDate: rawStart, endDate: rawEnd, location,
+    } = req.body as {
+      title?: string;
+      description?: string;
+      link?: string;
+      contact?: string;
+      category?: string;
+      startDate?: string;
+      endDate?: string;
+      location?: string;
+    };
+
+    if (!title || title.trim().length < 2) {
+      return res.status(400).json({ success: false, error: "제목을 2자 이상 입력해 주세요." });
+    }
+
+    const { startDate, endDate, scheduleStatus } = parseDates(
+      `${rawStart || ""}${rawEnd ? `~${rawEnd}` : ""}`,
+    );
+    const eventId = crypto.createHash("md5").update(`tip:${title}:${Date.now()}`).digest("hex");
+    const siteUrl = process.env["SITE_URL"] ?? "https://playgangneung.com";
+
+    const event: CrawledEvent = {
+      id: eventId,
+      title: title.trim(),
+      description: description?.trim() || "",
+      date: startDate || rawStart || "",
+      startDate: startDate || rawStart || "",
+      endDate: endDate || rawEnd || "",
+      scheduleStatus,
+      location: location?.trim() || "강릉",
+      category: category || detectCategory(title, description || ""),
+      thumbnail: null,
+      extraImages: null,
+      videoUrl: null,
+      link: link?.trim() || `${siteUrl}/content/${eventId}`,
+      source: contact?.trim() ? `제보: ${contact.trim()}` : "제보",
+      contact: contact?.trim() || "",
+      sourceType: "tip",
+      status: "submitted",
+      socialDraft: null,
+      hashtags: null,
+      crawledAt: new Date().toISOString(),
+    };
+
+    const { added, updated } = await appendEvents([event]);
+    req.log.info({ eventId, title: event.title }, "소식 제보 접수");
+    return res.json({ success: true, added, updated, id: eventId });
+  } catch (err) {
+    req.log.error({ err }, "소식 제보 실패");
+    return res.status(500).json({ success: false, error: "제보 접수 중 오류가 발생했습니다." });
+  }
+});
+
 export default router;

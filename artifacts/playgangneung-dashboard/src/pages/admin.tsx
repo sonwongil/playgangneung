@@ -66,6 +66,7 @@ import {
   ShieldAlert,
   ShieldCheck,
   ShieldOff,
+  Inbox,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -410,6 +411,7 @@ function extractYoutubeThumb(videoUrl?: string | null): string | null {
 }
 
 const STATUS_CONFIG: Record<string, { label: string; icon: React.ReactNode; cls: string }> = {
+  submitted: { label: "제보대기", icon: <Inbox className="w-3 h-3" />,       cls: "bg-purple-100 text-purple-700 border-purple-200" },
   pending:   { label: "수집됨",   icon: <Clock className="w-3 h-3" />,       cls: "bg-gray-100 text-gray-600 border-gray-200" },
   draft:     { label: "검토 중",   icon: <Clock className="w-3 h-3" />,       cls: "bg-yellow-100 text-yellow-700 border-yellow-200" },
   approved:  { label: "승인",     icon: <CheckCircle className="w-3 h-3" />,  cls: "bg-green-100 text-green-700 border-green-200" },
@@ -1532,7 +1534,7 @@ export default function Admin() {
                   />
                 </div>
                 <div className="flex items-center gap-1 flex-wrap">
-                  {(["all", "pending", "draft", "approved", "published", "rejected"] as const).map((s) => (
+                  {(["all", "submitted", "pending", "draft", "approved", "published", "rejected"] as const).map((s) => (
                     <button
                       key={s}
                       onClick={() => setEventsStatusFilter(s)}

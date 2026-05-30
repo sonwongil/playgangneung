@@ -2,8 +2,8 @@ import { db, eventsTable } from "@workspace/db";
 import { desc, eq, sql } from "drizzle-orm";
 import type { ScheduleStatus } from "./dateParser.js";
 
-export type SourceType = "rss" | "html" | "manual";
-export type EventStatus = "draft" | "approved" | "rejected" | "published";
+export type SourceType = "rss" | "html" | "manual" | "tip";
+export type EventStatus = "draft" | "approved" | "rejected" | "published" | "submitted";
 
 export interface SocialDraft {
   title: string;

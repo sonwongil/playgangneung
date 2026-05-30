@@ -9,7 +9,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import {
   CalendarDays, MapPin, Megaphone, Star, Pin, Search, X, Play,
   Menu, Smartphone, ChevronLeft, ChevronRight, LogIn, LogOut, Flame,
-  Heart, MessageCircle, Eye, Users, TrendingUp, Pencil, Check,
+  Heart, MessageCircle, Eye, Users, TrendingUp, Pencil, Check, FileText,
 } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -479,6 +479,14 @@ export default function Home() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [showJointAdModal, setShowJointAdModal] = useState(false);
   const [isEditingModal, setIsEditingModal] = useState(false);
+  const [showTipModal, setShowTipModal] = useState(false);
+  const [tipForm, setTipForm] = useState({
+    title: "", description: "", category: "지역소식",
+    startDate: "", endDate: "", location: "", link: "", contact: "",
+  });
+  const [tipLoading, setTipLoading] = useState(false);
+  const [tipDone, setTipDone] = useState(false);
+  const [tipError, setTipError] = useState("");
   const [editDraft, setEditDraft] = useState<Record<string, string>>({});
   const [isSavingModal, setIsSavingModal] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<Event & { prompt: () => Promise<void> } | null>(null);
@@ -878,6 +886,14 @@ export default function Home() {
               <HashtagPill key={t.tag} tag={t.tag} active={activeTag === t.tag} onClick={() => handleTagClick(t.tag)} />
             ))}
           </div>
+          {/* 강릉 소식 제보하기 버튼 */}
+          <button
+            onClick={() => { setTipDone(false); setTipError(""); setTipForm({ title: "", description: "", category: "지역소식", startDate: "", endDate: "", location: "", link: "", contact: "" }); setShowTipModal(true); }}
+            className="hidden sm:flex shrink-0 items-center gap-1.5 px-3 py-1.5 bg-teal-600 hover:bg-teal-700 transition-colors border-l border-teal-500"
+          >
+            <FileText className="w-3.5 h-3.5 text-white shrink-0" />
+            <p className="text-[11px] font-extrabold text-white whitespace-nowrap">소식 제보</p>
+          </button>
           {/* 우측 고정 공동광고 버튼 */}
           <button
             onClick={() => setShowJointAdModal(true)}
@@ -1266,6 +1282,160 @@ export default function Home() {
           </div>
         </div>
       )}
+
+      {/* ─── 강릉 소식 제보 모달 ─────────────────────────────────────────── */}
+      <Dialog open={showTipModal} onOpenChange={(open) => { if (!tipLoading) setShowTipModal(open); }}>
+        <DialogContent className="max-w-md w-full rounded-2xl p-0 overflow-hidden">
+          <div className="bg-gradient-to-br from-teal-700 to-teal-900 px-6 py-5">
+            <div className="flex items-center gap-2 mb-1">
+              <FileText className="w-5 h-5 text-teal-200 shrink-0" />
+              <p className="text-[10px] font-semibold text-teal-300 uppercase tracking-widest">PLAY강릉</p>
+            </div>
+            <h2 className="text-xl font-extrabold text-white leading-tight">강릉 소식 제보하기</h2>
+            <p className="text-sm text-teal-200 mt-1">알고 계신 강릉 소식을 제보해 주세요. 관리자 검토 후 피드에 등록됩니다.</p>
+          </div>
+
+          {tipDone ? (
+            <div className="px-6 py-10 flex flex-col items-center gap-3">
+              <div className="w-14 h-14 rounded-full bg-teal-100 flex items-center justify-center">
+                <Check className="w-7 h-7 text-teal-600" />
+              </div>
+              <p className="text-base font-bold text-gray-800">제보가 접수됐습니다!</p>
+              <p className="text-sm text-gray-500 text-center">관리자 검토 후 피드에 등록됩니다. 감사합니다 🙏</p>
+              <button
+                onClick={() => setShowTipModal(false)}
+                className="mt-2 w-full py-3 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold text-center transition-colors"
+              >
+                닫기
+              </button>
+            </div>
+          ) : (
+            <div className="px-6 py-5 space-y-4">
+              {tipError && (
+                <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">{tipError}</div>
+              )}
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">소식 제목 <span className="text-red-500">*</span></label>
+                <input
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-300"
+                  placeholder="예: 강릉 커피거리 페스티벌 개최"
+                  value={tipForm.title}
+                  onChange={(e) => setTipForm((p) => ({ ...p, title: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">카테고리</label>
+                <select
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-300 bg-white"
+                  value={tipForm.category}
+                  onChange={(e) => setTipForm((p) => ({ ...p, category: e.target.value }))}
+                >
+                  {["행사", "맛집", "핫플", "지역소식"].map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">내용 설명</label>
+                <textarea
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-300 resize-none"
+                  rows={3}
+                  placeholder="소식에 대한 간단한 설명을 입력해 주세요."
+                  value={tipForm.description}
+                  onChange={(e) => setTipForm((p) => ({ ...p, description: e.target.value }))}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">시작일 (선택)</label>
+                  <input
+                    type="date"
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-300"
+                    value={tipForm.startDate}
+                    onChange={(e) => setTipForm((p) => ({ ...p, startDate: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">종료일 (선택)</label>
+                  <input
+                    type="date"
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-300"
+                    value={tipForm.endDate}
+                    onChange={(e) => setTipForm((p) => ({ ...p, endDate: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">장소 (선택)</label>
+                <input
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-300"
+                  placeholder="예: 강릉 중앙시장"
+                  value={tipForm.location}
+                  onChange={(e) => setTipForm((p) => ({ ...p, location: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">원문 링크 (선택)</label>
+                <input
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-300"
+                  placeholder="https://..."
+                  value={tipForm.link}
+                  onChange={(e) => setTipForm((p) => ({ ...p, link: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">제보자 이름 (선택)</label>
+                <input
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-300"
+                  placeholder="익명으로 제보하셔도 됩니다."
+                  value={tipForm.contact}
+                  onChange={(e) => setTipForm((p) => ({ ...p, contact: e.target.value }))}
+                />
+              </div>
+              <div className="flex flex-col gap-2 pt-1">
+                <button
+                  disabled={tipLoading}
+                  onClick={async () => {
+                    if (!tipForm.title.trim() || tipForm.title.trim().length < 2) {
+                      setTipError("제목을 2자 이상 입력해 주세요.");
+                      return;
+                    }
+                    setTipError("");
+                    setTipLoading(true);
+                    try {
+                      const r = await fetch(`${BASE}/api/submit`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(tipForm),
+                      });
+                      const d = await r.json() as { success?: boolean; error?: string };
+                      if (!r.ok || !d.success) {
+                        setTipError(d.error ?? "제보 접수 중 오류가 발생했습니다.");
+                      } else {
+                        setTipDone(true);
+                      }
+                    } catch {
+                      setTipError("네트워크 오류가 발생했습니다. 다시 시도해 주세요.");
+                    } finally {
+                      setTipLoading(false);
+                    }
+                  }}
+                  className="w-full py-3 rounded-xl bg-teal-600 hover:bg-teal-700 disabled:opacity-60 text-white text-sm font-bold text-center transition-colors"
+                >
+                  {tipLoading ? "접수 중..." : "제보 접수하기"}
+                </button>
+                <button
+                  onClick={() => setShowTipModal(false)}
+                  disabled={tipLoading}
+                  className="w-full py-3 rounded-xl text-gray-400 text-sm font-medium hover:bg-gray-50 transition-colors"
+                >
+                  취소
+                </button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* ─── 공동광고 안내 모달 ─────────────────────────────────────────── */}
       <Dialog open={showJointAdModal} onOpenChange={(open) => {

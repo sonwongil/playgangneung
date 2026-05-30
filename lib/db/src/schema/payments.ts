@@ -20,6 +20,7 @@ export const adPaymentsTable = pgTable("ad_payments", {
   receiptUrl:    text("receipt_url"),
   customerName:  text("customer_name").notNull().default(""),
   customerEmail: text("customer_email").notNull().default(""),
+  depositName:   text("deposit_name"),
   rawResponse:   jsonb("raw_response"),
   createdAt:     timestamp("created_at").notNull().defaultNow(),
   paidAt:        timestamp("paid_at"),

@@ -18,6 +18,7 @@ const AdReport           = lazy(() => import("@/pages/ad-report"));
 const MyAd               = lazy(() => import("@/pages/my-ad"));
 const Checkout           = lazy(() => import("@/pages/checkout"));
 const CheckoutSuccess    = lazy(() => import("@/pages/checkout-success"));
+const CheckoutBankSuccess = lazy(() => import("@/pages/checkout-bank-success"));
 const CheckoutFail       = lazy(() => import("@/pages/checkout-fail"));
 const Privacy            = lazy(() => import("@/pages/privacy"));
 const DataDeletion       = lazy(() => import("@/pages/data-deletion"));
@@ -226,6 +227,7 @@ function Router() {
         <Route path="/report/:token" component={AdReport} />
         <Route path="/my-ad" component={MyAd} />
         <Route path="/checkout/success" component={CheckoutSuccess} />
+        <Route path="/checkout/bank-success" component={CheckoutBankSuccess} />
         <Route path="/checkout/fail" component={CheckoutFail} />
         <Route path="/checkout" component={Checkout} />
         <Route path="/privacy" component={Privacy} />

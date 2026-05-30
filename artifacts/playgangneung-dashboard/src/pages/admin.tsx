@@ -297,6 +297,7 @@ interface AdPayment {
   receiptUrl: string | null;
   customerName: string;
   customerEmail: string;
+  depositName: string | null;
   createdAt: string;
   paidAt: string | null;
 }
@@ -648,6 +649,8 @@ export default function Admin() {
   const [metaPushLoading, setMetaPushLoading] = useState<string | null>(null);
   const [billingExpireLoading, setBillingExpireLoading] = useState(false);
   const [refundLoading, setRefundLoading] = useState<string | null>(null);
+  const [bankConfirmLoading, setBankConfirmLoading] = useState<string | null>(null);
+  const [bankRejectLoading, setBankRejectLoading] = useState<string | null>(null);
   const [expandedCampaign, setExpandedCampaign] = useState<string | null>(null);
   const [campaignDetail, setCampaignDetail] = useState<Record<string, MetaCampaignDetail>>({});
   const [campaignDetailLoading, setCampaignDetailLoading] = useState<string | null>(null);
@@ -1201,6 +1204,46 @@ export default function Admin() {
       toast({ title: "환불 실패", description: (e as Error).message, variant: "destructive" });
     } finally {
       setRefundLoading(null);
+    }
+  }
+
+  async function handleBankConfirm(orderId: string) {
+    if (!confirm("입금을 확인하시겠습니까? 광고 신청이 자동으로 생성됩니다.")) return;
+    setBankConfirmLoading(orderId);
+    try {
+      const r = await fetch(`${BASE}/api/payment/bank-transfer/${orderId}/confirm`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+      });
+      const d = await r.json() as { success?: boolean; error?: string };
+      if (!r.ok) throw new Error(d.error ?? "입금 확인 실패");
+      toast({ title: "입금 확인 완료", description: "광고 신청이 생성됐습니다." });
+      refetchPaymentOrders();
+    } catch (e) {
+      toast({ title: "처리 실패", description: (e as Error).message, variant: "destructive" });
+    } finally {
+      setBankConfirmLoading(null);
+    }
+  }
+
+  async function handleBankReject(orderId: string) {
+    if (!confirm("입금을 거절/보류 처리하시겠습니까?")) return;
+    setBankRejectLoading(orderId);
+    try {
+      const r = await fetch(`${BASE}/api/payment/bank-transfer/${orderId}/reject`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+      });
+      const d = await r.json() as { success?: boolean; error?: string };
+      if (!r.ok) throw new Error(d.error ?? "거절 처리 실패");
+      toast({ title: "거절 처리 완료" });
+      refetchPaymentOrders();
+    } catch (e) {
+      toast({ title: "처리 실패", description: (e as Error).message, variant: "destructive" });
+    } finally {
+      setBankRejectLoading(null);
     }
   }
 
@@ -4350,6 +4393,67 @@ export default function Admin() {
                         </div>
                       )}
 
+                      {/* ── 계좌이체 입금확인대기 ─────────────────────────────── */}
+                      {(() => {
+                        const pending = (paymentOrdersData?.orders ?? []).filter(
+                          (o) => o.status === "bank_transfer_requested",
+                        );
+                        if (pending.length === 0) return null;
+                        return (
+                          <div className="mt-6 border-t pt-5">
+                            <div className="flex items-center justify-between mb-3">
+                              <p className="text-sm font-semibold text-gray-800 flex items-center gap-1.5">
+                                <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-500 text-white text-[10px] font-bold">{pending.length}</span>
+                                입금확인대기
+                              </p>
+                              <Button size="sm" variant="outline" className="h-6 text-[10px]" onClick={() => void refetchPaymentOrders()}>
+                                <RefreshCw className="w-3 h-3 mr-1" />새로고침
+                              </Button>
+                            </div>
+                            <div className="space-y-3">
+                              {pending.map((o) => (
+                                <div key={o.id} className="rounded-xl border-2 border-amber-200 bg-amber-50 p-4 space-y-3">
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div className="flex-1 min-w-0">
+                                      <p className="font-semibold text-sm text-gray-900">{o.productNameSnapshot ?? o.plan ?? "광고 상품"}</p>
+                                      <p className="text-xs text-gray-500 mt-0.5">{o.customerName} · {o.customerEmail}</p>
+                                      <p className="text-xs text-gray-400 mt-0.5">주문번호: {o.orderId}</p>
+                                      {o.depositName && (
+                                        <p className="text-xs font-bold text-red-600 mt-1">
+                                          입금자명: <span className="tracking-wider">{o.depositName}</span>
+                                        </p>
+                                      )}
+                                      <p className="text-[10px] text-gray-400 mt-0.5">
+                                        신청일: {new Date(o.createdAt).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })}
+                                      </p>
+                                    </div>
+                                    <p className="font-bold text-lg text-gray-900 whitespace-nowrap shrink-0">
+                                      ₩{o.amount.toLocaleString()}
+                                    </p>
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <button
+                                      onClick={() => handleBankConfirm(o.orderId)}
+                                      disabled={bankConfirmLoading === o.orderId || bankRejectLoading === o.orderId}
+                                      className="flex-1 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-sm font-semibold disabled:opacity-50 transition-colors"
+                                    >
+                                      {bankConfirmLoading === o.orderId ? "처리중..." : "✅ 입금확인 완료"}
+                                    </button>
+                                    <button
+                                      onClick={() => handleBankReject(o.orderId)}
+                                      disabled={bankConfirmLoading === o.orderId || bankRejectLoading === o.orderId}
+                                      className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600 text-sm font-medium disabled:opacity-50 transition-colors"
+                                    >
+                                      {bankRejectLoading === o.orderId ? "처리중..." : "거절"}
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })()}
+
                       {/* ── 결제 내역 (정산 기준) ────────────────────────────── */}
                       <div className="mt-6 border-t pt-5">
                         <div className="flex items-center justify-between mb-3">
@@ -4401,11 +4505,20 @@ export default function Admin() {
                                       <td className="px-3 py-2 whitespace-nowrap text-gray-500">{o.method ?? "—"}</td>
                                       <td className="px-3 py-2 whitespace-nowrap">
                                         <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                                          o.status === "paid"     ? "bg-green-50 text-green-700" :
-                                          o.status === "failed"   ? "bg-red-50 text-red-600" :
-                                          o.status === "refunded" ? "bg-gray-100 text-gray-500" :
+                                          o.status === "paid"                       ? "bg-green-50 text-green-700" :
+                                          o.status === "failed"                     ? "bg-red-50 text-red-600" :
+                                          o.status === "refunded"                   ? "bg-gray-100 text-gray-500" :
+                                          o.status === "bank_transfer_requested"    ? "bg-amber-50 text-amber-700" :
+                                          o.status === "bank_transfer_rejected"     ? "bg-red-50 text-red-500" :
                                           "bg-yellow-50 text-yellow-700"
-                                        }`}>{o.status === "paid" ? "완료" : o.status === "failed" ? "실패" : o.status === "refunded" ? "환불" : "대기"}</span>
+                                        }`}>{
+                                          o.status === "paid"                    ? "완료" :
+                                          o.status === "failed"                  ? "실패" :
+                                          o.status === "refunded"                ? "환불" :
+                                          o.status === "bank_transfer_requested" ? "입금대기" :
+                                          o.status === "bank_transfer_rejected"  ? "거절" :
+                                          "대기"
+                                        }</span>
                                         {o.status === "paid" && (
                                           <button
                                             onClick={() => handleRefund(o.orderId)}

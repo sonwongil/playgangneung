@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { loadTossPayments, ANONYMOUS, type TossPaymentsWidgets } from "@tosspayments/tosspayments-sdk";
+import QRCode from "qrcode";
+import { Copy, CheckCircle2, Banknote, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,17 +10,20 @@ import { Label } from "@/components/ui/label";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-// [보안] 테스트 키 폴백 완전 제거.
-// 프로덕션 빌드 시 vite.config.ts의 tossClientKeyGuard 플러그인이 이미 차단하므로
-// 여기까지 test_ck_ 또는 빈 키가 도달하는 경우는 없어야 한다.
-// 추가로 런타임에도 가드 — 혹시라도 잘못된 번들이 배포되면 결제창 자체를 차단.
-const _RAW_CLIENT_KEY = import.meta.env.VITE_TOSS_CLIENT_KEY as string | undefined;
+// 계좌이체 은행 정보 (환경 하드코딩)
+const BANK_NAME    = "신한은행";
+const BANK_ACCOUNT = "110-333-486550";
+const BANK_HOLDER  = "손원길";
 
+// [보안] 토스 키 검증 — 카드 결제 활성화 시 사용
+const _RAW_CLIENT_KEY = import.meta.env.VITE_TOSS_CLIENT_KEY as string | undefined;
 const _isKeyInvalid =
   !_RAW_CLIENT_KEY ||
   (import.meta.env.PROD && _RAW_CLIENT_KEY.startsWith("test_ck_"));
-
 const CLIENT_KEY = _RAW_CLIENT_KEY ?? "";
+
+type PaymentMethod = "bank_transfer" | "card";
+type Step = "form" | "bank_info";
 
 interface AdProduct {
   id: string;
@@ -31,34 +36,43 @@ interface AdProduct {
 }
 
 const PRODUCT_TYPE_LABEL: Record<string, string> = {
-  ad_run: "광고집행",
+  ad_run:       "광고집행",
   image_create: "이미지제작",
-  coverage: "취재포함",
-  etc: "기타",
+  coverage:     "취재포함",
+  etc:          "기타",
 };
 
 export default function Checkout() {
   const [, navigate] = useLocation();
 
-  // hooks는 조건부 반환보다 반드시 먼저 — React Rules of Hooks
-  const params = new URLSearchParams(window.location.search);
+  const params      = new URLSearchParams(window.location.search);
   const preselected = params.get("productId") ?? "";
 
-  const [products, setProducts] = useState<AdProduct[]>([]);
-  const [selectedId, setSelectedId] = useState(preselected);
+  const [products, setProducts]         = useState<AdProduct[]>([]);
+  const [selectedId, setSelectedId]     = useState(preselected);
   const [customerName, setCustomerName] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [widgetReady, setWidgetReady] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("bank_transfer");
+  const [step, setStep]                 = useState<Step>("form");
 
-  // v2: widgets 인스턴스를 저장 (requestPayment 호출에 사용)
+  // 계좌이체 상태
+  const [orderId, setOrderId]           = useState<string>("");
+  const [depositName, setDepositName]   = useState<string>("");
+  const [qrDataUrl, setQrDataUrl]       = useState<string>("");
+  const [copied, setCopied]             = useState<string | null>(null);
+  const [bankSubmitting, setBankSubmitting] = useState(false);
+
+  // 카드(토스) 상태 — 보류 중
+  const [widgetReady, setWidgetReady]   = useState(false);
   const widgetRef = useRef<TossPaymentsWidgets | null>(null);
+
+  const [loading, setLoading]           = useState(false);
+  const [error, setError]               = useState<string | null>(null);
 
   const product = products.find((p) => p.id === selectedId);
 
+  // ── 상품 목록 로드 ─────────────────────────────────────────────────────────
   useEffect(() => {
-    if (_isKeyInvalid) return;
     fetch(`${BASE}/api/ad-products/public`)
       .then((r) => r.json())
       .then((d: { products: AdProduct[] }) => {
@@ -67,25 +81,19 @@ export default function Checkout() {
       });
   }, []);
 
+  // ── 토스 위젯 초기화 (카드 선택 시만) ─────────────────────────────────────
   useEffect(() => {
-    if (_isKeyInvalid || !product) return;
+    if (paymentMethod !== "card" || _isKeyInvalid || !product) return;
     let cancelled = false;
 
     async function initWidget() {
-      // v2 초기화: loadTossPayments → .widgets({ customerKey })
       const tossPayments = await loadTossPayments(CLIENT_KEY);
       if (cancelled) return;
-
       const widgets = tossPayments.widgets({ customerKey: ANONYMOUS });
-
-      // v2: 렌더링 전에 반드시 setAmount 호출
       await widgets.setAmount({ currency: "KRW", value: product!.amount });
       if (cancelled) return;
-
-      // v2: 객체 인자 방식 ({ selector, variantKey })
       await widgets.renderPaymentMethods({ selector: "#payment-method", variantKey: "DEFAULT" });
       await widgets.renderAgreement({ selector: "#payment-agreement", variantKey: "AGREEMENT" });
-
       if (cancelled) return;
       widgetRef.current = widgets;
       setWidgetReady(true);
@@ -95,9 +103,91 @@ export default function Checkout() {
     widgetRef.current = null;
     initWidget().catch(console.error);
     return () => { cancelled = true; };
-  }, [product?.id]);
+  }, [product?.id, paymentMethod]);
 
-  async function handlePay() {
+  // ── QR 생성 (계좌이체 bank_info 단계) ─────────────────────────────────────
+  useEffect(() => {
+    if (step !== "bank_info" || !orderId || !product) return;
+    const text = [
+      `${BANK_NAME} ${BANK_ACCOUNT}`,
+      `예금주: ${BANK_HOLDER}`,
+      `입금자명: ${depositName}`,
+      `금액: ${product.amount.toLocaleString()}원`,
+    ].join("\n");
+    QRCode.toDataURL(text, { errorCorrectionLevel: "M", width: 220, margin: 2 })
+      .then(setQrDataUrl)
+      .catch(() => setQrDataUrl(""));
+  }, [step, orderId, depositName, product?.amount]);
+
+  function copyText(text: string, key: string) {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(key);
+      setTimeout(() => setCopied(null), 2000);
+    });
+  }
+
+  // ── 계좌이체 신청 — prepare → bank_info 단계로 전환 ──────────────────────
+  async function handleBankTransferRequest() {
+    if (!product) return;
+    if (!customerName.trim()) { setError("이름을 입력해주세요."); return; }
+    if (!customerEmail.trim()) { setError("이메일을 입력해주세요."); return; }
+    setError(null);
+    setLoading(true);
+
+    try {
+      const r = await fetch(`${BASE}/api/payment/prepare`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productId: product.id, customerName, customerEmail }),
+      });
+      if (!r.ok) {
+        const d = await r.json() as { error?: string };
+        setError(d.error ?? "신청 준비 실패");
+        return;
+      }
+      const { orderId: oid } = await r.json() as { orderId: string; amount: number; orderName: string };
+      const dName = `PLAY-${customerName.slice(0, 4)}-${oid.slice(-4)}`;
+      setOrderId(oid);
+      setDepositName(dName);
+      setStep("bank_info");
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "오류가 발생했습니다.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // ── "입금했어요" — bank_transfer_requested 상태로 DB 업데이트 → success ───
+  async function handleBankTransferSubmit() {
+    if (!orderId || !product) return;
+    setBankSubmitting(true);
+    setError(null);
+    try {
+      const r = await fetch(`${BASE}/api/payment/bank-transfer/request`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId, depositName }),
+      });
+      if (!r.ok) {
+        const d = await r.json() as { error?: string };
+        setError(d.error ?? "입금 신청 실패");
+        return;
+      }
+      const qs = new URLSearchParams({
+        orderId,
+        depositName,
+        amount: String(product.amount),
+      });
+      navigate(`/checkout/bank-success?${qs.toString()}`);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "오류가 발생했습니다.");
+    } finally {
+      setBankSubmitting(false);
+    }
+  }
+
+  // ── 카드결제 (토스) ────────────────────────────────────────────────────────
+  async function handleCardPay() {
     if (!product || !widgetRef.current) return;
     if (!customerName.trim()) { setError("이름을 입력해주세요."); return; }
     if (!customerEmail.trim()) { setError("이메일을 입력해주세요."); return; }
@@ -116,18 +206,17 @@ export default function Checkout() {
         setLoading(false);
         return;
       }
-      const { orderId, amount, orderName } = await r.json() as { orderId: string; amount: number; orderName: string };
-
+      const { orderId: oid, amount, orderName } = await r.json() as { orderId: string; amount: number; orderName: string };
       const origin = window.location.origin;
-      const base = BASE;
       await widgetRef.current.requestPayment({
-        orderId,
+        orderId: oid,
         orderName,
         customerName,
         customerEmail,
-        successUrl: `${origin}${base}/checkout/success`,
-        failUrl: `${origin}${base}/checkout/fail`,
+        successUrl: `${origin}${BASE}/checkout/success`,
+        failUrl:    `${origin}${BASE}/checkout/fail`,
       });
+      void amount;
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       if (!msg.includes("USER_CANCEL")) setError(msg);
@@ -135,20 +224,7 @@ export default function Checkout() {
     }
   }
 
-  // 런타임 가드: 모든 hook 이후 — 결제 키 없거나 프로덕션 테스트 키면 결제창 차단
-  if (_isKeyInvalid) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-gray-50 px-4">
-        <p className="text-lg font-bold text-red-700">결제 설정 오류</p>
-        <p className="text-sm text-gray-500 text-center">
-          결제 클라이언트 키가 설정되지 않았거나 테스트 키입니다.
-          <br />관리자에게 문의해주세요.
-        </p>
-        <button onClick={() => navigate("/")} className="text-xs text-blue-500 underline mt-2">홈으로</button>
-      </div>
-    );
-  }
-
+  // ── 로딩 상태 (상품 미로드) ────────────────────────────────────────────────
   if (products.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -157,6 +233,135 @@ export default function Checkout() {
     );
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // bank_info 단계 — 계좌이체 안내 화면
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (step === "bank_info" && paymentMethod === "bank_transfer") {
+    return (
+      <div className="min-h-screen bg-gray-50 py-10 px-4">
+        <div className="max-w-lg mx-auto space-y-5">
+          <div>
+            <button
+              onClick={() => setStep("form")}
+              className="text-xs text-gray-400 hover:text-gray-600 mb-2 block"
+            >
+              ← 뒤로
+            </button>
+            <h1 className="text-xl font-bold text-gray-900">계좌이체 안내</h1>
+            <p className="text-sm text-gray-500 mt-1">
+              아래 계좌로 입금 후 "입금했어요" 버튼을 눌러주세요.
+            </p>
+          </div>
+
+          {/* 주문 요약 */}
+          <Card className="border-blue-100 bg-blue-50">
+            <CardContent className="p-4 flex justify-between items-center">
+              <div>
+                <p className="text-sm font-semibold text-blue-900">{product?.name}</p>
+                {product?.adDurationDays && (
+                  <p className="text-xs text-blue-600">{product.adDurationDays}일</p>
+                )}
+              </div>
+              <p className="text-xl font-bold text-blue-800">₩{product?.amount.toLocaleString()}</p>
+            </CardContent>
+          </Card>
+
+          {/* 계좌 정보 */}
+          <Card>
+            <CardContent className="p-5 space-y-4">
+              <p className="text-sm font-semibold text-gray-800 flex items-center gap-1.5">
+                <Banknote className="w-4 h-4 text-green-600" />
+                입금 계좌 정보
+              </p>
+
+              <div className="space-y-3 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-500">은행</span>
+                  <span className="font-medium text-gray-800">{BANK_NAME}</span>
+                </div>
+
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-500">계좌번호</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-gray-800 tabular-nums">{BANK_ACCOUNT}</span>
+                    <button
+                      onClick={() => copyText(BANK_ACCOUNT, "account")}
+                      className="text-blue-500 hover:text-blue-700 flex items-center gap-0.5 text-xs"
+                    >
+                      {copied === "account"
+                        ? <><CheckCircle2 className="w-3.5 h-3.5 text-green-500" /> 복사됨</>
+                        : <><Copy className="w-3.5 h-3.5" /> 복사</>
+                      }
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex justify-between">
+                  <span className="text-gray-500">예금주</span>
+                  <span className="font-medium text-gray-800">{BANK_HOLDER}</span>
+                </div>
+
+                <div className="flex justify-between">
+                  <span className="text-gray-500">입금금액</span>
+                  <span className="font-bold text-gray-900">₩{product?.amount.toLocaleString()}</span>
+                </div>
+              </div>
+
+              {/* 입금자명 강조 */}
+              <div className="rounded-xl bg-red-50 border border-red-200 p-4 space-y-2">
+                <p className="text-xs font-bold text-red-700 uppercase tracking-wide">⚠️ 반드시 아래 입금자명으로 입금해주세요</p>
+                <div className="flex items-center justify-between">
+                  <span className="text-xl font-extrabold text-red-600 tracking-wider">{depositName}</span>
+                  <button
+                    onClick={() => copyText(depositName, "deposit")}
+                    className="text-blue-500 hover:text-blue-700 flex items-center gap-0.5 text-xs border border-blue-200 rounded px-2 py-1"
+                  >
+                    {copied === "deposit"
+                      ? <><CheckCircle2 className="w-3.5 h-3.5 text-green-500" /> 복사됨</>
+                      : <><Copy className="w-3.5 h-3.5" /> 복사</>
+                    }
+                  </button>
+                </div>
+                <p className="text-[11px] text-red-500">
+                  입금자명이 다르면 확인이 어려울 수 있습니다.
+                </p>
+              </div>
+
+              {/* QR 코드 */}
+              {qrDataUrl && (
+                <div className="flex flex-col items-center gap-2 pt-2">
+                  <img src={qrDataUrl} alt="계좌 안내 QR" className="w-44 h-44 rounded-lg border" />
+                  <p className="text-[10px] text-gray-400">QR 코드로 계좌 정보 확인</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {error && (
+            <p className="text-xs text-red-600 bg-red-50 rounded px-3 py-2">{error}</p>
+          )}
+
+          {/* 입금했어요 버튼 */}
+          <Button
+            className="w-full bg-green-600 hover:bg-green-700 text-white h-12 text-base font-semibold"
+            disabled={bankSubmitting}
+            onClick={handleBankTransferSubmit}
+          >
+            {bankSubmitting ? "처리 중..." : "✅ 입금했어요"}
+          </Button>
+
+          <p className="text-[10px] text-center text-gray-400">
+            입금 확인은 영업일 기준 최대 1일 소요됩니다.
+            <br />확인 후 카카오톡 또는 이메일로 안내드립니다.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // form 단계 — 상품 선택 + 구매자 정보 + 결제 방식 선택
+  // ═══════════════════════════════════════════════════════════════════════════
   return (
     <div className="min-h-screen bg-gray-50 py-10 px-4">
       <div className="max-w-lg mx-auto space-y-5">
@@ -175,7 +380,7 @@ export default function Checkout() {
             {products.map((p) => (
               <button
                 key={p.id}
-                onClick={() => setSelectedId(p.id)}
+                onClick={() => { setSelectedId(p.id); setStep("form"); }}
                 className={`w-full text-left rounded-xl border-2 p-4 transition-all ${
                   selectedId === p.id
                     ? "border-blue-500 bg-blue-50 shadow-sm"
@@ -234,12 +439,51 @@ export default function Checkout() {
           </CardContent>
         </Card>
 
-        {/* 토스 결제위젯 */}
-        {product && (
+        {/* 결제 방식 선택 */}
+        <Card>
+          <CardContent className="p-4 space-y-3">
+            <p className="text-sm font-semibold text-gray-700">결제 방식</p>
+            <div className="grid grid-cols-2 gap-3">
+              {/* 계좌이체 */}
+              <button
+                onClick={() => setPaymentMethod("bank_transfer")}
+                className={`flex flex-col items-center justify-center gap-1.5 rounded-xl border-2 p-4 transition-all ${
+                  paymentMethod === "bank_transfer"
+                    ? "border-green-500 bg-green-50 shadow-sm"
+                    : "border-gray-200 bg-white hover:border-gray-300"
+                }`}
+              >
+                <Banknote className={`w-6 h-6 ${paymentMethod === "bank_transfer" ? "text-green-600" : "text-gray-400"}`} />
+                <span className={`text-sm font-semibold ${paymentMethod === "bank_transfer" ? "text-green-700" : "text-gray-600"}`}>
+                  계좌이체
+                </span>
+              </button>
+
+              {/* 카드결제 — 준비중 */}
+              <button
+                disabled
+                className="flex flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-gray-100 bg-gray-50 p-4 opacity-50 cursor-not-allowed"
+              >
+                <CreditCard className="w-6 h-6 text-gray-300" />
+                <span className="text-sm font-semibold text-gray-400">카드결제</span>
+                <span className="text-[10px] text-gray-400 bg-gray-100 rounded px-1.5 py-0.5">준비중</span>
+              </button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* 카드(토스) 위젯 — 보류, 카드 선택 시만 렌더 */}
+        {paymentMethod === "card" && product && (
           <Card>
             <CardContent className="p-4">
-              <div id="payment-method" />
-              <div id="payment-agreement" className="mt-2" />
+              {_isKeyInvalid ? (
+                <p className="text-xs text-red-600 text-center py-4">카드결제 설정 오류 — 관리자에게 문의하세요.</p>
+              ) : (
+                <>
+                  <div id="payment-method" />
+                  <div id="payment-agreement" className="mt-2" />
+                </>
+              )}
             </CardContent>
           </Card>
         )}
@@ -248,18 +492,31 @@ export default function Checkout() {
           <p className="text-xs text-red-600 bg-red-50 rounded px-3 py-2">{error}</p>
         )}
 
-        {/* 결제하기 버튼 */}
-        <Button
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white h-12 text-base font-semibold"
-          disabled={!product || !widgetReady || loading}
-          onClick={handlePay}
-        >
-          {loading ? "결제 진행 중..." : product ? `₩${product.amount.toLocaleString()} 결제하기` : "상품을 선택해주세요"}
-        </Button>
+        {/* 신청하기 버튼 */}
+        {paymentMethod === "bank_transfer" ? (
+          <Button
+            className="w-full bg-green-600 hover:bg-green-700 text-white h-12 text-base font-semibold"
+            disabled={!product || loading}
+            onClick={handleBankTransferRequest}
+          >
+            {loading
+              ? "준비 중..."
+              : product
+                ? `₩${product.amount.toLocaleString()} 계좌이체 신청하기`
+                : "상품을 선택해주세요"}
+          </Button>
+        ) : (
+          <Button
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white h-12 text-base font-semibold"
+            disabled={!product || !widgetReady || loading}
+            onClick={handleCardPay}
+          >
+            {loading ? "결제 진행 중..." : product ? `₩${product.amount.toLocaleString()} 결제하기` : "상품을 선택해주세요"}
+          </Button>
+        )}
 
         <p className="text-[10px] text-center text-gray-400">
           결제 금액은 서버에서 최종 검증됩니다.
-          <br />테스트 결제 시 실제 금액이 청구되지 않습니다.
         </p>
       </div>
     </div>

@@ -289,4 +289,139 @@ router.get("/payment/orders", async (req, res) => {
   return res.json({ orders: [...rows].reverse() });
 });
 
+// ─── 계좌이체 라우트 ─────────────────────────────────────────────────────────
+//
+// 상태 흐름:
+//   pending → bank_transfer_requested (사용자 "입금했어요")
+//   bank_transfer_requested → paid      (관리자 "입금확인 완료")
+//   bank_transfer_requested → bank_transfer_rejected (관리자 "거절")
+
+// POST /api/payment/bank-transfer/request — 공개 (인증 불필요)
+// 사용자가 "입금했어요" 클릭 시 호출 → pending → bank_transfer_requested
+router.post("/payment/bank-transfer/request", async (req, res) => {
+  const { orderId, depositName } = req.body as { orderId?: string; depositName?: string };
+  if (!orderId) return res.status(400).json({ error: "orderId는 필수입니다." });
+
+  // CAS: pending → bank_transfer_requested
+  const claimed = await db
+    .update(adPaymentsTable)
+    .set({
+      status: "bank_transfer_requested",
+      method: "계좌이체",
+      ...(depositName ? { depositName } : {}),
+    })
+    .where(and(
+      eq(adPaymentsTable.orderId, orderId),
+      eq(adPaymentsTable.status, "pending"),
+    ))
+    .returning();
+
+  if (claimed.length === 0) {
+    const [existing] = await db
+      .select({ status: adPaymentsTable.status })
+      .from(adPaymentsTable)
+      .where(eq(adPaymentsTable.orderId, orderId));
+    if (!existing) return res.status(404).json({ error: "주문을 찾을 수 없습니다." });
+    if (existing.status === "bank_transfer_requested") {
+      return res.json({ success: true, orderId, message: "이미 입금 신청된 주문입니다." });
+    }
+    return res.status(409).json({ error: "처리할 수 없는 주문 상태입니다." });
+  }
+
+  return res.json({ success: true, orderId });
+});
+
+// POST /api/payment/bank-transfer/:orderId/confirm — 관리자 전용
+// 관리자가 입금 확인 → bank_transfer_requested → paid + 광고 신청 자동 생성
+router.post("/payment/bank-transfer/:orderId/confirm", async (req, res) => {
+  if (!req.session?.isAdmin) return res.status(401).json({ error: "로그인이 필요합니다." });
+
+  const { orderId } = req.params as { orderId: string };
+
+  // CAS: bank_transfer_requested → confirming
+  const claimed = await db
+    .update(adPaymentsTable)
+    .set({ status: "confirming" })
+    .where(and(
+      eq(adPaymentsTable.orderId, orderId),
+      eq(adPaymentsTable.status, "bank_transfer_requested"),
+    ))
+    .returning();
+
+  if (claimed.length === 0) {
+    const [existing] = await db
+      .select({ status: adPaymentsTable.status })
+      .from(adPaymentsTable)
+      .where(eq(adPaymentsTable.orderId, orderId));
+    if (!existing) return res.status(404).json({ error: "주문을 찾을 수 없습니다." });
+    if (existing.status === "paid") return res.status(409).json({ error: "이미 완료된 결제입니다." });
+    return res.status(409).json({ error: "처리할 수 없는 주문 상태입니다." });
+  }
+
+  const record = claimed[0]!;
+  const paidAt = new Date();
+
+  // 광고 신청 자동 생성 (기존 토스 confirm 로직 재사용)
+  let newAdId: string | null = null;
+  if (!record.adId) {
+    newAdId = crypto.randomUUID().replace(/-/g, "").slice(0, 24);
+    try {
+      await db.insert(adsTable).values({
+        id: newAdId,
+        businessName: record.customerName || "미입력",
+        contactName:  record.customerName || "미입력",
+        phone:        "",
+        email:        record.customerEmail || "",
+        category:     "기타",
+        title:        record.productNameSnapshot ?? record.plan ?? "광고 신청",
+        description:  "",
+        date:         "",
+        location:     "",
+        url:          "",
+        plan:         record.productTypeSnapshot ?? "ad_run",
+        status:       "pending",
+        isFreeAd:     false,
+      });
+    } catch {
+      newAdId = null;
+    }
+  }
+
+  await db.update(adPaymentsTable).set({
+    status: "paid",
+    paidAt,
+    ...(newAdId ? { adId: newAdId } : {}),
+  }).where(eq(adPaymentsTable.orderId, orderId));
+
+  return res.json({ success: true, orderId, adId: newAdId });
+});
+
+// POST /api/payment/bank-transfer/:orderId/reject — 관리자 전용
+// 관리자가 입금 거절/보류 → bank_transfer_requested → bank_transfer_rejected
+router.post("/payment/bank-transfer/:orderId/reject", async (req, res) => {
+  if (!req.session?.isAdmin) return res.status(401).json({ error: "로그인이 필요합니다." });
+
+  const { orderId } = req.params as { orderId: string };
+
+  const claimed = await db
+    .update(adPaymentsTable)
+    .set({ status: "bank_transfer_rejected" })
+    .where(and(
+      eq(adPaymentsTable.orderId, orderId),
+      inArray(adPaymentsTable.status, ["bank_transfer_requested", "pending"]),
+    ))
+    .returning();
+
+  if (claimed.length === 0) {
+    const [existing] = await db
+      .select({ status: adPaymentsTable.status })
+      .from(adPaymentsTable)
+      .where(eq(adPaymentsTable.orderId, orderId));
+    if (!existing) return res.status(404).json({ error: "주문을 찾을 수 없습니다." });
+    return res.status(409).json({ error: "처리할 수 없는 주문 상태입니다." });
+  }
+
+  return res.json({ success: true, orderId });
+});
+
 export default router;

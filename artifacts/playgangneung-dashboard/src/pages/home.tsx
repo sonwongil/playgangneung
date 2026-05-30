@@ -477,6 +477,7 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showAll, setShowAll] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [showJointAdModal, setShowJointAdModal] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<Event & { prompt: () => Promise<void> } | null>(null);
   const [installGuide, setInstallGuide] = useState(false);
   // standalone(PWA) 모드 감지 — 이미 설치된 경우 설치 버튼 숨김
@@ -827,18 +828,17 @@ export default function Home() {
             ))}
           </div>
           {/* 우측 고정 공동광고 버튼 */}
-          <Link
-            href="/ad-submit"
+          <button
+            onClick={() => setShowJointAdModal(true)}
             className="hidden sm:flex shrink-0 items-center gap-2 px-3 py-1.5 bg-orange-500 hover:bg-orange-600 transition-colors border-l border-orange-400"
           >
             <Megaphone className="w-3.5 h-3.5 text-white shrink-0" />
-            {/* 모바일: 텍스트 숨김, sm 이상: 표시 */}
             <div className="hidden sm:block leading-none">
               <p className="text-[11px] font-extrabold text-white whitespace-nowrap">공동광고 지원센터</p>
               <p className="text-[9px] text-orange-100 mt-0.5 whitespace-nowrap">하루 15,000원으로 강릉에 노출!</p>
             </div>
             <ChevronRight className="w-3 h-3 text-white/80 shrink-0" />
-          </Link>
+          </button>
         </div>
       </div>
 
@@ -990,9 +990,9 @@ export default function Home() {
 
             {/* 📢 공동광고 지원센터 배너 (다크 네이비) */}
             {!isFiltered && (
-              <Link
-                href="/ad-submit"
-                className="block mb-5 rounded-2xl overflow-hidden bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950 px-4 py-3 hover:shadow-xl transition-shadow"
+              <button
+                onClick={() => setShowJointAdModal(true)}
+                className="w-full text-left block mb-5 rounded-2xl overflow-hidden bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950 px-4 py-3 hover:shadow-xl transition-shadow"
               >
                 <div className="flex items-center gap-3">
                   <div className="flex-1 min-w-0">
@@ -1005,11 +1005,11 @@ export default function Home() {
                       })()}
                     </p>
                   </div>
-                  <span className="shrink-0 bg-orange-500 hover:bg-orange-600 transition-colors text-white font-bold text-[11px] rounded-xl px-3 py-2 shadow-lg text-center leading-tight whitespace-nowrap">
+                  <span className="shrink-0 bg-orange-500 text-white font-bold text-[11px] rounded-xl px-3 py-2 shadow-lg text-center leading-tight whitespace-nowrap">
                     지금 바로<br />시작하기 →
                   </span>
                 </div>
-              </Link>
+              </button>
             )}
 
             {/* 📖 최신 스토리 (전체 탭) */}
@@ -1117,9 +1117,9 @@ export default function Home() {
                       <FeedCard item={item} onTagClick={(tag) => handleTagClick(tag)} />
                       {/* 피드 중간 공동광고 배너 (8개마다) */}
                       {(idx + 1) % 8 === 0 && idx < display.length - 1 && !isFiltered && (
-                        <Link
-                          href="/ad-submit"
-                          className="col-span-2 sm:col-span-3 lg:col-span-4 mt-3 mb-1 block rounded-xl bg-gradient-to-r from-orange-500 to-amber-400 px-4 py-3 text-white hover:shadow-md transition-shadow"
+                        <button
+                          onClick={() => setShowJointAdModal(true)}
+                          className="w-full text-left col-span-2 sm:col-span-3 lg:col-span-4 mt-3 mb-1 block rounded-xl bg-gradient-to-r from-orange-500 to-amber-400 px-4 py-3 text-white hover:shadow-md transition-shadow"
                         >
                           <div className="flex items-center justify-between">
                             <div>
@@ -1128,7 +1128,7 @@ export default function Home() {
                             </div>
                             <span className="text-xs font-semibold bg-white/20 rounded-lg px-3 py-1.5">참여하기 →</span>
                           </div>
-                        </Link>
+                        </button>
                       )}
                     </div>
                   ))}
@@ -1215,6 +1215,67 @@ export default function Home() {
           </div>
         </div>
       )}
+
+      {/* ─── 공동광고 안내 모달 ─────────────────────────────────────────── */}
+      <Dialog open={showJointAdModal} onOpenChange={setShowJointAdModal}>
+        <DialogContent className="max-w-md w-full rounded-2xl p-0 overflow-hidden">
+          {/* 헤더 */}
+          <div className="bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950 px-6 py-5">
+            <div className="flex items-center gap-2 mb-1">
+              <Megaphone className="w-5 h-5 text-orange-400 shrink-0" />
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">지역 소상공인을 위한</p>
+            </div>
+            <h2 className="text-xl font-extrabold text-white leading-tight">공동광고 지원센터 안내</h2>
+          </div>
+
+          {/* 본문 */}
+          <div className="px-6 py-5 space-y-4 max-h-[55vh] overflow-y-auto text-sm text-gray-700 leading-relaxed">
+            <p>
+              혼자 광고를 진행하면 적은 예산으로는 충분한 노출과 광고 최적화가 어려울 수 있습니다.
+              예를 들어 3만원의 광고비로 단독 광고를 진행하면 짧은 기간 동안 제한된 사용자에게만 노출될 수 있지만,
+              여러 업체가 함께 참여하는 <strong className="text-gray-900">공동광고</strong>는 더 큰 규모의 광고 캠페인으로
+              운영되어 보다 안정적이고 지속적인 노출 기회를 만들 수 있습니다.
+            </p>
+
+            <div className="rounded-xl bg-orange-50 border border-orange-100 px-4 py-3 space-y-2">
+              <p className="font-bold text-orange-800 text-sm">PLAY강릉 공동광고란?</p>
+              <p className="text-orange-700 text-xs leading-relaxed">
+                여러 참여 업체의 광고를 함께 운영하여 강릉 지역의 잠재 고객에게 효율적으로 홍보할 수 있도록 지원합니다.
+                광고 운영 경험이 없어도 신청만 하면 광고 제작과 집행을 지원받을 수 있습니다.
+              </p>
+            </div>
+
+            <p>
+              카페, 음식점, 숙박업, 체험시설, 공연, 행사 등 <strong className="text-gray-900">강릉을 알리고 싶은 누구나</strong> 참여할 수 있습니다.
+            </p>
+
+            <p>
+              광고는 참여 업체별로 공정하게 운영되며, 광고 성과 향상을 위해 지속적으로 관리됩니다.
+            </p>
+
+            <p className="text-xs text-gray-500 border-t pt-3">
+              아래 내용을 확인하신 후 광고 신청을 진행해 주세요.
+            </p>
+          </div>
+
+          {/* 액션 버튼 */}
+          <div className="px-6 pb-6 pt-2 flex gap-3">
+            <button
+              onClick={() => setShowJointAdModal(false)}
+              className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-600 text-sm font-semibold hover:bg-gray-50 transition-colors"
+            >
+              취소
+            </button>
+            <Link
+              href="/ad-submit"
+              onClick={() => setShowJointAdModal(false)}
+              className="flex-1 py-3 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-sm font-bold text-center transition-colors shadow-md"
+            >
+              광고 신청하기 →
+            </Link>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

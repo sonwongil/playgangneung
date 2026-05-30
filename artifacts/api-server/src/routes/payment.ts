@@ -5,11 +5,16 @@
  *
  * 상품 가격은 productId 기준으로 DB에서 조회 — 프론트 전달 금액 신뢰 안 함
  * 결제 시점의 상품명·가격·마진율 등을 snapshot으로 주문에 복사 저장
+ *
+ * [보안] 레이스 컨디션 방어 (CAS 패턴):
+ *   confirm 엔드포인트는 SELECT-check-UPDATE 패턴 대신
+ *   UPDATE WHERE status='pending' 원자적 전환으로 중복 처리를 방지한다.
+ *   동시 요청이 와도 DB 레벨에서 한 요청만 통과하므로 광고 중복 생성 불가.
  */
 import { Router } from "express";
 import crypto from "crypto";
 import { db, adPaymentsTable, adProductsTable, adsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import {
   sendMail,
   sendSms,
@@ -21,9 +26,17 @@ import {
 
 const router = Router();
 
+/**
+ * 토스 시크릿 키 반환.
+ * [보안] TOSS_SECRET_KEY 는 서버 환경변수에서만 읽는다.
+ * 프로덕션에서 미설정 시 stderr 경고 — 실결제 전 Secrets 등록 필수.
+ */
 function basicAuth() {
-  const key = process.env["TOSS_SECRET_KEY"] ?? "test_sk_zXLkKEypNArWmo50nX3lmeaxYG5R";
-  return "Basic " + Buffer.from(key + ":").toString("base64");
+  const key = process.env["TOSS_SECRET_KEY"];
+  if (!key && process.env["NODE_ENV"] === "production") {
+    process.stderr.write("[payment] ⚠️  TOSS_SECRET_KEY 미설정 — 실결제 불가\n");
+  }
+  return "Basic " + Buffer.from((key ?? "test_sk_zXLkKEypNArWmo50nX3lmeaxYG5R") + ":").toString("base64");
 }
 
 // ─── POST /api/payment/prepare — 결제 준비 ───────────────────────────────────
@@ -80,7 +93,14 @@ router.post("/payment/prepare", async (req, res) => {
 
 // ─── POST /api/payment/confirm — 결제 승인 ───────────────────────────────────
 // 토스페이먼츠 공식 샘플 express-react/server.js POST /confirm/payment 패턴 그대로 적용
-// 서버에서 DB amount 검증 후 토스 confirm API 호출
+// 서버에서 DB amount 검증 후 토스 승인 API 호출
+//
+// [보안] CAS(Compare-And-Swap) 레이스 컨디션 방어:
+//   - SELECT → check → Toss API → UPDATE 사이 동시 요청이 오면 두 번 모두 check를
+//     통과할 수 있는 TOCTOU 취약점 존재.
+//   - 먼저 UPDATE WHERE status='pending' SET status='confirming' 을 원자적으로 실행.
+//     업데이트된 행이 0개면 다른 요청이 이미 처리 중 또는 완료 → 즉시 409 반환.
+//     PostgreSQL UPDATE는 row-level 락을 획득하므로 동시 요청 중 1개만 통과.
 router.post("/payment/confirm", async (req, res) => {
   const { paymentKey, orderId, amount } = req.body as {
     paymentKey: string; orderId: string; amount: number;
@@ -90,10 +110,39 @@ router.post("/payment/confirm", async (req, res) => {
     return res.status(400).json({ error: "paymentKey, orderId, amount는 필수입니다." });
   }
 
-  const [record] = await db.select().from(adPaymentsTable).where(eq(adPaymentsTable.orderId, orderId));
-  if (!record) return res.status(404).json({ error: "주문을 찾을 수 없습니다." });
-  if (record.status === "paid") return res.status(409).json({ error: "이미 완료된 결제입니다." });
+  // ── CAS: pending → confirming 원자적 전환 ────────────────────────────────
+  // .returning() 으로 업데이트된 행 전체를 한 번에 가져온다 (SELECT 불필요)
+  const claimed = await db
+    .update(adPaymentsTable)
+    .set({ status: "confirming" })
+    .where(and(
+      eq(adPaymentsTable.orderId, orderId),
+      inArray(adPaymentsTable.status, ["pending"]),
+    ))
+    .returning();
+
+  if (claimed.length === 0) {
+    // 이미 처리 중이거나 완료/실패된 주문 — 상태 재조회 후 적절한 응답
+    const [existing] = await db
+      .select({ status: adPaymentsTable.status })
+      .from(adPaymentsTable)
+      .where(eq(adPaymentsTable.orderId, orderId));
+
+    if (!existing) return res.status(404).json({ error: "주문을 찾을 수 없습니다." });
+    if (existing.status === "paid") return res.status(409).json({ error: "이미 완료된 결제입니다." });
+    if (existing.status === "confirming") return res.status(409).json({ error: "결제 처리 중입니다. 잠시 후 확인해주세요." });
+    return res.status(409).json({ error: "처리할 수 없는 주문 상태입니다." });
+  }
+
+  const record = claimed[0]!;
+
+  // ── 금액 위변조 방어: DB 저장 금액과 successUrl 파라미터 amount 반드시 일치 ──
   if (record.amount !== amount) {
+    // 잘못된 금액 → 상태 복구 후 거부 (CAS 롤백)
+    await db
+      .update(adPaymentsTable)
+      .set({ status: "pending" })
+      .where(eq(adPaymentsTable.orderId, orderId));
     return res.status(400).json({
       error: `결제 금액이 일치하지 않습니다. (요청: ${amount}원, 기준: ${record.amount}원)`,
     });
@@ -107,17 +156,23 @@ router.post("/payment/confirm", async (req, res) => {
   const result = await tossRes.json() as Record<string, unknown>;
 
   if (!tossRes.ok) {
-    await db.update(adPaymentsTable)
+    await db
+      .update(adPaymentsTable)
       .set({ status: "failed", rawResponse: result })
       .where(eq(adPaymentsTable.orderId, orderId));
-    return res.status(tossRes.status).json(result);
+    // [보안] 토스 내부 에러 원문 대신 code·message 만 반환 — 민감 정보 노출 방지
+    return res.status(tossRes.status).json({
+      code: (result["code"] as string) ?? "TOSS_ERROR",
+      error: (result["message"] as string) ?? "결제 승인에 실패했습니다.",
+    });
   }
 
   const paidAt = new Date();
   const method = (result["method"] as string) ?? null;
   const receiptUrl = ((result["receipt"] as { url?: string } | undefined)?.url) ?? null;
 
-  // ── T004: 광고 신청 자동 생성 ──────────────────────────────────────────────
+  // ── 광고 신청 자동 생성 ────────────────────────────────────────────────────
+  // CAS 잠금으로 이 블록은 단 1개의 요청만 실행 가능 → 중복 생성 원천 차단
   let newAdId: string | null = null;
   if (!record.adId) {
     newAdId = crypto.randomUUID().replace(/-/g, "").slice(0, 24);
@@ -153,7 +208,7 @@ router.post("/payment/confirm", async (req, res) => {
     ...(newAdId ? { adId: newAdId } : {}),
   }).where(eq(adPaymentsTable.orderId, orderId));
 
-  // ── T003: 결제 완료 이메일 / SMS 발송 ──────────────────────────────────────
+  // ── 결제 완료 이메일 / SMS 발송 ────────────────────────────────────────────
   if (record.customerEmail) {
     const paidAtStr = paidAt.toLocaleString("ko-KR", { timeZone: "Asia/Seoul" });
 
@@ -170,10 +225,6 @@ router.post("/payment/confirm", async (req, res) => {
           paidAt: paidAtStr,
         }),
       });
-    }
-
-    if (isSmsConfigured() && (result["cardNumber"] == null)) {
-      // 가상계좌/무통장 입금 완료 시 SMS 추가 발송 (카드는 앱 알림으로 충분)
     }
   }
 

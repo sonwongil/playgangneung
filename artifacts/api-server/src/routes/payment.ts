@@ -151,7 +151,7 @@ router.post("/payment/confirm", async (req, res) => {
     });
   }
 
-  const tossRes = await fetch("https://api.tosspayments.com/v1/payments/confirm", {
+  const tossRes = await fetch("https://api.tosspayments.com/v2/payments/confirm", {
     method: "POST",
     headers: { Authorization: basicAuth(), "Content-Type": "application/json" },
     body: JSON.stringify({ orderId, amount, paymentKey }),
@@ -259,7 +259,7 @@ router.post("/payment/:orderId/refund", async (req, res) => {
   if (record.status !== "paid") return res.status(400).json({ error: "결제 완료 상태에서만 환불 가능합니다." });
   if (!record.paymentKey) return res.status(400).json({ error: "결제키가 없습니다. 테스트 결제는 콘솔에서 직접 취소하세요." });
 
-  const tossRes = await fetch(`https://api.tosspayments.com/v1/payments/${record.paymentKey}/cancel`, {
+  const tossRes = await fetch(`https://api.tosspayments.com/v2/payments/${record.paymentKey}/cancel`, {
     method: "POST",
     headers: { Authorization: basicAuth(), "Content-Type": "application/json" },
     body: JSON.stringify({ cancelReason, cancelAmount: record.amount }),

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
-import { loadPaymentWidget, ANONYMOUS, type PaymentWidgetInstance } from "@tosspayments/payment-widget-sdk";
+import { loadTossPayments, ANONYMOUS, type TossPaymentsWidgets } from "@tosspayments/tosspayments-sdk";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -52,9 +52,8 @@ export default function Checkout() {
   const [error, setError] = useState<string | null>(null);
   const [widgetReady, setWidgetReady] = useState(false);
 
-  const widgetRef = useRef<PaymentWidgetInstance | null>(null);
-  const paymentMethodRef = useRef<ReturnType<PaymentWidgetInstance["renderPaymentMethods"]> | null>(null);
-  const agreementRef = useRef<ReturnType<PaymentWidgetInstance["renderAgreement"]> | null>(null);
+  // v2: widgets 인스턴스를 저장 (requestPayment 호출에 사용)
+  const widgetRef = useRef<TossPaymentsWidgets | null>(null);
 
   const product = products.find((p) => p.id === selectedId);
 
@@ -73,23 +72,27 @@ export default function Checkout() {
     let cancelled = false;
 
     async function initWidget() {
-      const widget = await loadPaymentWidget(CLIENT_KEY, ANONYMOUS);
+      // v2 초기화: loadTossPayments → .widgets({ customerKey })
+      const tossPayments = await loadTossPayments(CLIENT_KEY);
       if (cancelled) return;
-      widgetRef.current = widget;
 
-      paymentMethodRef.current = widget.renderPaymentMethods(
-        "#payment-method",
-        { value: product!.amount },
-        { variantKey: "DEFAULT" },
-      );
-      agreementRef.current = widget.renderAgreement(
-        "#payment-agreement",
-        { variantKey: "AGREEMENT" },
-      );
+      const widgets = tossPayments.widgets({ customerKey: ANONYMOUS });
+
+      // v2: 렌더링 전에 반드시 setAmount 호출
+      await widgets.setAmount({ currency: "KRW", value: product!.amount });
+      if (cancelled) return;
+
+      // v2: 객체 인자 방식 ({ selector, variantKey })
+      await widgets.renderPaymentMethods({ selector: "#payment-method", variantKey: "DEFAULT" });
+      await widgets.renderAgreement({ selector: "#payment-agreement", variantKey: "AGREEMENT" });
+
+      if (cancelled) return;
+      widgetRef.current = widgets;
       setWidgetReady(true);
     }
 
     setWidgetReady(false);
+    widgetRef.current = null;
     initWidget().catch(console.error);
     return () => { cancelled = true; };
   }, [product?.id]);

@@ -43,7 +43,8 @@ const upload = multer({
 const router = Router();
 
 router.use((req, res, next) => {
-  if (["POST", "PATCH", "DELETE", "PUT"].includes(req.method)) {
+  // path 조건 추가: /events 경로에만 적용 (다른 라우터 요청이 통과하도록)
+  if (["POST", "PATCH", "DELETE", "PUT"].includes(req.method) && req.path.startsWith("/events")) {
     return requireAdmin(req, res, next);
   }
   next();

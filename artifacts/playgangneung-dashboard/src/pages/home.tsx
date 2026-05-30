@@ -1283,6 +1283,15 @@ export default function Home() {
         </div>
       )}
 
+      {/* ─── 모바일 소식 제보 FAB ─────────────────────────────────────────── */}
+      <button
+        onClick={() => { setTipDone(false); setTipError(""); setTipForm({ title: "", description: "", category: "지역소식", startDate: "", endDate: "", location: "", link: "", contact: "" }); setShowTipModal(true); }}
+        className="sm:hidden fixed bottom-20 right-4 z-40 flex items-center gap-1.5 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white rounded-full shadow-lg transition-colors"
+      >
+        <FileText className="w-4 h-4 shrink-0" />
+        <span className="text-xs font-extrabold">소식 제보</span>
+      </button>
+
       {/* ─── 강릉 소식 제보 모달 ─────────────────────────────────────────── */}
       <Dialog open={showTipModal} onOpenChange={(open) => { if (!tipLoading) setShowTipModal(open); }}>
         <DialogContent className="max-w-md w-full rounded-2xl p-0 overflow-hidden">

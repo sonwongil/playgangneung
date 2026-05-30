@@ -97,7 +97,7 @@ interface Event {
   category?: string;
   thumbnail?: string | null;
   videoUrl?: string | null;
-  status: "draft" | "approved" | "rejected" | "published";
+  status: "draft" | "approved" | "rejected" | "published" | "submitted";
   socialDraft: SocialDraft | null;
   crawledAt: string;
 }
@@ -1534,17 +1534,39 @@ export default function Admin() {
                   />
                 </div>
                 <div className="flex items-center gap-1 flex-wrap">
-                  {(["all", "submitted", "pending", "draft", "approved", "published", "rejected"] as const).map((s) => (
-                    <button
-                      key={s}
-                      onClick={() => setEventsStatusFilter(s)}
-                      className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${eventsStatusFilter === s ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}
-                    >
-                      {s === "all" ? `전체(${allEvents.length})` : `${STATUS_CONFIG[s]?.label ?? s}(${allEvents.filter(e => e.status === s).length})`}
-                    </button>
-                  ))}
+                  {(["all", "submitted", "pending", "draft", "approved", "published", "rejected"] as const).map((s) => {
+                    const submittedCount = s === "submitted" ? allEvents.filter(e => e.status === "submitted").length : 0;
+                    const hasNewTips = s === "submitted" && submittedCount > 0;
+                    return (
+                      <button
+                        key={s}
+                        onClick={() => setEventsStatusFilter(s)}
+                        className={`relative px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                          eventsStatusFilter === s ? "bg-blue-600 text-white" :
+                          hasNewTips ? "bg-purple-100 text-purple-700 border border-purple-300 hover:bg-purple-200" :
+                          "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                        }`}
+                      >
+                        {s === "all" ? `전체(${allEvents.length})` : `${STATUS_CONFIG[s]?.label ?? s}(${allEvents.filter(e => e.status === s).length})`}
+                        {hasNewTips && eventsStatusFilter !== s && (
+                          <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full" />
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
+              {/* 미처리 제보 알림 배너 */}
+              {allEvents.filter(e => e.status === "submitted").length > 0 && eventsStatusFilter !== "submitted" && (
+                <div
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-purple-50 border border-purple-200 cursor-pointer hover:bg-purple-100 transition-colors"
+                  onClick={() => setEventsStatusFilter("submitted")}
+                >
+                  <Inbox className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                  <span className="text-xs font-semibold text-purple-700">미처리 제보 {allEvents.filter(e => e.status === "submitted").length}건 — 클릭하여 확인</span>
+                </div>
+              )}
+
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <input

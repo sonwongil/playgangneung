@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { requireAdmin } from "../middlewares/requireAdmin.js";
+import { sendMail, isMailConfigured } from "../lib/mailer.js";
 import multer from "multer";
 import fs from "fs/promises";
 import path from "path";
@@ -643,6 +644,41 @@ router.post("/submit", async (req, res) => {
 
     const { added, updated } = await appendEvents([event]);
     req.log.info({ eventId, title: event.title }, "소식 제보 접수");
+
+    // 관리자 이메일 알림 (fire & forget — 실패해도 제보 접수 성공)
+    const adminEmail = process.env["ADMIN_EMAIL"] ?? process.env["SMTP_FROM"] ?? process.env["SMTP_USER"];
+    if (adminEmail && isMailConfigured()) {
+      sendMail({
+        to: adminEmail,
+        subject: `[PLAY강릉] 새 소식 제보: ${event.title}`,
+        html: `<div style="font-family:'Apple SD Gothic Neo',sans-serif;padding:24px;background:#f9fafb">
+  <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08)">
+    <div style="background:#0d9488;padding:20px 28px">
+      <div style="color:#fff;font-size:18px;font-weight:700">PLAY강릉</div>
+      <div style="color:#99f6e4;font-size:12px;margin-top:2px">새 소식 제보 접수</div>
+    </div>
+    <div style="padding:24px 28px">
+      <p style="margin:0 0 16px;color:#374151;font-size:14px">새로운 소식 제보가 접수됐습니다. 관리자 대시보드에서 확인 후 검토해 주세요.</p>
+      <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden">
+        <tr style="background:#f9fafb"><td style="padding:10px 14px;color:#6b7280;font-size:12px;width:80px">제목</td><td style="padding:10px 14px;font-size:13px;font-weight:600;color:#111827">${event.title}</td></tr>
+        <tr style="border-top:1px solid #e5e7eb"><td style="padding:10px 14px;color:#6b7280;font-size:12px">카테고리</td><td style="padding:10px 14px;font-size:13px;color:#374151">${event.category}</td></tr>
+        <tr style="border-top:1px solid #e5e7eb"><td style="padding:10px 14px;color:#6b7280;font-size:12px">장소</td><td style="padding:10px 14px;font-size:13px;color:#374151">${event.location || "-"}</td></tr>
+        <tr style="border-top:1px solid #e5e7eb"><td style="padding:10px 14px;color:#6b7280;font-size:12px">제보자</td><td style="padding:10px 14px;font-size:13px;color:#374151">${event.contact || "-"}</td></tr>
+        ${event.description ? `<tr style="border-top:1px solid #e5e7eb"><td style="padding:10px 14px;color:#6b7280;font-size:12px">내용</td><td style="padding:10px 14px;font-size:13px;color:#374151">${event.description}</td></tr>` : ""}
+      </table>
+      <div style="margin-top:20px;text-align:center">
+        <a href="${siteUrl}/admin" style="display:inline-block;padding:12px 28px;background:#1e40af;color:#fff;border-radius:8px;font-size:13px;font-weight:600;text-decoration:none">관리자 대시보드에서 확인하기</a>
+      </div>
+    </div>
+    <div style="padding:14px 28px;border-top:1px solid #f3f4f6;background:#f9fafb">
+      <p style="margin:0;color:#9ca3af;font-size:11px">본 메일은 PLAY강릉 소식 제보 자동 알림입니다.</p>
+    </div>
+  </div>
+</div>`,
+        text: `새 소식 제보\n제목: ${event.title}\n카테고리: ${event.category}\n장소: ${event.location || "-"}\n제보자: ${event.contact || "-"}\n\n관리자 대시보드: ${siteUrl}/admin`,
+      }).catch(() => {});
+    }
+
     return res.json({ success: true, added, updated, id: eventId });
   } catch (err) {
     req.log.error({ err }, "소식 제보 실패");

@@ -510,6 +510,69 @@ router.post("/ads/:id/report-token", async (req, res) => {
   }
 });
 
+// ─── 풀별 성과 행 목록 (수동·샘플·Meta 개별 행 전체) ────────────────────────────
+router.get("/ad-pools/:id/performance/rows", async (req, res) => {
+  if (!req.session?.isAdmin) return res.status(401).json({ error: "로그인이 필요합니다" });
+  try {
+    const { id } = req.params;
+    const [pool] = await db.select().from(adPoolsTable).where(eq(adPoolsTable.id, id));
+    if (!pool) return res.status(404).json({ error: "묶음을 찾을 수 없습니다" });
+
+    const rows = await db
+      .select()
+      .from(adPerformancesTable)
+      .where(eq(adPerformancesTable.poolId, id))
+      .orderBy(desc(adPerformancesTable.date), desc(adPerformancesTable.createdAt));
+
+    const adIdSet = [...new Set(rows.map((r) => r.adId))];
+    const adMap: Record<string, { title: string; businessName: string }> = {};
+    if (adIdSet.length > 0) {
+      const adRows = await db
+        .select({ id: adsTable.id, title: adsTable.title, businessName: adsTable.businessName })
+        .from(adsTable)
+        .where(inArray(adsTable.id, adIdSet));
+      for (const a of adRows) adMap[a.id] = { title: a.title, businessName: a.businessName };
+    }
+
+    const result = rows.map((r) => ({
+      id: r.id,
+      adId: r.adId,
+      adTitle: adMap[r.adId]?.title ?? r.adId.slice(-8),
+      businessName: adMap[r.adId]?.businessName ?? "",
+      date: r.date,
+      impressions: r.impressions,
+      clicks: r.clicks,
+      spend: r.spend,
+      reach: r.reach,
+      source: r.source,
+      createdAt: r.createdAt,
+    }));
+
+    return res.json({ rows: result, total: result.length });
+  } catch (err) {
+    req.log.error({ err }, "성과 행 목록 조회 실패");
+    return res.status(500).json({ error: "조회 실패" });
+  }
+});
+
+// ─── 개별 성과 행 삭제 ───────────────────────────────────────────────────────────
+router.delete("/performance/:perfId", async (req, res) => {
+  if (!req.session?.isAdmin) return res.status(401).json({ error: "로그인이 필요합니다" });
+  try {
+    const { perfId } = req.params;
+    const deleted = await db
+      .delete(adPerformancesTable)
+      .where(eq(adPerformancesTable.id, perfId))
+      .returning({ id: adPerformancesTable.id });
+    if (deleted.length === 0) return res.status(404).json({ error: "해당 행을 찾을 수 없습니다" });
+    req.log.info({ perfId }, "성과 행 삭제");
+    return res.json({ success: true });
+  } catch (err) {
+    req.log.error({ err }, "성과 행 삭제 실패");
+    return res.status(500).json({ error: "삭제 실패" });
+  }
+});
+
 // ─── 토큰 기반 광고주 공개 성과 리포트 ──────────────────────────────────────────
 router.get("/public/report/:token", async (req, res) => {
   try {

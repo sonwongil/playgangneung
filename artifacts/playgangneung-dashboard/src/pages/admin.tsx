@@ -183,6 +183,25 @@ interface PoolPerformance {
   until: string;
 }
 
+interface PerfRow {
+  id: string;
+  adId: string;
+  adTitle: string;
+  businessName: string;
+  date: string;
+  impressions: number;
+  clicks: number;
+  spend: number;
+  reach: number;
+  source: string;
+  createdAt: string;
+}
+
+interface PerfRowsData {
+  rows: PerfRow[];
+  total: number;
+}
+
 interface BillingSummaryItem {
   id: string;
   name: string;
@@ -668,6 +687,16 @@ export default function Admin() {
     queryFn: async () => {
       const r = await fetch(`${BASE}/api/ad-pools/${perfPoolId}/performance?since=${perfSince}&until=${perfUntil}`, { credentials: "include" });
       if (!r.ok) throw new Error("성과 로드 실패");
+      return r.json();
+    },
+    enabled: !!(activeNav === "adCenter" && adCenterTab === "performance" && perfPoolId),
+  });
+
+  const { data: perfRowsData, refetch: refetchPerfRows } = useQuery<PerfRowsData>({
+    queryKey: ["pool-performance-rows", perfPoolId],
+    queryFn: async () => {
+      const r = await fetch(`${BASE}/api/ad-pools/${perfPoolId}/performance/rows`, { credentials: "include" });
+      if (!r.ok) throw new Error("입력 내역 로드 실패");
       return r.json();
     },
     enabled: !!(activeNav === "adCenter" && adCenterTab === "performance" && perfPoolId),
@@ -3446,7 +3475,8 @@ export default function Admin() {
                                   if (!r.ok) toast({ description: d.error ?? "시딩 실패", variant: "destructive" });
                                   else {
                                     toast({ description: `샘플 데이터 ${d.saved ?? 0}건 생성 완료 (${d.adCount ?? 0}개 광고 × ${d.days ?? 30}일)` });
-                                    refetchPoolPerf();
+                                    void refetchPoolPerf();
+                                    void refetchPerfRows();
                                   }
                                 } catch {
                                   toast({ description: "시딩 실패", variant: "destructive" });
@@ -3475,7 +3505,8 @@ export default function Admin() {
                                   if (!r.ok) toast({ description: d.error ?? "삭제 실패", variant: "destructive" });
                                   else {
                                     toast({ description: `샘플 데이터 ${d.deleted ?? 0}건 삭제 완료` });
-                                    refetchPoolPerf();
+                                    void refetchPoolPerf();
+                                    void refetchPerfRows();
                                   }
                                 } catch {
                                   toast({ description: "삭제 실패", variant: "destructive" });
@@ -3581,7 +3612,8 @@ export default function Admin() {
                                         setManualClicks("");
                                         setManualSpend("");
                                         setManualReach("");
-                                        refetchPoolPerf();
+                                        void refetchPoolPerf();
+                                        void refetchPerfRows();
                                       }
                                     } catch {
                                       toast({ description: "입력 실패", variant: "destructive" });
@@ -3705,6 +3737,91 @@ export default function Admin() {
                                 </tbody>
                               </table>
                             </div>
+                          </CardContent>
+                        </Card>
+                      )}
+
+                      {/* 입력 내역 테이블 */}
+                      {perfPoolId && perfRowsData && perfRowsData.rows.length > 0 && (
+                        <Card>
+                          <CardContent className="p-4">
+                            <p className="text-sm font-semibold mb-3 flex items-center gap-1.5">
+                              <BookOpen className="w-4 h-4 text-muted-foreground" />
+                              입력 내역 <span className="text-xs font-normal text-muted-foreground ml-1">({perfRowsData.total}건)</span>
+                            </p>
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-xs">
+                                <thead>
+                                  <tr className="border-b text-muted-foreground">
+                                    <th className="text-left py-2 pr-3 font-medium">날짜</th>
+                                    <th className="text-left py-2 pr-3 font-medium">광고</th>
+                                    <th className="text-right py-2 px-2 font-medium">노출</th>
+                                    <th className="text-right py-2 px-2 font-medium">클릭</th>
+                                    <th className="text-right py-2 px-2 font-medium">지출</th>
+                                    <th className="text-center py-2 px-2 font-medium">출처</th>
+                                    <th className="py-2 pl-2 font-medium"></th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {perfRowsData.rows.map((row) => (
+                                    <tr key={row.id} className="border-b last:border-0 hover:bg-muted/30">
+                                      <td className="py-1.5 pr-3 font-mono whitespace-nowrap">{row.date}</td>
+                                      <td className="py-1.5 pr-3">
+                                        <p className="font-medium truncate max-w-[140px]">{row.adTitle}</p>
+                                        {row.businessName && <p className="text-muted-foreground truncate max-w-[140px]">{row.businessName}</p>}
+                                      </td>
+                                      <td className="text-right py-1.5 px-2 font-mono">{row.impressions.toLocaleString()}</td>
+                                      <td className="text-right py-1.5 px-2 font-mono">{row.clicks.toLocaleString()}</td>
+                                      <td className="text-right py-1.5 px-2 font-mono">₩{row.spend.toLocaleString()}</td>
+                                      <td className="text-center py-1.5 px-2">
+                                        <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                                          row.source === "manual" ? "bg-orange-100 text-orange-700" :
+                                          row.source === "sample" ? "bg-gray-100 text-gray-600" :
+                                          "bg-blue-100 text-blue-700"
+                                        }`}>
+                                          {row.source === "manual" ? "수동" : row.source === "sample" ? "샘플" : "Meta"}
+                                        </span>
+                                      </td>
+                                      <td className="py-1.5 pl-2">
+                                        <button
+                                          className="text-muted-foreground hover:text-red-500 transition-colors p-1"
+                                          title="삭제"
+                                          onClick={async () => {
+                                            if (!confirm(`${row.date} 행을 삭제할까요?`)) return;
+                                            try {
+                                              const r = await fetch(`${BASE}/api/performance/${row.id}`, {
+                                                method: "DELETE",
+                                                credentials: "include",
+                                              });
+                                              const d = await r.json() as { success?: boolean; error?: string };
+                                              if (!r.ok) toast({ description: d.error ?? "삭제 실패", variant: "destructive" });
+                                              else {
+                                                toast({ description: "삭제되었습니다" });
+                                                void refetchPerfRows();
+                                                void refetchPoolPerf();
+                                              }
+                                            } catch {
+                                              toast({ description: "삭제 실패", variant: "destructive" });
+                                            }
+                                          }}
+                                        >
+                                          <Trash2 className="w-3 h-3" />
+                                        </button>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+
+                      {perfPoolId && perfRowsData && perfRowsData.rows.length === 0 && !poolPerfLoading && (
+                        <Card>
+                          <CardContent className="p-6 text-center text-muted-foreground text-xs">
+                            <BookOpen className="w-5 h-5 mx-auto mb-1.5 text-gray-300" />
+                            입력된 성과 내역이 없습니다.
                           </CardContent>
                         </Card>
                       )}

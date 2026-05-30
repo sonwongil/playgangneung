@@ -29,14 +29,17 @@ const router = Router();
 /**
  * 토스 시크릿 키 반환.
  * [보안] TOSS_SECRET_KEY 는 서버 환경변수에서만 읽는다.
- * 프로덕션에서 미설정 시 stderr 경고 — 실결제 전 Secrets 등록 필수.
+ * 키 부재 시 테스트 키로 폴백하지 않음 — 즉시 에러 throw.
+ * (프로덕션에서는 index.ts 시작 시 검증하므로 이 함수까지 도달하지 않음)
  */
-function basicAuth() {
+function basicAuth(): string {
   const key = process.env["TOSS_SECRET_KEY"];
-  if (!key && process.env["NODE_ENV"] === "production") {
-    process.stderr.write("[payment] ⚠️  TOSS_SECRET_KEY 미설정 — 실결제 불가\n");
+  if (!key) {
+    throw new Error(
+      "[payment] TOSS_SECRET_KEY 미설정 — 결제 처리 불가. Replit Secrets에 live_sk_... 키를 등록하세요.",
+    );
   }
-  return "Basic " + Buffer.from((key ?? "test_sk_zXLkKEypNArWmo50nX3lmeaxYG5R") + ":").toString("base64");
+  return "Basic " + Buffer.from(key + ":").toString("base64");
 }
 
 // ─── POST /api/payment/prepare — 결제 준비 ───────────────────────────────────

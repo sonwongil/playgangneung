@@ -8,9 +8,17 @@ import { Label } from "@/components/ui/label";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-const CLIENT_KEY =
-  (import.meta.env.VITE_TOSS_CLIENT_KEY as string | undefined) ??
-  "test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eo";
+// [보안] 테스트 키 폴백 완전 제거.
+// 프로덕션 빌드 시 vite.config.ts의 tossClientKeyGuard 플러그인이 이미 차단하므로
+// 여기까지 test_ck_ 또는 빈 키가 도달하는 경우는 없어야 한다.
+// 추가로 런타임에도 가드 — 혹시라도 잘못된 번들이 배포되면 결제창 자체를 차단.
+const _RAW_CLIENT_KEY = import.meta.env.VITE_TOSS_CLIENT_KEY as string | undefined;
+
+const _isKeyInvalid =
+  !_RAW_CLIENT_KEY ||
+  (import.meta.env.PROD && _RAW_CLIENT_KEY.startsWith("test_ck_"));
+
+const CLIENT_KEY = _RAW_CLIENT_KEY ?? "";
 
 interface AdProduct {
   id: string;
@@ -31,6 +39,8 @@ const PRODUCT_TYPE_LABEL: Record<string, string> = {
 
 export default function Checkout() {
   const [, navigate] = useLocation();
+
+  // hooks는 조건부 반환보다 반드시 먼저 — React Rules of Hooks
   const params = new URLSearchParams(window.location.search);
   const preselected = params.get("productId") ?? "";
 
@@ -49,6 +59,7 @@ export default function Checkout() {
   const product = products.find((p) => p.id === selectedId);
 
   useEffect(() => {
+    if (_isKeyInvalid) return;
     fetch(`${BASE}/api/ad-products/public`)
       .then((r) => r.json())
       .then((d: { products: AdProduct[] }) => {
@@ -58,7 +69,7 @@ export default function Checkout() {
   }, []);
 
   useEffect(() => {
-    if (!product) return;
+    if (_isKeyInvalid || !product) return;
     let cancelled = false;
 
     async function initWidget() {
@@ -119,6 +130,20 @@ export default function Checkout() {
       if (!msg.includes("USER_CANCEL")) setError(msg);
       setLoading(false);
     }
+  }
+
+  // 런타임 가드: 모든 hook 이후 — 결제 키 없거나 프로덕션 테스트 키면 결제창 차단
+  if (_isKeyInvalid) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-gray-50 px-4">
+        <p className="text-lg font-bold text-red-700">결제 설정 오류</p>
+        <p className="text-sm text-gray-500 text-center">
+          결제 클라이언트 키가 설정되지 않았거나 테스트 키입니다.
+          <br />관리자에게 문의해주세요.
+        </p>
+        <button onClick={() => navigate("/")} className="text-xs text-blue-500 underline mt-2">홈으로</button>
+      </div>
+    );
   }
 
   if (products.length === 0) {

@@ -920,39 +920,42 @@ export default function Home() {
           </div>
         </header>
 
-        {/* 해시태그 바 - 가로 스크롤 + 우측 고정 광고 버튼 */}
-        <div className="flex items-stretch border-t border-gray-100">
+        {/* 해시태그 + 액션 버튼 바 — 전체를 하나의 중앙 정렬 그룹으로 */}
+        <div className="border-t border-gray-100 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
           <div
             ref={hashtagBarRef}
-            className="flex items-center justify-start gap-0.5 px-3 py-2 overflow-x-auto flex-1 min-w-0"
-            style={{ scrollbarWidth: "none" }}
+            className="flex items-center justify-center gap-1.5 px-3 py-2 min-w-max mx-auto"
           >
+            {/* 해시태그 pills */}
             {PREDEFINED_TAGS.filter((tag) => tag !== "전체" && tag !== "오늘의행사").map((tag) => (
               <HashtagPill key={tag} tag={tag} active={activeTag === tag} onClick={() => handleTagClick(tag)} />
             ))}
             {popularTags.map((t) => (
               <HashtagPill key={t.tag} tag={t.tag} active={activeTag === t.tag} onClick={() => handleTagClick(t.tag)} />
             ))}
+
+            {/* 구분선 */}
+            <div className="hidden sm:block w-px h-5 bg-gray-200 mx-1 shrink-0" />
+
+            {/* 소식 제보 버튼 */}
+            <button
+              onClick={() => { if (!isSignedIn) { setLocation("/sign-in"); return; } setTipDone(false); setTipError(""); setTipForm({ title: "", description: "", category: "지역소식", startDate: "", endDate: "", location: "", link: "", displayName: [user?.firstName, user?.lastName].filter(Boolean).join(" ") }); setShowTipModal(true); }}
+              className="hidden sm:flex shrink-0 items-center gap-1.5 px-3 h-7 rounded-full bg-teal-600 hover:bg-teal-700 active:bg-teal-800 transition-colors"
+            >
+              <FileText className="w-3.5 h-3.5 text-white shrink-0" />
+              <span className="text-xs font-extrabold text-white whitespace-nowrap">소식 제보</span>
+            </button>
+
+            {/* 공동광고 지원센터 버튼 */}
+            <button
+              onClick={() => setShowJointAdModal(true)}
+              className="hidden sm:flex shrink-0 items-center gap-1.5 px-3 h-7 rounded-full bg-orange-500 hover:bg-orange-600 active:bg-orange-700 transition-colors"
+            >
+              <Megaphone className="w-3.5 h-3.5 text-white shrink-0" />
+              <span className="text-xs font-extrabold text-white whitespace-nowrap">공동광고 지원센터</span>
+              <ChevronRight className="w-3 h-3 text-white/80 shrink-0" />
+            </button>
           </div>
-          {/* 강릉 소식 제보하기 버튼 */}
-          <button
-            onClick={() => { if (!isSignedIn) { setLocation("/sign-in"); return; } setTipDone(false); setTipError(""); setTipForm({ title: "", description: "", category: "지역소식", startDate: "", endDate: "", location: "", link: "", displayName: [user?.firstName, user?.lastName].filter(Boolean).join(" ") }); setShowTipModal(true); }}
-            className="hidden sm:flex shrink-0 items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 transition-colors border-l border-teal-500"
-          >
-            <FileText className="w-4 h-4 text-white shrink-0" />
-            <p className="text-xs font-extrabold text-white whitespace-nowrap">소식 제보</p>
-          </button>
-          {/* 우측 고정 공동광고 버튼 */}
-          <button
-            onClick={() => setShowJointAdModal(true)}
-            className="hidden sm:flex shrink-0 items-center gap-2 px-3 py-1.5 bg-orange-500 hover:bg-orange-600 transition-colors border-l border-orange-400"
-          >
-            <Megaphone className="w-3.5 h-3.5 text-white shrink-0" />
-            <div className="hidden sm:block leading-none">
-              <p className="text-[11px] font-extrabold text-white whitespace-nowrap">공동광고 지원센터</p>
-            </div>
-            <ChevronRight className="w-3 h-3 text-white/80 shrink-0" />
-          </button>
         </div>
       </div>
 

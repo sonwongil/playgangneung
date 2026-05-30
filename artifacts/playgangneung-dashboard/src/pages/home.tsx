@@ -950,7 +950,6 @@ export default function Home() {
             <Megaphone className="w-3.5 h-3.5 text-white shrink-0" />
             <div className="hidden sm:block leading-none">
               <p className="text-[11px] font-extrabold text-white whitespace-nowrap">공동광고 지원센터</p>
-              <p className="text-[9px] text-orange-100 mt-0.5 whitespace-nowrap">하루 15,000원으로 강릉에 노출!</p>
             </div>
             <ChevronRight className="w-3 h-3 text-white/80 shrink-0" />
           </button>

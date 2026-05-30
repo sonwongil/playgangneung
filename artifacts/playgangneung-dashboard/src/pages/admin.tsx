@@ -3461,6 +3461,35 @@ export default function Admin() {
                             <Button
                               size="sm"
                               variant="outline"
+                              disabled={!perfPoolId || seedLoading}
+                              onClick={async () => {
+                                if (!perfPoolId) return;
+                                if (!confirm("이 묶음의 샘플 데이터를 모두 삭제할까요?")) return;
+                                setSeedLoading(true);
+                                try {
+                                  const r = await fetch(`${BASE}/api/performance/seed/${perfPoolId}`, {
+                                    method: "DELETE",
+                                    credentials: "include",
+                                  });
+                                  const d = await r.json() as { success?: boolean; deleted?: number; error?: string };
+                                  if (!r.ok) toast({ description: d.error ?? "삭제 실패", variant: "destructive" });
+                                  else {
+                                    toast({ description: `샘플 데이터 ${d.deleted ?? 0}건 삭제 완료` });
+                                    refetchPoolPerf();
+                                  }
+                                } catch {
+                                  toast({ description: "삭제 실패", variant: "destructive" });
+                                } finally {
+                                  setSeedLoading(false);
+                                }
+                              }}
+                            >
+                              {seedLoading ? <RefreshCw className="w-3 h-3 animate-spin mr-1" /> : <Trash2 className="w-3 h-3 mr-1" />}
+                              샘플 데이터 초기화
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
                               disabled={!perfPoolId}
                               onClick={() => setShowManualForm((v) => !v)}
                             >

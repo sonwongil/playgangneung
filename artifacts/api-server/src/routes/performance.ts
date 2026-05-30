@@ -210,6 +210,27 @@ router.post("/performance/seed", async (req, res) => {
   }
 });
 
+// ─── 샘플 성과 데이터 삭제 (source="sample" 행만) ───────────────────────────────
+router.delete("/performance/seed/:poolId", async (req, res) => {
+  if (!req.session?.isAdmin) return res.status(401).json({ error: "로그인이 필요합니다" });
+  try {
+    const { poolId } = req.params;
+    const [pool] = await db.select().from(adPoolsTable).where(eq(adPoolsTable.id, poolId));
+    if (!pool) return res.status(404).json({ error: "묶음을 찾을 수 없습니다" });
+
+    const deleted = await db
+      .delete(adPerformancesTable)
+      .where(and(eq(adPerformancesTable.poolId, poolId), eq(adPerformancesTable.source, "sample")))
+      .returning({ id: adPerformancesTable.id });
+
+    req.log.info({ poolId, deleted: deleted.length }, "샘플 성과 데이터 삭제 완료");
+    return res.json({ success: true, deleted: deleted.length });
+  } catch (err) {
+    req.log.error({ err }, "샘플 데이터 삭제 실패");
+    return res.status(500).json({ error: "삭제 실패" });
+  }
+});
+
 // ─── 수동 성과 입력 ──────────────────────────────────────────────────────────────
 router.post("/performance/manual", async (req, res) => {
   if (!req.session?.isAdmin) return res.status(401).json({ error: "로그인이 필요합니다" });

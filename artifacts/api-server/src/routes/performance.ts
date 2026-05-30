@@ -679,7 +679,12 @@ router.get("/public/report/:token", async (req, res) => {
     }
     const dailyChart = Object.entries(byDate)
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([date, v]) => ({ date, impressions: v.impressions, clicks: v.clicks }));
+      .map(([date, v]) => ({
+        date,
+        impressions: v.impressions,
+        clicks: v.clicks,
+        ctr: v.impressions > 0 ? Number(((v.clicks / v.impressions) * 100).toFixed(2)) : 0,
+      }));
 
     return res.json({
       adTitle: ad.title,

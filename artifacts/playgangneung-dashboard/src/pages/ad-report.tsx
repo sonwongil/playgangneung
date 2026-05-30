@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Eye, MousePointerClick, TrendingUp, CircleDollarSign, BarChart2 } from "lucide-react";
 import {
-  LineChart,
+  ComposedChart,
   Line,
   XAxis,
   YAxis,
@@ -20,6 +20,7 @@ interface DailyChartPoint {
   date: string;
   impressions: number;
   clicks: number;
+  ctr: number;
 }
 
 interface PublicReportData {
@@ -229,7 +230,7 @@ export default function AdReport() {
           <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
             <p className="text-sm font-semibold text-gray-700">일별 성과 추이</p>
             <ResponsiveContainer width="100%" height={220}>
-              <LineChart data={chartData} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
+              <ComposedChart data={chartData} margin={{ top: 4, right: 32, left: -16, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis
                   dataKey="date"
@@ -239,24 +240,39 @@ export default function AdReport() {
                   interval="preserveStartEnd"
                 />
                 <YAxis
+                  yAxisId="left"
                   tick={{ fontSize: 10, fill: "#9ca3af" }}
                   tickLine={false}
                   axisLine={false}
                   tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)}
                 />
+                <YAxis
+                  yAxisId="right"
+                  orientation="right"
+                  tick={{ fontSize: 10, fill: "#a78bfa" }}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(v: number) => `${v}%`}
+                  width={36}
+                />
                 <Tooltip
                   contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e5e7eb" }}
-                  formatter={(value: number, name: string) => [
-                    fmt(value),
-                    name === "impressions" ? "노출수" : "클릭수",
-                  ]}
+                  formatter={(value: number, name: string) => {
+                    if (name === "ctr") return [`${value.toFixed(2)}%`, "클릭률(%)"];
+                    return [fmt(value), name === "impressions" ? "노출수" : "클릭수"];
+                  }}
                   labelFormatter={(label: string) => `날짜: ${label}`}
                 />
                 <Legend
                   wrapperStyle={{ fontSize: 12, paddingTop: 8 }}
-                  formatter={(value: string) => value === "impressions" ? "노출수" : "클릭수"}
+                  formatter={(value: string) => {
+                    if (value === "impressions") return "노출수";
+                    if (value === "clicks") return "클릭수";
+                    return "클릭률(%)";
+                  }}
                 />
                 <Line
+                  yAxisId="left"
                   type="monotone"
                   dataKey="impressions"
                   stroke="#3b82f6"
@@ -265,6 +281,7 @@ export default function AdReport() {
                   activeDot={{ r: 4 }}
                 />
                 <Line
+                  yAxisId="left"
                   type="monotone"
                   dataKey="clicks"
                   stroke="#22c55e"
@@ -272,7 +289,17 @@ export default function AdReport() {
                   dot={false}
                   activeDot={{ r: 4 }}
                 />
-              </LineChart>
+                <Line
+                  yAxisId="right"
+                  type="monotone"
+                  dataKey="ctr"
+                  stroke="#a78bfa"
+                  strokeWidth={2}
+                  strokeDasharray="4 2"
+                  dot={false}
+                  activeDot={{ r: 4 }}
+                />
+              </ComposedChart>
             </ResponsiveContainer>
           </div>
         )}

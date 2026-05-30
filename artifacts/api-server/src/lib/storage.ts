@@ -33,6 +33,8 @@ export interface CrawledEvent {
   socialDraft: SocialDraft | null;
   hashtags: string[] | null;
   crawledAt: string;
+  userId: string | null;
+  authorDisplayName: string | null;
 }
 
 function rowToEvent(row: typeof eventsTable.$inferSelect): CrawledEvent {
@@ -57,6 +59,8 @@ function rowToEvent(row: typeof eventsTable.$inferSelect): CrawledEvent {
     socialDraft: (row.socialDraft as SocialDraft) ?? null,
     hashtags: (row.hashtags as string[] | null) ?? null,
     crawledAt: row.crawledAt,
+    userId: row.userId ?? null,
+    authorDisplayName: row.authorDisplayName ?? null,
   };
 }
 
@@ -90,6 +94,8 @@ export async function saveEvents(events: CrawledEvent[]): Promise<void> {
         socialDraft: e.socialDraft as any,
         hashtags: e.hashtags as any,
         crawledAt: e.crawledAt,
+        userId: e.userId ?? null,
+        authorDisplayName: e.authorDisplayName ?? null,
       })),
     )
     .onConflictDoUpdate({

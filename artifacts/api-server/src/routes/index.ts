@@ -20,6 +20,7 @@ import bannerConfigRouter from "./bannerConfig.js";
 import jointAdConfigRouter from "./jointAdConfig.js";
 import metaSpendRouter from "./metaSpend.js";
 import metaInsightsRouter from "./metaInsights.js";
+import membersRouter from "./members.js";
 
 const router: IRouter = Router();
 
@@ -48,5 +49,6 @@ router.use(bannerConfigRouter);
 router.use(jointAdConfigRouter);
 router.use(metaSpendRouter);
 router.use(metaInsightsRouter);
+router.use(membersRouter);
 
 export default router;

@@ -386,7 +386,7 @@ interface AdminVideo {
   updatedAt: string;
 }
 
-type NavKey = "dashboard" | "adCenter" | "stories" | "videos" | "sources" | "settings";
+type NavKey = "dashboard" | "adCenter" | "stories" | "videos" | "sources" | "settings" | "members";
 
 const NAV_ITEMS: { icon: React.ReactNode; label: string; key: NavKey }[] = [
   { icon: <LayoutDashboard className="w-4 h-4" />, label: "대시보드", key: "dashboard" },
@@ -395,6 +395,7 @@ const NAV_ITEMS: { icon: React.ReactNode; label: string; key: NavKey }[] = [
   { icon: <Video className="w-4 h-4" />, label: "영상", key: "videos" },
   { icon: <Rss className="w-4 h-4" />, label: "크롤링 소스", key: "sources" },
   { icon: <Settings className="w-4 h-4" />, label: "설정", key: "settings" },
+  { icon: <Activity className="w-4 h-4" />, label: "회원 관리", key: "members" },
 ];
 
 function extractYoutubeThumb(videoUrl?: string | null): string | null {
@@ -823,6 +824,21 @@ export default function Admin() {
     },
     enabled: activeNav === "videos",
   });
+
+  interface MemberTip { userId: string | null; authorDisplayName: string | null; id: string; title: string; status: string; crawledAt: string; }
+  interface MemberAd { userId: string | null; id: string; title: string; businessName: string; status: string; createdAt: string; }
+  interface Member { userId: string; displayName: string | null; tipCount: number; adCount: number; lastActivity: string; tips: MemberTip[]; ads: MemberAd[]; }
+
+  const { data: membersData, isLoading: membersLoading } = useQuery<{ members: Member[]; total: number }>({
+    queryKey: ["admin-members"],
+    queryFn: async () => {
+      const r = await fetch(`${BASE}/api/admin/members`, { credentials: "include" });
+      if (!r.ok) throw new Error("회원 목록 조회 실패");
+      return r.json();
+    },
+    enabled: activeNav === "members",
+  });
+  const [expandedMember, setExpandedMember] = useState<string | null>(null);
 
   const [adminSortBy, setAdminSortBy] = useState<"date" | "latest">("latest");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -5905,6 +5921,114 @@ export default function Admin() {
                   </form>
                 </CardContent>
               </Card>
+            </div>
+          )}
+
+          {/* ══ 회원 관리 ══════════════════════════════════════════════════════ */}
+          {activeNav === "members" && (
+            <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Activity className="w-5 h-5 text-indigo-600" />
+                <h2 className="text-lg font-bold">회원 관리</h2>
+                <span className="ml-2 text-xs text-muted-foreground bg-gray-100 px-2 py-0.5 rounded-full">
+                  소식 제보·광고 접수 회원
+                </span>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                소식 제보 또는 광고를 접수한 회원 목록입니다. 닉네임은 회원이 자유롭게 설정한 표시 이름이며, 회원 ID(Clerk)로 실제 계정을 확인할 수 있습니다.
+              </p>
+
+              {membersLoading ? (
+                <div className="flex items-center justify-center py-12 text-muted-foreground text-sm">불러오는 중...</div>
+              ) : !membersData?.members?.length ? (
+                <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-2">
+                  <Activity className="w-10 h-10 opacity-20" />
+                  <p className="text-sm">아직 제보 또는 광고를 접수한 회원이 없습니다.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {membersData.members.map((m) => (
+                    <Card key={m.userId} className="overflow-hidden">
+                      <div
+                        className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors"
+                        onClick={() => setExpandedMember(expandedMember === m.userId ? null : m.userId)}
+                      >
+                        <div className="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center shrink-0">
+                          <span className="text-sm font-bold text-indigo-600">
+                            {(m.displayName || "?")[0].toUpperCase()}
+                          </span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-semibold text-sm text-gray-900">
+                              {m.displayName || <span className="text-gray-400 italic">닉네임 없음</span>}
+                            </span>
+                            {m.tipCount > 0 && (
+                              <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-teal-100 text-teal-700 font-semibold">
+                                제보 {m.tipCount}건
+                              </span>
+                            )}
+                            {m.adCount > 0 && (
+                              <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-700 font-semibold">
+                                광고 {m.adCount}건
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-gray-400 mt-0.5 truncate">
+                            ID: {m.userId.slice(0, 24)}... · 마지막 활동: {new Date(m.lastActivity).toLocaleDateString("ko-KR")}
+                          </p>
+                        </div>
+                        <ChevronRight className={`w-4 h-4 text-gray-400 shrink-0 transition-transform ${expandedMember === m.userId ? "rotate-90" : ""}`} />
+                      </div>
+
+                      {expandedMember === m.userId && (
+                        <div className="border-t border-gray-100 bg-gray-50 px-4 py-3 space-y-3">
+                          {/* 실제 Clerk 회원 ID */}
+                          <div className="text-xs text-gray-500 font-mono bg-white border border-gray-200 rounded-lg px-3 py-2 break-all">
+                            <span className="text-gray-400 mr-1">Clerk 회원 ID:</span>{m.userId}
+                          </div>
+
+                          {/* 소식 제보 내역 */}
+                          {m.tips.length > 0 && (
+                            <div>
+                              <p className="text-xs font-bold text-gray-600 mb-1.5">📝 소식 제보 ({m.tips.length}건)</p>
+                              <div className="space-y-1.5">
+                                {m.tips.map((t) => (
+                                  <div key={t.id} className="flex items-center gap-2 bg-white border border-gray-100 rounded-lg px-3 py-2">
+                                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold shrink-0 ${STATUS_CONFIG[t.status]?.cls ?? "bg-gray-100 text-gray-500"}`}>
+                                      {STATUS_CONFIG[t.status]?.label ?? t.status}
+                                    </span>
+                                    <span className="text-xs text-gray-800 flex-1 truncate">{t.title}</span>
+                                    <span className="text-[10px] text-gray-400 shrink-0">{new Date(t.crawledAt).toLocaleDateString("ko-KR")}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* 광고 접수 내역 */}
+                          {m.ads.length > 0 && (
+                            <div>
+                              <p className="text-xs font-bold text-gray-600 mb-1.5">📢 광고 접수 ({m.ads.length}건)</p>
+                              <div className="space-y-1.5">
+                                {m.ads.map((a) => (
+                                  <div key={a.id} className="flex items-center gap-2 bg-white border border-gray-100 rounded-lg px-3 py-2">
+                                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold shrink-0 ${AD_STATUS[a.status]?.cls ?? "bg-gray-100 text-gray-500"}`}>
+                                      {AD_STATUS[a.status]?.label ?? a.status}
+                                    </span>
+                                    <span className="text-xs text-gray-800 flex-1 truncate">{a.title || a.businessName}</span>
+                                    <span className="text-[10px] text-gray-400 shrink-0">{new Date(a.createdAt).toLocaleDateString("ko-KR")}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </Card>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </main>

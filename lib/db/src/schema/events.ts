@@ -24,6 +24,8 @@ export const eventsTable = pgTable(
     hashtags: jsonb("hashtags").$type<string[]>(),
     crawledAt: text("crawled_at").notNull().default(""),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
+    userId: text("user_id"),
+    authorDisplayName: text("author_display_name"),
   },
   (t) => [index("events_status_idx").on(t.status)],
 );

@@ -212,6 +212,8 @@ function buildEvent(
     socialDraft: null,
     hashtags: null,
     crawledAt: new Date().toISOString(),
+    userId: null,
+    authorDisplayName: null,
   };
 }
 

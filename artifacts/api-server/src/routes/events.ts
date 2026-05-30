@@ -1,5 +1,7 @@
 import { Router } from "express";
 import { requireAdmin } from "../middlewares/requireAdmin.js";
+import { requireClerkUser } from "../middlewares/requireClerkUser.js";
+import { getAuth } from "@clerk/express";
 import { sendMail, isMailConfigured } from "../lib/mailer.js";
 import multer from "multer";
 import fs from "fs/promises";
@@ -262,6 +264,8 @@ router.post("/events/manual", async (req, res) => {
       socialDraft: null,
       hashtags: null,
       crawledAt: new Date().toISOString(),
+      userId: null,
+      authorDisplayName: null,
     };
 
     const { added, updated, total } = await appendEvents([event]);
@@ -592,17 +596,18 @@ router.delete("/events/:id", async (req, res) => {
   }
 });
 
-// ─── 공개 소식 제보 (인증 불필요) ───────────────────────────────────────────────
-router.post("/submit", async (req, res) => {
+// ─── 공개 소식 제보 (로그인 필요) ───────────────────────────────────────────────
+router.post("/submit", requireClerkUser, async (req, res) => {
   try {
+    const { userId } = getAuth(req);
     const {
-      title, description, link, contact,
+      title, description, link, displayName,
       category, startDate: rawStart, endDate: rawEnd, location,
     } = req.body as {
       title?: string;
       description?: string;
       link?: string;
-      contact?: string;
+      displayName?: string;
       category?: string;
       startDate?: string;
       endDate?: string;
@@ -618,6 +623,7 @@ router.post("/submit", async (req, res) => {
     );
     const eventId = crypto.createHash("md5").update(`tip:${title}:${Date.now()}`).digest("hex");
     const siteUrl = process.env["SITE_URL"] ?? "https://playgangneung.com";
+    const authorName = displayName?.trim() || "";
 
     const event: CrawledEvent = {
       id: eventId,
@@ -633,13 +639,15 @@ router.post("/submit", async (req, res) => {
       extraImages: null,
       videoUrl: null,
       link: link?.trim() || `${siteUrl}/content/${eventId}`,
-      source: contact?.trim() ? `제보: ${contact.trim()}` : "제보",
-      contact: contact?.trim() || "",
+      source: authorName ? `제보: ${authorName}` : "제보",
+      contact: authorName,
       sourceType: "tip",
       status: "submitted",
       socialDraft: null,
       hashtags: null,
       crawledAt: new Date().toISOString(),
+      userId: userId ?? null,
+      authorDisplayName: authorName || null,
     };
 
     const { added, updated } = await appendEvents([event]);
@@ -663,7 +671,7 @@ router.post("/submit", async (req, res) => {
         <tr style="background:#f9fafb"><td style="padding:10px 14px;color:#6b7280;font-size:12px;width:80px">제목</td><td style="padding:10px 14px;font-size:13px;font-weight:600;color:#111827">${event.title}</td></tr>
         <tr style="border-top:1px solid #e5e7eb"><td style="padding:10px 14px;color:#6b7280;font-size:12px">카테고리</td><td style="padding:10px 14px;font-size:13px;color:#374151">${event.category}</td></tr>
         <tr style="border-top:1px solid #e5e7eb"><td style="padding:10px 14px;color:#6b7280;font-size:12px">장소</td><td style="padding:10px 14px;font-size:13px;color:#374151">${event.location || "-"}</td></tr>
-        <tr style="border-top:1px solid #e5e7eb"><td style="padding:10px 14px;color:#6b7280;font-size:12px">제보자</td><td style="padding:10px 14px;font-size:13px;color:#374151">${event.contact || "-"}</td></tr>
+        <tr style="border-top:1px solid #e5e7eb"><td style="padding:10px 14px;color:#6b7280;font-size:12px">제보자</td><td style="padding:10px 14px;font-size:13px;color:#374151">${event.authorDisplayName || "익명"} (회원 ID: ${userId})</td></tr>
         ${event.description ? `<tr style="border-top:1px solid #e5e7eb"><td style="padding:10px 14px;color:#6b7280;font-size:12px">내용</td><td style="padding:10px 14px;font-size:13px;color:#374151">${event.description}</td></tr>` : ""}
       </table>
       <div style="margin-top:20px;text-align:center">

@@ -1,6 +1,8 @@
 import { Router } from "express";
 import crypto from "crypto";
 import multer from "multer";
+import { requireClerkUser } from "../middlewares/requireClerkUser.js";
+import { getAuth } from "@clerk/express";
 import path from "path";
 import fs from "fs/promises";
 import { db, adsTable } from "@workspace/db";
@@ -153,8 +155,9 @@ router.get("/ads", async (req, res) => {
   }
 });
 
-router.post("/ads", async (req, res) => {
+router.post("/ads", requireClerkUser, async (req, res) => {
   try {
+    const { userId } = getAuth(req);
     const body = req.body as Partial<Ad> & { extraImages?: string[] };
     const id = crypto.randomUUID();
     await db.insert(adsTable).values({
@@ -175,6 +178,7 @@ router.post("/ads", async (req, res) => {
       status: "pending",
       isFreeAd: true,
       isPremiumFeatured: body.isPremiumFeatured === true,
+      userId: userId ?? null,
     });
     const [row] = await db.select().from(adsTable).where(eq(adsTable.id, id));
     req.log.info({ id }, "광고 접수 완료");

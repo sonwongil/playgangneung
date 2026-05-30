@@ -483,7 +483,7 @@ export default function Home() {
   const [showTipModal, setShowTipModal] = useState(false);
   const [tipForm, setTipForm] = useState({
     title: "", description: "", category: "지역소식",
-    startDate: "", endDate: "", location: "", link: "", contact: "",
+    startDate: "", endDate: "", location: "", link: "", displayName: "",
   });
   const [tipLoading, setTipLoading] = useState(false);
   const [tipDone, setTipDone] = useState(false);
@@ -500,7 +500,7 @@ export default function Home() {
   const hashtagBarRef = useRef<HTMLDivElement>(null);
   const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
   const { signOut } = useClerk();
-  const { isSignedIn } = useUser();
+  const { isSignedIn, user } = useUser();
   const [, setLocation] = useLocation();
 
   useEffect(() => {
@@ -790,7 +790,7 @@ export default function Home() {
           {!mobileSearchOpen && (
             <button
               className="sm:hidden flex-1 flex items-center justify-center gap-2 h-9 rounded-full bg-teal-600 hover:bg-teal-700 active:bg-teal-800 transition-colors"
-              onClick={() => { setTipDone(false); setTipError(""); setTipForm({ title: "", description: "", category: "지역소식", startDate: "", endDate: "", location: "", link: "", contact: "" }); setShowTipModal(true); }}
+              onClick={() => { if (!isSignedIn) { setLocation("/sign-in"); return; } setTipDone(false); setTipError(""); setTipForm({ title: "", description: "", category: "지역소식", startDate: "", endDate: "", location: "", link: "", displayName: [user?.firstName, user?.lastName].filter(Boolean).join(" ") }); setShowTipModal(true); }}
             >
               <FileText className="w-4 h-4 text-white shrink-0" />
               <span className="text-sm font-extrabold text-white">소식 제보</span>
@@ -880,7 +880,7 @@ export default function Home() {
             {menuOpen && (
               <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden">
                 <button
-                  onClick={() => { setMenuOpen(false); setTipDone(false); setTipError(""); setTipForm({ title: "", description: "", category: "지역소식", startDate: "", endDate: "", location: "", link: "", contact: "" }); setShowTipModal(true); }}
+                  onClick={() => { setMenuOpen(false); if (!isSignedIn) { setLocation("/sign-in"); return; } setTipDone(false); setTipError(""); setTipForm({ title: "", description: "", category: "지역소식", startDate: "", endDate: "", location: "", link: "", displayName: [user?.firstName, user?.lastName].filter(Boolean).join(" ") }); setShowTipModal(true); }}
                   className="w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold text-teal-700 hover:bg-teal-50 transition-colors border-b border-gray-100"
                 >
                   <FileText className="w-4 h-4 shrink-0 text-teal-600" />소식 제보하기
@@ -936,7 +936,7 @@ export default function Home() {
           </div>
           {/* 강릉 소식 제보하기 버튼 */}
           <button
-            onClick={() => { setTipDone(false); setTipError(""); setTipForm({ title: "", description: "", category: "지역소식", startDate: "", endDate: "", location: "", link: "", contact: "" }); setShowTipModal(true); }}
+            onClick={() => { if (!isSignedIn) { setLocation("/sign-in"); return; } setTipDone(false); setTipError(""); setTipForm({ title: "", description: "", category: "지역소식", startDate: "", endDate: "", location: "", link: "", displayName: [user?.firstName, user?.lastName].filter(Boolean).join(" ") }); setShowTipModal(true); }}
             className="hidden sm:flex shrink-0 items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 transition-colors border-l border-teal-500"
           >
             <FileText className="w-4 h-4 text-white shrink-0" />
@@ -1431,13 +1431,14 @@ export default function Home() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">제보자 이름 (선택)</label>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">닉네임 <span className="text-gray-400 font-normal">(자유롭게 입력, 피드에 표시되지 않음)</span></label>
                 <input
                   className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-300"
-                  placeholder="익명으로 제보하셔도 됩니다."
-                  value={tipForm.contact}
-                  onChange={(e) => setTipForm((p) => ({ ...p, contact: e.target.value }))}
+                  placeholder="예: 강릉러버, 익명"
+                  value={tipForm.displayName}
+                  onChange={(e) => setTipForm((p) => ({ ...p, displayName: e.target.value }))}
                 />
+                <p className="text-[11px] text-gray-400 mt-0.5">실명이 아닌 닉네임 사용 가능. 관리자에게만 표시됩니다.</p>
               </div>
               <div className="flex flex-col gap-2 pt-1">
                 <button
@@ -1453,6 +1454,7 @@ export default function Home() {
                       const r = await fetch(`${BASE}/api/submit`, {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
+                        credentials: "include",
                         body: JSON.stringify(tipForm),
                       });
                       const d = await r.json() as { success?: boolean; error?: string };

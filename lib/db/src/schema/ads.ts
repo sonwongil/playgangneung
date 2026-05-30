@@ -29,6 +29,7 @@ export const adsTable = pgTable("ads", {
   reportToken: text("report_token"),
   reportSentAt: timestamp("report_sent_at"),
   isPremiumFeatured: boolean("is_premium_featured").notNull().default(false),
+  userId: text("user_id"),
 });
 
 export type AdRow = typeof adsTable.$inferSelect;

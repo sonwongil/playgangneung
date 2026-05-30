@@ -8,7 +8,8 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 
 echo ""
 echo "▶ [1/4] 타입 검사 중..."
-pnpm run typecheck 2>&1 | tail -5
+pnpm --filter @workspace/api-server run typecheck 2>&1 | tail -5
+pnpm --filter @workspace/playgangneung-dashboard run typecheck 2>&1 | tail -5
 echo "✅ 타입 검사 완료"
 
 echo ""

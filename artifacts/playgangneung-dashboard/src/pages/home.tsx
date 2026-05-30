@@ -265,9 +265,8 @@ function FeedCard({ item, onTagClick }: { item: FeedItem; onTagClick?: (tag: str
                 <img src={thumbnail} alt={item.title} className="relative z-10 w-full h-full object-contain group-hover:scale-105 transition-transform duration-500" loading="lazy" />
               </>
             ) : (
-              <div className={`w-full h-full bg-gradient-to-br ${gradient} flex flex-col justify-end p-4 group-hover:brightness-110 transition-all`}>
-                <p className="text-white font-bold text-lg leading-snug line-clamp-3 drop-shadow">{item.title}</p>
-                <p className="text-white/70 text-xs mt-2">{item.source} · {item.date}</p>
+              <div className="w-full h-full bg-gradient-to-br from-teal-50 to-cyan-100 flex items-center justify-center">
+                <img src={`${BASE}/logo_transparent.png`} alt="PLAY강릉" className="w-3/5 max-h-28 object-contain opacity-75 group-hover:scale-105 transition-transform duration-500" loading="lazy" />
               </div>
             )}
             <div className="absolute top-2 left-2 z-20 flex flex-col gap-1">

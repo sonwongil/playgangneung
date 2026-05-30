@@ -25,7 +25,6 @@ import {
   LayoutDashboard,
   Settings,
   RefreshCw,
-  ImageOff,
   MessageSquare,
   Trash2,
   CheckCircle,
@@ -1677,11 +1676,12 @@ export default function Admin() {
                         onClick={() => navigate(`/admin/events/${ev.id}`)}
                       >
                         {/* Thumbnail */}
-                        <div className="w-14 h-14 rounded-lg overflow-hidden bg-gray-100 shrink-0">
-                          {(ev.thumbnail || extractYoutubeThumb(ev.videoUrl))
-                            ? <img src={ev.thumbnail || extractYoutubeThumb(ev.videoUrl)!} alt="" className="w-full h-full object-cover" />
-                            : <div className="w-full h-full flex items-center justify-center"><ImageOff className="w-5 h-5 text-gray-300" /></div>
-                          }
+                        <div className="w-14 h-14 rounded-lg overflow-hidden bg-teal-50 shrink-0">
+                          <img
+                            src={ev.thumbnail || extractYoutubeThumb(ev.videoUrl) || `${BASE}/logo_transparent.png`}
+                            alt=""
+                            className={`w-full h-full ${(ev.thumbnail || extractYoutubeThumb(ev.videoUrl)) ? "object-cover" : "object-contain p-1.5"}`}
+                          />
                         </div>
                         {/* Info */}
                         <div className="flex-1 min-w-0">
@@ -1736,11 +1736,12 @@ export default function Admin() {
                     <CardContent className="p-0">
                       {/* Header row */}
                       <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-gray-50/60">
-                        <div className="w-10 h-10 rounded-lg overflow-hidden bg-gray-100 shrink-0">
-                          {(ev.thumbnail || extractYoutubeThumb(ev.videoUrl))
-                            ? <img src={ev.thumbnail || extractYoutubeThumb(ev.videoUrl)!} alt="" className="w-full h-full object-cover" />
-                            : <div className="w-full h-full flex items-center justify-center"><ImageOff className="w-4 h-4 text-gray-300" /></div>
-                          }
+                        <div className="w-10 h-10 rounded-lg overflow-hidden bg-teal-50 shrink-0">
+                          <img
+                            src={ev.thumbnail || extractYoutubeThumb(ev.videoUrl) || `${BASE}/logo_transparent.png`}
+                            alt=""
+                            className={`w-full h-full ${(ev.thumbnail || extractYoutubeThumb(ev.videoUrl)) ? "object-cover" : "object-contain p-1"}`}
+                          />
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="font-semibold text-sm line-clamp-1">{ev.title}</p>

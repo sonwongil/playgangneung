@@ -24,6 +24,10 @@ import { generateCardImage } from "../lib/card.js";
 import { parseDates, detectCategory } from "../lib/dateParser.js";
 import { UPLOADS_DIR } from "../lib/paths.js";
 import crypto from "crypto";
+import https from "https";
+import axios from "axios";
+
+const httpsAgent = new https.Agent({ rejectUnauthorized: false });
 
 const upload = multer({
   storage: multer.diskStorage({
@@ -47,7 +51,13 @@ const router = Router();
 
 router.use((req, res, next) => {
   // path 조건 추가: /events 경로에만 적용 (다른 라우터 요청이 통과하도록)
-  if (["POST", "PATCH", "DELETE", "PUT"].includes(req.method) && req.path.startsWith("/events")) {
+  // extract-url은 공개 URL 읽기 전용 유틸리티 → 관리자 인증 불필요
+  const noAuthPaths = ["/events/extract-url"];
+  if (
+    ["POST", "PATCH", "DELETE", "PUT"].includes(req.method) &&
+    req.path.startsWith("/events") &&
+    !noAuthPaths.includes(req.path)
+  ) {
     return requireAdmin(req, res, next);
   }
   next();
@@ -151,17 +161,24 @@ router.post("/events/extract-url", async (req, res) => {
       // API 키 없거나 조회 실패 시 아래 HTML 스크래핑으로 폴백
     }
 
-    const response = await fetch(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (compatible; PlayGangneungBot/1.0)",
-        "Accept": "text/html,application/xhtml+xml",
-        "Accept-Language": "ko-KR,ko;q=0.9,en;q=0.8",
-      },
-      signal: AbortSignal.timeout(10000),
-    });
-    if (!response.ok) return res.status(400).json({ error: `페이지를 불러올 수 없습니다. (HTTP ${response.status})` });
-
-    const html = await response.text();
+    let html: string;
+    try {
+      const response = await axios.get<string>(url, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (compatible; PlayGangneungBot/1.0)",
+          "Accept": "text/html,application/xhtml+xml",
+          "Accept-Language": "ko-KR,ko;q=0.9,en;q=0.8",
+        },
+        httpsAgent,
+        timeout: 10000,
+        responseType: "text",
+      });
+      html = response.data;
+    } catch (err: unknown) {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status) return res.status(400).json({ error: `페이지를 불러올 수 없습니다. (HTTP ${status})` });
+      return res.status(400).json({ error: "URL을 읽을 수 없습니다: 접속 실패 (정부사이트 차단 또는 네트워크 오류)" });
+    }
     const $ = cheerio.load(html);
 
     const og = (prop: string) =>

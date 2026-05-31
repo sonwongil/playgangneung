@@ -67,22 +67,28 @@ router.get("/proxy/image", async (req, res) => {
     : `${parsed.protocol}//${parsed.hostname}/`;
 
   try {
-    const upstream = await fetch(rawUrl, {
+    const { default: axios } = await import("axios");
+    const https = await import("https");
+    const httpsAgent = new https.Agent({ rejectUnauthorized: false });
+
+    const upstream = await axios.get<Buffer>(rawUrl, {
       headers: {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
         "Referer": referer,
         "Accept": "image/webp,image/apng,image/*,*/*;q=0.8",
       },
-      signal: AbortSignal.timeout(8000),
+      httpsAgent,
+      responseType: "arraybuffer",
+      timeout: 8000,
     });
 
-    if (!upstream.ok) {
+    if (upstream.status < 200 || upstream.status >= 300) {
       res.status(502).json({ error: `업스트림 오류: ${upstream.status}` });
       return;
     }
 
-    const contentType = upstream.headers.get("content-type") ?? "image/jpeg";
-    const buffer = Buffer.from(await upstream.arrayBuffer());
+    const contentType = (upstream.headers["content-type"] as string | undefined) ?? "image/jpeg";
+    const buffer = Buffer.from(upstream.data as unknown as ArrayBuffer);
 
     const headers: Record<string, string> = {
       "Content-Type": contentType,

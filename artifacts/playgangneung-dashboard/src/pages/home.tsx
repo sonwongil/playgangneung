@@ -351,25 +351,29 @@ function FeedCard({ item, onTagClick }: { item: FeedItem; onTagClick?: (tag: str
 const STORY_GRADIENTS = ["from-blue-800 to-blue-600", "from-purple-800 to-purple-600", "from-emerald-800 to-emerald-600", "from-rose-800 to-rose-600", "from-orange-800 to-orange-600"];
 
 function StoryCard({ item }: { item: StoryItem }) {
-  const [imgFailed, setImgFailed] = useState(false);
   const firstImage = item.images[0] ?? item.thumbnailUrl ?? null;
-  const showImg = !!(firstImage && !imgFailed);
   const gradient = STORY_GRADIENTS[item.id.charCodeAt(0) % STORY_GRADIENTS.length];
+  const FALLBACK = "https://images.unsplash.com/photo-1540979388789-6cee28a1cdc9?w=600&q=80";
   return (
     <a href={item.sourceUrl || "#"} target="_blank" rel="noopener noreferrer" className="block rounded-2xl overflow-hidden cursor-pointer hover:shadow-xl transition-shadow duration-300 group bg-gray-900">
       <div className="relative h-44 overflow-hidden">
         {/* 그라디언트 배경 — 항상 표시, 이미지 로드 성공 시 가려짐 */}
         <div className={`w-full h-full bg-gradient-to-br ${gradient} absolute inset-0`} />
-        {/* 이미지 — images[0] → thumbnailUrl → 실패 시 그라디언트 */}
-        {showImg && (
-          <img
-            src={proxyImg(firstImage)}
-            alt={item.title}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 absolute inset-0"
-            loading="lazy"
-            onError={() => setImgFailed(true)}
-          />
-        )}
+        {/* 이미지 — proxy → 직접URL → Unsplash fallback */}
+        <img
+          src={firstImage ? proxyImg(firstImage) : FALLBACK}
+          alt={item.title}
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 absolute inset-0"
+          loading="lazy"
+          onError={(e) => {
+            const img = e.currentTarget;
+            if (firstImage && img.src.includes("/api/proxy/image")) {
+              img.src = firstImage;
+            } else {
+              img.src = FALLBACK;
+            }
+          }}
+        />
         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
         <div className="absolute bottom-0 left-0 right-0 p-3">
           {item.author && <div className="flex items-center gap-1.5 mb-1.5"><div className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-[10px] font-bold text-white shrink-0">{item.author[0]}</div><span className="text-[11px] text-white/70 truncate">{item.author}</span></div>}
@@ -1087,6 +1091,14 @@ export default function Home() {
                             draggable={false}
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 pointer-events-none"
                             loading="lazy"
+                            onError={(e) => {
+                              const img = e.currentTarget;
+                              if (!img.src.includes("/api/proxy/image")) {
+                                img.src = proxyImg(thumbSrc);
+                              } else {
+                                img.src = "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&q=80";
+                              }
+                            }}
                           />
                           {badgeLabel && (
                             <div className="absolute top-1.5 left-1.5">

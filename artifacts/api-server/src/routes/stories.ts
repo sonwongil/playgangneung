@@ -94,6 +94,7 @@ router.post("/stories/naver-crawl", async (req, res) => {
           title: s.title,
           body: s.body,
           images: s.images,
+          thumbnailUrl: s.images[0] ?? null,
           sourceUrl: s.sourceUrl,
           author: s.author,
           tags: s.tags,
@@ -138,6 +139,7 @@ router.post("/stories/crawl", async (req, res) => {
           title: s.title,
           body: s.body,
           images: s.images,
+          thumbnailUrl: s.images[0] ?? null,
           sourceUrl: s.sourceUrl,
           author: s.author,
           tags: s.tags,
@@ -283,7 +285,7 @@ router.post("/stories/refetch-images", async (req, res) => {
         if (imgs.length > 0) {
           await db
             .update(storiesTable)
-            .set({ images: imgs, updatedAt: new Date() })
+            .set({ images: imgs, thumbnailUrl: imgs[0], updatedAt: new Date() })
             .where(eq(storiesTable.id, row.id));
           updated++;
         }

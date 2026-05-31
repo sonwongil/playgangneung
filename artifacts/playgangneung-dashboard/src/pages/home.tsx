@@ -44,6 +44,7 @@ interface StoryItem {
   title: string;
   body: string;
   images: string[];
+  thumbnailUrl: string | null;
   sourceUrl: string;
   author: string;
   tags: string[];
@@ -351,7 +352,7 @@ const STORY_GRADIENTS = ["from-blue-800 to-blue-600", "from-purple-800 to-purple
 
 function StoryCard({ item }: { item: StoryItem }) {
   const [imgFailed, setImgFailed] = useState(false);
-  const firstImage = item.images[0];
+  const firstImage = item.images[0] ?? item.thumbnailUrl ?? null;
   const showImg = !!(firstImage && !imgFailed);
   const gradient = STORY_GRADIENTS[item.id.charCodeAt(0) % STORY_GRADIENTS.length];
   return (
@@ -359,7 +360,7 @@ function StoryCard({ item }: { item: StoryItem }) {
       <div className="relative h-44 overflow-hidden">
         {/* 그라디언트 배경 — 항상 표시, 이미지 로드 성공 시 가려짐 */}
         <div className={`w-full h-full bg-gradient-to-br ${gradient} absolute inset-0`} />
-        {/* 이미지 — 로드 성공 시만 표시 */}
+        {/* 이미지 — images[0] → thumbnailUrl → 실패 시 그라디언트 */}
         {showImg && (
           <img
             src={proxyImg(firstImage)}

@@ -7,6 +7,7 @@ export const storiesTable = pgTable(
     title: text("title").notNull().default(""),
     body: text("body").notNull().default(""),
     images: jsonb("images").$type<string[]>().notNull().default([]),
+    thumbnailUrl: text("thumbnail_url"),
     sourceUrl: text("source_url").notNull().default(""),
     author: text("author").notNull().default(""),
     tags: jsonb("tags").$type<string[]>().notNull().default([]),

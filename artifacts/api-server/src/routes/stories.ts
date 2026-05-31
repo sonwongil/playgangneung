@@ -101,6 +101,21 @@ router.post("/stories/naver-crawl", async (req, res) => {
           status: "draft" as const,
         })),
       );
+
+      // 이미지 없는 스토리 비동기 자동 재추출
+      const noImg = toInsert.filter((s) => s.images.length === 0 && s.sourceUrl);
+      if (noImg.length > 0) {
+        setImmediate(async () => {
+          for (const s of noImg) {
+            try {
+              const imgs = await fetchNaverBlogImages(s.sourceUrl, 5);
+              if (imgs.length > 0) {
+                await db.update(storiesTable).set({ images: imgs, thumbnailUrl: imgs[0], updatedAt: new Date() }).where(eq(storiesTable.id, s.id));
+              }
+            } catch { /* 실패 무시 */ }
+          }
+        });
+      }
     }
 
     req.log.info({ query, added: toInsert.length, total }, "네이버 블로그 수집 완료");
@@ -146,6 +161,21 @@ router.post("/stories/crawl", async (req, res) => {
           status: "draft" as const,
         })),
       );
+
+      // 이미지 없는 스토리 비동기 자동 재추출
+      const noImg = toInsert.filter((s) => s.images.length === 0 && s.sourceUrl);
+      if (noImg.length > 0) {
+        setImmediate(async () => {
+          for (const s of noImg) {
+            try {
+              const imgs = await fetchNaverBlogImages(s.sourceUrl, 5);
+              if (imgs.length > 0) {
+                await db.update(storiesTable).set({ images: imgs, thumbnailUrl: imgs[0], updatedAt: new Date() }).where(eq(storiesTable.id, s.id));
+              }
+            } catch { /* 실패 무시 */ }
+          }
+        });
+      }
     }
 
     req.log.info({ added: toInsert.length, skipped: crawled.length - toInsert.length }, "스토리 크롤링 저장 완료");

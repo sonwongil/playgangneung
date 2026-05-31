@@ -895,7 +895,7 @@ export default function Admin() {
   // ── Mutations ────────────────────────────────────────────────────────────────
   const crawlMutation = useMutation({
     mutationFn: async () => {
-      const r = await fetch(`${BASE}/api/crawl`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
+      const r = await fetch(`${BASE}/api/events/crawl`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
       if (!r.ok) throw new Error("크롤링 실패");
       return r.json();
     },

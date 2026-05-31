@@ -137,6 +137,7 @@ function buildAdDraft(ad: Ad): SocialDraft {
     parts.push(rawDesc.length > 200 ? rawDesc.slice(0, 200) + "…" : rawDesc);
   }
   parts.push("");
+  parts.push(`🔗 원문보기 👉 PLAY강릉\n${contentLink}`);
   return {
     title: ad.title,
     caption: parts.join("\n").trim(),
@@ -419,6 +420,32 @@ router.post("/ads/:id/ai-improve", async (req, res) => {
   } catch (err) {
     req.log.error({ err }, "AI 문구 보정 실패");
     return res.status(500).json({ error: "AI 문구 보정 실패" });
+  }
+});
+
+// ─── 광고접수 초안 원문링크 일괄 재생성 ─────────────────────────────────────────
+router.post("/ads/regenerate-drafts", async (req, res) => {
+  if (!req.session?.isAdmin) return res.status(401).json({ error: "인증 필요" });
+  try {
+    const siteUrl = process.env["SITE_URL"] ?? "https://playgangneung.com";
+    const contentPattern = `${siteUrl}/content/`;
+    const rows = await db.select().from(adsTable).orderBy(desc(adsTable.createdAt));
+    const targets = rows.filter((r) => {
+      const draft = r.socialDraft as { caption?: string } | null;
+      return draft?.caption && !draft.caption.includes(contentPattern);
+    });
+    let regenerated = 0;
+    for (const row of targets) {
+      const ad = rowToAd(row);
+      const newDraft = buildAdDraft(ad);
+      await db.update(adsTable).set({ socialDraft: newDraft }).where(eq(adsTable.id, row.id));
+      regenerated++;
+    }
+    req.log.info({ total: rows.length, regenerated }, "광고접수 초안 원문링크 재생성 완료");
+    return res.json({ success: true, total: rows.length, regenerated });
+  } catch (err) {
+    req.log.error({ err }, "광고접수 초안 재생성 실패");
+    return res.status(500).json({ success: false, error: String(err) });
   }
 });
 

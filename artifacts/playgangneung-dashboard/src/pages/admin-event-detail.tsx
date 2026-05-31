@@ -97,7 +97,7 @@ export default function AdminEventDetail() {
   const [emojiTab, setEmojiTab] = useState(0);
   const editorRef = useRef<SnsEditorHandle>(null);
 
-  const FIXED_CTA = `📍 강릉 행사 더보기\n👉 https://playgangneung.com`;
+  const contentPageUrl = `${window.location.origin}/content/${eventId}`;
 
   const EMOJI_GROUPS = [
     { label: "❤️ 감정", emojis: ["😊","🥰","😍","🤩","😆","😂","🙏","👏","🙌","❤️","💕","💯","🔥","✨","💫","🌟","😎","🥳","😋","🤗"] },
@@ -246,7 +246,18 @@ export default function AdminEventDetail() {
 
   function copyAll() {
     const hashtags = editHashtagsStr.split(/[\s,]+/).map((h) => h.startsWith("#") ? h : `#${h}`).filter(Boolean);
-    const text = `${htmlToSns(editCaption)}\n\n${hashtags.join(" ")}\n\n${FIXED_CTA}`;
+    const captionText = htmlToSns(editCaption);
+    const footerParts: string[] = [];
+    // 원문보기: event.link가 있고 caption에 없으면 추가
+    if (event?.link && !captionText.includes(event.link)) {
+      footerParts.push(`🔗 원문보기 👉 ${event.link}`);
+    }
+    // PLAY강릉 콘텐츠 링크: caption에 /content/ 경로가 없으면 추가
+    if (!captionText.includes("/content/")) {
+      footerParts.push(`📍 강릉 더보기 👉 ${contentPageUrl}`);
+    }
+    const parts = [captionText, hashtags.join(" "), ...footerParts].filter(Boolean);
+    const text = parts.join("\n\n");
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true);
       toast({ title: "캡션 복사 완료", description: "인스타·페북 게시창에 붙여넣으세요." });
@@ -512,8 +523,10 @@ export default function AdminEventDetail() {
             {/* CTA 고정 미리보기 */}
             <div className="rounded-xl border border-violet-100 bg-violet-50/50 p-3 space-y-1.5">
               <span className="text-[11px] font-bold text-violet-700">📢 공통 링크 문구 (항상 첨부)</span>
-              <pre className="text-[11px] font-mono whitespace-pre-wrap leading-relaxed text-violet-800">{FIXED_CTA}</pre>
-              <p className="text-[10px] text-violet-400">복사 시 문구 아래에 자동 추가됩니다.</p>
+              <pre className="text-[11px] font-mono whitespace-pre-wrap leading-relaxed text-violet-800">
+                {event?.link ? `🔗 원문보기 👉 ${event.link}\n` : ""}📍 강릉 더보기 👉 {contentPageUrl}
+              </pre>
+              <p className="text-[10px] text-violet-400">복사 시 문구에 자동 추가됩니다 (중복 시 생략).</p>
             </div>
 
             <div className="flex gap-2">

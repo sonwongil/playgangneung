@@ -1336,6 +1336,18 @@ export default function Admin() {
     onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
   });
 
+  const regenerateAdDraftsMutation = useMutation({
+    mutationFn: async () => {
+      const r = await fetch(`${BASE}/api/ads/regenerate-drafts`, { method: "POST", credentials: "include" });
+      const d = await r.json(); if (!r.ok) throw new Error(d.error ?? "실패"); return d as { total: number; regenerated: number };
+    },
+    onSuccess: (d) => {
+      toast({ title: d.regenerated === 0 ? "광고접수 초안 모두 최신" : `광고접수 ${d.regenerated}건 원문링크 추가 완료` });
+      qc.invalidateQueries({ queryKey: ["admin-ads"] });
+    },
+    onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
+  });
+
   const saveScheduleMutation = useMutation({
     mutationFn: async ({ hour, minute }: { hour: number; minute: number }) => {
       const r = await fetch(`${BASE}/api/schedule`, {
@@ -5829,8 +5841,8 @@ export default function Admin() {
 
               <Card>
                 <CardContent className="p-5 space-y-3">
-                  <p className="font-semibold text-sm flex items-center gap-2"><RefreshCw className="w-4 h-4 text-blue-600" />SNS 초안 링크 일괄 재생성</p>
-                  <p className="text-sm text-muted-foreground">기존 초안의 출처 URL을 /content/:id 상세 링크로 일괄 업데이트합니다.</p>
+                  <p className="font-semibold text-sm flex items-center gap-2"><RefreshCw className="w-4 h-4 text-blue-600" />SNS 초안 링크 일괄 재생성 (이벤트)</p>
+                  <p className="text-sm text-muted-foreground">기존 이벤트 초안의 출처 URL을 /content/:id 상세 링크로 일괄 업데이트합니다.</p>
                   {regenerateDraftsMutation.data && (
                     <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 rounded-lg px-3 py-2 border border-green-200">
                       <CheckCircle className="w-4 h-4 shrink-0" />
@@ -5840,6 +5852,23 @@ export default function Admin() {
                   <Button className="w-full gap-2 bg-blue-600 hover:bg-blue-700" onClick={() => regenerateDraftsMutation.mutate()} disabled={regenerateDraftsMutation.isPending}>
                     <RefreshCw className={`w-4 h-4 ${regenerateDraftsMutation.isPending ? "animate-spin" : ""}`} />
                     {regenerateDraftsMutation.isPending ? "재생성 중..." : "일괄 재생성"}
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="p-5 space-y-3">
+                  <p className="font-semibold text-sm flex items-center gap-2"><RefreshCw className="w-4 h-4 text-orange-600" />원문보기 링크 일괄 추가 (광고접수)</p>
+                  <p className="text-sm text-muted-foreground">광고접수 초안에 원문보기 링크(/content/:id)가 없는 항목을 일괄 업데이트합니다.</p>
+                  {regenerateAdDraftsMutation.data && (
+                    <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 rounded-lg px-3 py-2 border border-green-200">
+                      <CheckCircle className="w-4 h-4 shrink-0" />
+                      {regenerateAdDraftsMutation.data.regenerated === 0 ? "모든 광고 초안이 이미 최신입니다." : `${regenerateAdDraftsMutation.data.regenerated}건 원문링크 추가 완료`}
+                    </div>
+                  )}
+                  <Button className="w-full gap-2 bg-orange-600 hover:bg-orange-700" onClick={() => regenerateAdDraftsMutation.mutate()} disabled={regenerateAdDraftsMutation.isPending}>
+                    <RefreshCw className={`w-4 h-4 ${regenerateAdDraftsMutation.isPending ? "animate-spin" : ""}`} />
+                    {regenerateAdDraftsMutation.isPending ? "재생성 중..." : "광고접수 원문링크 추가"}
                   </Button>
                 </CardContent>
               </Card>

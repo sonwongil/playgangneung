@@ -615,15 +615,14 @@ export default function AdminEventDetail() {
               <button
                 className="flex items-center justify-center gap-1.5 w-full h-9 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold transition-colors"
                 onClick={async () => {
-                  const href = editThumbnail.startsWith("/api/")
-                    ? `${BASE}${editThumbnail}`
-                    : `${BASE}/api/proxy/download?url=${encodeURIComponent(editThumbnail)}`;
-                  const r = await fetch(href);
-                  const blob = await r.blob();
-                  const blobUrl = URL.createObjectURL(blob);
-                  const a = document.createElement("a");
-                  a.href = blobUrl; a.download = "photo-대표.jpg"; a.click();
-                  setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+                  const r = await fetch(`${BASE}/api/events/${eventId}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    credentials: "include",
+                    body: JSON.stringify({ thumbnail: editThumbnail }),
+                  });
+                  if (!r.ok) { toast({ title: "저장 실패", variant: "destructive" }); return; }
+                  toast({ title: "✅ 대표 이미지 저장 완료", description: "피드 카드에 바로 반영됩니다." });
                 }}
               >
                 <Download className="w-3.5 h-3.5" />대표 이미지 저장

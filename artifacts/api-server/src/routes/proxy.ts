@@ -13,6 +13,7 @@ const ALLOWED_HOSTS = [
   "postfiles.pstatic.net",
   "blogfiles.pstatic.net",
   "mblogthumb-phinf.pstatic.net",
+  "dthumb-phinf.pstatic.net",
   "blogthumb.pstatic.net",
   "phinf.pstatic.net",
   "blogpfthumb-phinf.pstatic.net",

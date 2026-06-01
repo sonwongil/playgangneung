@@ -74,8 +74,8 @@ function extractImagesFromHtml(html: string, maxCount = 5): string[] {
 
 /** 섬네일 URL을 w800 고해상도로 정규화하고 프로필/아이콘은 제거 */
 function normalizeImgUrl(raw: string): string | null {
-  // 프로필·스토어 아이콘·광고 이미지 제외
-  if (/blogpfthumb|storep-phinf|dthumb-phinf|ogq_|type=p\d|\.gif/i.test(raw)) return null;
+  // 프로필·스토어 아이콘 제외 (dthumb-phinf는 일반 콘텐츠 이미지에도 사용되므로 제외 안 함)
+  if (/blogpfthumb|storep-phinf|type=p\d|\.gif/i.test(raw)) return null;
   // blur 저해상도 → w800 고해상도
   let url = raw.replace(/type=w\d+_blur$/i, "type=w800").replace(/type=s3$/i, "type=w800");
   return url;

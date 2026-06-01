@@ -776,13 +776,11 @@ export default function Admin() {
   });
 
   const { data: top5EventsData } = useQuery<{ events: { id: string; title: string; thumbnail: string | null; status: string; category: string; startDate: string; scheduleStatus: string }[] }>({
-    queryKey: ["admin-top5-events"],
+    queryKey: ["admin-events"],
     queryFn: async () => {
       const r = await fetch(`${BASE}/api/events`, { credentials: "include" });
       if (!r.ok) throw new Error("이벤트 조회 실패");
-      const data = await r.json();
-      const events = (data.events ?? []).filter((e: { status: string }) => e.status === "approved" || e.status === "published");
-      return { events };
+      return r.json();
     },
     enabled: activeNav === "top5",
   });
@@ -6102,8 +6100,9 @@ export default function Admin() {
           {/* ══ 오늘의 강릉 TOP 5 관리 ════════════════════════════════════════ */}
           {activeNav === "top5" && (() => {
             const candidates = (top5EventsData?.events ?? []).filter((ev) => {
+              const isApproved = ev.status === "approved" || ev.status === "published";
               const q = top5Search.trim().toLowerCase();
-              return !q || ev.title.toLowerCase().includes(q);
+              return isApproved && (!q || ev.title.toLowerCase().includes(q));
             });
             const draftIds = new Set(top5Draft.map((d) => d.eventId));
 

@@ -703,8 +703,8 @@ export default function Home() {
       if (!res.ok) throw new Error("TOP 5 로드 실패");
       return res.json();
     },
-    staleTime: 120_000,
-    refetchInterval: 300_000,
+    staleTime: 10_000,
+    refetchInterval: 60_000,
   });
 
   const { data: bannerConfig } = useQuery<BannerConfig>({

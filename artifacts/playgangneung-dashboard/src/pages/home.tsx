@@ -266,8 +266,6 @@ function FeedCard({ item, onTagClick }: { item: FeedItem; onTagClick?: (tag: str
     <>
       <a
         href={cardHref}
-        target={item.isAd ? undefined : "_blank"}
-        rel="noopener noreferrer"
         onClick={openCard}
         className="block cursor-pointer"
       >
@@ -1071,7 +1069,7 @@ export default function Home() {
                     return (
                       <a
                         key={item.id}
-                        href={`${BASE}/content/${item.id}`}
+                        href={item.link || "#"}
                         draggable={false}
                         onClick={(e) => { if (premiumDrag.current.moved) e.preventDefault(); }}
                         className="shrink-0 w-56 cursor-pointer group"

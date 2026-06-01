@@ -238,7 +238,7 @@ function LightboxModal({ images, startIdx, open, onClose }: { images: string[]; 
   );
 }
 
-function FeedCard({ item, onTagClick }: { item: FeedItem; onTagClick?: (tag: string) => void }) {
+function FeedCard({ item, onTagClick, onOpenSource }: { item: FeedItem; onTagClick?: (tag: string) => void; onOpenSource?: (url: string) => void }) {
   const [showDetail, setShowDetail] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIdx, setLightboxIdx] = useState(0);
@@ -250,16 +250,16 @@ function FeedCard({ item, onTagClick }: { item: FeedItem; onTagClick?: (tag: str
   const adCfg = item.isAd && item.adPlan ? AD_PLAN_CONFIG[item.adPlan] : null;
   const gradient = CATEGORY_GRADIENT[category] ?? "from-gray-700 to-gray-900";
 
-  const cardHref = item.isAd
-    ? "#"
-    : (item.sourceUrl || item.link || `/content/${item.id}`);
+  const cardHref = "#";
 
   function openCard(e: React.MouseEvent) {
+    e.preventDefault();
     if (item.isAd) {
-      e.preventDefault();
       setShowDetail(true);
+    } else {
+      const url = item.sourceUrl || item.link;
+      if (url) onOpenSource?.(url);
     }
-    // 일반 피드는 <a> href가 직접 처리 → 팝업 차단 없음
   }
 
   return (
@@ -515,6 +515,8 @@ export default function Home() {
   const [isSavingModal, setIsSavingModal] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<Event & { prompt: () => Promise<void> } | null>(null);
   const [installGuide, setInstallGuide] = useState(false);
+  const [selectedLink, setSelectedLink] = useState<string | null>(null);
+  const [iframeLoaded, setIframeLoaded] = useState(false);
   // standalone(PWA) 모드 감지 — 이미 설치된 경우 설치 버튼 숨김
   const [isStandalone, setIsStandalone] = useState(
     () => window.matchMedia("(display-mode: standalone)").matches || (navigator as unknown as { standalone?: boolean }).standalone === true,
@@ -794,6 +796,7 @@ export default function Home() {
   const isFiltered = activeTag !== "전체" || isSearching;
 
   return (
+    <>
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* ─── 상단 고정 영역 ─── */}
       <div className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
@@ -1069,9 +1072,13 @@ export default function Home() {
                     return (
                       <a
                         key={item.id}
-                        href={item.link || "#"}
+                        href="#"
                         draggable={false}
-                        onClick={(e) => { if (premiumDrag.current.moved) e.preventDefault(); }}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          if (premiumDrag.current.moved) return;
+                          if (item.link) { setSelectedLink(item.link); setIframeLoaded(false); }
+                        }}
                         className="shrink-0 w-56 cursor-pointer group"
                       >
                         <div className="relative h-36 rounded-xl overflow-hidden bg-gray-200 mb-2">
@@ -1325,7 +1332,7 @@ export default function Home() {
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {display.map((item, idx) => (
                     <div key={item.id}>
-                      <FeedCard item={item} onTagClick={(tag) => handleTagClick(tag)} />
+                      <FeedCard item={item} onTagClick={(tag) => handleTagClick(tag)} onOpenSource={(url) => { setSelectedLink(url); setIframeLoaded(false); }} />
                       {/* 피드 중간 공동광고 배너 (8개마다) */}
                       {(idx + 1) % 8 === 0 && idx < display.length - 1 && !isFiltered && (
                         <button
@@ -1723,5 +1730,55 @@ export default function Home() {
         </DialogContent>
       </Dialog>
     </div>
+
+    {/* 원본 보기 iframe 모달 */}
+    {selectedLink && (
+      <div className="fixed inset-0 z-[100] flex flex-col" style={{ touchAction: "none" }}>
+        {/* 헤더 */}
+        <div className="flex items-center gap-2 px-3 py-2 bg-white border-b border-gray-200 shrink-0">
+          <button
+            onClick={() => { setSelectedLink(null); setIframeLoaded(false); }}
+            className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 text-gray-600 text-lg font-bold shrink-0"
+            aria-label="닫기"
+          >✕</button>
+          <span className="text-xs text-gray-400 truncate flex-1">{selectedLink}</span>
+          <a
+            href={selectedLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="shrink-0 text-xs font-bold text-blue-600 bg-blue-50 border border-blue-200 px-3 py-1.5 rounded-full"
+          >원문 보기 ↗</a>
+        </div>
+        {/* iframe 영역 */}
+        <div className="flex-1 relative bg-white overflow-hidden">
+          {!iframeLoaded && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-gray-400 bg-white z-10">
+              <div className="w-8 h-8 border-2 border-gray-200 border-t-blue-500 rounded-full animate-spin" />
+              <span className="text-sm">페이지 불러오는 중...</span>
+            </div>
+          )}
+          <iframe
+            key={selectedLink}
+            src={selectedLink}
+            className="w-full h-full border-none"
+            style={{ opacity: iframeLoaded ? 1 : 0, transition: "opacity 0.2s" }}
+            onLoad={() => setIframeLoaded(true)}
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
+            title="원본 페이지"
+          />
+        </div>
+        {/* 하단 안내 */}
+        <div className="shrink-0 flex items-center justify-between gap-2 px-4 py-2 bg-yellow-50 border-t border-yellow-200">
+          <span className="text-xs text-yellow-700">미리보기가 보이지 않으면</span>
+          <a
+            href={selectedLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs font-bold text-yellow-800 underline"
+          >원문 보기</a>
+        </div>
+      </div>
+    )}
+    </>
   );
 }

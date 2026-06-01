@@ -11,6 +11,12 @@ import { useToast } from "@/hooks/use-toast";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
+function proxyImg(url: string | null | undefined): string {
+  if (!url) return "";
+  if (url.startsWith("/")) return `${BASE}${url}`;
+  return `${BASE}/api/proxy/image?url=${encodeURIComponent(url)}`;
+}
+
 interface SocialDraft {
   title: string;
   caption: string;
@@ -335,7 +341,7 @@ export default function AdminEventDetail() {
         {/* 썸네일 — editThumbnail로 실시간 미리보기 */}
         {(editThumbnail || event.thumbnail) ? (
           <div className="rounded-2xl overflow-hidden border border-border shadow-sm bg-black">
-            <img src={editThumbnail || event.thumbnail!} alt={event.title} className="w-full max-h-72 object-contain"
+            <img src={proxyImg(editThumbnail || event.thumbnail)} alt={event.title} className="w-full max-h-72 object-contain"
               onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
           </div>
         ) : (
@@ -607,7 +613,7 @@ export default function AdminEventDetail() {
             )}
             {editThumbnail && (
               <div className="rounded-xl overflow-hidden border bg-gray-50 max-h-48">
-                <img src={editThumbnail} alt="대표 이미지" className="w-full h-full object-contain max-h-48"
+                <img src={proxyImg(editThumbnail)} alt="대표 이미지" className="w-full h-full object-contain max-h-48"
                   onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
               </div>
             )}
@@ -650,7 +656,7 @@ export default function AdminEventDetail() {
                         <RefreshCw className="w-5 h-5 text-violet-500 animate-spin mx-auto" />
                       ) : editExtraImages[slot - 1] ? (
                         <img
-                          src={editExtraImages[slot - 1]}
+                          src={proxyImg(editExtraImages[slot - 1])}
                           alt={`추가 이미지 ${slot}`}
                           className="w-full h-20 object-cover rounded-lg"
                           onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}

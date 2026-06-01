@@ -75,6 +75,12 @@ import {
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
+function proxyAdminImg(url: string): string {
+  if (!url) return url;
+  if (url.startsWith("/") || url.startsWith(BASE) || url.startsWith("blob:") || url.startsWith("data:")) return url;
+  return `${BASE}/api/proxy/image?url=${encodeURIComponent(url)}`;
+}
+
 interface SocialDraft {
   title: string;
   caption: string;
@@ -1722,10 +1728,11 @@ export default function Admin() {
                         {/* Thumbnail */}
                         <div className="w-14 h-14 rounded-lg overflow-hidden bg-teal-50 shrink-0">
                           <img
-                            src={ev.thumbnail || extractYoutubeThumb(ev.videoUrl) || `${BASE}/logo_transparent.png`}
+                            key={ev.thumbnail || ev.id}
+                            src={proxyAdminImg(ev.thumbnail || extractYoutubeThumb(ev.videoUrl) || `${BASE}/logo_transparent.png`)}
                             alt=""
                             className={`w-full h-full ${(ev.thumbnail || extractYoutubeThumb(ev.videoUrl)) ? "object-cover" : "object-contain p-1.5"}`}
-                            onError={(e) => { const img = e.currentTarget; img.src = `${BASE}/logo_transparent.png`; img.className = "w-full h-full object-contain p-1.5"; }}
+                            onError={(e) => { const img = e.currentTarget; if (img.src.includes("/api/proxy/image")) { const raw = ev.thumbnail || extractYoutubeThumb(ev.videoUrl); img.src = raw || `${BASE}/logo_transparent.png`; img.className = `w-full h-full ${raw ? "object-cover" : "object-contain p-1.5"}`; } else { img.src = `${BASE}/logo_transparent.png`; img.className = "w-full h-full object-contain p-1.5"; } }}
                           />
                         </div>
                         {/* Info */}
@@ -1783,9 +1790,11 @@ export default function Admin() {
                       <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-gray-50/60">
                         <div className="w-10 h-10 rounded-lg overflow-hidden bg-teal-50 shrink-0">
                           <img
-                            src={ev.thumbnail || extractYoutubeThumb(ev.videoUrl) || `${BASE}/logo_transparent.png`}
+                            key={ev.thumbnail || ev.id}
+                            src={proxyAdminImg(ev.thumbnail || extractYoutubeThumb(ev.videoUrl) || `${BASE}/logo_transparent.png`)}
                             alt=""
                             className={`w-full h-full ${(ev.thumbnail || extractYoutubeThumb(ev.videoUrl)) ? "object-cover" : "object-contain p-1"}`}
+                            onError={(e) => { const img = e.currentTarget; if (img.src.includes("/api/proxy/image")) { const raw = ev.thumbnail || extractYoutubeThumb(ev.videoUrl); img.src = raw || `${BASE}/logo_transparent.png`; img.className = `w-full h-full ${raw ? "object-cover" : "object-contain p-1"}`; } else { img.src = `${BASE}/logo_transparent.png`; img.className = "w-full h-full object-contain p-1"; } }}
                           />
                         </div>
                         <div className="flex-1 min-w-0">

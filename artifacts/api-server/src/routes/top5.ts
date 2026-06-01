@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { requireAdmin } from "../middlewares/requireAdmin.js";
 import { db, dailyTop5Table, eventsTable } from "@workspace/db";
-import { eq, inArray, or } from "drizzle-orm";
+import { eq, inArray, or, desc, ne } from "drizzle-orm";
 
 const router = Router();
 
@@ -10,90 +10,110 @@ function todayKST(): string {
   return kst.toISOString().slice(0, 10);
 }
 
+type SlotItem = { eventId: string; rank: number };
+
+async function enrichSlots(slotItems: SlotItem[]) {
+  if (slotItems.length === 0) return [];
+  const eventIds = slotItems.map((s) => s.eventId);
+  const events = await db.select().from(eventsTable).where(inArray(eventsTable.id, eventIds));
+  const eventMap = new Map(events.map((e) => [e.id, e]));
+  return slotItems
+    .sort((a, b) => a.rank - b.rank)
+    .map((slot) => {
+      const ev = eventMap.get(slot.eventId);
+      if (!ev) return null;
+      return {
+        rank: slot.rank,
+        eventId: slot.eventId,
+        id: ev.id,
+        title: ev.title,
+        description: ev.description,
+        thumbnail: ev.thumbnail,
+        category: ev.category,
+        location: ev.location,
+        date: ev.startDate || ev.date,
+        startDate: ev.startDate,
+        endDate: ev.endDate,
+        scheduleStatus: ev.scheduleStatus,
+        link: ev.link,
+        source: ev.source,
+        hashtags: ev.hashtags,
+      };
+    })
+    .filter(Boolean);
+}
+
 router.get("/top5", async (req, res) => {
   try {
     const dateParam = (req.query["date"] as string | undefined) ?? todayKST();
-    const row = await db
+
+    // ── 1순위: 오늘 daily_top5 ──────────────────────────────────────
+    const todayRow = await db
       .select()
       .from(dailyTop5Table)
       .where(eq(dailyTop5Table.date, dateParam))
       .limit(1);
 
-    if (!row[0] || row[0].items.length === 0) {
-      // 수동 선정 없을 때: approved/published 이벤트를 scheduleStatus 기준으로 자동 선택
-      const SCHEDULE_ORDER: Record<string, number> = {
-        today: 0, ongoing: 1, tomorrow: 2, upcoming: 3, dateUnknown: 4, ended: 5,
-      };
-      const candidates = await db
-        .select()
-        .from(eventsTable)
-        .where(or(eq(eventsTable.status, "approved"), eq(eventsTable.status, "published")))
-        .limit(30);
-
-      const autoItems = candidates
-        .sort((a, b) => {
-          const sa = SCHEDULE_ORDER[a.scheduleStatus ?? ""] ?? 4;
-          const sb = SCHEDULE_ORDER[b.scheduleStatus ?? ""] ?? 4;
-          if (sa !== sb) return sa - sb;
-          return (a.startDate ?? "").localeCompare(b.startDate ?? "");
-        })
-        .slice(0, 5)
-        .map((ev, i) => ({
-          rank: i + 1,
-          eventId: ev.id,
-          id: ev.id,
-          title: ev.title,
-          description: ev.description,
-          thumbnail: ev.thumbnail,
-          category: ev.category,
-          location: ev.location,
-          date: ev.startDate ?? (ev as Record<string, unknown>)["date"] as string ?? null,
-          startDate: ev.startDate,
-          endDate: ev.endDate,
-          scheduleStatus: ev.scheduleStatus,
-          link: ev.link,
-          source: ev.source,
-          hashtags: ev.hashtags,
-        }));
-
-      return res.json({ date: dateParam, items: autoItems, auto: true });
+    if (todayRow[0] && todayRow[0].items.length > 0) {
+      const items = await enrichSlots(todayRow[0].items as SlotItem[]);
+      return res.json({ date: dateParam, items });
     }
 
-    const slotItems = row[0].items;
-    const eventIds = slotItems.map((s) => s.eventId);
+    // ── 2순위: 가장 최근 daily_top5 이력 ───────────────────────────
+    const recentRow = await db
+      .select()
+      .from(dailyTop5Table)
+      .where(ne(dailyTop5Table.date, dateParam))
+      .orderBy(desc(dailyTop5Table.date))
+      .limit(1);
 
-    const events = await db
+    if (recentRow[0] && recentRow[0].items.length > 0) {
+      const items = await enrichSlots(recentRow[0].items as SlotItem[]);
+      return res.json({
+        date: dateParam,
+        items,
+        isHistorical: true,
+        top5Date: recentRow[0].date,
+      });
+    }
+
+    // ── 3순위: daily_top5 이력 없을 때만 — 자동 폴백 ───────────────
+    const SCHEDULE_ORDER: Record<string, number> = {
+      today: 0, ongoing: 1, tomorrow: 2, upcoming: 3, dateUnknown: 4, ended: 5,
+    };
+    const candidates = await db
       .select()
       .from(eventsTable)
-      .where(inArray(eventsTable.id, eventIds));
+      .where(or(eq(eventsTable.status, "approved"), eq(eventsTable.status, "published")))
+      .limit(30);
 
-    const eventMap = new Map(events.map((e) => [e.id, e]));
-    const items = slotItems
-      .sort((a, b) => a.rank - b.rank)
-      .map((slot) => {
-        const ev = eventMap.get(slot.eventId);
-        if (!ev) return null;
-        return {
-          rank: slot.rank,
-          eventId: slot.eventId,
-          id: ev.id,
-          title: ev.title,
-          description: ev.description,
-          thumbnail: ev.thumbnail,
-          category: ev.category,
-          location: ev.location,
-          date: ev.startDate || ev.date,
-          startDate: ev.startDate,
-          endDate: ev.endDate,
-          scheduleStatus: ev.scheduleStatus,
-          link: ev.link,
-          source: ev.source,
-          hashtags: ev.hashtags,
-        };
+    const autoItems = candidates
+      .sort((a, b) => {
+        const sa = SCHEDULE_ORDER[a.scheduleStatus ?? ""] ?? 4;
+        const sb = SCHEDULE_ORDER[b.scheduleStatus ?? ""] ?? 4;
+        if (sa !== sb) return sa - sb;
+        return (a.startDate ?? "").localeCompare(b.startDate ?? "");
       })
-      .filter(Boolean);
+      .slice(0, 5)
+      .map((ev, i) => ({
+        rank: i + 1,
+        eventId: ev.id,
+        id: ev.id,
+        title: ev.title,
+        description: ev.description,
+        thumbnail: ev.thumbnail,
+        category: ev.category,
+        location: ev.location,
+        date: ev.startDate || ev.date,
+        startDate: ev.startDate,
+        endDate: ev.endDate,
+        scheduleStatus: ev.scheduleStatus,
+        link: ev.link,
+        source: ev.source,
+        hashtags: ev.hashtags,
+      }));
 
-    return res.json({ date: dateParam, items });
+    return res.json({ date: dateParam, items: autoItems, auto: true });
   } catch (err) {
     req.log.error({ err }, "TOP 5 조회 실패");
     return res.status(500).json({ error: "TOP 5 조회 실패" });
@@ -105,7 +125,7 @@ router.get("/top5/history", requireAdmin, async (req, res) => {
     const rows = await db
       .select({ date: dailyTop5Table.date, itemCount: dailyTop5Table.items })
       .from(dailyTop5Table)
-      .orderBy(dailyTop5Table.date);
+      .orderBy(desc(dailyTop5Table.date));
     const history = rows.map((r) => ({
       date: r.date,
       count: (r.itemCount as unknown[]).length,

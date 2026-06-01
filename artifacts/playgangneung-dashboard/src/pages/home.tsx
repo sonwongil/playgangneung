@@ -1080,17 +1080,19 @@ export default function Home() {
                         <div className="relative h-36 rounded-xl overflow-hidden bg-gray-200 mb-2">
                           {thumbSrc ? (
                             <img
-                              src={thumbSrc}
+                              key={thumbSrc}
+                              src={proxyImg(thumbSrc)}
                               alt={item.title}
                               draggable={false}
                               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 pointer-events-none"
                               loading="lazy"
                               onError={(e) => {
                                 const img = e.currentTarget;
-                                if (!img.src.includes("/api/proxy/image")) {
-                                  img.src = proxyImg(thumbSrc);
+                                if (img.src.includes("/api/proxy/image")) {
+                                  img.src = thumbSrc;
                                 } else {
-                                  img.style.display = "none";
+                                  img.src = "/logo.png";
+                                  img.className = "w-full h-full object-contain p-4";
                                 }
                               }}
                             />

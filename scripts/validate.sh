@@ -163,6 +163,64 @@ fi
 
 rm -f "$COOKIE_JAR"
 
+# ── 8. 이미지 검증 ────────────────────────────────────────
+echo ""
+echo "▶ [8] 이미지 서빙 및 프록시 검증"
+
+# 8a. 허용 도메인 이미지 proxy 200 확인
+PROXY_OK=$(curl -s -o /dev/null -w '%{http_code}' \
+  "$BASE/api/proxy/image?url=https%3A%2F%2Fwww.kwnews.co.kr%2Fphotos%2F2026%2F05%2F31%2F2026053150090400000_l.jpg")
+if [ "$PROXY_OK" = "200" ]; then
+  pass "허용 도메인(kwnews.co.kr) proxy → 200"
+else
+  fail "허용 도메인 proxy → $PROXY_OK (200 기대)"
+fi
+
+# 8b. 비허용 도메인 proxy 403 확인
+PROXY_BLOCK=$(curl -s -o /dev/null -w '%{http_code}' \
+  "$BASE/api/proxy/image?url=https%3A%2F%2Fevil.example.com%2Fimg.jpg")
+if [ "$PROXY_BLOCK" = "403" ]; then
+  pass "비허용 도메인 proxy → 403"
+else
+  fail "비허용 도메인 proxy → $PROXY_BLOCK (403 기대)"
+fi
+
+# 8c. /api/feed thumbnail 있는 카드 이미지 URL proxy 200 확인 (여러 URL 순서 시도)
+FEED_THUMBS=$(curl -s "$BASE/api/feed" | \
+  python3 -c "import json,sys; d=json.load(sys.stdin); items=d.get('feed',[]); t=[i['thumbnail'] for i in items if i.get('thumbnail') and i['thumbnail'].startswith('http')]; print('\n'.join(t))" 2>/dev/null)
+
+FEED_IMG_PASS=0
+FEED_IMG_CHECKED=""
+while IFS= read -r FEED_THUMB; do
+  [ -z "$FEED_THUMB" ] && continue
+  ENCODED_THUMB=$(python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1], safe=''))" "$FEED_THUMB")
+  FEED_IMG_STATUS=$(curl -s -o /dev/null -w '%{http_code}' "$BASE/api/proxy/image?url=$ENCODED_THUMB")
+  FEED_IMG_CT=$(curl -s -o /dev/null -w '%{content_type}' "$BASE/api/proxy/image?url=$ENCODED_THUMB")
+  if [ "$FEED_IMG_STATUS" = "200" ] && echo "$FEED_IMG_CT" | grep -q "image/"; then
+    pass "/api/feed thumbnail proxy → 200 image/* (${FEED_THUMB:0:50}...)"
+    FEED_IMG_PASS=1
+    break
+  fi
+  FEED_IMG_CHECKED="$FEED_IMG_CHECKED $FEED_IMG_STATUS"
+done <<< "$FEED_THUMBS"
+
+if [ "$FEED_IMG_PASS" -eq 0 ]; then
+  if [ -z "$FEED_THUMBS" ]; then
+    warn "/api/feed에 외부 thumbnail 없음 — 이미지 proxy 검증 건너뜀"
+  else
+    fail "/api/feed thumbnail proxy 모두 실패 (status:$FEED_IMG_CHECKED) — 허용 도메인 또는 서버 차단 확인 필요"
+  fi
+fi
+
+# 8d. approved 이벤트가 /api/feed에 thumbnail과 함께 포함되는지
+FEED_APPROVED=$(curl -s "$BASE/api/feed" | \
+  python3 -c "import json,sys; d=json.load(sys.stdin); items=d.get('feed',[]); approved=[i for i in items if i.get('thumbnail')]; print(len(approved))" 2>/dev/null)
+if [ "${FEED_APPROVED:-0}" -gt 0 ]; then
+  pass "피드에 thumbnail 있는 이벤트 ${FEED_APPROVED}개 포함"
+else
+  warn "피드에 thumbnail 있는 이벤트 없음 (approved 이벤트에 이미지 필요)"
+fi
+
 # ── 최종 요약 ─────────────────────────────────────────────
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

@@ -110,7 +110,7 @@ router.post("/top5", requireAdmin, async (req, res) => {
 
 router.delete("/top5", requireAdmin, async (req, res) => {
   try {
-    const { date: dateParam } = req.body as { date?: string };
+    const { date: dateParam } = (req.body ?? {}) as { date?: string };
     const targetDate = dateParam ?? todayKST();
     await db.delete(dailyTop5Table).where(eq(dailyTop5Table.date, targetDate));
     return res.json({ success: true });

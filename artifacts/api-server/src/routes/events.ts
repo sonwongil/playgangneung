@@ -227,6 +227,10 @@ router.post("/events/extract-url", async (req, res) => {
       /default[_-]?(thumb|image|img)/i,
       /noimage/i,
       /no[_-]img/i,
+      /\/image\/logo/i,
+      /\/img\/logo/i,
+      /logo[_\-]\d{4}/i,
+      /logo\.(png|jpg|jpeg|svg|webp)$/i,
     ];
     const isPlaceholder = (src: string) => PLACEHOLDER_PATTERNS.some(p => p.test(src));
 
@@ -604,10 +608,17 @@ router.post("/events/refetch-images", async (req, res) => {
           responseType: "text",
         });
         const $ = cheerio.load(resp.data as string);
-        const ogImg = $('meta[property="og:image"]').attr("content")?.trim();
-        if (ogImg) {
-          await updateEvent(ev.id, { thumbnail: ogImg });
-          updated++;
+        const ogImgRaw = $('meta[property="og:image"]').attr("content")?.trim();
+        if (ogImgRaw) {
+          const pageOrigin = (() => { try { return new URL(ev.link).origin; } catch { return ""; } })();
+          const ogImg = ogImgRaw.startsWith("//") ? "https:" + ogImgRaw
+            : (ogImgRaw.startsWith("/") && pageOrigin) ? pageOrigin + ogImgRaw
+            : ogImgRaw;
+          const LOGO_PATTERNS = [/\/image\/logo/i, /\/img\/logo/i, /logo[_\-]\d{4}/i, /logo\.(png|jpg|jpeg|svg|webp)$/i];
+          if (ogImg.startsWith("http") && !LOGO_PATTERNS.some((p) => p.test(ogImg))) {
+            await updateEvent(ev.id, { thumbnail: ogImg });
+            updated++;
+          }
         }
       } catch {
         // 개별 실패 무시

@@ -6218,7 +6218,18 @@ export default function Admin() {
               setTop5Draft(items.map((it) => ({ eventId: it.eventId, rank: it.rank, title: it.title, thumbnail: it.thumbnail })));
             };
 
+            const isValidThumb = (thumb: string | null) =>
+              !!thumb && (thumb.startsWith("http://") || thumb.startsWith("https://"));
+
             const saveTop5 = async () => {
+              const noImgSlots = top5Draft.filter((d) => !isValidThumb(d.thumbnail));
+              if (noImgSlots.length > 0) {
+                toast({
+                  title: `⚠️ 이미지 없는 카드 ${noImgSlots.length}개 포함`,
+                  description: `rank ${noImgSlots.map((d) => d.rank).join(", ")}: 대표 이미지가 없습니다. 저장은 계속됩니다.`,
+                  variant: "destructive",
+                });
+              }
               setTop5Saving(true);
               try {
                 const r = await fetch(`${BASE}/api/top5`, {
@@ -6274,27 +6285,32 @@ export default function Admin() {
                         </div>
                       ) : (
                         top5Draft.map((slot, i) => (
-                          <div key={slot.eventId} className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg border">
+                          <div key={slot.eventId} className={`flex items-center gap-3 p-2 rounded-lg border ${!isValidThumb(slot.thumbnail) ? "bg-orange-50 border-orange-200" : "bg-gray-50"}`}>
                             <span className={`shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-extrabold ${i === 0 ? "bg-yellow-400 text-yellow-900" : i === 1 ? "bg-gray-300 text-gray-700" : i === 2 ? "bg-amber-600 text-white" : "bg-gray-200 text-gray-500"}`}>
                               {slot.rank}
                             </span>
                             <button
                               type="button"
-                              title="이미지 변경"
+                              title={isValidThumb(slot.thumbnail) ? "이미지 변경" : "이미지 없음 — 클릭하여 설정"}
                               onClick={() => { setTop5ThumbEdit({ eventId: slot.eventId, title: slot.title }); setTop5ThumbInput(slot.thumbnail ?? ""); }}
-                              className="relative shrink-0 w-10 h-10 rounded-lg overflow-hidden border-2 border-dashed border-blue-300 hover:border-blue-500 group"
+                              className={`relative shrink-0 w-10 h-10 rounded-lg overflow-hidden border-2 border-dashed group ${isValidThumb(slot.thumbnail) ? "border-blue-300 hover:border-blue-500" : "border-orange-400 hover:border-orange-600"}`}
                             >
-                              {slot.thumbnail ? (
-                                <img key={slot.thumbnail} src={proxyAdminImg(slot.thumbnail)} alt="" className="w-full h-full object-cover"
+                              {isValidThumb(slot.thumbnail) ? (
+                                <img key={slot.thumbnail!} src={proxyAdminImg(slot.thumbnail!)} alt="" className="w-full h-full object-cover"
                                   onError={(e) => { const img = e.currentTarget; if (img.src.includes("/api/proxy/image")) img.src = slot.thumbnail!; else img.style.display = "none"; }} />
                               ) : (
-                                <span className="text-lg">🏖️</span>
+                                <span className="text-lg">⚠️</span>
                               )}
                               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                                <span className="text-white text-[9px] font-bold">변경</span>
+                                <span className="text-white text-[9px] font-bold">{isValidThumb(slot.thumbnail) ? "변경" : "설정"}</span>
                               </div>
                             </button>
-                            <span className="text-sm font-medium flex-1 line-clamp-1">{slot.title}</span>
+                            <div className="flex-1 min-w-0">
+                              <span className="text-sm font-medium line-clamp-1">{slot.title}</span>
+                              {!isValidThumb(slot.thumbnail) && (
+                                <p className="text-[10px] text-orange-500 font-medium mt-0.5">이미지 없음 — 홈 카드에 이모지가 표시됩니다</p>
+                              )}
+                            </div>
                             <button onClick={() => removeFromSlot(slot.eventId)} className="shrink-0 text-gray-400 hover:text-red-500 transition-colors p-1">
                               <X className="w-4 h-4" />
                             </button>

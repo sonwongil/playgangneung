@@ -156,6 +156,7 @@ export default function AdminEventDetail() {
           endDate: editEndDate || undefined,
           thumbnail: editThumbnail || null,
           videoUrl: editVideoUrl || null,
+          extraImages: editExtraImages.filter(Boolean),
         }),
       });
       if (!r.ok) { const d = await r.json(); throw new Error(d.error ?? "저장 실패"); }
@@ -331,10 +332,11 @@ export default function AdminEventDetail() {
 
       <div className="max-w-2xl mx-auto px-4 py-5 space-y-4">
 
-        {/* 썸네일 */}
-        {event.thumbnail ? (
+        {/* 썸네일 — editThumbnail로 실시간 미리보기 */}
+        {(editThumbnail || event.thumbnail) ? (
           <div className="rounded-2xl overflow-hidden border border-border shadow-sm bg-black">
-            <img src={event.thumbnail} alt={event.title} className="w-full max-h-72 object-contain" />
+            <img src={editThumbnail || event.thumbnail!} alt={event.title} className="w-full max-h-72 object-contain"
+              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
           </div>
         ) : (
           <div className="rounded-2xl bg-gradient-to-br from-blue-600 to-blue-400 px-5 py-8 flex flex-col gap-2">

@@ -156,6 +156,7 @@ function stripHtml(html: string): string {
 }
 
 function proxyImg(url: string): string {
+  if (url.startsWith("/")) return `${BASE}${url}`;
   return `${BASE}/api/proxy/image?url=${encodeURIComponent(url)}`;
 }
 

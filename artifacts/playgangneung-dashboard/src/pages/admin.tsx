@@ -6374,7 +6374,7 @@ export default function Admin() {
                 {!editThumbnailUrl && <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-orange-600 bg-orange-50 border border-orange-200 rounded px-1.5 py-0.5"><AlertTriangle className="w-3 h-3" />이미지 없음</span>}
               </Label>
               <Input name="thumbnail" value={editThumbnailUrl} onChange={(e) => setEditThumbnailUrl(e.target.value)} placeholder="https://example.com/image.jpg" className={!editThumbnailUrl ? "border-orange-300" : ""} />
-              {editThumbnailUrl && <div className="rounded-lg overflow-hidden border h-32 bg-gray-50"><img src={editThumbnailUrl} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} /></div>}
+              {editThumbnailUrl && <div className="rounded-lg overflow-hidden border h-32 bg-gray-50"><img key={editThumbnailUrl} src={proxyAdminImg(editThumbnailUrl)} alt="" className="w-full h-full object-cover" onError={(e) => { const img = e.currentTarget; if (img.src.includes("/api/proxy/image")) { img.src = editThumbnailUrl; } else { img.style.display = "none"; } }} /></div>}
             </div>
             <div className="space-y-2">
               <Label>동영상 URL (유튜브·MP4·릴스 링크)</Label>
@@ -7012,7 +7012,8 @@ export default function Admin() {
             />
             {manualThumbnail && (
               <div className="rounded-lg overflow-hidden border h-32 bg-gray-50">
-                <img src={manualThumbnail} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                <img key={manualThumbnail} src={proxyAdminImg(manualThumbnail)} alt="" className="w-full h-full object-cover"
+                  onError={(e) => { const img = e.currentTarget; if (img.src.includes("/api/proxy/image")) { img.src = manualThumbnail; } else { img.style.display = "none"; } }} />
               </div>
             )}
           </div>

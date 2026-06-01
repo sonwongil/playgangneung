@@ -39,6 +39,24 @@ interface FeedItem {
   hashtags?: string[];
 }
 
+interface Top5Item {
+  rank: number;
+  eventId: string;
+  id: string;
+  title: string;
+  description: string;
+  thumbnail: string | null;
+  category: string;
+  location: string;
+  date: string;
+  startDate: string;
+  endDate: string;
+  scheduleStatus: string;
+  link: string;
+  source: string;
+  hashtags?: string[] | null;
+}
+
 interface StoryItem {
   id: string;
   title: string;
@@ -678,6 +696,17 @@ export default function Home() {
     refetchInterval: 120_000,
   });
 
+  const { data: top5Data } = useQuery<{ date: string; items: Top5Item[] }>({
+    queryKey: ["top5-today"],
+    queryFn: async () => {
+      const res = await fetch(`${BASE}/api/top5`);
+      if (!res.ok) throw new Error("TOP 5 로드 실패");
+      return res.json();
+    },
+    staleTime: 120_000,
+    refetchInterval: 300_000,
+  });
+
   const { data: bannerConfig } = useQuery<BannerConfig>({
     queryKey: ["banner-config"],
     queryFn: async () => {
@@ -689,36 +718,14 @@ export default function Home() {
   });
 
   const premiumAds = premiumAdsData?.ads ?? [];
-  const [premiumIdx, setPremiumIdx] = useState(0);
-  const premiumIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const top5Items: Top5Item[] = top5Data?.items ?? [];
   const premiumScrollRef = useRef<HTMLDivElement>(null);
   const premiumDrag = useRef({ active: false, startX: 0, scrollLeft: 0, moved: false });
-  const goToPremium = useCallback((idx: number) => {
-    setPremiumIdx((prev) => {
-      const len = premiumAds.length;
-      if (len === 0) return 0;
-      return ((idx % len) + len) % len;
-    });
-  }, [premiumAds.length]);
-
-  useEffect(() => {
-    if (premiumAds.length <= 1) return;
-    premiumIntervalRef.current = setInterval(() => {
-      setPremiumIdx((prev) => (prev + 1) % premiumAds.length);
-    }, 3000);
-    return () => { if (premiumIntervalRef.current) clearInterval(premiumIntervalRef.current); };
-  }, [premiumAds.length]);
 
   const allFeed: FeedItem[] = feedData?.feed ?? [];
   const stories: StoryItem[] = storiesData?.stories ?? [];
   const videos: VideoItem[] = videosData?.videos ?? [];
   const popularTags = (popularTagsData?.tags ?? []).filter((t) => !PREDEFINED_TAGS.includes(t.tag.replace(/^#/, "") as PredefinedTag) && !PREDEFINED_TAGS.includes(t.tag as PredefinedTag));
-
-  const premiumSectionItems: (PremiumAd | FeedItem)[] = useMemo(() => {
-    const adIds = new Set(premiumAds.map((a) => a.id));
-    const topFeed = allFeed.filter((f) => !adIds.has(f.id)).slice(0, Math.max(0, 8 - premiumAds.length));
-    return [...premiumAds, ...topFeed];
-  }, [premiumAds, allFeed]);
 
   const filteredFeed = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -1003,14 +1010,14 @@ export default function Home() {
         {/* 피드 뷰 (스토리/영상 외 모든 탭) */}
         {showFeed && (
           <>
-            {/* 🔥 PLAY 추천 · 프리미엄 콘텐츠 (가로 스크롤 카드) — 로딩 스켈레톤 */}
-            {!isFiltered && premiumAdsData === undefined && (
+            {/* 🏆 오늘의 강릉 TOP 5 — 로딩 스켈레톤 */}
+            {!isFiltered && top5Data === undefined && premiumAdsData === undefined && (
               <section className="mb-5">
                 <div className="flex items-center gap-1.5 mb-3">
-                  <span className="text-base leading-none">🔥</span>
-                  <span className="text-sm font-extrabold text-gray-900">PLAY 추천</span>
+                  <span className="text-base leading-none">🏆</span>
+                  <span className="text-sm font-extrabold text-gray-900">오늘의 강릉</span>
                   <span className="text-sm text-gray-300 mx-0.5">|</span>
-                  <span className="text-sm font-bold text-gray-600">프리미엄 콘텐츠</span>
+                  <span className="text-sm font-bold text-[#00a8e8]">TOP 5</span>
                 </div>
                 <div className="flex gap-3 overflow-x-hidden pb-1 -mx-3 px-3">
                   {Array.from({ length: 5 }).map((_, i) => <PremiumSkeletonCard key={i} />)}
@@ -1018,28 +1025,22 @@ export default function Home() {
               </section>
             )}
 
-            {/* 🔥 PLAY 추천 · 프리미엄 콘텐츠 (가로 스크롤 카드) */}
-            {!isFiltered && premiumSectionItems.length > 0 && (
+            {/* 🏆 오늘의 강릉 TOP 5 (관리자 선정 콘텐츠) */}
+            {!isFiltered && top5Items.length > 0 && (
               <section className="mb-5">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-base leading-none">🔥</span>
-                    <span className="text-sm font-extrabold text-gray-900">PLAY 추천</span>
+                    <span className="text-base leading-none">🏆</span>
+                    <span className="text-sm font-extrabold text-gray-900">오늘의 강릉</span>
                     <span className="text-sm text-gray-300 mx-0.5">|</span>
-                    <span className="text-sm font-bold text-gray-600">프리미엄 콘텐츠</span>
+                    <span className="text-sm font-bold text-[#00a8e8]">TOP 5</span>
                   </div>
-                  <button className="flex items-center gap-0.5 text-xs text-gray-400 hover:text-gray-700 transition-colors font-medium">
-                    전체보기 <ChevronRight className="w-3.5 h-3.5" />
-                  </button>
                 </div>
                 <div
                   ref={premiumScrollRef}
                   className="flex gap-3 overflow-x-auto pb-1 -mx-3 px-3 cursor-grab active:cursor-grabbing"
                   style={{ scrollbarWidth: "none", WebkitOverflowScrolling: "touch", touchAction: "pan-x" } as React.CSSProperties}
                   onMouseDown={(e) => {
-                    // 데스크톱 마우스 드래그: setPointerCapture 미사용 (capture 시 자식 <a> click 차단됨)
-                    // document 레벨 리스너로 드래그 감지 → <a> click 정상 작동
-                    // 모바일은 touchAction: pan-x + 네이티브 스크롤이 처리
                     const el = premiumScrollRef.current;
                     if (!el) return;
                     premiumDrag.current = { active: true, startX: e.clientX, scrollLeft: el.scrollLeft, moved: false };
@@ -1060,36 +1061,26 @@ export default function Home() {
                   onClick={(e) => { if (premiumDrag.current.moved) e.stopPropagation(); }}
                   onDragStart={(e) => e.preventDefault()}
                 >
-                  {premiumSectionItems.map((item) => {
-                    const isAd = "businessName" in item;
-                    const thumb = isAd
-                      ? ((item as PremiumAd).imageUrl ?? ((item as PremiumAd).extraImages?.[0]) ?? null)
-                      : ((item as FeedItem).thumbnail ?? extractYoutubeThumb((item as FeedItem).videoUrl));
-                    const thumbSrc = thumb ?? null;
-                    const title = item.title;
-                    const dateStr = isAd ? "" : (item as FeedItem).date;
-                    const adPlan = isAd ? (item as PremiumAd).adPlan : (item as FeedItem).isAd ? (item as FeedItem).adPlan : undefined;
+                  {top5Items.map((item) => {
+                    const thumbSrc = item.thumbnail;
                     const stats = fakeStats(item.id);
-                    const badgeLabel = adPlan === "premium" ? "프리미엄광고" : adPlan === "main" ? "직접광고" : adPlan === "basic" ? "광고" : null;
-                    const badgeColor = adPlan === "premium" ? "bg-amber-400 text-amber-900" : adPlan === "main" ? "bg-pink-500 text-white" : "bg-gray-700 text-white";
-                    const premiumHref = isAd
-                      ? ((item as PremiumAd).url || `${BASE}/content/${item.id}`)
-                      : ((item as FeedItem).sourceUrl || (item as FeedItem).link || `/content/${item.id}`);
+                    const rankColors = ["bg-yellow-400 text-yellow-900", "bg-gray-300 text-gray-700", "bg-amber-600 text-white", "bg-gray-200 text-gray-600", "bg-gray-200 text-gray-600"];
+                    const rankColor = rankColors[item.rank - 1] ?? "bg-gray-200 text-gray-600";
                     return (
                       <a
                         key={item.id}
-                        href={premiumHref}
+                        href={item.link || `${BASE}/content/${item.id}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         draggable={false}
                         onClick={(e) => { if (premiumDrag.current.moved) e.preventDefault(); }}
-                        className="shrink-0 w-44 cursor-pointer group"
+                        className="shrink-0 w-56 cursor-pointer group"
                       >
-                        <div className="relative h-28 rounded-xl overflow-hidden bg-gray-200 mb-2">
-                          {thumbSrc && (
+                        <div className="relative h-36 rounded-xl overflow-hidden bg-gray-200 mb-2">
+                          {thumbSrc ? (
                             <img
                               src={thumbSrc}
-                              alt={title}
+                              alt={item.title}
                               draggable={false}
                               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 pointer-events-none"
                               loading="lazy"
@@ -1102,17 +1093,102 @@ export default function Home() {
                                 }
                               }}
                             />
-                          )}
-                          {badgeLabel && (
-                            <div className="absolute top-1.5 left-1.5">
-                              <span className={`inline-block px-1.5 py-0.5 rounded-full text-[9px] font-bold ${badgeColor}`}>
-                                {badgeLabel}
-                              </span>
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
+                              <span className="text-3xl">🏖️</span>
                             </div>
                           )}
+                          <div className="absolute top-2 left-2">
+                            <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-[11px] font-extrabold shadow ${rankColor}`}>
+                              {item.rank}
+                            </span>
+                          </div>
+                          <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-black/60 to-transparent" />
                         </div>
-                        <p className="text-[12px] font-semibold text-gray-800 line-clamp-2 leading-snug mb-1">{title}</p>
-                        {dateStr && <p className="text-[10px] text-gray-400 mb-1.5">{dateStr}</p>}
+                        <p className="text-[12px] font-semibold text-gray-800 line-clamp-2 leading-snug mb-1">{item.title}</p>
+                        {item.date && <p className="text-[10px] text-gray-400 mb-1.5">{item.date}</p>}
+                        <div className="flex items-center gap-2.5 text-[10px] text-gray-400">
+                          <span className="flex items-center gap-0.5"><Heart className="w-3 h-3" />{stats.likes}</span>
+                          <span className="flex items-center gap-0.5"><MessageCircle className="w-3 h-3" />{stats.comments}</span>
+                          <span className="flex items-center gap-0.5"><Eye className="w-3 h-3" />{stats.views}</span>
+                        </div>
+                      </a>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+
+            {/* 🔥 PLAY 추천 · 프리미엄 광고 (TOP 5 없을 때 폴백) */}
+            {!isFiltered && top5Items.length === 0 && premiumAds.length > 0 && (
+              <section className="mb-5">
+                <div className="flex items-center gap-1.5 mb-3">
+                  <span className="text-base leading-none">🔥</span>
+                  <span className="text-sm font-extrabold text-gray-900">PLAY 추천</span>
+                  <span className="text-sm text-gray-300 mx-0.5">|</span>
+                  <span className="text-sm font-bold text-gray-600">프리미엄</span>
+                </div>
+                <div
+                  ref={premiumScrollRef}
+                  className="flex gap-3 overflow-x-auto pb-1 -mx-3 px-3 cursor-grab active:cursor-grabbing"
+                  style={{ scrollbarWidth: "none", WebkitOverflowScrolling: "touch", touchAction: "pan-x" } as React.CSSProperties}
+                  onMouseDown={(e) => {
+                    const el = premiumScrollRef.current;
+                    if (!el) return;
+                    premiumDrag.current = { active: true, startX: e.clientX, scrollLeft: el.scrollLeft, moved: false };
+                    const handleMove = (ev: MouseEvent) => {
+                      const dx = ev.clientX - premiumDrag.current.startX;
+                      if (!premiumDrag.current.moved && Math.abs(dx) > 5) premiumDrag.current.moved = true;
+                      if (premiumDrag.current.moved && premiumScrollRef.current)
+                        premiumScrollRef.current.scrollLeft = premiumDrag.current.scrollLeft - dx;
+                    };
+                    const handleUp = () => {
+                      premiumDrag.current.active = false;
+                      document.removeEventListener("mousemove", handleMove);
+                      document.removeEventListener("mouseup", handleUp);
+                    };
+                    document.addEventListener("mousemove", handleMove);
+                    document.addEventListener("mouseup", handleUp);
+                  }}
+                  onClick={(e) => { if (premiumDrag.current.moved) e.stopPropagation(); }}
+                  onDragStart={(e) => e.preventDefault()}
+                >
+                  {premiumAds.map((item) => {
+                    const thumbSrc = item.imageUrl ?? (item.extraImages?.[0] ?? null);
+                    const stats = fakeStats(item.id);
+                    return (
+                      <a
+                        key={item.id}
+                        href={item.url || `${BASE}/content/${item.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        draggable={false}
+                        onClick={(e) => { if (premiumDrag.current.moved) e.preventDefault(); }}
+                        className="shrink-0 w-44 cursor-pointer group"
+                      >
+                        <div className="relative h-28 rounded-xl overflow-hidden bg-gray-200 mb-2">
+                          {thumbSrc && (
+                            <img
+                              src={thumbSrc}
+                              alt={item.title}
+                              draggable={false}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 pointer-events-none"
+                              loading="lazy"
+                              onError={(e2) => {
+                                const img = e2.currentTarget;
+                                if (!img.src.includes("/api/proxy/image")) {
+                                  img.src = proxyImg(thumbSrc);
+                                } else {
+                                  img.style.display = "none";
+                                }
+                              }}
+                            />
+                          )}
+                          <div className="absolute top-1.5 left-1.5">
+                            <span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-400 text-amber-900">프리미엄</span>
+                          </div>
+                        </div>
+                        <p className="text-[12px] font-semibold text-gray-800 line-clamp-2 leading-snug mb-1">{item.title}</p>
                         <div className="flex items-center gap-2.5 text-[10px] text-gray-400">
                           <span className="flex items-center gap-0.5"><Heart className="w-3 h-3" />{stats.likes}</span>
                           <span className="flex items-center gap-0.5"><MessageCircle className="w-3 h-3" />{stats.comments}</span>

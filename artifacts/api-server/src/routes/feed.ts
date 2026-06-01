@@ -2,8 +2,8 @@ import { Router } from "express";
 import type { Ad } from "./ads.js";
 import { readEvents, type CrawledEvent } from "../lib/storage.js";
 import { detectCategory } from "../lib/dateParser.js";
-import { db, adsTable } from "@workspace/db";
-import { desc } from "drizzle-orm";
+import { db, adsTable, dailyTop5Table } from "@workspace/db";
+import { desc, eq } from "drizzle-orm";
 
 const router = Router();
 
@@ -173,7 +173,17 @@ function eventToFeedItem(ev: CrawledEvent): FeedItem {
 
 router.get("/feed", async (req, res) => {
   try {
-    const [rawAds, rawEvents] = await Promise.all([readAds(), readEvents()]);
+    const kst = new Date(Date.now() + 9 * 3600_000);
+    const todayKST = kst.toISOString().slice(0, 10);
+
+    const [rawAds, rawEvents, top5Row] = await Promise.all([
+      readAds(),
+      readEvents(),
+      db.select().from(dailyTop5Table).where(eq(dailyTop5Table.date, todayKST)).limit(1),
+    ]);
+
+    // 오늘의 TOP 5 이벤트는 피드에서 제외 (홈 TOP 5 섹션에만 표시)
+    const top5EventIds = new Set((top5Row[0]?.items ?? []).map((it) => it.eventId));
 
     const activeAds = rawAds
       .filter((a) => ["approved", "scheduled", "published"].includes(a.status) && isAdActive(a))
@@ -183,9 +193,9 @@ router.get("/feed", async (req, res) => {
     const mainAds    = activeAds.filter((a) => a.adPlan === "main");
     const basicAds   = activeAds.filter((a) => a.adPlan === "basic");
 
-    // approved + published 이벤트 모두 포함
+    // approved + published 이벤트 (오늘 TOP 5 제외)
     const approvedReal = rawEvents
-      .filter((e) => e.status === "approved" || e.status === "published")
+      .filter((e) => (e.status === "approved" || e.status === "published") && !top5EventIds.has(e.id))
       .map(eventToFeedItem)
       .sort((a, b) => {
         const sa = SCHEDULE_ORDER[a.scheduleStatus] ?? 4;

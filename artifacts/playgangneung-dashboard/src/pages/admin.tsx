@@ -66,6 +66,7 @@ import {
   ShieldCheck,
   ShieldOff,
   Inbox,
+  Trophy,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -385,10 +386,11 @@ interface AdminVideo {
   updatedAt: string;
 }
 
-type NavKey = "dashboard" | "adCenter" | "stories" | "videos" | "sources" | "settings" | "members";
+type NavKey = "dashboard" | "adCenter" | "stories" | "videos" | "sources" | "settings" | "members" | "top5";
 
 const NAV_ITEMS: { icon: React.ReactNode; label: string; key: NavKey }[] = [
   { icon: <LayoutDashboard className="w-4 h-4" />, label: "대시보드", key: "dashboard" },
+  { icon: <Trophy className="w-4 h-4" />, label: "TOP 5", key: "top5" },
   { icon: <BriefcaseBusiness className="w-4 h-4" />, label: "광고센터", key: "adCenter" },
   { icon: <BookOpen className="w-4 h-4" />, label: "스토리", key: "stories" },
   { icon: <Video className="w-4 h-4" />, label: "영상", key: "videos" },
@@ -753,6 +755,36 @@ export default function Admin() {
     },
     enabled: !!(activeNav === "adCenter" && adCenterTab === "meta"),
     refetchInterval: 60000,
+  });
+
+  const [top5Search, setTop5Search] = useState("");
+  const [top5Draft, setTop5Draft] = useState<{ eventId: string; rank: number; title: string; thumbnail: string | null }[]>([]);
+  const [top5Saving, setTop5Saving] = useState(false);
+  const [top5DraftDate, setTop5DraftDate] = useState<string>(() => {
+    const kst = new Date(Date.now() + 9 * 3600_000);
+    return kst.toISOString().slice(0, 10);
+  });
+
+  const { data: top5TodayData, refetch: refetchTop5Today } = useQuery<{ date: string; items: { rank: number; id: string; eventId: string; title: string; thumbnail: string | null; category: string; date: string }[] }>({
+    queryKey: ["admin-top5-today", top5DraftDate],
+    queryFn: async () => {
+      const r = await fetch(`${BASE}/api/top5?date=${top5DraftDate}`, { credentials: "include" });
+      if (!r.ok) throw new Error("TOP 5 조회 실패");
+      return r.json();
+    },
+    enabled: activeNav === "top5",
+  });
+
+  const { data: top5EventsData } = useQuery<{ events: { id: string; title: string; thumbnail: string | null; status: string; category: string; startDate: string; scheduleStatus: string }[] }>({
+    queryKey: ["admin-top5-events"],
+    queryFn: async () => {
+      const r = await fetch(`${BASE}/api/events`, { credentials: "include" });
+      if (!r.ok) throw new Error("이벤트 조회 실패");
+      const data = await r.json();
+      const events = (data.events ?? []).filter((e: { status: string }) => e.status === "approved" || e.status === "published");
+      return { events };
+    },
+    enabled: activeNav === "top5",
   });
 
   const [monitoringExpandedAd, setMonitoringExpandedAd] = useState<string | null>(null);
@@ -6067,6 +6099,170 @@ export default function Admin() {
               )}
             </div>
           )}
+          {/* ══ 오늘의 강릉 TOP 5 관리 ════════════════════════════════════════ */}
+          {activeNav === "top5" && (() => {
+            const candidates = (top5EventsData?.events ?? []).filter((ev) => {
+              const q = top5Search.trim().toLowerCase();
+              return !q || ev.title.toLowerCase().includes(q);
+            });
+            const draftIds = new Set(top5Draft.map((d) => d.eventId));
+
+            const addToSlot = (ev: { id: string; title: string; thumbnail: string | null }) => {
+              if (draftIds.has(ev.id)) return;
+              if (top5Draft.length >= 5) return;
+              setTop5Draft((prev) => [...prev, { eventId: ev.id, rank: prev.length + 1, title: ev.title, thumbnail: ev.thumbnail }]);
+            };
+
+            const removeFromSlot = (eventId: string) => {
+              setTop5Draft((prev) => prev.filter((d) => d.eventId !== eventId).map((d, i) => ({ ...d, rank: i + 1 })));
+            };
+
+            const loadTodayIntoSlot = () => {
+              const items = top5TodayData?.items ?? [];
+              if (items.length === 0) return;
+              setTop5Draft(items.map((it) => ({ eventId: it.eventId, rank: it.rank, title: it.title, thumbnail: it.thumbnail })));
+            };
+
+            const saveTop5 = async () => {
+              setTop5Saving(true);
+              try {
+                const r = await fetch(`${BASE}/api/top5`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  credentials: "include",
+                  body: JSON.stringify({ date: top5DraftDate, items: top5Draft.map((d) => ({ eventId: d.eventId, rank: d.rank })) }),
+                });
+                if (!r.ok) throw new Error("저장 실패");
+                toast({ title: "✅ TOP 5 저장 완료", description: `${top5DraftDate} TOP 5가 저장되었습니다.` });
+                await refetchTop5Today();
+              } catch {
+                toast({ title: "저장 실패", variant: "destructive" });
+              } finally {
+                setTop5Saving(false);
+              }
+            };
+
+            return (
+              <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <Trophy className="w-5 h-5 text-yellow-500" />
+                  <h2 className="text-lg font-bold">오늘의 강릉 TOP 5</h2>
+                  <span className="ml-2 text-xs text-muted-foreground bg-gray-100 px-2 py-0.5 rounded-full">홈 상단 노출</span>
+                </div>
+                <p className="text-sm text-muted-foreground">승인된 이벤트를 최대 5개 선정하여 홈 상단 "오늘의 강릉 TOP 5" 섹션에 노출합니다. 선정 후 다음 날 자동으로 일반 피드로 이동합니다.</p>
+
+                {/* 날짜 선택 */}
+                <div className="flex items-center gap-3">
+                  <label className="text-sm font-medium text-gray-700">날짜</label>
+                  <input
+                    type="date"
+                    value={top5DraftDate}
+                    onChange={(e) => { setTop5DraftDate(e.target.value); setTop5Draft([]); }}
+                    className="border rounded-lg px-2 py-1.5 text-sm"
+                  />
+                  {top5TodayData && top5TodayData.items.length > 0 && (
+                    <Button size="sm" variant="outline" onClick={loadTodayIntoSlot} className="text-xs">
+                      저장된 TOP 5 불러오기 ({top5TodayData.items.length}개)
+                    </Button>
+                  )}
+                </div>
+
+                {/* 현재 슬롯 */}
+                <Card>
+                  <CardContent className="p-4">
+                    <p className="text-xs font-semibold text-gray-600 mb-3">선정된 TOP 5 ({top5Draft.length}/5)</p>
+                    <div className="space-y-2 min-h-[120px]">
+                      {top5Draft.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-8 text-muted-foreground gap-1">
+                          <Trophy className="w-8 h-8 opacity-20" />
+                          <p className="text-xs">아래 목록에서 이벤트를 선택하세요</p>
+                        </div>
+                      ) : (
+                        top5Draft.map((slot, i) => (
+                          <div key={slot.eventId} className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg border">
+                            <span className={`shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-extrabold ${i === 0 ? "bg-yellow-400 text-yellow-900" : i === 1 ? "bg-gray-300 text-gray-700" : i === 2 ? "bg-amber-600 text-white" : "bg-gray-200 text-gray-500"}`}>
+                              {slot.rank}
+                            </span>
+                            {slot.thumbnail ? (
+                              <img src={slot.thumbnail} alt="" className="w-10 h-10 object-cover rounded-lg shrink-0" />
+                            ) : (
+                              <div className="w-10 h-10 rounded-lg bg-gray-200 shrink-0 flex items-center justify-center text-sm">🏖️</div>
+                            )}
+                            <span className="text-sm font-medium flex-1 line-clamp-1">{slot.title}</span>
+                            <button onClick={() => removeFromSlot(slot.eventId)} className="shrink-0 text-gray-400 hover:text-red-500 transition-colors p-1">
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                    <div className="flex gap-2 mt-3 pt-3 border-t">
+                      <Button
+                        size="sm"
+                        disabled={top5Draft.length === 0 || top5Saving}
+                        onClick={saveTop5}
+                        className="bg-yellow-500 hover:bg-yellow-600 text-white"
+                      >
+                        {top5Saving ? "저장 중..." : "💾 TOP 5 저장"}
+                      </Button>
+                      {top5Draft.length > 0 && (
+                        <Button size="sm" variant="outline" onClick={() => setTop5Draft([])}>초기화</Button>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* 이벤트 검색 + 목록 */}
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <p className="text-sm font-semibold text-gray-700">승인된 이벤트 목록</p>
+                    <span className="text-xs text-muted-foreground bg-gray-100 px-1.5 py-0.5 rounded-full">{candidates.length}개</span>
+                  </div>
+                  <div className="relative mb-3">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Input
+                      placeholder="이벤트 검색..."
+                      value={top5Search}
+                      onChange={(e) => setTop5Search(e.target.value)}
+                      className="pl-9 text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1.5 max-h-96 overflow-y-auto pr-1">
+                    {candidates.length === 0 ? (
+                      <div className="text-center py-8 text-sm text-muted-foreground">승인된 이벤트가 없습니다</div>
+                    ) : (
+                      candidates.map((ev) => {
+                        const isSelected = draftIds.has(ev.id);
+                        return (
+                          <button
+                            key={ev.id}
+                            disabled={isSelected || top5Draft.length >= 5}
+                            onClick={() => addToSlot(ev)}
+                            className={`w-full flex items-center gap-3 p-2.5 rounded-lg border text-left transition-colors ${isSelected ? "bg-yellow-50 border-yellow-200 opacity-60 cursor-default" : top5Draft.length >= 5 ? "opacity-40 cursor-not-allowed" : "hover:bg-gray-50 cursor-pointer"}`}
+                          >
+                            {ev.thumbnail ? (
+                              <img src={ev.thumbnail} alt="" className="w-10 h-10 object-cover rounded-lg shrink-0" />
+                            ) : (
+                              <div className="w-10 h-10 rounded-lg bg-gray-100 shrink-0 flex items-center justify-center text-sm">🏖️</div>
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium line-clamp-1">{ev.title}</p>
+                              <p className="text-xs text-muted-foreground">{ev.category} · {ev.startDate || "날짜 미상"}</p>
+                            </div>
+                            {isSelected ? (
+                              <span className="shrink-0 text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full font-medium">선정됨</span>
+                            ) : top5Draft.length < 5 ? (
+                              <PlusCircle className="shrink-0 w-5 h-5 text-blue-400" />
+                            ) : null}
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
         </main>
       </div>
     </div>
@@ -6756,7 +6952,7 @@ export default function Admin() {
       </DialogContent>
     </Dialog>
 
-    {/* ── 모바일 미리보기 오버레이 ── */}
+          {/* ── 모바일 미리보기 오버레이 ── */}
     {showMobilePreview && (
       <div className="fixed inset-0 z-[100] bg-black/70 flex items-center justify-center">
         <div className="relative flex flex-col items-center gap-3">

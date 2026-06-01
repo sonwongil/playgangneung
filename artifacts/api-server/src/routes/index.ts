@@ -21,6 +21,7 @@ import jointAdConfigRouter from "./jointAdConfig.js";
 import metaSpendRouter from "./metaSpend.js";
 import metaInsightsRouter from "./metaInsights.js";
 import membersRouter from "./members.js";
+import top5Router from "./top5.js";
 
 const router: IRouter = Router();
 
@@ -50,5 +51,6 @@ router.use(jointAdConfigRouter);
 router.use(metaSpendRouter);
 router.use(metaInsightsRouter);
 router.use(membersRouter);
+router.use(top5Router);
 
 export default router;

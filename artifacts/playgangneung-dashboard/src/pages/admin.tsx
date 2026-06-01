@@ -363,6 +363,7 @@ interface AdminStory {
   title: string;
   body: string;
   images: string[];
+  thumbnailUrl: string | null;
   sourceUrl: string;
   author: string;
   tags: string[];
@@ -478,6 +479,7 @@ export default function Admin() {
   const [previewVideo, setPreviewVideo] = useState<AdminVideo | null>(null);
   const [selectedStoryIds, setSelectedStoryIds] = useState<Set<string>>(new Set());
   const [storyImgRefetching, setStoryImgRefetching] = useState(false);
+  const [editingStoryThumb, setEditingStoryThumb] = useState<{ id: string; thumbUrl: string } | null>(null);
   const [storyUrlExtracting, setStoryUrlExtracting] = useState(false);
   const [selectedVideoIds, setSelectedVideoIds] = useState<Set<string>>(new Set());
   const [isCrawlingStories, setIsCrawlingStories] = useState(false);
@@ -5176,6 +5178,11 @@ export default function Admin() {
                                 검토중
                               </Button>
                             )}
+                            <Button size="sm" variant="ghost" className="h-7 px-2 text-xs gap-1"
+                              title="썸네일 지정"
+                              onClick={() => setEditingStoryThumb({ id: s.id, thumbUrl: s.thumbnailUrl ?? "" })}>
+                              <ImageIcon className="w-3 h-3" />
+                            </Button>
                             <Button size="sm" variant="ghost" className="h-7 px-2 text-destructive hover:bg-destructive/10"
                               onClick={async () => {
                                 if (!confirm("삭제하시겠습니까?")) return;
@@ -5190,6 +5197,43 @@ export default function Admin() {
                     </Card>
                   );
                 })}
+
+              {/* 썸네일 편집 다이얼로그 */}
+              {editingStoryThumb && (
+                <Dialog open={!!editingStoryThumb} onOpenChange={() => setEditingStoryThumb(null)}>
+                  <DialogContent className="max-w-sm">
+                    <DialogHeader><DialogTitle>썸네일 URL 지정</DialogTitle></DialogHeader>
+                    <div className="space-y-3 py-2">
+                      <Input
+                        placeholder="https://..."
+                        value={editingStoryThumb.thumbUrl}
+                        onChange={(e) => setEditingStoryThumb((prev) => prev ? { ...prev, thumbUrl: e.target.value } : null)}
+                      />
+                      {editingStoryThumb.thumbUrl && (
+                        <img
+                          src={editingStoryThumb.thumbUrl}
+                          className="w-full h-32 object-cover rounded border"
+                          onError={(e) => { e.currentTarget.style.display = "none"; }}
+                        />
+                      )}
+                    </div>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setEditingStoryThumb(null)}>취소</Button>
+                      <Button onClick={async () => {
+                        await fetch(`${BASE}/api/stories/${editingStoryThumb.id}/thumbnail`, {
+                          method: "PATCH",
+                          headers: { "Content-Type": "application/json" },
+                          credentials: "include",
+                          body: JSON.stringify({ thumbnailUrl: editingStoryThumb.thumbUrl || null }),
+                        });
+                        refetchStories();
+                        setEditingStoryThumb(null);
+                        toast({ description: "썸네일이 저장되었습니다" });
+                      }}>저장</Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              )}
 
               {/* 새 스토리 다이얼로그 */}
               <Dialog open={showStoryDialog} onOpenChange={setShowStoryDialog}>

@@ -374,6 +374,35 @@ router.post("/stories", async (req, res) => {
   }
 });
 
+router.patch("/stories/:id/thumbnail", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { thumbnailUrl } = req.body as { thumbnailUrl?: string | null };
+    await db
+      .update(storiesTable)
+      .set({ thumbnailUrl: thumbnailUrl || null, updatedAt: new Date() })
+      .where(eq(storiesTable.id, id));
+    return res.json({ ok: true });
+  } catch (err) {
+    req.log.error({ err }, "스토리 썸네일 수정 실패");
+    return res.status(500).json({ error: "썸네일 수정 실패" });
+  }
+});
+
+router.post("/stories/fix-thumbnails", async (req, res) => {
+  try {
+    const result = await db.execute(
+      sql`UPDATE stories SET thumbnail_url = images->>0, updated_at = now() WHERE thumbnail_url IS NULL AND jsonb_array_length(images) > 0`
+    );
+    const updated = (result as { rowCount?: number }).rowCount ?? 0;
+    req.log.info({ updated }, "thumbnailUrl 자동 수정 완료");
+    return res.json({ updated, message: `${updated}개 썸네일 자동 수정` });
+  } catch (err) {
+    req.log.error({ err }, "thumbnailUrl 자동 수정 실패");
+    return res.status(500).json({ error: "썸네일 자동 수정 실패" });
+  }
+});
+
 router.patch("/stories/:id/status", async (req, res) => {
   try {
     const { id } = req.params;

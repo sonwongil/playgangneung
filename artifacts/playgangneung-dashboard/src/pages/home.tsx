@@ -376,23 +376,22 @@ function StoryCard({ item }: { item: StoryItem }) {
       <div className="relative h-44 overflow-hidden">
         {/* 그라디언트 배경 — 항상 표시, 이미지 로드 성공 시 가려짐 */}
         <div className={`w-full h-full bg-gradient-to-br ${gradient} absolute inset-0`} />
-        {/* 이미지 — proxy → 직접URL → 실패 시 gradient만 표시 */}
-        {firstImage && (
-          <img
-            src={proxyImg(firstImage)}
-            alt={item.title}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 absolute inset-0"
-            loading="lazy"
-            onError={(e) => {
-              const img = e.currentTarget;
-              if (img.src.includes("/api/proxy/image")) {
-                img.src = firstImage;
-              } else {
-                img.style.display = "none";
-              }
-            }}
-          />
-        )}
+        {/* 이미지 — proxy → 직접URL → logo fallback */}
+        <img
+          src={firstImage ? proxyImg(firstImage) : "/logo.png"}
+          alt={item.title}
+          className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 absolute inset-0${firstImage ? "" : " object-contain p-6 opacity-60"}`}
+          loading="lazy"
+          onError={(e) => {
+            const img = e.currentTarget;
+            if (firstImage && img.src.includes("/api/proxy/image")) {
+              img.src = firstImage;
+            } else if (!img.src.endsWith("/logo.png")) {
+              img.src = "/logo.png";
+              img.className = img.className.replace("object-cover", "object-contain") + " p-6 opacity-60";
+            }
+          }}
+        />
         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
         <div className="absolute bottom-0 left-0 right-0 p-3">
           {item.author && <div className="flex items-center gap-1.5 mb-1.5"><div className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-[10px] font-bold text-white shrink-0">{item.author[0]}</div><span className="text-[11px] text-white/70 truncate">{item.author}</span></div>}

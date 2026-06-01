@@ -268,5 +268,20 @@ export async function crawlStories(): Promise<{ stories: CrawledStory[]; errors:
     }
   }
 
+  // 이미지 없는 네이버 블로그 포스트 이미지 자동 추출 (최대 3개 병렬)
+  const noImgNaver = all.filter((s) => s.images.length === 0 && s.sourceUrl.includes("naver"));
+  if (noImgNaver.length > 0) {
+    logger.info({ count: noImgNaver.length }, "네이버 블로그 이미지 자동 추출 시작");
+    const BATCH = 3;
+    for (let i = 0; i < noImgNaver.length; i += BATCH) {
+      await Promise.allSettled(
+        noImgNaver.slice(i, i + BATCH).map(async (s) => {
+          const imgs = await fetchNaverBlogImages(s.sourceUrl, 5);
+          if (imgs.length > 0) s.images = imgs;
+        })
+      );
+    }
+  }
+
   return { stories: all, errors };
 }

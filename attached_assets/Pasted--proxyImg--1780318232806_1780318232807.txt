@@ -1,0 +1,138 @@
+현재 문제는 “홈 카드 이미지가 안 뜨는 문제”입니다.
+단순히 proxyImg 함수만 수정하지 말고, 아래 순서대로 원인을 분리해서 확인한 뒤 최소 수정으로 해결하세요.
+
+현재 증상:
+
+* 관리자가 파일을 직접 업로드해도 홈 카드에 이미지가 안 뜸
+* 외부 이미지 URL을 입력해서 저장해도 홈 카드에 이미지가 안 뜸
+* 외부 URL 이미지는 `/api/proxy/image`에서 502가 발생한 적 있음
+* `/api/uploads/filename` 형태로 DB에 저장된 이미지도 실제 정적 서빙이 안 될 가능성이 있음
+* `proxyImg()` 함수가 여러 번 수정되면서 `/api/uploads`, `/api/proxy/image`, 외부 URL 처리 로직이 꼬였을 가능성이 있음
+
+반드시 아래 순서대로 점검하세요.
+
+1. DB 저장값 확인
+
+* 파일 업로드 후 해당 event의 `thumbnail` 값이 실제로 무엇인지 확인
+* 기대값: `/api/uploads/파일명`
+* URL 저장 후 `thumbnail` 값이 외부 URL 그대로 저장되는지 확인
+* `extraImages`도 같은 방식으로 확인
+
+2. 업로드 파일 실제 존재 확인
+
+* `POST /events/:id/upload-image?slot=0` 호출 후 서버의 uploads 디렉터리에 파일이 실제 생성되는지 확인
+* 생성된 파일명과 DB의 `/api/uploads/파일명`이 정확히 일치하는지 확인
+
+3. 정적 파일 서빙 확인
+
+* 브라우저 또는 curl로 아래 URL을 직접 열었을 때 이미지가 보여야 함
+
+  * `https://playgangneung.com/api/uploads/파일명`
+* 만약 404 또는 HTML 응답이 오면 Express에서 uploads 정적 서빙 설정이 누락된 것임
+* 서버에 반드시 다음과 같은 정적 서빙이 있어야 함
+
+```ts
+app.use("/api/uploads", express.static(path.join(process.cwd(), "uploads")));
+```
+
+또는 실제 업로드 저장 폴더 기준으로 정확한 경로를 연결해야 함.
+
+4. proxyImg 함수 정리
+   현재 의도는 아래처럼 단순해야 함.
+
+```ts
+function proxyImg(url?: string | null): string {
+  if (!url) return "";
+
+  // 이미 절대 URL이면 그대로 처리 또는 프록시 처리
+  if (url.startsWith("http://") || url.startsWith("https://")) {
+    return `${BASE}/api/proxy/image?url=${encodeURIComponent(url)}`;
+  }
+
+  // 자체 API 업로드 이미지
+  if (url.startsWith("/api/uploads/")) {
+    return `${BASE}${url}`;
+  }
+
+  // 기타 자체 API 이미지
+  if (url.startsWith("/api/")) {
+    return `${BASE}${url}`;
+  }
+
+  // 일반 상대경로
+  if (url.startsWith("/")) {
+    return `${BASE}${url}`;
+  }
+
+  return url;
+}
+```
+
+주의:
+
+* `/api/uploads/파일명`은 proxy로 보내면 안 됨
+* 외부 URL만 `/api/proxy/image?url=`로 보내야 함
+* 이미 proxy URL인 경우 이중 proxy가 되지 않게 방지 필요
+
+5. `/api/proxy/image` 점검
+   외부 URL 이미지가 502라면 아래를 확인하세요.
+
+* ALLOWED_HOSTS에 해당 도메인이 포함되어 있는지
+* URL 인코딩이 이중으로 꼬이지 않았는지
+* 대상 서버가 User-Agent 없는 요청을 막는지
+* fetch 실패 시 실제 에러 메시지를 서버 로그에 남기는지
+* Content-Type이 image/jpeg, image/png, image/webp 등으로 정상 전달되는지
+
+프록시 엔드포인트는 최소한 아래 항목을 로그로 남겨야 함.
+
+* 요청받은 원본 URL
+* 파싱된 hostname
+* ALLOWED_HOSTS 통과 여부
+* 외부 fetch status
+* content-type
+* 실패 시 error message
+
+6. 홈 피드 API 응답 확인
+   홈 카드가 사용하는 API가 `/api/feed`라면, 응답 안의 각 카드에 `thumbnail` 값이 실제로 포함되는지 확인하세요.
+
+* 관리자 이벤트 상세에는 thumbnail이 있는데 `/api/feed`에는 빠져 있으면 feed 변환 로직 문제
+* `/api/events`에는 있는데 `/api/feed`에는 없으면 feed mapper 문제
+* API에는 있는데 프론트에서 안 보이면 프론트 렌더링 또는 proxyImg 문제
+
+7. 프론트 카드 렌더링 확인
+   홈 카드 컴포넌트에서 실제 img src가 무엇으로 찍히는지 console.log 또는 DOM으로 확인하세요.
+   확인할 것:
+
+* img src가 빈 문자열인지
+* `/api/uploads/...`인지
+* `https://playgangneung.com/api/uploads/...`인지
+* `/api/proxy/image?url=...`인지
+* 이미지 요청이 Network 탭에서 200인지 403/404/502인지
+
+8. 검증 스크립트 확장
+   기존 `scripts/validate.sh`에 이미지 검증을 반드시 추가하세요.
+
+추가할 검증 항목:
+
+* `/api/feed` 응답의 첫 번째 이미지가 존재하면 해당 이미지 URL 직접 요청
+* `/api/uploads/테스트파일` 정적 접근 가능 여부
+* `/api/proxy/image?url=허용도메인이미지URL`이 200 또는 이미지 Content-Type 반환하는지
+* 허용되지 않은 도메인은 403 반환하는지
+* 외부 이미지 fetch 실패 시 502 반환하는지
+
+9. 수정 후 반드시 보고할 것
+   수정 완료 보고에는 아래 5개를 반드시 포함하세요.
+
+* DB에 저장된 thumbnail 실제 값
+* 홈 피드 API에 내려오는 thumbnail 실제 값
+* 브라우저에서 최종 img src로 변환된 값
+* 해당 img src 직접 요청 결과 HTTP status
+* `scripts/validate.sh` 실행 결과
+
+절대 하지 말 것:
+
+* proxyImg 함수만 감으로 수정하고 완료 보고하지 말 것
+* 홈 화면에서만 육안 확인하고 끝내지 말 것
+* `/api/uploads` 정적 서빙 확인 없이 프론트 문제로 단정하지 말 것
+* 외부 URL 502 문제와 자체 업로드 이미지 404 문제를 섞어서 처리하지 말 것
+* 기존 잘 되던 업로드, 대표 이미지 저장, extraImages 저장 기능을 깨뜨리지 말 것

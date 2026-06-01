@@ -50,6 +50,9 @@ const ALLOWED_HOSTS = [
   "tong.visitkorea.or.kr",
   // 당근마켓
   "community-api-cdn.kr.karrotmarket.com",
+  // pixabay
+  "cdn.pixabay.com",
+  "pixabay.com",
 ];
 
 // 서브도메인 와일드카드 허용 (img1~img9.yna.co.kr 등)

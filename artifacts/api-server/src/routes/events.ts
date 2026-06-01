@@ -180,6 +180,15 @@ router.post("/events/extract-url", async (req, res) => {
       return res.status(400).json({ error: "URL을 읽을 수 없습니다: 접속 실패 (정부사이트 차단 또는 네트워크 오류)" });
     }
     const $ = cheerio.load(html);
+    const pageOrigin = (() => { try { const u = new URL(url); return u.origin; } catch { return ""; } })();
+
+    const toAbsolute = (src: string) => {
+      if (!src) return src;
+      if (src.startsWith("http://") || src.startsWith("https://")) return src;
+      if (src.startsWith("//")) return "https:" + src;
+      if (src.startsWith("/") && pageOrigin) return pageOrigin + src;
+      return src;
+    };
 
     const og = (prop: string) =>
       $(`meta[property="og:${prop}"]`).attr("content")?.trim() ||
@@ -194,13 +203,54 @@ router.post("/events/extract-url", async (req, res) => {
       $("h1").first().text().trim()
     );
 
-    const description = decodeEntities(
+    // description: OG > meta description > 본문 p 태그 합산 (50자 이상 단락 우선)
+    let description = decodeEntities(
       og("description") ||
-      $('meta[name="description"]').attr("content")?.trim() ||
-      $("p").first().text().trim().slice(0, 300)
+      $('meta[name="description"]').attr("content")?.trim() || ""
     );
+    if (description.length < 30) {
+      const paragraphs: string[] = [];
+      $("p, .view-content, .board-content, .article-content, .content-body").each((_, el) => {
+        const t = $(el).text().trim();
+        if (t.length >= 20) paragraphs.push(t);
+      });
+      if (paragraphs.length > 0) {
+        description = decodeEntities(paragraphs.join(" ").slice(0, 400));
+      }
+    }
 
-    const thumbnail = og("image") || "";
+    // 기본 placeholder/로고 이미지 패턴 (사이트 대표 이미지로 콘텐츠 이미지가 아닌 것)
+    const PLACEHOLDER_PATTERNS = [
+      /snsRepresentImage/i,
+      /\/images\/common\//i,
+      /\/assets\/img\/logo\//i,
+      /default[_-]?(thumb|image|img)/i,
+      /noimage/i,
+      /no[_-]img/i,
+    ];
+    const isPlaceholder = (src: string) => PLACEHOLDER_PATTERNS.some(p => p.test(src));
+
+    let ogImage = toAbsolute(og("image"));
+
+    // OG 이미지가 기본 이미지이거나 없으면 본문에서 실제 콘텐츠 이미지 탐색
+    if (!ogImage || isPlaceholder(ogImage)) {
+      let found = "";
+      $("img").each((_, el) => {
+        if (found) return;
+        const src = $(el).attr("src") || "";
+        if (!src) return;
+        // svg, icon, logo, brand, button 이미지 제외
+        if (/\.svg$|\/icon|\/logo|\/brand|\/btn|\/button|nav|header|footer|sns|social/i.test(src)) return;
+        // 로고·SNS·네비 alt 텍스트 제외
+        const alt = ($(el).attr("alt") || "").toLowerCase();
+        if (/logo|icon|youtube|instagram|naver|facebook|twitter|kakao/i.test(alt)) return;
+        const abs = toAbsolute(src);
+        if (abs.startsWith("http")) found = abs;
+      });
+      if (found) ogImage = found;
+    }
+
+    const thumbnail = ogImage || "";
 
     // 날짜 패턴 추출 (YYYY.MM.DD, YYYY-MM-DD, YYYY년 MM월 DD일 등)
     const bodyText = $("body").text();

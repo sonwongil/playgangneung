@@ -67,6 +67,7 @@ import {
   ShieldOff,
   Inbox,
   Trophy,
+  Upload,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -769,6 +770,9 @@ export default function Admin() {
   const [top5Search, setTop5Search] = useState("");
   const [top5Draft, setTop5Draft] = useState<{ eventId: string; rank: number; title: string; thumbnail: string | null }[]>([]);
   const [top5Saving, setTop5Saving] = useState(false);
+  const [top5ThumbEdit, setTop5ThumbEdit] = useState<{ eventId: string; title: string } | null>(null);
+  const [top5ThumbInput, setTop5ThumbInput] = useState("");
+  const [top5ThumbSaving, setTop5ThumbSaving] = useState(false);
   const [top5DraftDate, setTop5DraftDate] = useState<string>(() => {
     const kst = new Date(Date.now() + 9 * 3600_000);
     return kst.toISOString().slice(0, 10);
@@ -6266,11 +6270,22 @@ export default function Admin() {
                             <span className={`shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-extrabold ${i === 0 ? "bg-yellow-400 text-yellow-900" : i === 1 ? "bg-gray-300 text-gray-700" : i === 2 ? "bg-amber-600 text-white" : "bg-gray-200 text-gray-500"}`}>
                               {slot.rank}
                             </span>
-                            {slot.thumbnail ? (
-                              <img src={slot.thumbnail} alt="" className="w-10 h-10 object-cover rounded-lg shrink-0" />
-                            ) : (
-                              <div className="w-10 h-10 rounded-lg bg-gray-200 shrink-0 flex items-center justify-center text-sm">🏖️</div>
-                            )}
+                            <button
+                              type="button"
+                              title="이미지 변경"
+                              onClick={() => { setTop5ThumbEdit({ eventId: slot.eventId, title: slot.title }); setTop5ThumbInput(slot.thumbnail ?? ""); }}
+                              className="relative shrink-0 w-10 h-10 rounded-lg overflow-hidden border-2 border-dashed border-blue-300 hover:border-blue-500 group"
+                            >
+                              {slot.thumbnail ? (
+                                <img key={slot.thumbnail} src={proxyAdminImg(slot.thumbnail)} alt="" className="w-full h-full object-cover"
+                                  onError={(e) => { const img = e.currentTarget; if (img.src.includes("/api/proxy/image")) img.src = slot.thumbnail!; else img.style.display = "none"; }} />
+                              ) : (
+                                <span className="text-lg">🏖️</span>
+                              )}
+                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                <span className="text-white text-[9px] font-bold">변경</span>
+                              </div>
+                            </button>
                             <span className="text-sm font-medium flex-1 line-clamp-1">{slot.title}</span>
                             <button onClick={() => removeFromSlot(slot.eventId)} className="shrink-0 text-gray-400 hover:text-red-500 transition-colors p-1">
                               <X className="w-4 h-4" />
@@ -6324,7 +6339,8 @@ export default function Admin() {
                             className={`w-full flex items-center gap-3 p-2.5 rounded-lg border text-left transition-colors ${isSelected ? "bg-yellow-50 border-yellow-200 opacity-60 cursor-default" : top5Draft.length >= 5 ? "opacity-40 cursor-not-allowed" : "hover:bg-gray-50 cursor-pointer"}`}
                           >
                             {ev.thumbnail ? (
-                              <img src={ev.thumbnail} alt="" className="w-10 h-10 object-cover rounded-lg shrink-0" />
+                              <img key={ev.thumbnail} src={proxyAdminImg(ev.thumbnail)} alt="" className="w-10 h-10 object-cover rounded-lg shrink-0"
+                                onError={(e) => { const img = e.currentTarget; if (img.src.includes("/api/proxy/image")) img.src = ev.thumbnail!; else img.style.display = "none"; }} />
                             ) : (
                               <div className="w-10 h-10 rounded-lg bg-gray-100 shrink-0 flex items-center justify-center text-sm">🏖️</div>
                             )}
@@ -7079,6 +7095,80 @@ export default function Admin() {
           <p className="text-white/50 text-xs">390 × 844 (iPhone 14 · 130%)</p>
         </div>
       </div>
+    )}
+    {/* ══ TOP5 이미지 변경 다이얼로그 ══════════════════════════════════════ */}
+    {top5ThumbEdit && (
+      <Dialog open onOpenChange={(o) => { if (!o) { setTop5ThumbEdit(null); setTop5ThumbInput(""); } }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <ImageIcon className="w-4 h-4 text-blue-500" />
+              대표 이미지 변경
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground line-clamp-1">{top5ThumbEdit.title}</p>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">이미지 URL 입력</label>
+              <Input
+                value={top5ThumbInput}
+                onChange={(e) => setTop5ThumbInput(e.target.value)}
+                placeholder="https://... 또는 /api/uploads/..."
+              />
+            </div>
+            <div className="relative">
+              <label className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-gray-300 rounded-lg py-2.5 cursor-pointer hover:border-blue-400 transition-colors text-sm text-gray-600">
+                <Upload className="w-4 h-4" />
+                파일 직접 업로드
+                <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  const fd = new FormData();
+                  fd.append("image", file);
+                  const r = await fetch(`${BASE}/api/upload-image`, { method: "POST", credentials: "include", body: fd });
+                  if (r.ok) { const j = await r.json() as { url: string }; setTop5ThumbInput(j.url); }
+                  else { toast({ title: "업로드 실패", variant: "destructive" }); }
+                }} />
+              </label>
+            </div>
+            {top5ThumbInput && (
+              <div className="rounded-lg overflow-hidden border h-32 bg-gray-50">
+                <img key={top5ThumbInput} src={proxyAdminImg(top5ThumbInput)} alt="" className="w-full h-full object-cover"
+                  onError={(e) => { const img = e.currentTarget; if (img.src.includes("/api/proxy/image")) img.src = top5ThumbInput; else img.style.display = "none"; }} />
+              </div>
+            )}
+            <div className="flex gap-2 pt-1">
+              <Button
+                className="flex-1"
+                disabled={top5ThumbSaving}
+                onClick={async () => {
+                  setTop5ThumbSaving(true);
+                  try {
+                    const r = await fetch(`${BASE}/api/events/${top5ThumbEdit.eventId}`, {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      credentials: "include",
+                      body: JSON.stringify({ thumbnail: top5ThumbInput || null }),
+                    });
+                    if (!r.ok) throw new Error("저장 실패");
+                    setTop5Draft((prev) => prev.map((d) => d.eventId === top5ThumbEdit.eventId ? { ...d, thumbnail: top5ThumbInput || null } : d));
+                    toast({ title: "✅ 이미지 저장 완료", description: "TOP 5 카드에 바로 반영됩니다." });
+                    setTop5ThumbEdit(null);
+                    setTop5ThumbInput("");
+                  } catch {
+                    toast({ title: "저장 실패", variant: "destructive" });
+                  } finally {
+                    setTop5ThumbSaving(false);
+                  }
+                }}
+              >
+                {top5ThumbSaving ? "저장 중..." : "💾 저장"}
+              </Button>
+              <Button variant="outline" onClick={() => { setTop5ThumbEdit(null); setTop5ThumbInput(""); }}>취소</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     )}
     </>
   );

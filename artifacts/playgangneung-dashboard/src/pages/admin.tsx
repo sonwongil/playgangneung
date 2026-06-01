@@ -1759,8 +1759,13 @@ export default function Admin() {
                         className="flex items-center gap-3 px-2 py-3 flex-1 min-w-0 cursor-pointer"
                         onClick={() => navigate(`/admin/events/${ev.id}`)}
                       >
-                        {/* Thumbnail */}
-                        <div className="w-14 h-14 rounded-lg overflow-hidden bg-teal-50 shrink-0">
+                        {/* Thumbnail — 클릭 시 이미지 변경 */}
+                        <button
+                          type="button"
+                          title="이미지 변경"
+                          className="relative w-14 h-14 rounded-lg overflow-hidden bg-teal-50 shrink-0 group border-2 border-dashed border-transparent hover:border-blue-400 transition-colors"
+                          onClick={(e) => { e.stopPropagation(); setTop5ThumbEdit({ eventId: ev.id, title: ev.title }); setTop5ThumbInput(ev.thumbnail ?? ""); }}
+                        >
                           <img
                             key={ev.thumbnail || ev.id}
                             src={proxyAdminImg(ev.thumbnail || extractYoutubeThumb(ev.videoUrl) || `${BASE}/logo_transparent.png`)}
@@ -1768,7 +1773,10 @@ export default function Admin() {
                             className={`w-full h-full ${(ev.thumbnail || extractYoutubeThumb(ev.videoUrl)) ? "object-cover" : "object-contain p-1.5"}`}
                             onError={(e) => { const img = e.currentTarget; if (img.src.includes("/api/proxy/image")) { const raw = ev.thumbnail || extractYoutubeThumb(ev.videoUrl); img.src = raw || `${BASE}/logo_transparent.png`; img.className = `w-full h-full ${raw ? "object-cover" : "object-contain p-1.5"}`; } else { img.src = `${BASE}/logo_transparent.png`; img.className = "w-full h-full object-contain p-1.5"; } }}
                           />
-                        </div>
+                          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                            <ImageIcon className="w-4 h-4 text-white" />
+                          </div>
+                        </button>
                         {/* Info */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap mb-0.5">

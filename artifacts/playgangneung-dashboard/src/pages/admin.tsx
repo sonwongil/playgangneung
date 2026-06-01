@@ -6374,9 +6374,14 @@ export default function Admin() {
                             </div>
                             {isSelected ? (
                               <span className="shrink-0 text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full font-medium">선정됨</span>
-                            ) : top5Draft.length < 5 ? (
-                              <PlusCircle className="shrink-0 w-5 h-5 text-blue-400" />
-                            ) : null}
+                            ) : (
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                {!isValidThumb(ev.thumbnail) && (
+                                  <span className="text-[10px] bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap">이미지 없음</span>
+                                )}
+                                {top5Draft.length < 5 && <PlusCircle className="w-5 h-5 text-blue-400" />}
+                              </div>
+                            )}
                           </button>
                         );
                       })

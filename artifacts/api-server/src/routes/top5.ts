@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { requireAdmin } from "../middlewares/requireAdmin.js";
 import { db, dailyTop5Table, eventsTable } from "@workspace/db";
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, or } from "drizzle-orm";
 
 const router = Router();
 
@@ -20,7 +20,43 @@ router.get("/top5", async (req, res) => {
       .limit(1);
 
     if (!row[0] || row[0].items.length === 0) {
-      return res.json({ date: dateParam, items: [] });
+      // 수동 선정 없을 때: approved/published 이벤트를 scheduleStatus 기준으로 자동 선택
+      const SCHEDULE_ORDER: Record<string, number> = {
+        today: 0, ongoing: 1, tomorrow: 2, upcoming: 3, dateUnknown: 4, ended: 5,
+      };
+      const candidates = await db
+        .select()
+        .from(eventsTable)
+        .where(or(eq(eventsTable.status, "approved"), eq(eventsTable.status, "published")))
+        .limit(30);
+
+      const autoItems = candidates
+        .sort((a, b) => {
+          const sa = SCHEDULE_ORDER[a.scheduleStatus ?? ""] ?? 4;
+          const sb = SCHEDULE_ORDER[b.scheduleStatus ?? ""] ?? 4;
+          if (sa !== sb) return sa - sb;
+          return (a.startDate ?? "").localeCompare(b.startDate ?? "");
+        })
+        .slice(0, 5)
+        .map((ev, i) => ({
+          rank: i + 1,
+          eventId: ev.id,
+          id: ev.id,
+          title: ev.title,
+          description: ev.description,
+          thumbnail: ev.thumbnail,
+          category: ev.category,
+          location: ev.location,
+          date: ev.startDate ?? (ev as Record<string, unknown>)["date"] as string ?? null,
+          startDate: ev.startDate,
+          endDate: ev.endDate,
+          scheduleStatus: ev.scheduleStatus,
+          link: ev.link,
+          source: ev.source,
+          hashtags: ev.hashtags,
+        }));
+
+      return res.json({ date: dateParam, items: autoItems, auto: true });
     }
 
     const slotItems = row[0].items;

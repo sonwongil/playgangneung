@@ -680,8 +680,8 @@ router.post("/ads/:id/upload-image", (req, res) => {
     if (!req.file) return res.status(400).json({ success: false, error: "파일이 없습니다." });
     const { id } = req.params;
     const slot = Number(req.query["slot"] ?? "0");
-    const imageUrl = `/api/uploads/${req.file.filename}`;
     try {
+      const imageUrl = `/api/uploads/${req.file.filename}`;
       const [row] = await db.select().from(adsTable).where(eq(adsTable.id, id));
       if (!row) return res.status(404).json({ success: false, error: "광고를 찾을 수 없습니다." });
       if (slot === 0) {

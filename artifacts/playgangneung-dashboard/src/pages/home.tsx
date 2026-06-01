@@ -357,7 +357,7 @@ function FeedCard({ item, onTagClick }: { item: FeedItem; onTagClick?: (tag: str
                 {item.email && <a href={`mailto:${item.email}`} className="flex items-center gap-2 text-blue-600">✉️ {item.email}</a>}
               </div>
             )}
-            <a href={`/content/${item.id}`} target="_blank" rel="noopener noreferrer" className="block w-full text-center bg-primary text-primary-foreground rounded-xl py-3 font-semibold text-sm">자세히 보기 →</a>
+            <a href={`/content/${item.id}`} className="block w-full text-center bg-primary text-primary-foreground rounded-xl py-3 font-semibold text-sm">자세히 보기 →</a>
           </SheetContent>
         </Sheet>
       )}
@@ -1071,9 +1071,7 @@ export default function Home() {
                     return (
                       <a
                         key={item.id}
-                        href={item.link || `${BASE}/content/${item.id}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                        href={`${BASE}/content/${item.id}`}
                         draggable={false}
                         onClick={(e) => { if (premiumDrag.current.moved) e.preventDefault(); }}
                         className="shrink-0 w-56 cursor-pointer group"

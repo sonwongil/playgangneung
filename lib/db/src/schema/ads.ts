@@ -29,6 +29,7 @@ export const adsTable = pgTable("ads", {
   reportToken: text("report_token"),
   reportSentAt: timestamp("report_sent_at"),
   isPremiumFeatured: boolean("is_premium_featured").notNull().default(false),
+  imageExpiresAt: timestamp("image_expires_at"),
   userId: text("user_id"),
 });
 

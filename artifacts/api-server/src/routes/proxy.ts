@@ -37,10 +37,35 @@ const ALLOWED_HOSTS = [
   // 유튜브 썸네일
   "img.youtube.com",
   "i.ytimg.com",
-  // 기타 이미지 호스트
+  // 뉴스/미디어
   "cdn.kado.net",
-  "www.gscaltex.com",
+  "www.kwnews.co.kr",
+  "www.nocutnews.co.kr",
+  // 강릉/강원 관련 기관
+  "www.danojefestival.or.kr",
+  "gnmu.moonhwain.kr",
+  "www.gyu.ac.kr",
+  // 한국관광공사
+  "kfescdn.visitkorea.or.kr",
+  "tong.visitkorea.or.kr",
+  // 당근마켓
+  "community-api-cdn.kr.karrotmarket.com",
 ];
+
+// 서브도메인 와일드카드 허용 (img1~img9.yna.co.kr 등)
+const ALLOWED_SUFFIXES = [
+  "yna.co.kr",
+  "nocutnews.co.kr",
+  "kwnews.co.kr",
+  "visitkorea.or.kr",
+  "karrotmarket.com",
+  "cdninstagram.com",
+];
+
+function isHostAllowed(hostname: string): boolean {
+  if (ALLOWED_HOSTS.includes(hostname)) return true;
+  return ALLOWED_SUFFIXES.some((s) => hostname === s || hostname.endsWith("." + s));
+}
 
 router.get("/proxy/image", async (req, res) => {
   const rawUrl = req.query["url"] as string | undefined;
@@ -57,7 +82,7 @@ router.get("/proxy/image", async (req, res) => {
     return;
   }
 
-  if (!ALLOWED_HOSTS.includes(parsed.hostname)) {
+  if (!isHostAllowed(parsed.hostname)) {
     res.status(403).json({ error: "허용되지 않은 도메인" });
     return;
   }
@@ -177,7 +202,7 @@ router.get("/proxy/page", async (req, res) => {
   let parsed: URL;
   try { parsed = new URL(rawUrl); } catch { res.status(400).send("유효하지 않은 URL"); return; }
 
-  if (!ALLOWED_HOSTS.includes(parsed.hostname)) {
+  if (!isHostAllowed(parsed.hostname)) {
     res.status(403).send("허용되지 않은 도메인");
     return;
   }

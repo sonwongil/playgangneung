@@ -280,8 +280,10 @@ function FeedCard({ item, onTagClick }: { item: FeedItem; onTagClick?: (tag: str
           <div className="relative h-48 overflow-hidden bg-gray-100">
             {hasThumbnail ? (
               <>
-                <img src={thumbnail} alt="" aria-hidden="true" className="absolute inset-0 w-full h-full object-cover scale-110 blur-xl opacity-60" />
-                <img src={thumbnail} alt={item.title} className="relative z-10 w-full h-full object-contain group-hover:scale-105 transition-transform duration-500" loading="lazy" />
+                <img src={proxyImg(thumbnail)} alt="" aria-hidden="true" className="absolute inset-0 w-full h-full object-cover scale-110 blur-xl opacity-60"
+                  onError={(e) => { e.currentTarget.src = thumbnail; }} />
+                <img src={proxyImg(thumbnail)} alt={item.title} className="relative z-10 w-full h-full object-contain group-hover:scale-105 transition-transform duration-500" loading="lazy"
+                  onError={(e) => { const img = e.currentTarget; if (img.src.includes("/api/proxy/image")) { img.src = thumbnail; } else { img.style.display = "none"; } }} />
               </>
             ) : (
               <div className="w-full h-full bg-gradient-to-br from-teal-50 to-cyan-100 flex items-center justify-center">

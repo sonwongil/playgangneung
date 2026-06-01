@@ -1725,6 +1725,7 @@ export default function Admin() {
                             src={ev.thumbnail || extractYoutubeThumb(ev.videoUrl) || `${BASE}/logo_transparent.png`}
                             alt=""
                             className={`w-full h-full ${(ev.thumbnail || extractYoutubeThumb(ev.videoUrl)) ? "object-cover" : "object-contain p-1.5"}`}
+                            onError={(e) => { const img = e.currentTarget; img.src = `${BASE}/logo_transparent.png`; img.className = "w-full h-full object-contain p-1.5"; }}
                           />
                         </div>
                         {/* Info */}

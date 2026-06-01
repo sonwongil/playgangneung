@@ -1,1 +1,2 @@
 - [작업 원칙 및 재발 방지](work-principles.md) — 수정 전 확인·범위 최소화·사전 고지. 잘 되는 코드는 절대 건드리지 않는다.
+- [이미지 업로드 라우트 구조](image-upload-routes.md) — /api/upload-image (generic), /api/events/:id/upload-image, /api/ads/:id/upload-image 세 라우트가 반드시 존재해야 함. 원복 시 절대 삭제 금지.

@@ -523,6 +523,55 @@ router.patch("/events/:id", async (req, res) => {
   }
 });
 
+router.post("/events/refetch-images", async (req, res) => {
+  try {
+    const { ids } = req.body as { ids?: string[] };
+    const allEvents = await readEvents();
+
+    let targets: typeof allEvents;
+    if (Array.isArray(ids) && ids.length > 0) {
+      targets = allEvents.filter((e) => ids.includes(e.id));
+    } else {
+      targets = allEvents.filter((e) => !e.thumbnail && e.link).slice(0, 30);
+      if (targets.length === 0) {
+        return res.json({ updated: 0, checked: 0, message: "이미지 없는 이벤트가 없습니다" });
+      }
+    }
+
+    let updated = 0;
+    const localAgent = new https.Agent({ rejectUnauthorized: false });
+
+    for (const ev of targets) {
+      if (!ev.link) continue;
+      try {
+        const resp = await axios.get(ev.link, {
+          headers: {
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36",
+            "Accept-Language": "ko-KR,ko;q=0.9",
+          },
+          httpsAgent: localAgent,
+          timeout: 8000,
+          responseType: "text",
+        });
+        const $ = cheerio.load(resp.data as string);
+        const ogImg = $('meta[property="og:image"]').attr("content")?.trim();
+        if (ogImg) {
+          await updateEvent(ev.id, { thumbnail: ogImg });
+          updated++;
+        }
+      } catch {
+        // 개별 실패 무시
+      }
+    }
+
+    req.log.info({ total: targets.length, updated }, "이벤트 이미지 재추출 완료");
+    return res.json({ updated, checked: targets.length, message: `${targets.length}건 확인 → ${updated}건 업데이트` });
+  } catch (err) {
+    req.log.error({ err }, "이벤트 이미지 재추출 실패");
+    return res.status(500).json({ success: false, error: String(err) });
+  }
+});
+
 router.post("/events/:id/upload-image", (req, res) => {
   upload.single("image")(req, res, async (err) => {
     if (err) {

@@ -438,6 +438,7 @@ const AD_STATUS: Record<string, { label: string; cls: string }> = {
 
 export default function Admin() {
   const [activeNav, setActiveNav] = useState<NavKey>("dashboard");
+  const [eventsImgRefetching, setEventsImgRefetching] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showMobilePreview, setShowMobilePreview] = useState(false);
   const [mobilePreviewPath, setMobilePreviewPath] = useState("/");
@@ -1680,16 +1681,45 @@ export default function Admin() {
                     </p>
                   )}
                 </div>
-                <div className="flex items-center gap-1">
-                  <ArrowUpDown className="w-3.5 h-3.5 text-muted-foreground mr-0.5" />
+                <div className="flex items-center gap-2">
                   <button
-                    onClick={() => setAdminSortBy("date")}
-                    className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${adminSortBy === "date" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}
-                  >날짜순</button>
-                  <button
-                    onClick={() => setAdminSortBy("latest")}
-                    className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${adminSortBy === "latest" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}
-                  >최신순</button>
+                    disabled={eventsImgRefetching}
+                    onClick={async () => {
+                      setEventsImgRefetching(true);
+                      try {
+                        const body: { ids?: string[] } = {};
+                        if (selectedIds.size > 0) body.ids = [...selectedIds];
+                        const r = await fetch(`${BASE}/api/events/refetch-images`, {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          credentials: "include",
+                          body: JSON.stringify(body),
+                        });
+                        const d = await r.json() as { message?: string; updated?: number };
+                        toast({ description: d.message ?? "완료" });
+                        if ((d.updated ?? 0) > 0) qc.invalidateQueries({ queryKey: ["admin-events"] });
+                      } finally {
+                        setEventsImgRefetching(false);
+                      }
+                    }}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600 hover:bg-orange-100 hover:text-orange-700 transition-colors disabled:opacity-50"
+                  >
+                    {eventsImgRefetching
+                      ? <><span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />처리 중...</>
+                      : <><ImageIcon className="w-3 h-3" />{selectedIds.size > 0 ? `이미지 재추출 (${selectedIds.size})` : "이미지 재추출"}</>
+                    }
+                  </button>
+                  <div className="flex items-center gap-1">
+                    <ArrowUpDown className="w-3.5 h-3.5 text-muted-foreground mr-0.5" />
+                    <button
+                      onClick={() => setAdminSortBy("date")}
+                      className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${adminSortBy === "date" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}
+                    >날짜순</button>
+                    <button
+                      onClick={() => setAdminSortBy("latest")}
+                      className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${adminSortBy === "latest" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}
+                    >최신순</button>
+                  </div>
                 </div>
               </div>
               {isLoading ? (

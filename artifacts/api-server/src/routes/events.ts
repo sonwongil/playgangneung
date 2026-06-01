@@ -666,6 +666,20 @@ router.post("/events/:id/upload-image", (req, res) => {
   });
 });
 
+router.post("/upload-image", (req, res) => {
+  upload.single("image")(req, res, async (err) => {
+    if (err) {
+      return res.status(400).json({ success: false, error: err instanceof Error ? err.message : "업로드 실패" });
+    }
+    if (!req.file) {
+      return res.status(400).json({ success: false, error: "파일이 없습니다." });
+    }
+    const url = `/api/uploads/${req.file.filename}`;
+    req.log.info({ url }, "이미지 업로드 완료");
+    return res.json({ success: true, url });
+  });
+});
+
 router.delete("/events", async (req, res) => {
   try {
     const { db, eventsTable } = await import("@workspace/db");

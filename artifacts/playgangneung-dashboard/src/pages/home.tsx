@@ -261,6 +261,8 @@ function FeedCard({ item, onTagClick }: { item: FeedItem; onTagClick?: (tag: str
     if (item.isAd) {
       e.preventDefault();
       setShowDetail(true);
+    } else {
+      sessionStorage.setItem("playgangneung_return_url", window.location.pathname + window.location.search);
     }
   }
 
@@ -1073,7 +1075,10 @@ export default function Home() {
                         key={item.id}
                         href={item.link ? `/viewer?url=${encodeURIComponent(item.link)}` : "#"}
                         draggable={false}
-                        onClick={(e) => { if (premiumDrag.current.moved) e.preventDefault(); }}
+                        onClick={(e) => {
+                          if (premiumDrag.current.moved) { e.preventDefault(); return; }
+                          sessionStorage.setItem("playgangneung_return_url", window.location.pathname + window.location.search);
+                        }}
                         className="shrink-0 w-56 cursor-pointer group"
                       >
                         <div className="relative h-36 rounded-xl overflow-hidden bg-gray-200 mb-2">

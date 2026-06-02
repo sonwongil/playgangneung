@@ -8,14 +8,19 @@ export default function Viewer() {
   const [loaded, setLoaded] = useState(false);
 
   function goBack() {
-    history.back();
+    const fallback = sessionStorage.getItem("playgangneung_return_url") || "/";
+    if (window.history.length > 1 && document.referrer.includes(window.location.origin)) {
+      window.history.back();
+    } else {
+      window.location.href = fallback;
+    }
   }
 
   if (!url) {
     return (
       <div className="fixed inset-0 flex flex-col items-center justify-center bg-white gap-4">
         <p className="text-gray-500 text-sm">잘못된 접근입니다.</p>
-        <button onClick={goBack} className="text-blue-600 text-sm font-semibold">← 돌아가기</button>
+        <button onClick={goBack} className="text-blue-600 text-sm font-semibold">← PLAY강릉으로 돌아가기</button>
       </div>
     );
   }
@@ -26,10 +31,10 @@ export default function Viewer() {
       <div className="flex items-center gap-2 px-3 py-2 bg-white border-b border-gray-200 shrink-0" style={{ minHeight: 48 }}>
         <button
           onClick={goBack}
-          className="flex items-center gap-1 text-sm font-semibold text-gray-700 bg-gray-100 px-3 py-1.5 rounded-full shrink-0"
-          aria-label="뒤로가기"
+          className="flex items-center gap-1 text-sm font-semibold text-white bg-green-600 hover:bg-green-700 px-3 py-1.5 rounded-full shrink-0"
+          aria-label="PLAY강릉으로 돌아가기"
         >
-          ← 뒤로
+          ← PLAY강릉
         </button>
         <span className="text-xs text-gray-400 truncate flex-1 min-w-0">{url}</span>
         <a

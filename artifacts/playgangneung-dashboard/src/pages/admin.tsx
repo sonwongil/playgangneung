@@ -773,6 +773,8 @@ export default function Admin() {
   const [top5ThumbEdit, setTop5ThumbEdit] = useState<{ eventId: string; title: string } | null>(null);
   const [top5ThumbInput, setTop5ThumbInput] = useState("");
   const [top5ThumbSaving, setTop5ThumbSaving] = useState(false);
+  const [top5CarouselOpen, setTop5CarouselOpen] = useState(false);
+  const [top5CarouselSending, setTop5CarouselSending] = useState(false);
   const [top5DraftDate, setTop5DraftDate] = useState<string>(() => {
     const kst = new Date(Date.now() + 9 * 3600_000);
     return kst.toISOString().slice(0, 10);
@@ -6248,6 +6250,33 @@ export default function Admin() {
               }
             };
 
+            const sendCarouselToMeta = async () => {
+              if (top5Draft.length === 0) return;
+              setTop5CarouselSending(true);
+              try {
+                const cards = top5Draft.map((slot) => ({
+                  title: slot.title,
+                  summary: slot.title,
+                  imageUrl: slot.thumbnail ?? "",
+                  linkUrl: `${window.location.origin}/content/${slot.eventId}`,
+                }));
+                const r = await fetch(`${BASE}/api/top5/carousel-to-meta`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  credentials: "include",
+                  body: JSON.stringify({ cards }),
+                });
+                const data = await r.json();
+                if (!r.ok) throw new Error(data.error ?? "전송 실패");
+                toast({ title: "✅ Meta 게시 완료", description: `게시물 ID: ${data.postId} (사진 ${data.photoCount}장)` });
+                setTop5CarouselOpen(false);
+              } catch (err) {
+                toast({ title: "Meta 전송 실패", description: err instanceof Error ? err.message : "오류 발생", variant: "destructive" });
+              } finally {
+                setTop5CarouselSending(false);
+              }
+            };
+
             return (
               <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-4">
                 <div className="flex items-center gap-2 mb-1">
@@ -6330,6 +6359,14 @@ export default function Admin() {
                       {top5Draft.length > 0 && (
                         <Button size="sm" variant="outline" onClick={() => setTop5Draft([])}>초기화</Button>
                       )}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setTop5CarouselOpen(true)}
+                        className="ml-auto border-blue-300 text-blue-700 hover:bg-blue-50"
+                      >
+                        📣 Meta/SNS 캐러셀
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -6388,6 +6425,60 @@ export default function Admin() {
                     )}
                   </div>
                 </div>
+              {/* ── Meta/SNS 캐러셀 초안 모달 ── */}
+              {top5CarouselOpen && (
+                <Dialog open onOpenChange={setTop5CarouselOpen}>
+                  <DialogContent className="max-w-xl max-h-[80vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle className="flex items-center gap-2">
+                        <span>📣</span> Meta/SNS 캐러셀 초안
+                      </DialogTitle>
+                    </DialogHeader>
+                    {top5Draft.length === 0 ? (
+                      <div className="py-10 text-center text-muted-foreground">
+                        <p className="text-sm">선택된 항목이 없습니다.</p>
+                        <p className="text-xs mt-1">TOP 5 슬롯에 이벤트를 먼저 추가해 주세요.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3 py-1">
+                        {top5Draft.map((slot) => (
+                          <div key={slot.eventId} className="flex gap-3 p-3 border rounded-lg bg-gray-50">
+                            <div className="shrink-0 w-16 h-16 rounded-lg overflow-hidden border bg-gray-200 flex items-center justify-center">
+                              {isValidThumb(slot.thumbnail) ? (
+                                <img src={proxyAdminImg(slot.thumbnail!)} alt="" className="w-full h-full object-cover"
+                                  onError={(e) => { const img = e.currentTarget; if (img.src.includes("/api/proxy/image")) img.src = slot.thumbnail!; else img.src = "/logo.png"; }} />
+                              ) : (
+                                <span className="text-2xl">🏖️</span>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5 mb-0.5">
+                                <span className="text-[10px] font-bold text-yellow-700 bg-yellow-100 px-1.5 py-0.5 rounded-full">#{slot.rank}</span>
+                              </div>
+                              <p className="text-sm font-semibold line-clamp-2 leading-snug">{slot.title}</p>
+                              <p className="text-xs text-gray-400 mt-1 truncate">{window.location.origin}/content/{slot.eventId}</p>
+                            </div>
+                          </div>
+                        ))}
+                        <p className="text-xs text-muted-foreground pt-1">총 {top5Draft.length}개 카드 · Meta 페이지에 이미지 포함 게시물로 업로드됩니다.</p>
+                      </div>
+                    )}
+                    <div className="flex justify-end gap-2 pt-2 border-t">
+                      <Button variant="outline" size="sm" onClick={() => setTop5CarouselOpen(false)}>닫기</Button>
+                      {top5Draft.length > 0 && (
+                        <Button
+                          size="sm"
+                          disabled={top5CarouselSending}
+                          onClick={sendCarouselToMeta}
+                          className="bg-blue-600 hover:bg-blue-700 text-white"
+                        >
+                          {top5CarouselSending ? "전송 중..." : "📤 Meta에 연동"}
+                        </Button>
+                      )}
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              )}
               </div>
             );
           })()}

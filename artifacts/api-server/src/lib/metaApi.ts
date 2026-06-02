@@ -622,3 +622,31 @@ export async function getAdInsights(
 
   return { ok: true, data: { insights } };
 }
+
+// ─── 페이지 게시물 ────────────────────────────────────────────────────────────
+
+/** 이미지를 페이지에 임시 업로드 (published=false) → photo id 반환 */
+export async function uploadPagePhoto(
+  pageId: string,
+  imageUrl: string,
+  caption = "",
+): Promise<MetaResult<{ id: string }>> {
+  return metaPost<{ id: string }>(`${pageId}/photos`, {
+    url: imageUrl,
+    caption,
+    published: "false",
+  });
+}
+
+/** 여러 사진 id를 붙여 페이지에 게시물 생성 */
+export async function createPageCarouselPost(
+  pageId: string,
+  message: string,
+  photoIds: string[],
+): Promise<MetaResult<{ id: string }>> {
+  const body: Record<string, unknown> = { message };
+  photoIds.forEach((id, i) => {
+    body[`attached_media[${i}]`] = JSON.stringify({ media_fbid: id });
+  });
+  return metaPost<{ id: string }>(`${pageId}/feed`, body);
+}

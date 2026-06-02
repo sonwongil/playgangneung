@@ -2,6 +2,7 @@ import { Router } from "express";
 import { requireAdmin } from "../middlewares/requireAdmin.js";
 import { db, dailyTop5Table, eventsTable } from "@workspace/db";
 import { eq, inArray, or, desc, ne } from "drizzle-orm";
+import { uploadPagePhoto, createPageCarouselPost } from "../lib/metaApi.js";
 
 const router = Router();
 
@@ -161,6 +162,49 @@ router.post("/top5", requireAdmin, async (req, res) => {
   } catch (err) {
     req.log.error({ err }, "TOP 5 저장 실패");
     return res.status(500).json({ error: "TOP 5 저장 실패" });
+  }
+});
+
+// TOP5 → Meta 캐러셀 게시물 연동
+router.post("/top5/carousel-to-meta", requireAdmin, async (req, res) => {
+  try {
+    const { cards } = req.body as {
+      cards: { title: string; summary: string; imageUrl: string; linkUrl: string }[];
+    };
+    if (!Array.isArray(cards) || cards.length === 0) {
+      return res.status(400).json({ error: "cards 배열 필수 (1개 이상)" });
+    }
+
+    const pageId = process.env["META_PAGE_ID"];
+    if (!pageId) return res.status(503).json({ error: "META_PAGE_ID 환경변수 미설정" });
+
+    // 각 카드 이미지를 페이지에 임시 업로드
+    const photoIds: string[] = [];
+    for (const card of cards) {
+      if (card.imageUrl) {
+        const r = await uploadPagePhoto(pageId, card.imageUrl, card.title);
+        if (r.ok) photoIds.push(r.data.id);
+        else req.log.warn({ err: r.error }, `사진 업로드 실패: ${card.title}`);
+      }
+    }
+
+    // 게시물 메시지 조합
+    const message = [
+      "🏖️ PLAY강릉 오늘의 TOP5",
+      "",
+      ...cards.map((c, i) => `${i + 1}. ${c.title}\n🔗 ${c.linkUrl}`),
+    ].join("\n");
+
+    const postResult = await createPageCarouselPost(pageId, message, photoIds);
+    if (!postResult.ok) {
+      req.log.error({ err: postResult.error }, "Meta 페이지 게시 실패");
+      return res.status(502).json({ error: postResult.error });
+    }
+
+    return res.json({ ok: true, postId: postResult.data.id, photoCount: photoIds.length });
+  } catch (err) {
+    req.log.error({ err }, "carousel-to-meta 오류");
+    return res.status(500).json({ error: "서버 오류" });
   }
 });
 

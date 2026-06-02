@@ -23,6 +23,7 @@ const CheckoutFail       = lazy(() => import("@/pages/checkout-fail"));
 const Privacy            = lazy(() => import("@/pages/privacy"));
 const DataDeletion       = lazy(() => import("@/pages/data-deletion"));
 const Terms              = lazy(() => import("@/pages/terms"));
+const Viewer             = lazy(() => import("@/pages/viewer"));
 const NotFound           = lazy(() => import("@/pages/not-found"));
 
 const queryClient = new QueryClient();
@@ -233,6 +234,7 @@ function Router() {
         <Route path="/privacy" component={Privacy} />
         <Route path="/data-deletion" component={DataDeletion} />
         <Route path="/terms" component={Terms} />
+        <Route path="/viewer" component={Viewer} />
         <Route component={NotFound} />
       </Switch>
     </Suspense>

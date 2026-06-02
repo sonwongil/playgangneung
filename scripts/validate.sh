@@ -91,19 +91,17 @@ fi
 echo ""
 echo "▶ [4] 관리자 로그인 curl 테스트 (참고용)"
 
-COOKIE_JAR=$(mktemp)
-LOGIN_RESULT=$(curl -s -c "$COOKIE_JAR" -X POST "$BASE/api/auth/login" \
+LOGIN_RESULT=$(curl -s -X POST "$BASE/api/auth/login" \
   -H 'Content-Type: application/json' \
   -d '{"password":"1235"}')
-LOGIN_STATUS=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/api/auth/login" \
-  -H 'Content-Type: application/json' \
-  -d '{"password":"1235"}')
+LOGIN_STATUS=$(echo "$LOGIN_RESULT" | grep -o '"ok":true' | head -1)
+ADMIN_TOKEN=$(echo "$LOGIN_RESULT" | sed 's/.*"token":"\([^"]*\)".*/\1/')
 
 if echo "$LOGIN_RESULT" | grep -q '"ok":true'; then
   pass "관리자 로그인 curl 성공 (password=1235)"
 else
-  warn "관리자 로그인 curl 테스트는 브라우저 세션 방식과 달라 참고용 (status=$LOGIN_STATUS)"
-  COOKIE_JAR=""
+  warn "관리자 로그인 curl 테스트 실패"
+  ADMIN_TOKEN=""
 fi
 
 # ── 5. 인증 보호 엔드포인트 (필수) ───────────────────────
@@ -138,11 +136,12 @@ else
 fi
 
 # ── 7. 인증 후 엔드포인트 (로그인 성공 시에만) ───────────
-if [ -n "$COOKIE_JAR" ]; then
+if [ -n "$ADMIN_TOKEN" ]; then
   echo ""
   echo "▶ [7] 인증 후 엔드포인트 (선택)"
 
-  STATUS_404=$(curl -s -o /dev/null -w '%{http_code}' -b "$COOKIE_JAR" \
+  STATUS_404=$(curl -s -o /dev/null -w '%{http_code}' \
+    -H "Authorization: Bearer $ADMIN_TOKEN" \
     -X PATCH "$BASE/api/events/nonexistent/status" \
     -H 'Content-Type: application/json' -d '{"status":"approved"}')
   if [ "$STATUS_404" = "404" ]; then
@@ -151,7 +150,8 @@ if [ -n "$COOKIE_JAR" ]; then
     fail "인증 후 없는 ID PATCH → $STATUS_404 (404 기대)"
   fi
 
-  BULK_400=$(curl -s -o /dev/null -w '%{http_code}' -b "$COOKIE_JAR" \
+  BULK_400=$(curl -s -o /dev/null -w '%{http_code}' \
+    -H "Authorization: Bearer $ADMIN_TOKEN" \
     -X DELETE "$BASE/api/events/bulk" \
     -H 'Content-Type: application/json' -d '{"ids":[]}')
   if [ "$BULK_400" = "400" ]; then
@@ -160,8 +160,6 @@ if [ -n "$COOKIE_JAR" ]; then
     fail "인증 후 빈 배열 DELETE → $BULK_400 (400 기대)"
   fi
 fi
-
-rm -f "$COOKIE_JAR"
 
 # ── 8. 이미지 검증 ────────────────────────────────────────
 echo ""

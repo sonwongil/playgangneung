@@ -44,14 +44,21 @@ app.use(
   }),
 );
 
+// Replit 개발 환경(iframe/캔버스)에서는 HTTPS proxy를 통해 접근하므로
+// SameSite=None;Secure 가 필요. 배포 환경도 동일하게 None;Secure 사용.
+const isSecureContext =
+  process.env["NODE_ENV"] === "production" ||
+  !!process.env["REPLIT_DEPLOYMENT"] ||
+  !!process.env["REPL_ID"];
+
 app.use(
   cookieSession({
     name: "pgs",
     secret: process.env["SESSION_SECRET"] ?? "playgangneung-secret",
     maxAge: 1000 * 60 * 60 * 24 * 30,
     httpOnly: true,
-    secure: process.env["NODE_ENV"] === "production",
-    sameSite: "lax",
+    secure: isSecureContext,
+    sameSite: isSecureContext ? "none" : "lax",
   }),
 );
 

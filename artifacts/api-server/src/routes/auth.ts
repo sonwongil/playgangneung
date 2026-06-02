@@ -1,5 +1,6 @@
 import { Router } from "express";
-import { verifyPassword, changePassword } from "../lib/auth.js";
+import { verifyPassword, changePassword, generateAdminToken, verifyAdminToken } from "../lib/auth.js";
+import { requireAdmin } from "../middlewares/requireAdmin.js";
 
 const router = Router();
 
@@ -15,7 +16,8 @@ router.post("/auth/login", async (req, res) => {
     return;
   }
   req.session!.isAdmin = true;
-  res.json({ ok: true });
+  // iframe/크로스-오리진 환경을 위해 Bearer 토큰도 함께 반환
+  res.json({ ok: true, token: generateAdminToken() });
 });
 
 router.post("/auth/logout", (req, res) => {
@@ -24,14 +26,14 @@ router.post("/auth/logout", (req, res) => {
 });
 
 router.get("/auth/me", (req, res) => {
-  res.json({ isAdmin: req.session?.isAdmin === true });
+  const isCookie = req.session?.isAdmin === true;
+  const auth = req.headers["authorization"];
+  const isBearer = typeof auth === "string" && auth.startsWith("Bearer ") && verifyAdminToken(auth.slice(7));
+  const isAdmin = isCookie || isBearer;
+  res.json({ isAdmin, ...(isAdmin ? { token: generateAdminToken() } : {}) });
 });
 
-router.post("/auth/change-password", async (req, res) => {
-  if (!req.session?.isAdmin) {
-    res.status(401).json({ error: "로그인이 필요합니다" });
-    return;
-  }
+router.post("/auth/change-password", requireAdmin, async (req, res) => {
   const { currentPassword, newPassword } = req.body as {
     currentPassword?: string;
     newPassword?: string;

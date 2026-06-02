@@ -29,7 +29,8 @@ export default function Login() {
       }
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data: { ok: boolean; token?: string }) => {
+      if (data.token) localStorage.setItem("pg_admin_token", data.token);
       queryClient.invalidateQueries({ queryKey: ["auth-me"] });
       navigate("/admin");
     },

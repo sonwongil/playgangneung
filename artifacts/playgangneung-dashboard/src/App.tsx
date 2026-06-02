@@ -28,6 +28,29 @@ const NotFound           = lazy(() => import("@/pages/not-found"));
 
 const queryClient = new QueryClient();
 
+// ── 전역 fetch interceptor ──────────────────────────────────────────────────
+// 쿠키가 차단되는 iframe/크로스-오리진 환경에서 Bearer 토큰을 자동 첨부
+if (typeof window !== "undefined") {
+  const _origFetch = window.fetch.bind(window);
+  window.fetch = function (input, init) {
+    const url =
+      typeof input === "string"
+        ? input
+        : input instanceof URL
+          ? input.href
+          : (input as Request).url;
+    const token = localStorage.getItem("pg_admin_token");
+    if (token && url.includes("/api/")) {
+      const headers = new Headers(init?.headers);
+      if (!headers.has("Authorization")) {
+        headers.set("Authorization", `Bearer ${token}`);
+      }
+      return _origFetch(input, { ...init, headers });
+    }
+    return _origFetch(input, init);
+  };
+}
+
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 const clerkPubKey = publishableKeyFromHost(

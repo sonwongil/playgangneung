@@ -158,6 +158,17 @@ router.post("/top5", requireAdmin, async (req, res) => {
       .values({ date: targetDate, items: slotItems })
       .onConflictDoUpdate({ target: dailyTop5Table.date, set: { items: slotItems } });
 
+    // TOP5에 포함된 이벤트 자동 승인 (draft/submitted → approved)
+    const eventIds = slotItems.map((it) => it.eventId);
+    if (eventIds.length > 0) {
+      await db
+        .update(eventsTable)
+        .set({ status: "approved" })
+        .where(
+          inArray(eventsTable.id, eventIds)
+        );
+    }
+
     return res.json({ success: true, date: targetDate, count: slotItems.length });
   } catch (err) {
     req.log.error({ err }, "TOP 5 저장 실패");

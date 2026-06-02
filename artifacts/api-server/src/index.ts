@@ -1,6 +1,7 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { startScheduler } from "./lib/scheduler";
+import { loadMetaTokenFromDb } from "./lib/metaApi.js";
 
 // ── 프로덕션 시크릿 키 검증 ──────────────────────────────────────────────────
 // ENABLE_TOSS_PAYMENT=true 일 때만 검증 — 계좌이체 전용 운영 시 서버 시작 차단 없음
@@ -40,4 +41,5 @@ app.listen(port, (err) => {
 
   logger.info({ port }, "Server listening");
   startScheduler();
+  void loadMetaTokenFromDb();
 });

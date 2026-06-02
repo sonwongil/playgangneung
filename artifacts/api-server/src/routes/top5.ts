@@ -198,7 +198,13 @@ router.post("/top5/carousel-to-meta", requireAdmin, async (req, res) => {
     const postResult = await createPageCarouselPost(pageId, message, photoIds);
     if (!postResult.ok) {
       req.log.error({ err: postResult.error }, "Meta 페이지 게시 실패");
-      return res.status(502).json({ error: postResult.error });
+      const { isTokenExpiredError, TOKEN_EXPIRED_USER_MSG } = await import("../lib/metaApi.js");
+      const expired = isTokenExpiredError(postResult.error, postResult.code);
+      return res.status(502).json({
+        error: expired ? TOKEN_EXPIRED_USER_MSG : "Meta 게시 실패. 잠시 후 다시 시도해 주세요.",
+        tokenExpired: expired,
+        devError: postResult.error,
+      });
     }
 
     return res.json({ ok: true, postId: postResult.data.id, photoCount: photoIds.length });

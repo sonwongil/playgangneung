@@ -775,6 +775,8 @@ export default function Admin() {
   const [top5ThumbSaving, setTop5ThumbSaving] = useState(false);
   const [top5CarouselOpen, setTop5CarouselOpen] = useState(false);
   const [top5CarouselSending, setTop5CarouselSending] = useState(false);
+  const [metaTokenInput, setMetaTokenInput] = useState("");
+  const [metaTokenOpen, setMetaTokenOpen] = useState(false);
   const [top5DraftDate, setTop5DraftDate] = useState<string>(() => {
     const kst = new Date(Date.now() + 9 * 3600_000);
     return kst.toISOString().slice(0, 10);
@@ -1412,6 +1414,37 @@ export default function Admin() {
     onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
   });
 
+
+  const metaTokenStatusQuery = useQuery<{ configured: boolean; valid: boolean; source?: string; expired?: boolean; userMsg?: string; devError?: string }>({
+    queryKey: ["meta-token-status"],
+    queryFn: async () => {
+      const r = await fetch(`${BASE}/api/admin/meta-token/status`, { credentials: "include" });
+      return r.json();
+    },
+    staleTime: 60_000,
+    enabled: activeNav === "settings",
+  });
+
+  const saveMetaTokenMutation = useMutation({
+    mutationFn: async (token: string) => {
+      const r = await fetch(`${BASE}/api/admin/meta-token`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ token }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.userMsg ?? d.error ?? "저장 실패");
+      return d;
+    },
+    onSuccess: () => {
+      toast({ title: "✅ Meta 토큰 저장 완료", description: "새 토큰이 즉시 적용되었습니다." });
+      setMetaTokenInput("");
+      setMetaTokenOpen(false);
+      qc.invalidateQueries({ queryKey: ["meta-token-status"] });
+    },
+    onError: (e: Error) => toast({ title: "토큰 저장 실패", description: e.message, variant: "destructive" }),
+  });
 
   const saveBannerMutation = useMutation({
     mutationFn: async (cfg: typeof bannerForm) => {
@@ -5899,6 +5932,70 @@ export default function Admin() {
           {/* ══ 설정 ══════════════════════════════════════════════════════════ */}
           {activeNav === "settings" && (
             <div className="max-w-lg space-y-4">
+
+              {/* ── Meta 연동 토큰 관리 ─────────────────────────────── */}
+              <Card>
+                <CardContent className="p-5 space-y-3">
+                  <p className="font-semibold text-sm flex items-center gap-2">
+                    <span className="text-blue-600 font-bold text-base">f</span> Meta 연동 토큰
+                  </p>
+
+                  {/* 현재 상태 표시 */}
+                  {metaTokenStatusQuery.isLoading ? (
+                    <p className="text-xs text-muted-foreground animate-pulse">토큰 상태 확인 중...</p>
+                  ) : metaTokenStatusQuery.data ? (
+                    <div className={`flex items-start gap-2 text-sm rounded-lg px-3 py-2 border ${
+                      metaTokenStatusQuery.data.valid
+                        ? "text-green-700 bg-green-50 border-green-200"
+                        : "text-red-700 bg-red-50 border-red-200"
+                    }`}>
+                      {metaTokenStatusQuery.data.valid ? (
+                        <><CheckCircle className="w-4 h-4 shrink-0 mt-0.5" /><span>토큰이 유효합니다 (출처: {metaTokenStatusQuery.data.source === "db" ? "DB 저장" : "환경변수"})</span></>
+                      ) : (
+                        <><AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" /><span>{metaTokenStatusQuery.data.userMsg ?? "토큰이 유효하지 않습니다."}</span></>
+                      )}
+                    </div>
+                  ) : null}
+
+                  {/* 토큰 갱신 폼 */}
+                  {metaTokenOpen ? (
+                    <div className="space-y-2">
+                      <p className="text-xs text-muted-foreground">
+                        Meta Business Suite → 시스템 사용자 → 액세스 토큰 생성에서 새 토큰을 발급하세요.
+                      </p>
+                      <textarea
+                        className="w-full border rounded-lg px-3 py-2 text-xs font-mono h-20 resize-none"
+                        placeholder="EAAxxxx... (새 Meta 액세스 토큰 붙여넣기)"
+                        value={metaTokenInput}
+                        onChange={(e) => setMetaTokenInput(e.target.value)}
+                      />
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          className="flex-1 bg-blue-600 hover:bg-blue-700"
+                          disabled={!metaTokenInput.trim() || saveMetaTokenMutation.isPending}
+                          onClick={() => saveMetaTokenMutation.mutate(metaTokenInput.trim())}
+                        >
+                          {saveMetaTokenMutation.isPending ? "검증 및 저장 중..." : "저장"}
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => { setMetaTokenOpen(false); setMetaTokenInput(""); }}>
+                          취소
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant={metaTokenStatusQuery.data?.valid ? "outline" : "default"}
+                      className={metaTokenStatusQuery.data?.valid ? "" : "bg-red-600 hover:bg-red-700 text-white"}
+                      onClick={() => setMetaTokenOpen(true)}
+                    >
+                      {metaTokenStatusQuery.data?.valid ? "토큰 교체" : "Meta 계정 다시 연결"}
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+
               {/* 자동 크롤링 시간 설정 */}
               <Card>
                 <CardContent className="p-5 space-y-4">
@@ -6266,12 +6363,22 @@ export default function Admin() {
                   credentials: "include",
                   body: JSON.stringify({ cards }),
                 });
-                const data = await r.json();
-                if (!r.ok) throw new Error(data.error ?? "전송 실패");
+                const data = await r.json() as { ok?: boolean; postId?: string; photoCount?: number; error?: string; tokenExpired?: boolean; devError?: string };
+                if (!r.ok) {
+                  if (data.tokenExpired) {
+                    console.error("[Meta API] 토큰 만료:", data.devError);
+                    qc.invalidateQueries({ queryKey: ["meta-token-status"] });
+                  }
+                  throw new Error(data.error ?? "전송 실패");
+                }
                 toast({ title: "✅ Meta 게시 완료", description: `게시물 ID: ${data.postId} (사진 ${data.photoCount}장)` });
                 setTop5CarouselOpen(false);
               } catch (err) {
-                toast({ title: "Meta 전송 실패", description: err instanceof Error ? err.message : "오류 발생", variant: "destructive" });
+                toast({
+                  title: "Meta 전송 실패",
+                  description: err instanceof Error ? err.message : "오류 발생",
+                  variant: "destructive",
+                });
               } finally {
                 setTop5CarouselSending(false);
               }

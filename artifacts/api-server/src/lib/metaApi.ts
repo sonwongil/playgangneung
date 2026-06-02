@@ -7,8 +7,68 @@ import { logger } from "./logger.js";
 
 const GRAPH_BASE = "https://graph.facebook.com/v19.0";
 
+// ── 토큰 캐시 (DB 저장 토큰 > 환경변수) ─────────────────────────────────────
+let _tokenOverride: string | null = null;
+
+/** 서버 시작 시 DB에서 토큰 로드 */
+export async function loadMetaTokenFromDb(): Promise<void> {
+  try {
+    const { db, siteConfigTable } = await import("@workspace/db");
+    const { eq } = await import("drizzle-orm");
+    const rows = await db.select().from(siteConfigTable).where(eq(siteConfigTable.key, "META_ACCESS_TOKEN")).limit(1);
+    if (rows[0]?.value) {
+      _tokenOverride = rows[0].value;
+      logger.info("Meta 토큰 DB에서 로드 완료");
+    }
+  } catch (e) {
+    logger.warn({ err: e }, "Meta 토큰 DB 로드 실패 — 환경변수 fallback");
+  }
+}
+
+/** 관리자 UI에서 토큰 업데이트 시 메모리 캐시도 동기화 */
+export function updateCachedToken(token: string | null): void {
+  _tokenOverride = token;
+}
+
+/** 토큰 만료/무효 오류 여부 판별 */
+export function isTokenExpiredError(error: string, code?: number): boolean {
+  if (code === 190 || code === 102 || code === 104) return true;
+  const lower = error.toLowerCase();
+  return (
+    lower.includes("session has expired") ||
+    lower.includes("error validating access token") ||
+    lower.includes("invalid oauth") ||
+    lower.includes("token has expired") ||
+    lower.includes("access token")
+  );
+}
+
+/** 사용자용 토큰 만료 안내 메시지 */
+export const TOKEN_EXPIRED_USER_MSG =
+  "Meta 연동 토큰이 만료되었습니다. 관리자 설정에서 Meta 계정을 다시 연결해 주세요.";
+
+/** 현재 유효한 토큰으로 Graph API /me 호출하여 유효성 확인 */
+export async function verifyMetaToken(token?: string): Promise<{ valid: boolean; error?: string }> {
+  const t = token ?? (_tokenOverride ?? process.env["META_ACCESS_TOKEN"])?.trim();
+  if (!t) return { valid: false, error: "토큰이 설정되지 않았습니다" };
+  try {
+    const qs = new URLSearchParams({ access_token: t, fields: "name,id" });
+    const res = await fetch(`${GRAPH_BASE}/me?${qs}`);
+    const json = await res.json() as Record<string, unknown>;
+    if (!res.ok || json["error"]) {
+      const err = json["error"] as Record<string, unknown> | undefined;
+      const msg = (err?.["message"] as string) ?? "토큰 검증 실패";
+      const code = (err?.["code"] as number) ?? res.status;
+      return { valid: false, error: msg, ...(code ? { code } : {}) } as { valid: false; error: string };
+    }
+    return { valid: true };
+  } catch (e) {
+    return { valid: false, error: e instanceof Error ? e.message : "네트워크 오류" };
+  }
+}
+
 function getCredentials(): { token: string; adAccountId: string } | null {
-  const token = process.env["META_ACCESS_TOKEN"]?.trim();
+  const token = (_tokenOverride ?? process.env["META_ACCESS_TOKEN"])?.trim();
   const adAccountId = process.env["META_AD_ACCOUNT_ID"]?.trim();
   if (!token || !adAccountId) return null;
   return { token, adAccountId };

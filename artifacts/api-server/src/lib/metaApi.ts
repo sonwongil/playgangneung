@@ -28,6 +28,7 @@ export async function loadMetaTokenFromDb(): Promise<void> {
 /** 관리자 UI에서 토큰 업데이트 시 메모리 캐시도 동기화 */
 export function updateCachedToken(token: string | null): void {
   _tokenOverride = token;
+  _pageTokenCache.clear(); // 토큰 교체 시 페이지 토큰 캐시 초기화
 }
 
 /** 토큰 만료/무효 오류 여부 판별 */
@@ -81,13 +82,14 @@ type MetaResult<T = Record<string, unknown>> =
 async function metaPost<T = Record<string, unknown>>(
   path: string,
   body: Record<string, unknown>,
+  tokenOverride?: string,
 ): Promise<MetaResult<T>> {
   const creds = getCredentials();
   if (!creds) return { ok: false, error: "META_ACCESS_TOKEN / META_AD_ACCOUNT_ID 환경변수가 설정되지 않았습니다" };
   try {
     const url = `${GRAPH_BASE}/${path}`;
     const form = new URLSearchParams();
-    form.append("access_token", creds.token);
+    form.append("access_token", tokenOverride ?? creds.token);
     for (const [k, v] of Object.entries(body)) {
       form.append(k, typeof v === "string" ? v : JSON.stringify(v));
     }
@@ -104,6 +106,32 @@ async function metaPost<T = Record<string, unknown>>(
   } catch (err) {
     logger.error({ err, path }, "Meta API 네트워크 오류");
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+// ─── 페이지 액세스 토큰 교환 (User Token → Page Token) ──────────────────────────
+const _pageTokenCache = new Map<string, string>();
+
+async function getPageAccessToken(pageId: string): Promise<string | null> {
+  if (_pageTokenCache.has(pageId)) return _pageTokenCache.get(pageId)!;
+  const creds = getCredentials();
+  if (!creds) return null;
+  try {
+    const qs = new URLSearchParams({ fields: "access_token", access_token: creds.token });
+    const res = await fetch(`${GRAPH_BASE}/${pageId}?${qs}`);
+    const json = await res.json() as Record<string, unknown>;
+    const token = json["access_token"] as string | undefined;
+    if (token) {
+      _pageTokenCache.set(pageId, token);
+      logger.info({ pageId }, "Page Access Token 교환 완료");
+      return token;
+    }
+    const err = json["error"] as Record<string, unknown> | undefined;
+    logger.warn({ pageId, err }, "Page Access Token 교환 실패 — User Token으로 fallback");
+    return null;
+  } catch (e) {
+    logger.warn({ err: e, pageId }, "Page Access Token 교환 네트워크 오류 — User Token으로 fallback");
+    return null;
   }
 }
 
@@ -691,11 +719,12 @@ export async function uploadPagePhoto(
   imageUrl: string,
   caption = "",
 ): Promise<MetaResult<{ id: string }>> {
-  return metaPost<{ id: string }>(`${pageId}/photos`, {
-    url: imageUrl,
-    caption,
-    published: "false",
-  });
+  const pageToken = await getPageAccessToken(pageId);
+  return metaPost<{ id: string }>(
+    `${pageId}/photos`,
+    { url: imageUrl, caption, published: "false" },
+    pageToken ?? undefined,
+  );
 }
 
 /** 여러 사진 id를 붙여 페이지에 게시물 생성 */
@@ -704,9 +733,10 @@ export async function createPageCarouselPost(
   message: string,
   photoIds: string[],
 ): Promise<MetaResult<{ id: string }>> {
+  const pageToken = await getPageAccessToken(pageId);
   const body: Record<string, unknown> = { message };
   photoIds.forEach((id, i) => {
     body[`attached_media[${i}]`] = JSON.stringify({ media_fbid: id });
   });
-  return metaPost<{ id: string }>(`${pageId}/feed`, body);
+  return metaPost<{ id: string }>(`${pageId}/feed`, body, pageToken ?? undefined);
 }

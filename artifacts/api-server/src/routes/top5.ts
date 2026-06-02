@@ -2,7 +2,7 @@ import { Router } from "express";
 import { requireAdmin } from "../middlewares/requireAdmin.js";
 import { db, dailyTop5Table, eventsTable } from "@workspace/db";
 import { eq, inArray, or, desc, ne } from "drizzle-orm";
-import { uploadPagePhoto, createPageCarouselPost } from "../lib/metaApi.js";
+import { publishCarouselToFacebook } from "../lib/metaPublish.js";
 
 const router = Router();
 
@@ -176,7 +176,7 @@ router.post("/top5", requireAdmin, async (req, res) => {
   }
 });
 
-// TOP5 → Meta 캐러셀 게시물 연동
+// TOP5 → Meta 캐러셀 게시물 연동 (Facebook Page)
 router.post("/top5/carousel-to-meta", requireAdmin, async (req, res) => {
   try {
     const { cards } = req.body as {
@@ -189,36 +189,17 @@ router.post("/top5/carousel-to-meta", requireAdmin, async (req, res) => {
     const pageId = process.env["META_PAGE_ID"];
     if (!pageId) return res.status(503).json({ error: "META_PAGE_ID 환경변수 미설정" });
 
-    // 각 카드 이미지를 페이지에 임시 업로드
-    const photoIds: string[] = [];
-    for (const card of cards) {
-      if (card.imageUrl) {
-        const r = await uploadPagePhoto(pageId, card.imageUrl, card.title);
-        if (r.ok) photoIds.push(r.data.id);
-        else req.log.warn({ err: r.error }, `사진 업로드 실패: ${card.title}`);
-      }
-    }
+    const result = await publishCarouselToFacebook(cards, pageId);
 
-    // 게시물 메시지 조합
-    const message = [
-      "🏖️ PLAY강릉 오늘의 TOP5",
-      "",
-      ...cards.map((c, i) => `${i + 1}. ${c.title}\n🔗 ${c.linkUrl}`),
-    ].join("\n");
-
-    const postResult = await createPageCarouselPost(pageId, message, photoIds);
-    if (!postResult.ok) {
-      req.log.error({ err: postResult.error }, "Meta 페이지 게시 실패");
-      const { isTokenExpiredError, TOKEN_EXPIRED_USER_MSG } = await import("../lib/metaApi.js");
-      const expired = isTokenExpiredError(postResult.error, postResult.code);
+    if (!result.ok) {
       return res.status(502).json({
-        error: expired ? TOKEN_EXPIRED_USER_MSG : "Meta 게시 실패. 잠시 후 다시 시도해 주세요.",
-        tokenExpired: expired,
-        devError: postResult.error,
+        error       : result.error,
+        tokenExpired: result.tokenExpired ?? false,
+        devError    : result.devError,
       });
     }
 
-    return res.json({ ok: true, postId: postResult.data.id, photoCount: photoIds.length });
+    return res.json({ ok: true, postId: result.postId, photoCount: result.photoCount });
   } catch (err) {
     req.log.error({ err }, "carousel-to-meta 오류");
     return res.status(500).json({ error: "서버 오류" });

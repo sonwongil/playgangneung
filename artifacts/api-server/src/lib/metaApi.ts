@@ -31,6 +31,18 @@ export function updateCachedToken(token: string | null): void {
   _pageTokenCache.clear(); // 토큰 교체 시 페이지 토큰 캐시 초기화
 }
 
+/** 현재 토큰이 DB에서 왔는지 ENV에서 왔는지 반환 (로그용) */
+export function getTokenSource(): "DB" | "ENV" {
+  return _tokenOverride !== null ? "DB" : "ENV";
+}
+
+/** 로그용 토큰 마스킹 (원문 절대 노출 금지) */
+export function maskToken(token?: string): string {
+  const t = token ?? (_tokenOverride ?? process.env["META_ACCESS_TOKEN"] ?? "");
+  if (t.length <= 10) return "***";
+  return `${t.slice(0, 6)}...${t.slice(-4)}`;
+}
+
 /** 토큰 만료/무효 오류 여부 판별 */
 export function isTokenExpiredError(error: string, code?: number): boolean {
   if (code === 190 || code === 102 || code === 104) return true;
@@ -112,7 +124,7 @@ async function metaPost<T = Record<string, unknown>>(
 // ─── 페이지 액세스 토큰 교환 (User Token → Page Token) ──────────────────────────
 const _pageTokenCache = new Map<string, string>();
 
-async function getPageAccessToken(pageId: string): Promise<string | null> {
+export async function getPageAccessToken(pageId: string): Promise<string | null> {
   if (_pageTokenCache.has(pageId)) return _pageTokenCache.get(pageId)!;
   const creds = getCredentials();
   if (!creds) return null;
@@ -709,6 +721,51 @@ export async function getAdInsights(
   }));
 
   return { ok: true, data: { insights } };
+}
+
+// ─── 페이지 피드 단일 게시물 ─────────────────────────────────────────────────
+
+/** Facebook 페이지에 단일 피드 게시물 발행 (Page Access Token 사용) */
+export async function createPageFeedPost(
+  pageId: string,
+  message: string,
+  options: { link?: string; picture?: string } = {},
+): Promise<MetaResult<{ id: string }>> {
+  const pageToken = await getPageAccessToken(pageId);
+  const body: Record<string, unknown> = { message };
+  if (options.link) body["link"] = options.link;
+  if (options.picture) body["picture"] = options.picture;
+  return metaPost<{ id: string }>(`${pageId}/feed`, body, pageToken ?? undefined);
+}
+
+// ─── Instagram Content Publishing API ────────────────────────────────────────
+
+/** Instagram 미디어 컨테이너 생성 (단일 이미지 또는 캐러셀 아이템/컨테이너) */
+export async function createIgMediaContainer(
+  igUserId: string,
+  options: {
+    imageUrl?: string;
+    caption?: string;
+    isCarouselItem?: boolean;
+    mediaType?: "IMAGE" | "CAROUSEL";
+    children?: string[];
+  },
+): Promise<MetaResult<{ id: string }>> {
+  const body: Record<string, unknown> = {};
+  if (options.imageUrl) body["image_url"] = options.imageUrl;
+  if (options.caption) body["caption"] = options.caption;
+  if (options.isCarouselItem) body["is_carousel_item"] = "true";
+  if (options.mediaType) body["media_type"] = options.mediaType;
+  if (options.children?.length) body["children"] = options.children.join(",");
+  return metaPost<{ id: string }>(`${igUserId}/media`, body);
+}
+
+/** Instagram 미디어 컨테이너 발행 */
+export async function publishIgMedia(
+  igUserId: string,
+  creationId: string,
+): Promise<MetaResult<{ id: string }>> {
+  return metaPost<{ id: string }>(`${igUserId}/media_publish`, { creation_id: creationId });
 }
 
 // ─── 페이지 게시물 ────────────────────────────────────────────────────────────

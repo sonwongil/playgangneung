@@ -23,6 +23,7 @@ import metaInsightsRouter from "./metaInsights.js";
 import membersRouter from "./members.js";
 import top5Router from "./top5.js";
 import metaConfigRouter from "./metaConfig.js";
+import publishRouter from "./publish.js";
 
 const router: IRouter = Router();
 
@@ -54,5 +55,6 @@ router.use(metaInsightsRouter);
 router.use(membersRouter);
 router.use(top5Router);
 router.use(metaConfigRouter);
+router.use(publishRouter);
 
 export default router;

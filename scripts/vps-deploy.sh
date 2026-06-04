@@ -44,10 +44,12 @@ echo "▶ [1/5] 의존성 설치..."
 pnpm install --frozen-lockfile
 echo "✅ 완료"
 
-# ── DB 스키마 동기화 ──────────────────────────────────────
+# ── DB 마이그레이션 ───────────────────────────────────────
+# migrate: lib/db/drizzle/ 의 SQL 파일을 순서대로 적용 (안전)
+# push 절대 사용 금지 — 스키마에서 사라진 컬럼·테이블을 DROP할 수 있음
 echo ""
-echo "▶ [2/5] DB 스키마 동기화..."
-pnpm --filter @workspace/db run push
+echo "▶ [2/5] DB 마이그레이션 적용..."
+pnpm --filter @workspace/db run migrate
 echo "✅ 완료"
 
 # ── API 서버 빌드 ─────────────────────────────────────────

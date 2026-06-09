@@ -250,27 +250,21 @@ function FeedCard({ item, onTagClick }: { item: FeedItem; onTagClick?: (tag: str
   const adCfg = item.isAd && item.adPlan ? AD_PLAN_CONFIG[item.adPlan] : null;
   const gradient = CATEGORY_GRADIENT[category] ?? "from-gray-700 to-gray-900";
 
-  const rawUrl = item.sourceUrl || item.link;
-  const cardHref = item.isAd
-    ? "#"
-    : rawUrl
-    ? `/viewer?url=${encodeURIComponent(rawUrl)}`
-    : `/content/${item.id}`;
+  const cardHref = `/content/${item.id}`;
 
-  function openCard(e: React.MouseEvent) {
+  function handleCardClick() {
     if (item.isAd) {
-      e.preventDefault();
       setShowDetail(true);
     } else {
       sessionStorage.setItem("playgangneung_return_url", window.location.pathname + window.location.search);
+      window.location.href = cardHref;
     }
   }
 
   return (
     <>
-      <a
-        href={cardHref}
-        onClick={openCard}
+      <div
+        onClick={handleCardClick}
         className="block cursor-pointer"
       >
         <Card className={`overflow-hidden hover:shadow-lg transition-shadow duration-300 group ${adCfg?.ring ?? ""}`}>
@@ -333,9 +327,21 @@ function FeedCard({ item, onTagClick }: { item: FeedItem; onTagClick?: (tag: str
                 <span>{item.location || item.source}</span>
               </div>
             </div>
+            {!item.isAd && item.sourceUrl && (
+              <div className="mt-2 pt-2 border-t border-gray-100" onClick={(e) => e.stopPropagation()}>
+                <a
+                  href={item.sourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-[11px] text-blue-500 hover:text-blue-700 font-medium transition-colors"
+                >
+                  원본 보기 ↗
+                </a>
+              </div>
+            )}
           </CardContent>
         </Card>
-      </a>
+      </div>
 
       {item.isAd && (
         <Sheet open={showDetail} onOpenChange={setShowDetail}>
@@ -1070,14 +1076,15 @@ export default function Home() {
                     const stats = fakeStats(item.id);
                     const rankColors = ["bg-yellow-400 text-yellow-900", "bg-gray-300 text-gray-700", "bg-amber-600 text-white", "bg-gray-200 text-gray-600", "bg-gray-200 text-gray-600"];
                     const rankColor = rankColors[item.rank - 1] ?? "bg-gray-200 text-gray-600";
+                    const noteHref = `/content/${item.eventId}`;
                     return (
-                      <a
+                      <div
                         key={item.id}
-                        href={item.link ? `/viewer?url=${encodeURIComponent(item.link)}` : "#"}
                         draggable={false}
-                        onClick={(e) => {
-                          if (premiumDrag.current.moved) { e.preventDefault(); return; }
+                        onClick={() => {
+                          if (premiumDrag.current.moved) return;
                           sessionStorage.setItem("playgangneung_return_url", window.location.pathname + window.location.search);
+                          window.location.href = noteHref;
                         }}
                         className="shrink-0 w-56 cursor-pointer group"
                       >
@@ -1114,12 +1121,24 @@ export default function Home() {
                         </div>
                         <p className="text-[12px] font-semibold text-gray-800 line-clamp-2 leading-snug mb-1">{item.title}</p>
                         {item.date && <p className="text-[10px] text-gray-400 mb-1.5">{item.date}</p>}
-                        <div className="flex items-center gap-2.5 text-[10px] text-gray-400">
+                        <div className="flex items-center gap-2.5 text-[10px] text-gray-400 mb-1.5">
                           <span className="flex items-center gap-0.5"><Heart className="w-3 h-3" />{stats.likes}</span>
                           <span className="flex items-center gap-0.5"><MessageCircle className="w-3 h-3" />{stats.comments}</span>
                           <span className="flex items-center gap-0.5"><Eye className="w-3 h-3" />{stats.views}</span>
                         </div>
-                      </a>
+                        {item.link && (
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <a
+                              href={item.link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-[11px] text-blue-500 hover:text-blue-700 font-medium transition-colors"
+                            >
+                              원본 보기 ↗
+                            </a>
+                          </div>
+                        )}
+                      </div>
                     );
                   })}
                 </div>

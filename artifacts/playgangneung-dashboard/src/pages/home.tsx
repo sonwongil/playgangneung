@@ -264,8 +264,17 @@ function FeedCard({ item, onTagClick }: { item: FeedItem; onTagClick?: (tag: str
   return (
     <>
       <div
+        role="link"
+        tabIndex={0}
+        aria-label={item.isAd ? `${item.title} 광고 상세 보기` : `${item.title} 강릉노트 보기`}
         onClick={handleCardClick}
-        className="block cursor-pointer"
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            handleCardClick();
+          }
+        }}
+        className="block cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 rounded-2xl"
       >
         <Card className={`overflow-hidden hover:shadow-lg transition-shadow duration-300 group ${adCfg?.ring ?? ""}`}>
           {adCfg && (item.adPlan === "premium" || item.adPlan === "main") && (
@@ -1080,13 +1089,23 @@ export default function Home() {
                     return (
                       <div
                         key={item.id}
+                        role="link"
+                        tabIndex={0}
+                        aria-label={`${item.title} 강릉노트 보기`}
                         draggable={false}
                         onClick={() => {
                           if (premiumDrag.current.moved) return;
                           sessionStorage.setItem("playgangneung_return_url", window.location.pathname + window.location.search);
                           window.location.href = noteHref;
                         }}
-                        className="shrink-0 w-56 cursor-pointer group"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            sessionStorage.setItem("playgangneung_return_url", window.location.pathname + window.location.search);
+                            window.location.href = noteHref;
+                          }
+                        }}
+                        className="shrink-0 w-56 cursor-pointer group outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 rounded-xl"
                       >
                         <div className="relative h-36 rounded-xl overflow-hidden bg-gray-200 mb-2">
                           {thumbSrc ? (

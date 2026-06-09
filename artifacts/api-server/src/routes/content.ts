@@ -213,7 +213,7 @@ function renderHtml(item: ContentItem, contentUrl: string, cardExists: boolean, 
 
   const hasMap = !!(item.location);
   const hasPhone = !!(item.phone);
-  const hasLink = !!(item.link) && item.sourceType !== "manual";
+  const hasLink = !!(item.link);
   const hasContact = !!(item.contact) && item.contact !== item.source;
 
   const detailHref = (hasLink && item.link) ? item.link : contentUrl;

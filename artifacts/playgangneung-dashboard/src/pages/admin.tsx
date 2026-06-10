@@ -466,7 +466,7 @@ export default function Admin() {
   const todayStr = () => kstNow(0);
   const [manualForm, setManualForm] = useState({
     title: "", description: "", link: "", source: "", contact: "",
-    category: "행사", startDate: todayStr(), endDate: todayStr(), location: "", videoUrl: "",
+    category: "강릉소식", startDate: todayStr(), endDate: todayStr(), location: "", videoUrl: "",
   });
   const [pwForm, setPwForm] = useState({ current: "", next: "", confirm: "" });
   const [bannerForm, setBannerForm] = useState({
@@ -1088,7 +1088,7 @@ export default function Admin() {
     setManualThumbnail("");
     setUrlInput("");
     setIsExtracting(false);
-    setManualForm({ title: "", description: "", link: "", source: "", contact: "", category: "행사", startDate: todayStr(), endDate: todayStr(), location: "", videoUrl: "" });
+    setManualForm({ title: "", description: "", link: "", source: "", contact: "", category: "강릉소식", startDate: todayStr(), endDate: todayStr(), location: "", videoUrl: "" });
   }
 
   async function handleExtractUrl() {
@@ -6648,8 +6648,8 @@ export default function Admin() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1"><Label>장소</Label><Input name="location" defaultValue={editingEvent.location ?? ""} /></div>
               <div className="space-y-1"><Label>카테고리</Label>
-                <select name="category" defaultValue={editingEvent.category ?? "행사"} className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary">
-                  <option value="행사">행사</option><option value="맛집">맛집</option><option value="핫플">핫플</option><option value="지역소식">지역소식</option>
+                <select name="category" defaultValue={editingEvent.category ?? "강릉소식"} className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary">
+                  <option value="강릉소식">강릉소식</option><option value="행사안내">행사안내</option><option value="스토리">스토리</option><option value="영상">영상</option>
                 </select>
               </div>
               <div className="space-y-1"><Label>시작일</Label><Input name="startDate" type="date" defaultValue={editingEvent.startDate ?? editingEvent.date} /></div>
@@ -7262,10 +7262,10 @@ export default function Admin() {
                 onChange={(e) => setManualForm((p) => ({ ...p, category: e.target.value }))}
                 className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary"
               >
-                <option value="행사">행사</option>
-                <option value="맛집">맛집</option>
-                <option value="핫플">핫플</option>
-                <option value="지역소식">지역소식</option>
+                <option value="강릉소식">강릉소식</option>
+                <option value="행사안내">행사안내</option>
+                <option value="스토리">스토리</option>
+                <option value="영상">영상</option>
               </select>
             </div>
             <div className="space-y-1">

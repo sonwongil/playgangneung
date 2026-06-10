@@ -57,38 +57,19 @@ interface Top5Item {
   hashtags?: string[] | null;
 }
 
-interface StoryItem {
-  id: string;
-  title: string;
-  body: string;
-  images: string[];
-  thumbnailUrl: string | null;
-  sourceUrl: string;
-  author: string;
-  tags: string[];
-  status: string;
-  createdAt: string;
-}
 
-interface VideoItem {
-  id: string;
-  youtubeId: string;
-  title: string;
-  channelName: string;
-  thumbnailUrl: string | null;
-  description: string;
-  status: string;
-  createdAt: string;
-}
-
-const PREDEFINED_TAGS = ["전체", "오늘의행사", "행사", "맛집", "정보", "스토리", "영상"] as const;
+const PREDEFINED_TAGS = ["전체", "오늘의행사", "행사", "맛집", "정보"] as const;
 type PredefinedTag = typeof PREDEFINED_TAGS[number];
 
 const CATEGORY_COLORS: Record<string, string> = {
   행사: "bg-blue-100 text-blue-700",
+  행사안내: "bg-blue-100 text-blue-700",
   맛집: "bg-orange-100 text-orange-700",
   핫플: "bg-pink-100 text-pink-700",
   지역소식: "bg-green-100 text-green-700",
+  강릉소식: "bg-green-100 text-green-700",
+  스토리: "bg-purple-100 text-purple-700",
+  영상: "bg-red-100 text-red-700",
 };
 
 const AD_PLAN_CONFIG = {
@@ -112,13 +93,22 @@ const AD_PLAN_CONFIG = {
 
 const CATEGORY_GRADIENT: Record<string, string> = {
   행사: "from-blue-700 to-blue-950",
+  행사안내: "from-blue-700 to-blue-950",
   맛집: "from-orange-500 to-red-800",
   핫플: "from-purple-600 to-indigo-900",
   지역소식: "from-emerald-600 to-teal-900",
+  강릉소식: "from-emerald-600 to-teal-900",
+  스토리: "from-purple-700 to-indigo-900",
+  영상: "from-red-700 to-rose-900",
 };
 
 const CATEGORY_FALLBACK_POOL: Record<string, string[]> = {
   행사: [
+    "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=800&q=80",
+    "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=800&q=80",
+    "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&q=80",
+  ],
+  행사안내: [
     "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=800&q=80",
     "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=800&q=80",
     "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&q=80",
@@ -129,6 +119,9 @@ const CATEGORY_FALLBACK_POOL: Record<string, string[]> = {
   ],
   핫플: ["https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&q=80"],
   지역소식: ["https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=800&q=80"],
+  강릉소식: ["https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=800&q=80"],
+  스토리: ["https://images.unsplash.com/photo-1516321497487-e288fb19713f?w=800&q=80"],
+  영상: ["https://images.unsplash.com/photo-1492619375914-88005aa9e8fb?w=800&q=80"],
 };
 
 function pickFallbackImage(id: string, category: string): string {
@@ -336,18 +329,6 @@ function FeedCard({ item, onTagClick }: { item: FeedItem; onTagClick?: (tag: str
                 <span>{item.location || item.source}</span>
               </div>
             </div>
-            {!item.isAd && item.sourceUrl && (
-              <div className="mt-2 pt-2 border-t border-gray-100" onClick={(e) => e.stopPropagation()}>
-                <a
-                  href={item.sourceUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-[11px] text-blue-500 hover:text-blue-700 font-medium transition-colors"
-                >
-                  원본 보기 ↗
-                </a>
-              </div>
-            )}
           </CardContent>
         </Card>
       </div>
@@ -386,77 +367,6 @@ function FeedCard({ item, onTagClick }: { item: FeedItem; onTagClick?: (tag: str
   );
 }
 
-const STORY_GRADIENTS = ["from-blue-800 to-blue-600", "from-purple-800 to-purple-600", "from-emerald-800 to-emerald-600", "from-rose-800 to-rose-600", "from-orange-800 to-orange-600"];
-
-function StoryCard({ item }: { item: StoryItem }) {
-  const firstImage = item.images[0] ?? item.thumbnailUrl ?? null;
-  const gradient = STORY_GRADIENTS[item.id.charCodeAt(0) % STORY_GRADIENTS.length];
-  return (
-    <a href={item.sourceUrl || "#"} target="_blank" rel="noopener noreferrer" className="block rounded-2xl overflow-hidden cursor-pointer hover:shadow-xl transition-shadow duration-300 group bg-gray-900">
-      <div className="relative h-44 overflow-hidden">
-        {/* 그라디언트 배경 — 항상 표시, 이미지 로드 성공 시 가려짐 */}
-        <div className={`w-full h-full bg-gradient-to-br ${gradient} absolute inset-0`} />
-        {/* 이미지 — proxy → 직접URL → logo fallback */}
-        <img
-          src={firstImage ? proxyImg(firstImage) : "/logo.png"}
-          alt={item.title}
-          className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 absolute inset-0${firstImage ? "" : " object-contain p-6 opacity-60"}`}
-          loading="lazy"
-          onError={(e) => {
-            const img = e.currentTarget;
-            if (firstImage && img.src.includes("/api/proxy/image")) {
-              img.src = firstImage;
-            } else if (!img.src.endsWith("/logo.png")) {
-              img.src = "/logo.png";
-              img.className = img.className.replace("object-cover", "object-contain") + " p-6 opacity-60";
-            }
-          }}
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
-        <div className="absolute bottom-0 left-0 right-0 p-3">
-          {item.author && <div className="flex items-center gap-1.5 mb-1.5"><div className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-[10px] font-bold text-white shrink-0">{item.author[0]}</div><span className="text-[11px] text-white/70 truncate">{item.author}</span></div>}
-          <h3 className="font-bold text-sm text-white leading-snug line-clamp-2">{item.title}</h3>
-        </div>
-      </div>
-      {item.tags?.length > 0 && (
-        <div className="px-3 py-2 flex flex-wrap gap-1">
-          {item.tags.slice(0, 3).map(tag => <span key={tag} className="text-[11px] bg-gray-800 text-gray-400 px-1.5 py-0.5 rounded-full">#{tag}</span>)}
-          <span className="text-[11px] text-gray-600 ml-auto">{new Date(item.createdAt).toLocaleDateString("ko-KR")}</span>
-        </div>
-      )}
-    </a>
-  );
-}
-
-function VideoCard({ item }: { item: VideoItem }) {
-  const [playing, setPlaying] = useState(false);
-  const thumb = item.thumbnailUrl ?? (item.youtubeId ? `https://img.youtube.com/vi/${item.youtubeId}/maxresdefault.jpg` : null);
-  if (playing && item.youtubeId) {
-    return (
-      <div className="rounded-2xl overflow-hidden bg-black shadow-lg">
-        <div className="relative" style={{ paddingBottom: "56.25%" }}>
-          <iframe className="absolute inset-0 w-full h-full" src={`https://www.youtube.com/embed/${item.youtubeId}?autoplay=1`} title={item.title} allow="autoplay; encrypted-media; fullscreen" allowFullScreen />
-        </div>
-        <div className="p-3 bg-gray-900"><h3 className="text-white font-semibold text-sm line-clamp-2">{item.title}</h3>{item.channelName && <p className="text-gray-400 text-xs mt-1">{item.channelName}</p>}</div>
-      </div>
-    );
-  }
-  return (
-    <div onClick={() => setPlaying(true)} className="rounded-2xl overflow-hidden bg-gray-900 cursor-pointer hover:brightness-110 transition-all shadow-lg">
-      <div className="relative h-48 overflow-hidden bg-gray-800">
-        {thumb ? <img src={thumb} alt={item.title} className="w-full h-full object-cover" loading="lazy" /> : <div className="w-full h-full bg-gray-800" />}
-        <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
-          <div className="w-14 h-14 rounded-full bg-red-600 flex items-center justify-center shadow-lg"><Play className="w-6 h-6 text-white fill-white ml-0.5" /></div>
-        </div>
-      </div>
-      <div className="p-3 bg-gray-900">
-        <h3 className="text-white font-semibold text-sm line-clamp-2 mb-1">{item.title}</h3>
-        {item.channelName && <p className="text-gray-400 text-xs">{item.channelName}</p>}
-        {item.description && <p className="text-gray-500 text-xs mt-1 line-clamp-2">{item.description}</p>}
-      </div>
-    </div>
-  );
-}
 
 
 function HashtagPill({ tag, active, onClick }: { tag: string; active: boolean; onClick: () => void }) {
@@ -524,7 +434,7 @@ export default function Home() {
   const [isEditingModal, setIsEditingModal] = useState(false);
   const [showTipModal, setShowTipModal] = useState(false);
   const [tipForm, setTipForm] = useState({
-    title: "", description: "", category: "지역소식",
+    title: "", description: "", category: "강릉소식",
     startDate: "", endDate: "", location: "", link: "", displayName: "",
   });
   const [tipLoading, setTipLoading] = useState(false);
@@ -585,28 +495,6 @@ export default function Home() {
     },
     staleTime: 0,
     refetchInterval: 30_000,
-  });
-
-  const { data: storiesData } = useQuery<{ stories: StoryItem[] }>({
-    queryKey: ["public-stories"],
-    queryFn: async () => {
-      const res = await fetch(`${BASE}/api/stories`);
-      if (!res.ok) throw new Error("스토리 로드 실패");
-      return res.json();
-    },
-    staleTime: 60_000,
-    enabled: activeTag === "스토리" || activeTag === "전체",
-  });
-
-  const { data: videosData } = useQuery<{ videos: VideoItem[] }>({
-    queryKey: ["public-videos"],
-    queryFn: async () => {
-      const res = await fetch(`${BASE}/api/videos`);
-      if (!res.ok) throw new Error("영상 로드 실패");
-      return res.json();
-    },
-    staleTime: 60_000,
-    enabled: activeTag === "영상" || activeTag === "전체",
   });
 
   const { data: popularTagsData } = useQuery<{ tags: { tag: string; count: number }[] }>({
@@ -742,8 +630,6 @@ export default function Home() {
   const premiumDrag = useRef({ active: false, startX: 0, scrollLeft: 0, moved: false });
 
   const allFeed: FeedItem[] = feedData?.feed ?? [];
-  const stories: StoryItem[] = storiesData?.stories ?? [];
-  const videos: VideoItem[] = videosData?.videos ?? [];
   const popularTags = (popularTagsData?.tags ?? []).filter((t) => !PREDEFINED_TAGS.includes(t.tag.replace(/^#/, "") as PredefinedTag) && !PREDEFINED_TAGS.includes(t.tag as PredefinedTag));
 
   const filteredFeed = useMemo(() => {
@@ -754,12 +640,12 @@ export default function Home() {
     if (activeTag === "오늘의행사") {
       base = allFeed.filter((e) => !e.isAd && isTodayEvent(e));
     } else if (activeTag === "행사") {
-      base = allFeed.filter((e) => e.isAd || e.category === "행사");
+      base = allFeed.filter((e) => e.isAd || ["행사", "행사안내"].includes(e.category));
     } else if (activeTag === "맛집") {
       base = allFeed.filter((e) => e.isAd || ["맛집", "카페"].includes(e.category));
     } else if (activeTag === "정보") {
-      base = allFeed.filter((e) => e.isAd || ["핫플", "지역소식"].includes(e.category));
-    } else if (activeTag !== "전체" && activeTag !== "스토리" && activeTag !== "영상") {
+      base = allFeed.filter((e) => e.isAd || ["핫플", "지역소식", "강릉소식"].includes(e.category));
+    } else if (activeTag !== "전체") {
       const tag = activeTag.startsWith("#") ? activeTag : `#${activeTag}`;
       base = allFeed.filter((e) => e.hashtags?.includes(tag) || e.hashtags?.includes(activeTag));
     }
@@ -807,7 +693,7 @@ export default function Home() {
     }
   }
 
-  const showFeed = activeTag !== "스토리" && activeTag !== "영상";
+  const showFeed = true;
   const display = showAll ? filteredFeed : filteredFeed.slice(0, 12);
   const isSearching = searchQuery.trim() !== "";
   const isFiltered = activeTag !== "전체" || isSearching;
@@ -826,7 +712,7 @@ export default function Home() {
           {!mobileSearchOpen && (
             <button
               className="sm:hidden flex-1 flex items-center justify-center gap-2 h-9 rounded-full bg-teal-600 hover:bg-teal-700 active:bg-teal-800 transition-colors"
-              onClick={() => { if (!isSignedIn) { setLocation("/sign-in"); return; } setTipDone(false); setTipError(""); setTipForm({ title: "", description: "", category: "지역소식", startDate: "", endDate: "", location: "", link: "", displayName: [user?.firstName, user?.lastName].filter(Boolean).join(" ") }); setShowTipModal(true); }}
+              onClick={() => { if (!isSignedIn) { setLocation("/sign-in"); return; } setTipDone(false); setTipError(""); setTipForm({ title: "", description: "", category: "강릉소식", startDate: "", endDate: "", location: "", link: "", displayName: [user?.firstName, user?.lastName].filter(Boolean).join(" ") }); setShowTipModal(true); }}
             >
               <FileText className="w-4 h-4 text-white shrink-0" />
               <span className="text-sm font-extrabold text-white">소식 제보</span>
@@ -916,7 +802,7 @@ export default function Home() {
             {menuOpen && (
               <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden">
                 <button
-                  onClick={() => { setMenuOpen(false); if (!isSignedIn) { setLocation("/sign-in"); return; } setTipDone(false); setTipError(""); setTipForm({ title: "", description: "", category: "지역소식", startDate: "", endDate: "", location: "", link: "", displayName: [user?.firstName, user?.lastName].filter(Boolean).join(" ") }); setShowTipModal(true); }}
+                  onClick={() => { setMenuOpen(false); if (!isSignedIn) { setLocation("/sign-in"); return; } setTipDone(false); setTipError(""); setTipForm({ title: "", description: "", category: "강릉소식", startDate: "", endDate: "", location: "", link: "", displayName: [user?.firstName, user?.lastName].filter(Boolean).join(" ") }); setShowTipModal(true); }}
                   className="w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold text-teal-700 hover:bg-teal-50 transition-colors border-b border-gray-100"
                 >
                   <FileText className="w-4 h-4 shrink-0 text-teal-600" />소식 제보하기
@@ -975,7 +861,7 @@ export default function Home() {
 
             {/* 소식 제보 버튼 */}
             <button
-              onClick={() => { if (!isSignedIn) { setLocation("/sign-in"); return; } setTipDone(false); setTipError(""); setTipForm({ title: "", description: "", category: "지역소식", startDate: "", endDate: "", location: "", link: "", displayName: [user?.firstName, user?.lastName].filter(Boolean).join(" ") }); setShowTipModal(true); }}
+              onClick={() => { if (!isSignedIn) { setLocation("/sign-in"); return; } setTipDone(false); setTipError(""); setTipForm({ title: "", description: "", category: "강릉소식", startDate: "", endDate: "", location: "", link: "", displayName: [user?.firstName, user?.lastName].filter(Boolean).join(" ") }); setShowTipModal(true); }}
               className="hidden sm:flex shrink-0 items-center gap-1.5 px-3 h-7 rounded-full bg-teal-600 hover:bg-teal-700 active:bg-teal-800 transition-colors"
             >
               <FileText className="w-3.5 h-3.5 text-white shrink-0" />
@@ -998,35 +884,7 @@ export default function Home() {
       {/* ─── 메인 콘텐츠 ─── */}
       <main className="flex-1 max-w-6xl mx-auto w-full px-3 pt-3 pb-6">
 
-        {/* 스토리 탭 */}
-        {activeTag === "스토리" && (
-          stories.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-24 text-muted-foreground">
-              <p className="text-base font-semibold text-gray-500">아직 등록된 스토리가 없습니다.</p>
-              <p className="text-sm mt-1 text-gray-400">곧 강릉의 이야기를 전해드릴게요.</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {stories.map((s) => <StoryCard key={s.id} item={s} />)}
-            </div>
-          )
-        )}
-
-        {/* 영상 탭 */}
-        {activeTag === "영상" && (
-          videos.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-24 text-muted-foreground">
-              <p className="text-base font-semibold text-gray-500">아직 등록된 영상이 없습니다.</p>
-              <p className="text-sm mt-1 text-gray-400">강릉의 영상을 큐레이션 중입니다.</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {videos.map((v) => <VideoCard key={v.id} item={v} />)}
-            </div>
-          )
-        )}
-
-        {/* 피드 뷰 (스토리/영상 외 모든 탭) */}
+        {/* 피드 뷰 */}
         {showFeed && (
           <>
             {/* 🏆 오늘의 강릉 TOP 5 — 로딩 스켈레톤 */}
@@ -1145,18 +1003,6 @@ export default function Home() {
                           <span className="flex items-center gap-0.5"><MessageCircle className="w-3 h-3" />{stats.comments}</span>
                           <span className="flex items-center gap-0.5"><Eye className="w-3 h-3" />{stats.views}</span>
                         </div>
-                        {item.link && (
-                          <div onClick={(e) => e.stopPropagation()}>
-                            <a
-                              href={item.link}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 text-[11px] text-blue-500 hover:text-blue-700 font-medium transition-colors"
-                            >
-                              원본 보기 ↗
-                            </a>
-                          </div>
-                        )}
                       </div>
                     );
                   })}
@@ -1276,42 +1122,6 @@ export default function Home() {
                   </span>
                 </div>
               </button>
-            )}
-
-            {/* 📖 최신 스토리 (전체 탭) */}
-            {!isFiltered && stories.length > 0 && (
-              <section className="mb-5">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-base leading-none">📖</span>
-                    <span className="text-sm font-extrabold text-gray-900">스토리</span>
-                  </div>
-                  <button onClick={() => handleTagClick("스토리")} className="flex items-center gap-0.5 text-xs text-gray-400 hover:text-gray-700 transition-colors font-medium">
-                    전체보기 <ChevronRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {stories.slice(0, 3).map((s) => <StoryCard key={s.id} item={s} />)}
-                </div>
-              </section>
-            )}
-
-            {/* 🎬 최신 영상 (전체 탭) */}
-            {!isFiltered && videos.length > 0 && (
-              <section className="mb-5">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-base leading-none">🎬</span>
-                    <span className="text-sm font-extrabold text-gray-900">영상</span>
-                  </div>
-                  <button onClick={() => handleTagClick("영상")} className="flex items-center gap-0.5 text-xs text-gray-400 hover:text-gray-700 transition-colors font-medium">
-                    전체보기 <ChevronRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {videos.slice(0, 3).map((v) => <VideoCard key={v.id} item={v} />)}
-                </div>
-              </section>
             )}
 
             {/* 🔥 인기 태그 (전체 탭 + 인기 태그 존재할 때) */}
@@ -1526,7 +1336,7 @@ export default function Home() {
                   value={tipForm.category}
                   onChange={(e) => setTipForm((p) => ({ ...p, category: e.target.value }))}
                 >
-                  {["행사", "맛집", "핫플", "지역소식"].map((c) => (
+                  {["강릉소식", "행사안내", "스토리", "영상"].map((c) => (
                     <option key={c} value={c}>{c}</option>
                   ))}
                 </select>

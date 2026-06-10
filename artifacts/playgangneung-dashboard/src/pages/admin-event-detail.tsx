@@ -598,15 +598,13 @@ export default function AdminEventDetail() {
           </Button>
 
           {isPublished && (
-            <a
-              href={`/content/${eventId}`}
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              onClick={() => { window.location.href = `/content/${eventId}`; }}
               className="flex items-center justify-center gap-2 w-full h-10 rounded-xl border border-blue-200 text-blue-600 bg-blue-50 hover:bg-blue-100 text-sm font-semibold transition-colors"
             >
               <ExternalLink className="w-4 h-4" />
               강릉노트에서 SNS 공유하기
-            </a>
+            </button>
           )}
         </div>
 

@@ -372,35 +372,6 @@ interface BlogSource {
   createdAt: string;
 }
 
-interface AdminStory {
-  id: string;
-  title: string;
-  body: string;
-  images: string[];
-  thumbnailUrl: string | null;
-  sourceUrl: string;
-  author: string;
-  tags: string[];
-  status: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface AdminVideo {
-  id: string;
-  youtubeId: string;
-  title: string;
-  channelName: string;
-  thumbnailUrl: string | null;
-  description: string;
-  embeddable: boolean | null;
-  viewCount: number | null;
-  status: string;
-  socialCaption: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
 type NavKey = "dashboard" | "adCenter" | "sources" | "settings" | "members" | "top5";
 
 const NAV_ITEMS: { icon: React.ReactNode; label: string; key: NavKey }[] = [
@@ -484,29 +455,6 @@ export default function Admin() {
   const [newSourceUrl, setNewSourceUrl] = useState("");
   const [scheduleHour, setScheduleHour] = useState(9);
   const [scheduleMinute, setScheduleMinute] = useState(0);
-  const [showStoryDialog, setShowStoryDialog] = useState(false);
-  const [storyForm, setStoryForm] = useState({ title: "", body: "", imagesStr: "", sourceUrl: "", author: "", tagsStr: "" });
-  const [showVideoDialog, setShowVideoDialog] = useState(false);
-  const [videoForm, setVideoForm] = useState({ youtubeUrl: "", title: "", channelName: "", description: "" });
-  const [videoIsFetching, setVideoIsFetching] = useState(false);
-  const [videoSnsCaption, setVideoSnsCaption] = useState("");
-  const [previewStory, setPreviewStory] = useState<AdminStory | null>(null);
-  const [previewVideo, setPreviewVideo] = useState<AdminVideo | null>(null);
-  const [selectedStoryIds, setSelectedStoryIds] = useState<Set<string>>(new Set());
-  const [storyImgRefetching, setStoryImgRefetching] = useState(false);
-  const [editingStoryThumb, setEditingStoryThumb] = useState<{ id: string; thumbUrl: string } | null>(null);
-  const [storyUrlExtracting, setStoryUrlExtracting] = useState(false);
-  const [selectedVideoIds, setSelectedVideoIds] = useState<Set<string>>(new Set());
-  const [isCrawlingStories, setIsCrawlingStories] = useState(false);
-  const [isCrawlingVideos, setIsCrawlingVideos] = useState(false);
-  const [naverQuery, setNaverQuery] = useState("강릉 맛집");
-  const [naverPeriodUnit, setNaverPeriodUnit] = useState<"days" | "months" | "years">("months");
-  const [naverPeriodValue, setNaverPeriodValue] = useState(3);
-  const [isNaverCrawling, setIsNaverCrawling] = useState(false);
-  const [ytCrawlQuery, setYtCrawlQuery] = useState("강릉");
-  const [ytChannelId, setYtChannelId] = useState("");
-  const [ytPeriodUnit, setYtPeriodUnit] = useState<"days" | "months" | "years">("months");
-  const [ytPeriodValue, setYtPeriodValue] = useState(3);
   // inline draft editing: map of eventId → { caption, hashtagsStr }
   const [draftEdits, setDraftEdits] = useState<Record<string, { caption: string; hashtagsStr: string }>>({});
   // 광고 SNS 초안 편집
@@ -532,26 +480,6 @@ export default function Admin() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const deployedBuildTime = useRef<string | null>(null);
-
-  async function handleNaverCrawl() {
-    if (!naverQuery.trim() || isNaverCrawling) return;
-    setIsNaverCrawling(true);
-    try {
-      const r = await fetch(`${BASE}/api/stories/naver-crawl`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          query: naverQuery.trim(),
-          display: 30,
-          period: { unit: naverPeriodUnit, value: naverPeriodValue },
-        }),
-      });
-      const d = await r.json() as { message?: string; error?: string };
-      if (!r.ok) toast({ description: d.error ?? "수집 실패", variant: "destructive" });
-      else { toast({ description: d.message ?? "수집 완료" }); }
-    } catch { toast({ description: "수집 실패", variant: "destructive" }); }
-    finally { setIsNaverCrawling(false); }
-  }
 
   useEffect(() => {
     async function checkVersion() {

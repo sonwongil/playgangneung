@@ -556,7 +556,7 @@ img{max-width:100%;display:block}
         </div>` : ""}
         ${item.location ? `<div class="info-row">
           <span class="info-icon" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg></span>
-          <span>${escHtml(item.location)}</span>
+          <div><span class="info-label">장소/주소</span><div style="margin-top:2px">${escHtml(item.location)}</div></div>
         </div>` : ""}
         <div class="info-row">
           <span class="info-icon" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg></span>

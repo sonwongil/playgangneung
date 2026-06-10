@@ -7230,11 +7230,11 @@ export default function Admin() {
               />
             </div>
             <div className="space-y-1">
-              <Label>장소</Label>
+              <Label>장소/주소</Label>
               <Input
                 value={manualForm.location}
                 onChange={(e) => setManualForm((p) => ({ ...p, location: e.target.value }))}
-                placeholder="예: 강릉 중앙시장"
+                placeholder="예: 강릉시 남대천 행사장 일대 / 강원특별자치도 강릉시 ○○로 ○○"
               />
             </div>
             <div className="space-y-1">

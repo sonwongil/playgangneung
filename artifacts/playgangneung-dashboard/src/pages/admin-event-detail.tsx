@@ -91,6 +91,7 @@ export default function AdminEventDetail() {
   const [editVideoUrl, setEditVideoUrl] = useState("");
   const [editLink, setEditLink] = useState("");
   const [editSource, setEditSource] = useState("");
+  const [editLocation, setEditLocation] = useState("");
   const [editEventHashtags, setEditEventHashtags] = useState("");
   const [inited, setInited] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
@@ -145,6 +146,7 @@ export default function AdminEventDetail() {
       setEditVideoUrl(event.videoUrl ?? "");
       setEditLink(event.link ?? "");
       setEditSource(event.source ?? "");
+      setEditLocation(event.location ?? "");
       setEditEventHashtags((event.hashtags ?? []).join(", "));
       if (event.socialDraft) {
         setEditCaption(snsToHtml(event.socialDraft.caption));
@@ -173,6 +175,7 @@ export default function AdminEventDetail() {
           extraImages: editExtraImages.filter(Boolean),
           link: editLink || undefined,
           source: editSource || undefined,
+          location: editLocation || undefined,
           hashtags: editEventHashtags
             .split(/[\s,]+/)
             .map((h) => h.replace(/^#/, "").trim())
@@ -429,6 +432,16 @@ export default function AdminEventDetail() {
               onChange={(e) => { setEditEndDate(e.target.value); setIsDirty(true); }}
               className="text-sm"
               placeholder="비워두면 당일 행사로 처리"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">장소/주소</Label>
+            <Input
+              value={editLocation}
+              onChange={(e) => { setEditLocation(e.target.value); setIsDirty(true); }}
+              className="text-sm"
+              placeholder="예: 강릉시 남대천 행사장 일대 / 강원특별자치도 강릉시 ○○로 ○○"
             />
           </div>
 

@@ -378,12 +378,6 @@ img{max-width:100%;display:block}
 .header-logo{height:24px;object-fit:contain}
 .header-back{display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:#f1f5f9;color:#475569;font-size:18px;flex-shrink:0;cursor:pointer;border:none}
 .header-title{font-size:13px;font-weight:600;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}
-/* ── 네비바 ── */
-.nav-bar{display:flex;align-items:center;gap:6px;padding:8px 16px;background:#f8fafc;border-bottom:1px solid #e2e8f0;overflow-x:auto;white-space:nowrap}
-.nav-btn{display:inline-flex;align-items:center;gap:4px;padding:6px 12px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;border:none;background:transparent;text-decoration:none;flex-shrink:0}
-.nav-btn-back{background:#e2e8f0;color:#334155}
-.nav-btn-home{background:#dbeafe;color:#1d4ed8}
-.nav-sep{color:#cbd5e1;font-size:11px;flex-shrink:0}
 /* ── 히어로 이미지 ── */
 .hero{width:100%;overflow:hidden;background:#000;line-height:0}
 .hero img{width:100%;height:280px;object-fit:cover;object-position:center top}
@@ -459,12 +453,6 @@ img{max-width:100%;display:block}
   <span class="header-title" aria-hidden="true">${titleEsc}</span>
 </header>
 
-<!-- 네비게이션 바 -->
-<nav class="nav-bar" aria-label="페이지 탐색">
-  <button class="nav-btn nav-btn-back" onclick="${escHtml(backScript)}">← 돌아가기</button>
-  <span class="nav-sep" aria-hidden="true">|</span>
-  <a href="/" class="nav-btn nav-btn-home">🏠 PLAY강릉 홈</a>
-</nav>
 
 <div class="page-wrap">
 

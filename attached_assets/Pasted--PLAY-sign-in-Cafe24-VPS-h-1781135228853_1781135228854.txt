@@ -1,0 +1,215 @@
+# PLAY강릉 `/sign-in` 로그인 복구 작업 지시
+
+현재 목표는 오직 Cafe24 VPS 운영 도메인에서 로그인 페이지를 복구하는 것입니다.
+
+문제 경로:
+
+https://playgangneung.com/sign-in
+
+Replit Preview에서는 `/sign-in`이 정상 표시되지만, Cafe24 VPS 운영 도메인에서는 로그인 페이지가 정상 표시되지 않습니다.
+
+## 1. 작업 범위
+
+이번 작업 범위는 로그인 복구로 제한합니다.
+
+수정 대상은 Clerk 로그인 설정입니다.
+
+이번 작업에서 다루는 값은 아래 하나입니다.
+
+```env
+VITE_CLERK_PUBLISHABLE_KEY
+```
+
+이번 작업에서 다루지 않을 항목:
+
+```env
+VITE_TOSS_CLIENT_KEY
+VITE_ENABLE_TOSS_PAYMENT
+Toss Pay
+결제 기능
+광고 결제 흐름
+```
+
+Toss 관련 값 때문에 로그인 복구가 막히면 안 됩니다.
+
+---
+
+## 2. 현재 VPS 상태
+
+Cafe24 VPS 경로:
+
+```bash
+/var/www/playgangneung
+```
+
+현재 확인된 상태:
+
+```text
+scripts/check-prod-env.sh 존재함
+artifacts/playgangneung-dashboard/.env.production 생성됨
+```
+
+`.env.production`은 아래 파일을 복사해서 생성했습니다.
+
+```bash
+artifacts/playgangneung-dashboard/.env.production.example
+```
+
+---
+
+## 3. Replit이 해야 할 일
+
+### 3-1. 로그인 복구에 필요한 Clerk 운영 공개키 확인 방법 제시
+
+`VITE_CLERK_PUBLISHABLE_KEY=pk_live_...` 값을 어디서 확인해야 하는지 정확히 알려주세요.
+
+필요한 것은 프론트엔드용 공개키입니다.
+
+```env
+VITE_CLERK_PUBLISHABLE_KEY=pk_live_...
+```
+
+주의:
+
+```text
+sk_live_... Secret Key는 이번 작업에서 필요하지 않습니다.
+Secret Key는 화면, 로그, GitHub, 채팅에 노출하면 안 됩니다.
+```
+
+---
+
+### 3-2. `.env.production` 수정 지시를 정확히 제시
+
+Cafe24 VPS에서 수정해야 할 파일은 아래입니다.
+
+```bash
+artifacts/playgangneung-dashboard/.env.production
+```
+
+이 파일에서 아래 한 줄만 실제 운영키로 바꾸는 절차를 알려주세요.
+
+```env
+VITE_CLERK_PUBLISHABLE_KEY=pk_live_실제값
+```
+
+Toss 관련 줄은 이번 작업에서 수정하지 않습니다.
+
+---
+
+### 3-3. check-prod-env.sh가 로그인 복구를 방해하지 않게 확인
+
+현재 `scripts/check-prod-env.sh`가 Toss 관련 값까지 강제로 검사해서 로그인 복구를 막는 구조인지 확인해 주세요.
+
+이번 목표는 로그인 복구이므로, 최소 조건은 다음입니다.
+
+* `VITE_CLERK_PUBLISHABLE_KEY`가 비어 있으면 실패
+* `VITE_CLERK_PUBLISHABLE_KEY`가 `pk_test_`이면 실패
+* `VITE_CLERK_PUBLISHABLE_KEY`가 `pk_live_REPLACE_ME`이면 실패
+* `VITE_CLERK_PUBLISHABLE_KEY`가 `pk_live_...`이면 통과
+
+단, Toss 관련 값이 미완성이어도 이번 로그인 복구 빌드가 막히면 안 됩니다.
+
+필요하면 `scripts/check-prod-env.sh`를 수정해서 Clerk 필수 검사와 Toss 선택 검사를 분리해 주세요.
+
+---
+
+## 4. VPS에서 실행할 최종 명령 제시
+
+운영자가 VPS에서 그대로 실행할 수 있도록 명령어를 한 줄씩 제시해 주세요.
+
+예상 흐름은 아래와 같습니다.
+
+```bash
+cd /var/www/playgangneung
+vi artifacts/playgangneung-dashboard/.env.production
+bash scripts/check-prod-env.sh artifacts/playgangneung-dashboard/.env.production
+./scripts/vps-deploy.sh
+pm2 status
+curl -I https://playgangneung.com/sign-in
+```
+
+단, 실제 프로젝트 구조상 명령이 다르면 정확한 명령으로 다시 제시해 주세요.
+
+---
+
+## 5. 완료 기준
+
+이번 작업의 완료 기준은 Replit Preview가 아닙니다.
+
+완료 기준은 아래입니다.
+
+```text
+https://playgangneung.com/sign-in
+```
+
+이 운영 URL에서 로그인 페이지가 정상 표시되어야 합니다.
+
+---
+
+## 6. 절대 하지 말 것
+
+이번 작업에서 아래 항목은 수정하지 마세요.
+
+* nginx
+* DNS
+* SSL
+* PM2 설정
+* ecosystem.config.cjs
+* Toss 결제 기능
+* 광고 결제 흐름
+* 홈 피드
+* TOP5 캐러셀
+* `/content/:id` 강릉노트
+* Meta 광고 연동
+
+PM2는 반드시 유지합니다.
+
+```text
+fork mode
+instances=1
+```
+
+---
+
+## 7. 완료 보고 형식
+
+작업 후 아래 형식으로 보고해 주세요.
+
+````md
+## 로그인 복구 작업 보고
+
+### 원인
+-
+
+### 수정한 파일
+-
+
+### Clerk 키 설정 위치
+-
+
+### Toss 관련 처리 여부
+- Toss 관련 값은 수정하지 않음 / 또는 수정 사유:
+
+### VPS에서 실행할 명령
+```bash
+cd /var/www/playgangneung
+...
+````
+
+### 검증 결과
+
+* check-prod-env.sh:
+* vps-deploy.sh:
+* pm2 status:
+* https://playgangneung.com/sign-in:
+
+### GitHub 반영
+
+* commit hash:
+* push 여부:
+* branch:
+
+```
+
+GitHub main에 push하지 않았으면 완료라고 보고하지 마세요.
+```

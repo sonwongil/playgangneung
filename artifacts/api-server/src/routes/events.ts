@@ -544,7 +544,7 @@ router.post("/events/regenerate-drafts", async (req, res) => {
 router.patch("/events/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, description, thumbnail, videoUrl, location, category, startDate, endDate, contact, extraImages } = req.body as {
+    const { title, description, thumbnail, videoUrl, location, category, startDate, endDate, contact, extraImages, link, source, hashtags } = req.body as {
       title?: string;
       description?: string;
       thumbnail?: string | null;
@@ -555,6 +555,9 @@ router.patch("/events/:id", async (req, res) => {
       endDate?: string;
       contact?: string;
       extraImages?: string[];
+      link?: string;
+      source?: string;
+      hashtags?: string[];
     };
     const patch: Partial<import("../lib/storage.js").CrawledEvent> = {};
     if (title !== undefined) patch.title = title;
@@ -567,6 +570,9 @@ router.patch("/events/:id", async (req, res) => {
     if (endDate !== undefined) patch.endDate = endDate;
     if (contact !== undefined) patch.contact = contact;
     if (extraImages !== undefined) patch.extraImages = extraImages.length > 0 ? extraImages : null;
+    if (link !== undefined) patch.link = link;
+    if (source !== undefined) patch.source = source;
+    if (hashtags !== undefined) patch.hashtags = hashtags.length > 0 ? hashtags : null;
     const updated = await import("../lib/storage.js").then((m) => m.updateEvent(id, patch));
     if (!updated) return res.status(404).json({ success: false, error: "이벤트를 찾을 수 없습니다." });
     req.log.info({ id }, "이벤트 수정");

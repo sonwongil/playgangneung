@@ -40,6 +40,7 @@ interface Event {
   extraImages?: string[] | null;
   videoUrl?: string | null;
   socialDraft?: SocialDraft | null;
+  hashtags?: string[] | null;
   status: string;
   crawledAt: string;
 }
@@ -86,8 +87,11 @@ export default function AdminEventDetail() {
   const [editStartDate, setEditStartDate] = useState("");
   const [editEndDate, setEditEndDate] = useState("");
   const [editThumbnail, setEditThumbnail] = useState("");
-  const [editExtraImages, setEditExtraImages] = useState<[string, string]>(["", ""]);
+  const [editExtraImages, setEditExtraImages] = useState<string[]>(["", ""]);
   const [editVideoUrl, setEditVideoUrl] = useState("");
+  const [editLink, setEditLink] = useState("");
+  const [editSource, setEditSource] = useState("");
+  const [editEventHashtags, setEditEventHashtags] = useState("");
   const [inited, setInited] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const [isUploadingSlot, setIsUploadingSlot] = useState<number | null>(null);
@@ -133,11 +137,15 @@ export default function AdminEventDetail() {
       setEditStartDate(event.startDate ?? event.date ?? "");
       setEditEndDate(event.endDate ?? "");
       setEditThumbnail(event.thumbnail ?? "");
-      setEditExtraImages([
-        event.extraImages?.[0] ?? "",
-        event.extraImages?.[1] ?? "",
-      ]);
+      setEditExtraImages(
+        event.extraImages && event.extraImages.length > 0
+          ? [...event.extraImages]
+          : ["", ""],
+      );
       setEditVideoUrl(event.videoUrl ?? "");
+      setEditLink(event.link ?? "");
+      setEditSource(event.source ?? "");
+      setEditEventHashtags((event.hashtags ?? []).join(", "));
       if (event.socialDraft) {
         setEditCaption(snsToHtml(event.socialDraft.caption));
         setEditHashtagsStr(event.socialDraft.hashtags.join(" "));
@@ -163,6 +171,12 @@ export default function AdminEventDetail() {
           thumbnail: editThumbnail || null,
           videoUrl: editVideoUrl || null,
           extraImages: editExtraImages.filter(Boolean),
+          link: editLink || undefined,
+          source: editSource || undefined,
+          hashtags: editEventHashtags
+            .split(/[\s,]+/)
+            .map((h) => h.replace(/^#/, "").trim())
+            .filter(Boolean),
         }),
       });
       if (!r.ok) { const d = await r.json(); throw new Error(d.error ?? "저장 실패"); }
@@ -236,7 +250,8 @@ export default function AdminEventDetail() {
         setImageTab("url");
       } else {
         setEditExtraImages((prev) => {
-          const next: [string, string] = [...prev] as [string, string];
+          const next = [...prev];
+          while (next.length < slot) next.push("");
           next[slot - 1] = d.imageUrl;
           return next;
         });
@@ -276,6 +291,17 @@ export default function AdminEventDetail() {
     if (!event?.videoUrl) return;
     navigator.clipboard.writeText(event.videoUrl).then(() => toast({ title: "동영상 URL 복사 완료" }));
   }
+
+  const cardMutation = useMutation({
+    mutationFn: async () => {
+      const r = await fetch(`${BASE}/api/events/${eventId}/card`, { method: "POST", credentials: "include" });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error ?? "카드이미지 생성 실패");
+      return d as { cardUrls: string[] };
+    },
+    onSuccess: () => toast({ title: "카드이미지 재생성 완료", description: "thumbnail·extraImages 기반으로 새 카드가 생성됐습니다." }),
+    onError: (e: Error) => toast({ title: "카드이미지 생성 실패", description: e.message, variant: "destructive" }),
+  });
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
@@ -414,6 +440,38 @@ export default function AdminEventDetail() {
               className="text-sm"
               placeholder="전화번호 또는 담당부서"
             />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">원본 링크</Label>
+            <Input
+              type="url"
+              value={editLink}
+              onChange={(e) => { setEditLink(e.target.value); setIsDirty(true); }}
+              className="text-sm"
+              placeholder="https://example.com/article"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">출처 / 업체명</Label>
+              <Input
+                value={editSource}
+                onChange={(e) => { setEditSource(e.target.value); setIsDirty(true); }}
+                className="text-sm"
+                placeholder="예: 강릉시청"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">해시태그 (강릉노트 표시용)</Label>
+              <Input
+                value={editEventHashtags}
+                onChange={(e) => { setEditEventHashtags(e.target.value); setIsDirty(true); }}
+                className="text-sm"
+                placeholder="강릉행사, 가족체험, 주말나들이"
+              />
+            </div>
           </div>
 
           <div className="space-y-1.5">
@@ -676,7 +734,7 @@ export default function AdminEventDetail() {
                             onChange={(e) => {
                               const val = e.target.value;
                               setEditExtraImages((prev) => {
-                                const next: [string, string] = [...prev] as [string, string];
+                                const next = [...prev];
                                 next[slot - 1] = val;
                                 return next;
                               });
@@ -688,7 +746,7 @@ export default function AdminEventDetail() {
                           <button
                             onClick={() => {
                               setEditExtraImages((prev) => {
-                                const next: [string, string] = [...prev] as [string, string];
+                                const next = [...prev];
                                 next[slot - 1] = "";
                                 return next;
                               });
@@ -722,6 +780,50 @@ export default function AdminEventDetail() {
             </div>
           </div>
 
+          {/* 추가 이미지 — 3번째 이상 URL 전용 동적 목록 */}
+          {(editExtraImages.length > 2 || editExtraImages.filter(Boolean).length > 0) && (
+            <div className="border-t border-dashed border-gray-200 pt-3 space-y-2">
+              <p className="text-xs font-semibold text-gray-600">추가 이미지 URL (3번 이상)</p>
+              {editExtraImages.slice(2).map((url, i) => (
+                <div key={i + 2} className="flex gap-1">
+                  <Input
+                    value={url}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setEditExtraImages((prev) => {
+                        const next = [...prev];
+                        next[i + 2] = val;
+                        return next;
+                      });
+                      setIsDirty(true);
+                    }}
+                    className="text-[11px] h-8 flex-1"
+                    placeholder={`추가 이미지 ${i + 3} URL`}
+                  />
+                  <button
+                    onClick={() => {
+                      setEditExtraImages((prev) => prev.filter((_, idx) => idx !== i + 2));
+                      setIsDirty(true);
+                    }}
+                    className="h-8 px-2.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-500 text-xs font-bold transition-colors"
+                  >✕</button>
+                </div>
+              ))}
+              <button
+                onClick={() => { setEditExtraImages((prev) => [...prev, ""]); setIsDirty(true); }}
+                className="flex items-center gap-1.5 px-3 h-8 rounded-lg border border-dashed border-violet-300 text-violet-600 text-xs font-medium hover:bg-violet-50 transition-colors"
+              >+ URL 추가</button>
+            </div>
+          )}
+          {editExtraImages.length <= 2 && (
+            <div className="border-t border-dashed border-gray-200 pt-3">
+              <button
+                onClick={() => { setEditExtraImages((prev) => [...prev, ""]); setIsDirty(true); }}
+                className="flex items-center gap-1.5 px-3 h-8 rounded-lg border border-dashed border-violet-300 text-violet-600 text-xs font-medium hover:bg-violet-50 transition-colors"
+              >+ 추가 이미지 URL 더 추가</button>
+            </div>
+          )}
+
           {/* STEP 3 — 동영상 */}
           <div className="space-y-2.5">
             <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">③ 동영상</p>
@@ -741,6 +843,26 @@ export default function AdminEventDetail() {
               </div>
             )}
             <p className="text-[11px] text-muted-foreground">유튜브·쇼츠는 임베드 / MP4는 플레이어 / 동영상은 URL 복사 후 앱에서 직접 업로드하세요.</p>
+          </div>
+
+          {/* STEP 4 — 카드이미지 재생성 */}
+          <div className="space-y-2">
+            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">④ 카드이미지</p>
+            <button
+              disabled={cardMutation.isPending}
+              onClick={() => {
+                if (!editThumbnail && !event.thumbnail) {
+                  toast({ title: "대표 이미지가 없습니다", description: "대표 이미지를 먼저 설정하세요.", variant: "destructive" });
+                  return;
+                }
+                cardMutation.mutate();
+              }}
+              className="flex items-center justify-center gap-2 w-full h-9 rounded-xl border border-violet-200 text-violet-700 hover:bg-violet-50 text-sm font-semibold transition-colors disabled:opacity-50"
+            >
+              <Image className="w-4 h-4" />
+              {cardMutation.isPending ? "생성 중..." : "카드이미지 재생성"}
+            </button>
+            <p className="text-[11px] text-muted-foreground">thumbnail + extraImages 기반 1080×1080 PNG를 새로 만듭니다. approved 상태에서만 유효합니다.</p>
           </div>
 
           {/* 게시 가이드 */}

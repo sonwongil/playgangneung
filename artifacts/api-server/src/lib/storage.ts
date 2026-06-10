@@ -68,14 +68,61 @@ function rowToEvent(row: typeof eventsTable.$inferSelect): CrawledEvent {
   };
 }
 
+// content_blocks 컬럼 없는 구버전 DB 대응용 명시적 컬럼 선택
+const safeEventColumns = {
+  id: eventsTable.id,
+  title: eventsTable.title,
+  description: eventsTable.description,
+  date: eventsTable.date,
+  startDate: eventsTable.startDate,
+  endDate: eventsTable.endDate,
+  scheduleStatus: eventsTable.scheduleStatus,
+  location: eventsTable.location,
+  category: eventsTable.category,
+  thumbnail: eventsTable.thumbnail,
+  extraImages: eventsTable.extraImages,
+  videoUrl: eventsTable.videoUrl,
+  link: eventsTable.link,
+  source: eventsTable.source,
+  contact: eventsTable.contact,
+  sourceType: eventsTable.sourceType,
+  status: eventsTable.status,
+  socialDraft: eventsTable.socialDraft,
+  hashtags: eventsTable.hashtags,
+  crawledAt: eventsTable.crawledAt,
+  updatedAt: eventsTable.updatedAt,
+  imageExpiresAt: eventsTable.imageExpiresAt,
+  userId: eventsTable.userId,
+  authorDisplayName: eventsTable.authorDisplayName,
+} as const;
+
+function isContentBlocksError(err: unknown): boolean {
+  return err instanceof Error && err.message.includes("content_blocks");
+}
+
 export async function readEvents(): Promise<CrawledEvent[]> {
-  const rows = await db.select().from(eventsTable).orderBy(desc(eventsTable.updatedAt));
-  return rows.map(rowToEvent);
+  try {
+    const rows = await db.select().from(eventsTable).orderBy(desc(eventsTable.updatedAt));
+    return rows.map(rowToEvent);
+  } catch (err) {
+    if (!isContentBlocksError(err)) throw err;
+    // content_blocks 컬럼 없는 DB — 안전한 컬럼만 선택
+    const rows = await db.select(safeEventColumns).from(eventsTable).orderBy(desc(eventsTable.updatedAt));
+    return rows.map((r) => rowToEvent({ ...r, contentBlocks: null } as typeof eventsTable.$inferSelect));
+  }
 }
 
 export async function readEvent(id: string): Promise<CrawledEvent | null> {
-  const rows = await db.select().from(eventsTable).where(eq(eventsTable.id, id)).limit(1);
-  return rows[0] ? rowToEvent(rows[0]) : null;
+  try {
+    const rows = await db.select().from(eventsTable).where(eq(eventsTable.id, id)).limit(1);
+    return rows[0] ? rowToEvent(rows[0]) : null;
+  } catch (err) {
+    if (!isContentBlocksError(err)) throw err;
+    // content_blocks 컬럼 없는 DB — 안전한 컬럼만 선택
+    const rows = await db.select(safeEventColumns).from(eventsTable).where(eq(eventsTable.id, id)).limit(1);
+    if (!rows[0]) return null;
+    return rowToEvent({ ...rows[0], contentBlocks: null } as typeof eventsTable.$inferSelect);
+  }
 }
 
 export async function saveEvents(events: CrawledEvent[]): Promise<void> {

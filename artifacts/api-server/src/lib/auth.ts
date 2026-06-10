@@ -30,14 +30,7 @@ async function getOrCreateAuth() {
 export async function verifyPassword(password: string): Promise<boolean> {
   const envPassword = process.env["ADMIN_DEFAULT_PASSWORD"];
   if (envPassword) {
-    const a = Buffer.from(password.padEnd(envPassword.length, "\0").slice(0, envPassword.length));
-    const b = Buffer.from(envPassword);
-    if (a.length !== b.length) return password === envPassword;
-    try {
-      return crypto.timingSafeEqual(a, b) && password.length === envPassword.length;
-    } catch {
-      return false;
-    }
+    return password === envPassword;
   }
   const data = await getOrCreateAuth();
   const hash = hashPassword(password, data.salt);

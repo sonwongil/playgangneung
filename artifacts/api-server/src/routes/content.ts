@@ -309,14 +309,17 @@ function renderHtml(
     ?? (item.hasThumbnail ? proxyUrlAbsolute(item.thumbnail) : null)
     ?? (THUMBNAIL_MAP[item.category] ?? THUMBNAIL_MAP["지역소식"]!);
 
+  // metaDesc용: 단일 줄로 정제
   const descRaw = (item.description || "강릉의 특색 있는 행사와 명소를 소개합니다.")
     .replace(/[\r\n\t]+/g, " ").replace(/\s{2,}/g, " ").trim();
   const metaDesc = escHtml(summary || descRaw.slice(0, 155));
-  const descDisplay = escHtml(descRaw);
+  // descDisplay: 줄바꿈 보존 (CSS white-space:pre-wrap 활용)
+  const descDisplay = escHtml((item.description || "강릉의 특색 있는 행사와 명소를 소개합니다.").trim());
   const titleEsc = escHtml(item.title);
 
   const hasLink = !!(item.link);
   const hasContact = !!(item.contact) && item.contact !== item.source;
+  const hasMedia = item.extraImages.length > 0 || !!(item.videoUrl);
 
   // 뒤로가기 / 공유
   const backScript = `if(history.length>1){history.back();}else{window.location.href='/';}`;
@@ -373,54 +376,46 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sa
 a{text-decoration:none;color:inherit}
 img{max-width:100%;display:block}
 .page-wrap{max-width:680px;margin:0 auto}
-/* ── 헤더 ── */
-.header{position:sticky;top:0;z-index:50;background:#fff;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;gap:10px;padding:10px 16px;min-height:48px}
-.header-logo{height:24px;object-fit:contain}
-.header-back{display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:#f1f5f9;color:#475569;font-size:18px;flex-shrink:0;cursor:pointer;border:none}
-.header-title{font-size:13px;font-weight:600;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}
+/* ── 헤더: 뒤로가기 | 로고 | 공유 ── */
+.header{position:sticky;top:0;z-index:50;background:#fff;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;gap:10px;padding:10px 16px;min-height:52px}
+.header-logo{height:26px;object-fit:contain;flex:1}
+.header-back{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:50%;background:#f1f5f9;color:#475569;font-size:20px;flex-shrink:0;cursor:pointer;border:none}
+.header-share{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:50%;background:#f0fdf4;color:#15803d;font-size:16px;flex-shrink:0;cursor:pointer;border:1px solid #bbf7d0}
 /* ── 히어로 이미지 ── */
 .hero{width:100%;overflow:hidden;background:#000;line-height:0}
 .hero img{width:100%;height:280px;object-fit:cover;object-position:center top}
 .hero img.card-hero{object-fit:contain;background:#fff;height:auto;max-height:420px}
 /* ── 텍스트 히어로 (이미지 없을 때) ── */
-.hero-text{display:flex;flex-direction:column;justify-content:flex-end;padding:28px 16px 20px;min-height:160px}
+.hero-text{display:flex;flex-direction:column;justify-content:flex-end;padding:32px 16px 20px;min-height:140px}
 .hero-text-subtitle{font-size:12px;color:rgba(255,255,255,.75);margin-top:5px}
 /* ── 제목 영역 ── */
-.title-area{background:#fff;padding:14px 16px 12px;border-bottom:1px solid #f1f5f9}
-.category-pill{display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;color:#fff;margin-bottom:8px}
-.main-title{font-size:18px;font-weight:800;color:#0f172a;line-height:1.4;word-break:keep-all;margin-bottom:6px}
+.title-area{background:#fff;padding:16px 16px 14px;border-bottom:1px solid #f1f5f9}
+.category-pill{display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;color:#fff;margin-bottom:10px}
+.main-title{font-size:20px;font-weight:800;color:#0f172a;line-height:1.4;word-break:keep-all;margin-bottom:8px}
 .summary-text{font-size:13px;color:#475569;line-height:1.6;word-break:keep-all}
+/* ── 콘텐츠 ── */
+.content{padding:16px 16px 4px}
+/* ── 섹션 H2 ── */
+.section-h2{font-size:15px;font-weight:700;color:#1e293b;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid #e2e8f0}
+/* ── 정보 카드 ── */
+.info-card{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:14px;margin-bottom:4px;display:flex;flex-direction:column;gap:10px}
+.info-row{display:flex;align-items:flex-start;gap:10px;font-size:13px;color:#334155;line-height:1.4}
+.info-icon{flex-shrink:0;color:#94a3b8;margin-top:2px}
+.info-label{font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:2px}
+.source-pill{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#64748b;background:#f1f5f9;border-radius:6px;padding:2px 8px;border:1px solid #e2e8f0}
+/* ── 상세 내용 ── */
+.description{font-size:14px;line-height:1.9;color:#334155;word-break:keep-all;white-space:pre-wrap}
 /* ── 추가 이미지 ── */
-.extra-scroll{display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;padding:12px 16px 4px}
+.extra-scroll{display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;padding-bottom:4px;margin-bottom:8px}
 .extra-scroll::-webkit-scrollbar{height:3px}
 .extra-scroll::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:2px}
-.extra-img{width:150px;height:110px;object-fit:cover;border-radius:10px;flex-shrink:0;scroll-snap-align:start;background:#e2e8f0}
-/* ── 콘텐츠 ── */
-.content{padding:14px 16px}
-/* ── 정보 카드 ── */
-.info-card{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:14px;margin-bottom:14px;display:flex;flex-direction:column;gap:9px}
-.info-row{display:flex;align-items:flex-start;gap:10px;font-size:13px;color:#334155;line-height:1.4}
-.info-icon{flex-shrink:0;color:#94a3b8;margin-top:1px}
-.info-label{font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.04em}
-.source-pill{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#64748b;background:#f1f5f9;border-radius:6px;padding:2px 8px;border:1px solid #e2e8f0}
-/* ── 섹션 공통 ── */
-.section-h2{font-size:13px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px}
-.divider{height:1px;background:#f1f5f9;margin:14px 0}
-/* ── 상세 내용 ── */
-.description{font-size:14px;line-height:1.85;color:#334155;word-break:keep-all;white-space:pre-wrap}
-/* ── 문의 ── */
-.contact-box{background:#f0f9ff;border:1px solid #bae6fd;border-radius:12px;padding:12px 14px;margin-bottom:14px}
-.contact-label{font-size:10px;font-weight:700;color:#0369a1;margin-bottom:3px}
-.contact-value{font-size:13px;font-weight:600;color:#0c4a6e}
-/* ── 원본 버튼 ── */
-.orig-btn{display:flex;align-items:center;justify-content:center;gap:8px;padding:13px;border-radius:12px;background:#f1f5f9;border:1px solid #e2e8f0;font-size:13px;font-weight:700;color:#2563eb;text-align:center;margin-top:4px}
-/* ── 해시태그 ── */
-.hashtag-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px}
-.hashtag-badge{display:inline-block;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:600;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe}
+.extra-img{width:160px;height:120px;object-fit:cover;border-radius:10px;flex-shrink:0;scroll-snap-align:start;background:#e2e8f0}
 /* ── 동영상 ── */
 .video-wrap{position:relative;width:100%;padding-bottom:56.25%;background:#000;border-radius:12px;overflow:hidden;margin:10px 0}
 .video-wrap iframe,.video-wrap video{position:absolute;inset:0;width:100%;height:100%;border:none;object-fit:contain}
-.video-label{font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px}
+/* ── 해시태그 ── */
+.hashtag-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.hashtag-badge{display:inline-block;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:600;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe}
 /* ── 하단 바 ── */
 .bottom-bar{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #e2e8f0;padding:10px 16px;display:flex;gap:8px;z-index:50;box-shadow:0 -2px 12px rgba(0,0,0,.07)}
 .btn{flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:11px 6px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;border:none;transition:opacity .15s;text-decoration:none}
@@ -429,15 +424,14 @@ img{max-width:100%;display:block}
 .btn-secondary{background:#f1f5f9;color:#1e293b}
 .btn-share{background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0}
 /* ── 브랜드 푸터 ── */
-.brand-footer{text-align:center;padding:16px 16px 8px;font-size:11px;color:#94a3b8}
+.brand-footer{text-align:center;padding:20px 16px 12px;font-size:11px;color:#94a3b8}
 /* ── PC ── */
 @media(min-width:640px){
   .hero img{height:380px}
   .hero img.card-hero{max-height:520px}
-  .main-title{font-size:22px}
-  .content{padding:18px 24px}
+  .main-title{font-size:24px}
+  .content{padding:20px 24px 4px}
   .description{font-size:15px}
-  .extra-scroll{padding:12px 24px 4px}
   .bottom-bar{max-width:680px;left:50%;transform:translateX(-50%);width:100%}
 }
 /* ── 스크린리더 전용 ── */
@@ -446,28 +440,18 @@ img{max-width:100%;display:block}
 </head>
 <body>
 
-<!-- 헤더 -->
+<!-- 헤더: 뒤로가기 | 로고 | 공유 -->
 <header class="header">
   <button class="header-back" onclick="${escHtml(backScript)}" aria-label="뒤로 가기">‹</button>
   <img src="/logo2.png" alt="PLAY강릉" class="header-logo">
-  <span class="header-title" aria-hidden="true">${titleEsc}</span>
+  <button class="header-share" onclick="${escHtml(shareScript)}" aria-label="공유하기">📤</button>
 </header>
-
 
 <div class="page-wrap">
 
-  <!-- 1. 대표 이미지 -->
-  ${heroSrc ? `<div class="hero">
-    <img src="${escHtml(heroSrc)}" alt="${escHtml(heroAlt)}" loading="eager" fetchpriority="high"${cardExists ? ' class="card-hero"' : ""}>
-  </div>` : ""}
-
-  <!-- 2. 제목 영역 (카테고리 → H1 → 한 줄 요약) -->
+  <!-- 대표 이미지 / 카드뉴스 이미지 -->
   ${heroSrc
-    ? `<div class="title-area">
-        <span class="category-pill" style="background:${catColor}">${escHtml(item.category)}</span>
-        <h1 class="main-title">${titleEsc}</h1>
-        ${summary ? `<p class="summary-text">${escHtml(summary)}</p>` : ""}
-      </div>`
+    ? `<div class="hero"><img src="${escHtml(heroSrc)}" alt="${escHtml(heroAlt)}" loading="eager" fetchpriority="high"${cardExists ? ' class="card-hero"' : ""}></div>`
     : `<div class="hero-text" style="background:linear-gradient(135deg,${catColor}dd,${catColor}99)">
         <span class="category-pill" style="background:rgba(255,255,255,.25)">${escHtml(item.category)}</span>
         <h1 class="main-title" style="color:#fff">${titleEsc}</h1>
@@ -475,51 +459,57 @@ img{max-width:100%;display:block}
       </div>`
   }
 
-  <!-- 추가 이미지 슬라이더 -->
-  ${extraImagesHtml}
+  <!-- 카테고리 배지 + H1 + 요약 (이미지 있을 때) -->
+  ${heroSrc ? `<div class="title-area">
+    <span class="category-pill" style="background:${catColor}">${escHtml(item.category)}</span>
+    <h1 class="main-title">${titleEsc}</h1>
+    ${summary ? `<p class="summary-text">${escHtml(summary)}</p>` : ""}
+  </div>` : ""}
 
   <div class="content">
 
-    <!-- 동영상 -->
-    ${item.videoUrl ? `<p class="video-label">▶ 동영상</p>${renderVideoSection(item.videoUrl)}<div class="divider"></div>` : ""}
+    <!-- 핵심 정보 카드 -->
+    <section aria-labelledby="info-title" style="margin-bottom:20px">
+      <h2 id="info-title" class="section-h2">핵심 정보</h2>
+      <div class="info-card">
+        ${dateStr ? `<div class="info-row">
+          <span class="info-icon" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>
+          <div><span class="info-label">날짜</span>${escHtml(dateStr)}</div>
+        </div>` : ""}
+        ${item.location ? `<div class="info-row">
+          <span class="info-icon" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg></span>
+          <div><span class="info-label">장소/주소</span>${escHtml(item.location)}</div>
+        </div>` : ""}
+        <div class="info-row">
+          <span class="info-icon" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg></span>
+          <div><span class="info-label">카테고리</span>${escHtml(item.category)}</div>
+        </div>
+        <div class="info-row">
+          <span class="info-icon" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg></span>
+          <div><span class="info-label">출처</span><span class="source-pill">${escHtml(item.source)}</span></div>
+        </div>
+        ${hasContact ? `<div class="info-row">
+          <span class="info-icon" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 8.81 19.79 19.79 0 01.07 2.18 2 2 0 012 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 14.92z"/></svg></span>
+          <div><span class="info-label">문의</span>${escHtml(item.contact)}</div>
+        </div>` : ""}
+      </div>
+    </section>
 
-    <!-- 문의 -->
-    ${hasContact ? `<div class="contact-box">
-      <p class="contact-label">📞 문의처</p>
-      <p class="contact-value">${escHtml(item.contact)}</p>
-    </div>` : ""}
-
-    <!-- 5. 상세 내용 -->
-    <section aria-labelledby="detail-title">
+    <!-- H2 상세 내용 -->
+    <section aria-labelledby="detail-title" style="margin-bottom:20px">
       <h2 id="detail-title" class="section-h2">상세 내용</h2>
       <p class="description">${descDisplay}</p>
     </section>
 
+    <!-- H2 사진과 영상 (있을 때만) -->
+    ${hasMedia ? `<section aria-labelledby="media-title" style="margin-bottom:20px">
+      <h2 id="media-title" class="section-h2">사진과 영상</h2>
+      ${extraImagesHtml}
+      ${item.videoUrl ? renderVideoSection(item.videoUrl) : ""}
+    </section>` : ""}
+
     <!-- 해시태그 -->
     ${hashtagsHtml}
-
-    <!-- 핵심 정보 카드 -->
-    <section aria-labelledby="info-title" style="margin-top:16px">
-      <h2 id="info-title" class="sr-only">핵심 정보</h2>
-      <div class="info-card">
-        ${dateStr ? `<div class="info-row">
-          <span class="info-icon" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>
-          <span>${escHtml(dateStr)}</span>
-        </div>` : ""}
-        ${item.location ? `<div class="info-row">
-          <span class="info-icon" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg></span>
-          <div><span class="info-label">장소/주소</span><div style="margin-top:2px">${escHtml(item.location)}</div></div>
-        </div>` : ""}
-        <div class="info-row">
-          <span class="info-icon" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg></span>
-          <span class="source-pill">출처: ${escHtml(item.source)}</span>
-        </div>
-        ${hasLink ? `<div class="info-row">
-          <span class="info-icon" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg></span>
-          <a href="${escHtml(item.link)}" target="_blank" rel="noopener noreferrer" style="color:#2563eb;font-size:12px;word-break:break-all">${escHtml(new URL(item.link).hostname.replace(/^www\./, ""))}</a>
-        </div>` : ""}
-      </div>
-    </section>
 
   </div>
 
@@ -530,12 +520,10 @@ img{max-width:100%;display:block}
   </div>
 </div>
 
-<!-- 고정 하단 버튼 -->
+<!-- 고정 하단 버튼: 원본 보기 | 공유하기 | 홈 -->
 <div class="bottom-bar">
+  ${hasLink ? `<a href="${escHtml(item.link)}" target="_blank" rel="noopener noreferrer" class="btn btn-primary">🔗 원본 보기</a>` : ""}
   <button class="btn btn-share" onclick="${escHtml(shareScript)}">📤 공유하기</button>
-  ${hasLink
-    ? `<a href="${escHtml(item.link)}" target="_blank" rel="noopener noreferrer" class="btn btn-primary">🔗 원본 보기</a>`
-    : ""}
   <a href="/" class="btn btn-secondary">🏠 홈</a>
 </div>
 

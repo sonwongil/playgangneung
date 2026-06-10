@@ -73,6 +73,11 @@ export async function readEvents(): Promise<CrawledEvent[]> {
   return rows.map(rowToEvent);
 }
 
+export async function readEvent(id: string): Promise<CrawledEvent | null> {
+  const rows = await db.select().from(eventsTable).where(eq(eventsTable.id, id)).limit(1);
+  return rows[0] ? rowToEvent(rows[0]) : null;
+}
+
 export async function saveEvents(events: CrawledEvent[]): Promise<void> {
   if (events.length === 0) return;
   await db

@@ -453,7 +453,6 @@ export default function Admin() {
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [editThumbnailUrl, setEditThumbnailUrl] = useState("");
   const [editBlocks, setEditBlocks] = useState<ContentBlock[]>([]);
-  const [addBlockType, setAddBlockType] = useState<ContentBlock["type"]>("text");
   const [addBlockContent, setAddBlockContent] = useState("");
   const [editingAd, setEditingAd] = useState<Ad | null>(null);
   const [selectedAd, setSelectedAd] = useState<Ad | null>(null);
@@ -1054,7 +1053,6 @@ export default function Admin() {
       setEditThumbnailUrl(editingEvent.thumbnail ?? "");
       setEditBlocks(editingEvent.contentBlocks ?? []);
       setAddBlockContent("");
-      setAddBlockType("text");
     }
   }, [editingEvent]);
 
@@ -6658,21 +6656,18 @@ export default function Admin() {
               <div className="space-y-1"><Label>종료일</Label><Input name="endDate" type="date" defaultValue={editingEvent.endDate ?? ""} /></div>
             </div>
 
-            {/* 콘텐츠 블록 */}
+            {/* 추가 텍스트 블록 */}
             <div className="space-y-2">
               <Label className="flex items-center gap-1.5 font-semibold">
                 <PlusCircle className="w-4 h-4 text-blue-500" />
-                추가 콘텐츠 블록
+                추가 텍스트
                 <span className="text-[11px] font-normal text-muted-foreground">사진·영상 아래에 표시</span>
               </Label>
               {editBlocks.length > 0 && (
                 <div className="space-y-2">
                   {editBlocks.map((block, i) => (
                     <div key={i} className="flex items-start gap-2 bg-slate-50 border border-slate-200 rounded-lg p-2.5">
-                      <span className="text-[10px] font-bold uppercase text-slate-400 mt-0.5 w-10 shrink-0">
-                        {block.type === "text" ? "텍스트" : block.type === "image" ? "이미지" : "영상"}
-                      </span>
-                      <p className="text-xs text-slate-600 flex-1 line-clamp-2 break-all">{block.content}</p>
+                      <p className="text-xs text-slate-600 flex-1 whitespace-pre-wrap">{block.content}</p>
                       <button type="button" onClick={() => setEditBlocks((b) => b.filter((_, j) => j !== i))} className="text-slate-400 hover:text-red-500 shrink-0 mt-0.5">
                         <X className="w-3.5 h-3.5" />
                       </button>
@@ -6681,20 +6676,11 @@ export default function Admin() {
                 </div>
               )}
               <div className="flex gap-2 items-start">
-                <select
-                  value={addBlockType}
-                  onChange={(e) => setAddBlockType(e.target.value as ContentBlock["type"])}
-                  className="border border-input rounded-md px-2 py-2 text-xs bg-background focus:outline-none shrink-0"
-                >
-                  <option value="text">텍스트</option>
-                  <option value="image">이미지 URL</option>
-                  <option value="video">영상 URL</option>
-                </select>
                 <textarea
                   value={addBlockContent}
                   onChange={(e) => setAddBlockContent(e.target.value)}
-                  placeholder={addBlockType === "text" ? "추가할 텍스트를 입력하세요..." : "https://..."}
-                  rows={addBlockType === "text" ? 3 : 1}
+                  placeholder="추가할 텍스트를 입력하세요..."
+                  rows={3}
                   className="flex-1 border border-input rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary resize-none"
                 />
                 <Button
@@ -6705,7 +6691,7 @@ export default function Admin() {
                   onClick={() => {
                     const content = addBlockContent.trim();
                     if (!content) return;
-                    setEditBlocks((b) => [...b, { type: addBlockType, content }]);
+                    setEditBlocks((b) => [...b, { type: "text" as const, content }]);
                     setAddBlockContent("");
                   }}
                 >

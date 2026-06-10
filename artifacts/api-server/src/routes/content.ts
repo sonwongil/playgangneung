@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db, eventsTable, adsTable } from "@workspace/db";
 import { eq, ne, inArray, desc, and } from "drizzle-orm";
-import type { SocialDraft } from "../lib/storage.js";
+import { readEvents, type SocialDraft } from "../lib/storage.js";
 import fs from "fs/promises";
 import path from "path";
 
@@ -78,11 +78,33 @@ async function hasCardImage(id: string): Promise<boolean> {
   catch { return false; }
 }
 
+function crawledEventToContentItem(ev: Awaited<ReturnType<typeof readEvents>>[number]): ContentItem {
+  const cat = ev.category || "지역소식";
+  return {
+    id: ev.id, type: "event",
+    title: ev.title, description: ev.description,
+    date: ev.date,
+    startDate: ev.startDate || undefined,
+    endDate: ev.endDate || undefined,
+    source: ev.source, contact: ev.contact || "",
+    link: ev.link, sourceType: ev.sourceType,
+    category: cat,
+    thumbnail: ev.thumbnail ?? THUMBNAIL_MAP[cat] ?? THUMBNAIL_MAP["지역소식"]!,
+    hasThumbnail: !!ev.thumbnail,
+    videoUrl: ev.videoUrl ?? null,
+    extraImages: ev.extraImages ?? [],
+    hashtags: ev.hashtags ?? [],
+    socialDraft: ev.socialDraft ?? null,
+    location: ev.location || undefined,
+  };
+}
+
 async function findContent(id: string): Promise<ContentItem | null> {
+  // 1. DB events 직접 조회 (빠른 경로)
   try {
     const rows = await db.select().from(eventsTable).where(eq(eventsTable.id, id)).limit(1);
-    const ev = rows[0];
-    if (ev) {
+    if (rows[0]) {
+      const ev = rows[0];
       const cat = ev.category || "지역소식";
       return {
         id: ev.id, type: "event",
@@ -104,6 +126,14 @@ async function findContent(id: string): Promise<ContentItem | null> {
     }
   } catch { /* fall through */ }
 
+  // 2. readEvents() fallback — DB 직접 쿼리가 누락한 항목 보완
+  try {
+    const stored = await readEvents();
+    const ev = stored.find((e) => e.id === id);
+    if (ev) return crawledEventToContentItem(ev);
+  } catch { /* fall through */ }
+
+  // 3. 광고 테이블 조회
   try {
     const rows = await db.select().from(adsTable).where(eq(adsTable.id, id)).limit(1);
     const ad = rows[0];
@@ -123,6 +153,7 @@ async function findContent(id: string): Promise<ContentItem | null> {
     }
   } catch { /* fall through */ }
 
+  // 4. 404
   return null;
 }
 
@@ -203,9 +234,15 @@ function buildRecommendText(item: ContentItem): string | null {
   }
 }
 
-/** SEO 강화 page title — 제목에 "강릉"이 없으면 앞에 추가 */
+/**
+ * SEO title — title·location·source 중 어디에도 "강릉"이 없을 때만 SEO <title>에 "강릉" 보강.
+ * H1은 원본 title을 그대로 사용하므로 이 함수는 <title> 태그에만 영향을 줌.
+ */
 function buildPageTitle(item: ContentItem): string {
-  const hasGangneung = /강릉/.test(item.title);
+  const hasGangneung =
+    /강릉/.test(item.title) ||
+    /강릉/.test(item.location ?? "") ||
+    /강릉/.test(item.source);
   const prefix = hasGangneung ? "" : "강릉 ";
   return `${prefix}${item.title} | PLAY강릉`;
 }

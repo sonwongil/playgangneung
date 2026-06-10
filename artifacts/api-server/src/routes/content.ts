@@ -291,11 +291,119 @@ function buildJsonLd(item: ContentItem, contentUrl: string, thumbnailOg: string)
 
 // ─── HTML 렌더러 ─────────────────────────────────────────────────────────────
 
+function renderAdminSnsPanel(item: ContentItem, contentUrl: string): string {
+  const caption = item.socialDraft?.caption ?? "";
+  const hashtags = (item.socialDraft?.hashtags ?? []).map((h) => h.startsWith("#") ? h : `#${h}`).join(" ");
+  const captionEsc = escHtml(caption);
+  const hashtagsEsc = escHtml(hashtags);
+  const contentUrlEsc = escHtml(contentUrl);
+  const originalLinkLine = item.link ? escHtml(`🔗 원문보기 👉 ${item.link}\n`) : "";
+  const copyPayload = escJs([caption, hashtags, item.link ? `🔗 원문보기 👉 ${item.link}` : "", `📍 강릉 더보기 👉 ${contentUrl}`].filter(Boolean).join("\n\n"));
+  const editUrl = escHtml(`/admin/events/${item.id}`);
+
+  return `
+<!-- 관리자 SNS 공유 패널 -->
+<div class="admin-sns" id="adminSnsPanel">
+  <div class="admin-sns-header">
+    <span>🛠️ SNS 공유</span>
+    <a href="${editUrl}" class="admin-edit-btn">✏️ 강릉노트 편집</a>
+  </div>
+
+  <div class="admin-sns-section">
+    <div class="admin-row-between">
+      <span class="admin-label">① SNS 문구</span>
+      <button class="admin-btn-sm admin-btn-outline" onclick="adminGenerateDraft()">🤖 AI 재생성</button>
+    </div>
+    ${caption
+      ? `<pre class="admin-caption" id="captionPre">${captionEsc}</pre>
+         <p class="admin-hashtags" id="hashtagsPre">${hashtagsEsc}</p>`
+      : `<p class="admin-no-draft">아직 SNS 문구가 없습니다. AI 재생성을 눌러주세요.</p>`
+    }
+    <div class="admin-cta-box">
+      <span class="admin-cta-label">📢 공통 링크 (복사 시 자동 첨부)</span>
+      <pre class="admin-cta-text">${originalLinkLine}📍 강릉 더보기 👉 ${contentUrlEsc}</pre>
+    </div>
+    <div class="admin-row-gap">
+      <button class="admin-btn admin-btn-violet" id="copyAllBtn" onclick="adminCopyAll()">📋 전체 복사</button>
+      <button class="admin-btn admin-btn-teal" onclick="adminGenCard()">🖼️ 카드이미지 생성</button>
+    </div>
+  </div>
+
+  <div class="admin-sns-section">
+    <span class="admin-label">② SNS 채널 열기</span>
+    <div class="admin-row-gap" style="margin-top:8px">
+      <button class="admin-btn admin-btn-link-copy" onclick="adminCopyLink()">🔗 링크 복사</button>
+      <a href="https://business.facebook.com/latest/composer?asset_id=1135888279600983&business_id=1004678568916594&ir_qe_exposed=1&nav_ref=internal_nav&ref=biz_web_content_manager_calendar_view&context_ref=CONTENT_CALENDAR" target="_blank" rel="noopener noreferrer" class="admin-btn admin-btn-meta">🏢 Meta</a>
+      <a href="https://www.facebook.com/profile.php?id=61589314617028&locale=ko_KR" target="_blank" rel="noopener noreferrer" class="admin-btn admin-btn-fb">📘 FB</a>
+      <a href="https://www.instagram.com/playgangneung/" target="_blank" rel="noopener noreferrer" class="admin-btn admin-btn-ig">📸 IG</a>
+    </div>
+    <p class="admin-guide">① 전체 복사 → ② 채널 열기 → ③ 붙여넣기 & 게시</p>
+  </div>
+
+  <div id="adminToast" class="admin-toast" style="display:none"></div>
+</div>
+
+<script>
+(function(){
+  var ITEM_ID = '${escJs(item.id)}';
+  var CONTENT_URL = '${escJs(contentUrl)}';
+  var COPY_PAYLOAD = '${copyPayload}';
+
+  function showToast(msg) {
+    var t = document.getElementById('adminToast');
+    if (!t) return;
+    t.textContent = msg;
+    t.style.display = 'block';
+    setTimeout(function(){ t.style.display = 'none'; }, 2500);
+  }
+
+  window.adminCopyAll = function() {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(COPY_PAYLOAD).then(function(){
+        var btn = document.getElementById('copyAllBtn');
+        if (btn) { btn.textContent = '✅ 복사됨!'; setTimeout(function(){ btn.textContent = '📋 전체 복사'; }, 2500); }
+        showToast('캡션 복사 완료 — 인스타·페북에 붙여넣으세요.');
+      });
+    } else {
+      showToast('링크: ' + CONTENT_URL);
+    }
+  };
+
+  window.adminCopyLink = function() {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(CONTENT_URL).then(function(){ showToast('PLAY강릉 링크 복사됨'); });
+    }
+  };
+
+  window.adminGenerateDraft = async function() {
+    showToast('AI 문구 생성 중...');
+    try {
+      var r = await fetch('/api/events/' + ITEM_ID + '/draft', { method: 'POST', credentials: 'include' });
+      if (!r.ok) { showToast('생성 실패'); return; }
+      showToast('문구 생성 완료! 페이지를 새로고침합니다.');
+      setTimeout(function(){ location.reload(); }, 1200);
+    } catch(e) { showToast('오류: ' + e.message); }
+  };
+
+  window.adminGenCard = async function() {
+    showToast('카드이미지 생성 중...');
+    try {
+      var r = await fetch('/api/events/' + ITEM_ID + '/card', { method: 'POST', credentials: 'include' });
+      if (!r.ok) { showToast('생성 실패'); return; }
+      showToast('카드이미지 생성 완료! 페이지를 새로고침합니다.');
+      setTimeout(function(){ location.reload(); }, 1200);
+    } catch(e) { showToast('오류: ' + e.message); }
+  };
+})();
+</script>`;
+}
+
 function renderHtml(
   item: ContentItem,
   contentUrl: string,
   cardExists: boolean,
   ogImageOverride?: string | null,
+  isAdmin = false,
 ): string {
   const pageTitle = buildPageTitle(item);
   const summary = extractSummary(item);
@@ -451,6 +559,34 @@ img{max-width:100%;display:block}
 .block-img{width:100%;border-radius:12px;margin-bottom:16px;object-fit:contain;background:#f8fafc}
 /* ── 스크린리더 전용 ── */
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border-width:0}
+/* ── 관리자 SNS 패널 ── */
+.admin-sns{max-width:680px;margin:16px auto 100px;border:2px solid #7c3aed;border-radius:16px;background:#faf5ff;overflow:hidden}
+.admin-sns-header{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:#7c3aed;color:#fff;font-size:13px;font-weight:700}
+.admin-edit-btn{font-size:12px;font-weight:600;color:#e9d5ff;text-decoration:none;background:rgba(255,255,255,.15);padding:4px 10px;border-radius:20px}
+.admin-edit-btn:hover{background:rgba(255,255,255,.25)}
+.admin-sns-section{padding:14px 16px;border-bottom:1px solid #ede9fe}
+.admin-sns-section:last-of-type{border-bottom:none}
+.admin-label{font-size:11px;font-weight:700;color:#6d28d9;text-transform:uppercase;letter-spacing:.04em}
+.admin-row-between{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.admin-row-gap{display:flex;gap:8px;flex-wrap:wrap}
+.admin-caption{font-size:13px;line-height:1.7;color:#1e293b;white-space:pre-wrap;word-break:keep-all;background:#fff;border:1px solid #e9d5ff;border-radius:10px;padding:10px 12px;margin:6px 0}
+.admin-hashtags{font-size:12px;color:#6d28d9;margin-bottom:8px;word-break:break-all}
+.admin-no-draft{font-size:13px;color:#94a3b8;margin:8px 0;font-style:italic}
+.admin-cta-box{background:#f5f3ff;border:1px dashed #c4b5fd;border-radius:10px;padding:8px 12px;margin:8px 0}
+.admin-cta-label{font-size:10px;font-weight:700;color:#7c3aed;display:block;margin-bottom:4px}
+.admin-cta-text{font-size:11px;font-family:monospace;color:#5b21b6;white-space:pre-wrap;line-height:1.5}
+.admin-btn{flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:9px 10px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;border:none;transition:opacity .15s;text-decoration:none;min-width:60px}
+.admin-btn:active{opacity:.75}
+.admin-btn-sm{font-size:11px;padding:4px 10px;border-radius:8px;cursor:pointer;font-weight:600}
+.admin-btn-outline{background:#fff;border:1px solid #7c3aed;color:#7c3aed}
+.admin-btn-violet{background:#7c3aed;color:#fff}
+.admin-btn-teal{background:#0d9488;color:#fff}
+.admin-btn-link-copy{background:#f1f5f9;color:#1e293b;border:1px solid #e2e8f0}
+.admin-btn-meta{background:#3b5bdb;color:#fff}
+.admin-btn-fb{background:#1877f2;color:#fff}
+.admin-btn-ig{background:#e1306c;color:#fff}
+.admin-guide{font-size:11px;color:#94a3b8;margin-top:8px}
+.admin-toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#1e293b;color:#fff;font-size:13px;font-weight:600;padding:10px 20px;border-radius:30px;z-index:200;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,.2)}
 </style>
 </head>
 <body>
@@ -545,6 +681,8 @@ img{max-width:100%;display:block}
   <a href="/" class="btn btn-secondary">🏠 홈</a>
 </div>
 
+${isAdmin ? renderAdminSnsPanel(item, contentUrl) : ""}
+
 </body>
 </html>`;
 }
@@ -563,10 +701,11 @@ router.get("/:id", async (req, res) => {
   }
 
   const ogImageOverride = cardExists ? `${SITE_URL}/api/cards/${id}.png` : null;
+  const isAdmin = req.session?.isAdmin === true;
 
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-  res.send(renderHtml(item, contentUrl, cardExists, ogImageOverride));
+  res.send(renderHtml(item, contentUrl, cardExists, ogImageOverride, isAdmin));
 });
 
 export default router;

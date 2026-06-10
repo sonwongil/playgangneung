@@ -210,30 +210,6 @@ function extractSummary(item: ContentItem): string {
   return (first.length > 10 ? first : raw).slice(0, 155);
 }
 
-/** 추천 포인트 텍스트 추출 (없으면 null → 섹션 숨김) */
-function buildRecommendText(item: ContentItem): string | null {
-  if (item.socialDraft?.caption) {
-    const lines = item.socialDraft.caption
-      .split("\n").map(l => l.trim())
-      .filter(l => l.length > 0 && !l.startsWith("#") && !/^[\s#]+$/.test(l));
-    const text = lines.slice(0, 3).join(" ").replace(/\s+/g, " ").trim();
-    if (text.length >= 40) return escHtml(text.slice(0, 350));
-  }
-  const loc = item.location && item.location !== "강릉" ? `강릉 ${item.location}` : "강릉";
-  switch (item.category) {
-    case "행사":
-      return `${escHtml(loc)}에서 열리는 행사입니다. 날짜와 장소가 명확해 방문 계획을 세우기 좋습니다. 가족, 친구와 함께 강릉을 즐길 수 있는 좋은 기회입니다.`;
-    case "맛집":
-      return `${escHtml(loc)}에 위치한 식당입니다. 강릉 여행 중 식사 장소를 고를 때 참고해 보세요. 자세한 영업 정보는 원본 페이지에서 확인해 주세요.`;
-    case "핫플":
-      return `${escHtml(loc)}의 추천 방문지입니다. 강릉 여행 코스를 계획할 때 참고해 보세요.`;
-    case "지역소식":
-      return `강릉 지역 소식입니다. 강릉 방문이나 거주 시 알아두면 도움이 될 정보입니다.`;
-    default:
-      return null;
-  }
-}
-
 /**
  * SEO title — title·location·source 중 어디에도 "강릉"이 없을 때만 SEO <title>에 "강릉" 보강.
  * H1은 원본 title을 그대로 사용하므로 이 함수는 <title> 태그에만 영향을 줌.
@@ -339,7 +315,6 @@ function renderHtml(
 ): string {
   const pageTitle = buildPageTitle(item);
   const summary = extractSummary(item);
-  const recommendText = buildRecommendText(item);
   const dateStr = formatDateRange(item.startDate, item.endDate, item.date);
   const catColor = CATEGORY_COLORS[item.category] ?? "#2563eb";
 
@@ -479,10 +454,6 @@ img{max-width:100%;display:block}
 /* ── 섹션 공통 ── */
 .section-h2{font-size:13px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px}
 .divider{height:1px;background:#f1f5f9;margin:14px 0}
-/* ── 추천 포인트 ── */
-.recommend-box{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:14px;padding:14px 16px;margin-bottom:14px}
-.recommend-box h2{font-size:13px;font-weight:700;color:#15803d;margin-bottom:6px}
-.recommend-text{font-size:13px;color:#166534;line-height:1.7;word-break:keep-all}
 /* ── 상세 내용 ── */
 .description{font-size:14px;line-height:1.85;color:#334155;word-break:keep-all;white-space:pre-wrap}
 /* ── 문의 ── */
@@ -597,12 +568,6 @@ img{max-width:100%;display:block}
         </div>` : ""}
       </div>
     </section>
-
-    <!-- 4. PLAY강릉 추천 포인트 -->
-    ${recommendText ? `<section class="recommend-box" aria-labelledby="recommend-title">
-      <h2 id="recommend-title">🌊 PLAY강릉 추천 포인트</h2>
-      <p class="recommend-text">${recommendText}</p>
-    </section>` : ""}
 
     <!-- 동영상 -->
     ${item.videoUrl ? `<p class="video-label">▶ 동영상</p>${renderVideoSection(item.videoUrl)}<div class="divider"></div>` : ""}

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, eventsTable, adsTable } from "@workspace/db";
-import { eq, ne, inArray, desc, and } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import { readEvents, type SocialDraft } from "../lib/storage.js";
 import fs from "fs/promises";
 import path from "path";
@@ -63,13 +63,6 @@ interface ContentItem {
   socialDraft?: SocialDraft | null;
 }
 
-interface RelatedItem {
-  id: string;
-  title: string;
-  category: string;
-  date: string;
-  thumbnail: string | null;
-}
 
 const CARDS_DIR = path.resolve(process.cwd(), "public/cards");
 
@@ -157,17 +150,6 @@ async function findContent(id: string): Promise<ContentItem | null> {
   return null;
 }
 
-async function findRelated(id: string, category: string, limit = 3): Promise<RelatedItem[]> {
-  try {
-    const rows = await db
-      .select({ id: eventsTable.id, title: eventsTable.title, category: eventsTable.category, date: eventsTable.date, thumbnail: eventsTable.thumbnail })
-      .from(eventsTable)
-      .where(and(ne(eventsTable.id, id), inArray(eventsTable.status, ["approved", "published"]), eq(eventsTable.category, category)))
-      .orderBy(desc(eventsTable.updatedAt))
-      .limit(limit);
-    return rows;
-  } catch { return []; }
-}
 
 // ─── 텍스트 헬퍼 ────────────────────────────────────────────────────────────
 
@@ -310,7 +292,6 @@ function renderHtml(
   item: ContentItem,
   contentUrl: string,
   cardExists: boolean,
-  related: RelatedItem[],
   ogImageOverride?: string | null,
 ): string {
   const pageTitle = buildPageTitle(item);
@@ -356,29 +337,6 @@ function renderHtml(
     ? `<div class="hashtag-row" aria-label="해시태그">${item.hashtags.map(tag =>
         `<span class="hashtag-badge">${escHtml(tag.startsWith("#") ? tag : "#" + tag)}</span>`
       ).join("")}</div>`
-    : "";
-
-  // 관련 강릉노트
-  const relatedHtml = related.length > 0
-    ? `<section class="related-section" aria-labelledby="related-title">
-        <h2 id="related-title" class="section-h2">관련 강릉노트</h2>
-        <div class="related-list">
-          ${related.map(r => {
-            const rThumb = r.thumbnail ? proxyUrl(r.thumbnail) : (THUMBNAIL_MAP[r.category] ?? THUMBNAIL_MAP["지역소식"]!);
-            const rColor = CATEGORY_COLORS[r.category] ?? "#2563eb";
-            return `<a href="${SITE_URL}/content/${escHtml(r.id)}" class="related-card">
-              <div class="related-thumb" style="background:#e2e8f0">
-                <img src="${escHtml(rThumb)}" alt="강릉 ${escHtml(r.category)} - ${escHtml(r.title)}" loading="lazy" onerror="this.style.display='none'">
-              </div>
-              <div class="related-info">
-                <span class="related-cat" style="color:${rColor}">${escHtml(r.category)}</span>
-                <p class="related-title">${escHtml(r.title)}</p>
-                ${r.date ? `<p class="related-date">${escHtml(formatDate(r.date))}</p>` : ""}
-              </div>
-            </a>`;
-          }).join("")}
-        </div>
-      </section>`
     : "";
 
   const jsonLd = buildJsonLd(item, contentUrl, thumbnailOg);
@@ -465,17 +423,6 @@ img{max-width:100%;display:block}
 /* ── 해시태그 ── */
 .hashtag-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px}
 .hashtag-badge{display:inline-block;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:600;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe}
-/* ── 관련 강릉노트 ── */
-.related-section{margin-top:4px;padding-top:14px}
-.related-list{display:flex;flex-direction:column;gap:10px}
-.related-card{display:flex;gap:12px;align-items:flex-start;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:10px;text-decoration:none;transition:box-shadow .15s}
-.related-card:active{opacity:.85}
-.related-thumb{width:72px;height:60px;border-radius:8px;overflow:hidden;flex-shrink:0;background:#e2e8f0}
-.related-thumb img{width:100%;height:100%;object-fit:cover}
-.related-info{flex:1;min-width:0}
-.related-cat{font-size:10px;font-weight:700;display:block;margin-bottom:3px}
-.related-title{font-size:13px;font-weight:600;color:#1e293b;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:keep-all}
-.related-date{font-size:11px;color:#94a3b8;margin-top:3px}
 /* ── 동영상 ── */
 .video-wrap{position:relative;width:100%;padding-bottom:56.25%;background:#000;border-radius:12px;overflow:hidden;margin:10px 0}
 .video-wrap iframe,.video-wrap video{position:absolute;inset:0;width:100%;height:100%;border:none;object-fit:contain}
@@ -497,7 +444,6 @@ img{max-width:100%;display:block}
   .content{padding:18px 24px}
   .description{font-size:15px}
   .extra-scroll{padding:12px 24px 4px}
-  .related-list{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .bottom-bar{max-width:680px;left:50%;transform:translateX(-50%);width:100%}
 }
 /* ── 스크린리더 전용 ── */
@@ -593,11 +539,6 @@ img{max-width:100%;display:block}
       🔗 원본 페이지에서 자세히 보기
     </a>` : ""}
 
-    <div class="divider"></div>
-
-    <!-- 관련 강릉노트 -->
-    ${relatedHtml}
-
   </div>
 
   <!-- 브랜드 푸터 -->
@@ -633,12 +574,11 @@ router.get("/:id", async (req, res) => {
     return;
   }
 
-  const [related] = await Promise.all([findRelated(id, item.category)]);
   const ogImageOverride = cardExists ? `${SITE_URL}/api/cards/${id}.png` : null;
 
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-  res.send(renderHtml(item, contentUrl, cardExists, related, ogImageOverride));
+  res.send(renderHtml(item, contentUrl, cardExists, ogImageOverride));
 });
 
 export default router;

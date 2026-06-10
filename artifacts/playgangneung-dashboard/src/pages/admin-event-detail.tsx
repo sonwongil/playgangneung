@@ -96,16 +96,17 @@ export default function AdminEventDetail() {
   const [isUploadingSlot, setIsUploadingSlot] = useState<number | null>(null);
   const [imageTab, setImageTab] = useState<"url" | "upload">("url");
 
-  const { data, isLoading } = useQuery<{ events: Event[] }>({
-    queryKey: ["admin-events"],
+  const { data, isLoading } = useQuery<{ success: boolean; event: Event }>({
+    queryKey: ["admin-event", eventId],
     queryFn: async () => {
-      const r = await fetch(`${BASE}/api/events`, { credentials: "include" });
+      const r = await fetch(`${BASE}/api/events/${eventId}`, { credentials: "include" });
       if (!r.ok) throw new Error("로드 실패");
       return r.json();
     },
+    enabled: !!eventId,
   });
 
-  const event = data?.events.find((e) => e.id === eventId) ?? null;
+  const event = data?.event ?? null;
 
   useEffect(() => {
     if (event && !inited) {
@@ -164,6 +165,7 @@ export default function AdminEventDetail() {
     onSuccess: () => {
       toast({ title: "저장 완료 — 공개 피드에 반영됐습니다" });
       setIsDirty(false);
+      qc.invalidateQueries({ queryKey: ["admin-event", eventId] });
       qc.invalidateQueries({ queryKey: ["admin-events"] });
     },
     onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
@@ -193,6 +195,7 @@ export default function AdminEventDetail() {
         });
       }
       setIsDirty(false);
+      qc.invalidateQueries({ queryKey: ["admin-event", eventId] });
       qc.invalidateQueries({ queryKey: ["admin-events"] });
       toast({ title: "이미지 업로드 완료", description: slot === 0 ? "대표 이미지가 적용되었습니다." : `추가 이미지 ${slot}이 적용되었습니다.` });
     } catch (e: unknown) {
@@ -210,6 +213,7 @@ export default function AdminEventDetail() {
     },
     onSuccess: () => {
       toast({ title: "삭제 완료" });
+      qc.invalidateQueries({ queryKey: ["admin-event", eventId] });
       qc.invalidateQueries({ queryKey: ["admin-events"] });
       navigate("/admin");
     },

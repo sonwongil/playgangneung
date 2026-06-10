@@ -19,6 +19,8 @@ import {
   updateEvent,
 } from "../lib/storage.js";
 import type { CrawledEvent, EventStatus } from "../lib/storage.js";
+import { db, eventsTable, adsTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
 import { generateSocialDraft } from "../lib/draft.js";
 import { generateCardImage } from "../lib/card.js";
 import { parseDates, detectCategory } from "../lib/dateParser.js";
@@ -82,6 +84,43 @@ router.get("/events", async (req, res) => {
   } catch (err) {
     req.log.error({ err }, "이벤트 목록 조회 실패");
     res.status(500).json({ success: false, error: "이벤트 목록 조회 실패" });
+  }
+});
+
+router.get("/events/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // 1. DB 직접 단건 조회 (빠른 경로)
+    try {
+      const rows = await db.select().from(eventsTable).where(eq(eventsTable.id, id)).limit(1);
+      if (rows[0]) {
+        const ev = rows[0] as unknown as CrawledEvent;
+        return res.json({ success: true, event: enrichEvent(ev) });
+      }
+    } catch { /* fall through */ }
+
+    // 2. readEvents() fallback
+    try {
+      const stored = await readEvents();
+      const ev = stored.find((e) => e.id === id);
+      if (ev) return res.json({ success: true, event: enrichEvent(ev) });
+    } catch { /* fall through */ }
+
+    // 3. 광고 테이블 fallback
+    try {
+      const rows = await db.select().from(adsTable).where(eq(adsTable.id, id)).limit(1);
+      if (rows[0]) {
+        const ad = rows[0] as Record<string, unknown>;
+        return res.json({ success: true, event: ad, isAd: true });
+      }
+    } catch { /* fall through */ }
+
+    req.log.warn({ id }, "이벤트 단건 조회 — 찾을 수 없음");
+    return res.status(404).json({ success: false, error: "콘텐츠를 찾을 수 없습니다." });
+  } catch (err) {
+    req.log.error({ err }, "이벤트 단건 조회 실패");
+    return res.status(500).json({ success: false, error: "이벤트 조회 실패" });
   }
 });
 

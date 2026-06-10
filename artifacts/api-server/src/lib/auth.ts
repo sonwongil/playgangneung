@@ -47,6 +47,22 @@ export function verifyAdminToken(token: string): boolean {
   }
 }
 
+/**
+ * 서버 시작 시 ADMIN_DEFAULT_PASSWORD 환경변수가 설정돼 있으면
+ * 현재 해시에 관계없이 해당 값으로 비밀번호를 강제 재설정합니다.
+ * 재설정 후에는 환경변수를 제거해도 됩니다.
+ */
+export async function resetPasswordFromEnv(): Promise<void> {
+  const envPassword = process.env["ADMIN_DEFAULT_PASSWORD"];
+  if (!envPassword) return;
+  const salt = crypto.randomBytes(16).toString("hex");
+  const passwordHash = hashPassword(envPassword, salt);
+  await db
+    .insert(authTable)
+    .values({ id: "main", passwordHash, salt })
+    .onConflictDoUpdate({ target: authTable.id, set: { passwordHash, salt } });
+}
+
 export async function changePassword(newPassword: string): Promise<void> {
   const salt = crypto.randomBytes(16).toString("hex");
   const passwordHash = hashPassword(newPassword, salt);

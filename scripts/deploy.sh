@@ -15,6 +15,13 @@ echo "✅ 타입 검사 완료"
 echo ""
 echo "▶ [2/4] 프론트엔드 프로덕션 빌드 중..."
 echo "    (Workbox SW + manifest.webmanifest 생성)"
+
+# .env.production 파일이 있으면 운영 키 검증 수행
+if [ -f "artifacts/playgangneung-dashboard/.env.production" ]; then
+  bash "$(dirname "$0")/check-prod-env.sh" \
+    "artifacts/playgangneung-dashboard/.env.production"
+fi
+
 PORT=22508 BASE_PATH=/ NODE_ENV=production \
   pnpm --filter @workspace/playgangneung-dashboard run build 2>&1 | tail -15
 echo "✅ 프론트엔드 빌드 완료"

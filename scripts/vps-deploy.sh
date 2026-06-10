@@ -61,8 +61,12 @@ echo "✅ 완료"
 # ── 프론트엔드 빌드 ───────────────────────────────────────
 echo ""
 echo "▶ [4/5] 프론트엔드 빌드..."
-# Vite VITE_ 환경변수가 artifacts/playgangneung-dashboard/.env 에 있어야 함
-# 없으면 기본값(테스트 키)으로 빌드됨
+
+# 빌드 전 운영 환경변수 검증 (pk_live_ 키 필수)
+bash "$(dirname "$0")/check-prod-env.sh" \
+  "artifacts/playgangneung-dashboard/.env.production"
+
+# Vite VITE_ 환경변수가 artifacts/playgangneung-dashboard/.env.production 에 있어야 함
 NODE_ENV=production BASE_PATH=/ pnpm --filter @workspace/playgangneung-dashboard run build
 echo "✅ 완료"
 

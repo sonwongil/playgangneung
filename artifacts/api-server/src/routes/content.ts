@@ -510,12 +510,6 @@ img{max-width:100%;display:block}
     <!-- 해시태그 -->
     ${hashtagsHtml}
 
-    <!-- 원본 보기 버튼 -->
-    ${hasLink ? `<div class="divider"></div>
-    <a href="${escHtml(item.link)}" target="_blank" rel="noopener noreferrer" class="orig-btn">
-      🔗 원본 페이지에서 자세히 보기
-    </a>` : ""}
-
     <!-- 핵심 정보 카드 -->
     <section aria-labelledby="info-title" style="margin-top:16px">
       <h2 id="info-title" class="sr-only">핵심 정보</h2>

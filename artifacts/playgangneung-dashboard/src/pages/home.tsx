@@ -1204,9 +1204,7 @@ export default function Home() {
                     return (
                       <a
                         key={item.id}
-                        href={item.url || `${BASE}/content/${item.id}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                        href={`/content/${item.id}`}
                         draggable={false}
                         onClick={(e) => { if (premiumDrag.current.moved) e.preventDefault(); }}
                         className="shrink-0 w-44 cursor-pointer group"
@@ -1239,6 +1237,18 @@ export default function Home() {
                           <span className="flex items-center gap-0.5"><MessageCircle className="w-3 h-3" />{stats.comments}</span>
                           <span className="flex items-center gap-0.5"><Eye className="w-3 h-3" />{stats.views}</span>
                         </div>
+                        {item.url && (
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <a
+                              href={item.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-[11px] text-blue-500 hover:text-blue-700 font-medium transition-colors mt-1"
+                            >
+                              광고주 링크 ↗
+                            </a>
+                          </div>
+                        )}
                       </a>
                     );
                   })}

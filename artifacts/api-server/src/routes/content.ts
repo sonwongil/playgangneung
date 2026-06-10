@@ -319,7 +319,7 @@ function renderHtml(
   const hasContact = !!(item.contact) && item.contact !== item.source;
 
   // 뒤로가기 / 공유
-  const backScript = `if(history.length>1){history.back();}else{window.location.href='${escJs(SITE_URL)}';}`;
+  const backScript = `if(history.length>1){history.back();}else{window.location.href='/';}`;
   const shareTitle = escJs(item.title);
   const shareDesc = escJs(summary);
   const shareUrl = escJs(contentUrl);
@@ -463,7 +463,7 @@ img{max-width:100%;display:block}
 <nav class="nav-bar" aria-label="페이지 탐색">
   <button class="nav-btn nav-btn-back" onclick="${escHtml(backScript)}">← 돌아가기</button>
   <span class="nav-sep" aria-hidden="true">|</span>
-  <a href="${SITE_URL}" class="nav-btn nav-btn-home">🏠 PLAY강릉 홈</a>
+  <a href="/" class="nav-btn nav-btn-home">🏠 PLAY강릉 홈</a>
 </nav>
 
 <div class="page-wrap">
@@ -548,7 +548,7 @@ img{max-width:100%;display:block}
   ${hasLink
     ? `<a href="${escHtml(item.link)}" target="_blank" rel="noopener noreferrer" class="btn btn-primary">🔗 원본 보기</a>`
     : ""}
-  <a href="${SITE_URL}" class="btn btn-secondary">🏠 홈</a>
+  <a href="/" class="btn btn-secondary">🏠 홈</a>
 </div>
 
 </body>

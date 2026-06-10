@@ -1,0 +1,218 @@
+# PLAY강릉 Replit 작업 기억 지시서
+
+## 1. 작업 완료 기준
+
+PLAY강릉 작업에서 “완료”란 단순히 코드를 수정했다는 뜻이 아니다.
+
+반드시 아래 단계까지 끝나야 완료로 본다.
+
+1. 코드 수정
+2. 로컬 또는 Replit 환경에서 검증
+3. `npm run typecheck` 실행
+4. `npm run build` 실행
+5. 필요한 경우 `bash scripts/validate.sh` 실행
+6. 변경 파일 목록 확인
+7. Git commit 생성
+8. GitHub `main` 브랜치에 push
+9. push된 커밋 해시 또는 GitHub 반영 여부 보고
+
+즉, GitHub에 push하지 않은 작업은 완료로 보고하지 않는다.
+
+---
+
+## 2. 반드시 지켜야 할 원칙
+
+PLAY강릉은 현재 다음 구조로 운영된다.
+
+* Replit: 개발 및 수정 작업장
+* GitHub main: 공식 코드 기준점
+* Cafe24 VPS: 실제 운영 서버
+* 운영 경로: `/var/www/playgangneung`
+* PM2 프로세스명: `playgangneung`
+* PM2 모드: 반드시 `fork`
+* PM2 instances: 반드시 `1`
+
+따라서 Replit에서만 정상인 상태는 완료가 아니다.
+GitHub main에 push되어야 Cafe24 VPS에서 `git pull origin main`으로 운영 반영할 수 있다.
+
+---
+
+## 3. 작업 후 필수 명령
+
+작업이 끝나면 반드시 아래 순서로 확인한다.
+
+```bash
+npm run typecheck
+npm run build
+```
+
+프로젝트에 검증 스크립트가 있는 경우:
+
+```bash
+bash scripts/validate.sh
+```
+
+그 다음 변경 파일을 확인한다.
+
+```bash
+git status
+git diff --stat
+```
+
+문제가 없으면 commit 한다.
+
+```bash
+git add .
+git commit -m "작업 내용 요약"
+```
+
+그리고 반드시 GitHub main에 push 한다.
+
+```bash
+git push origin main
+```
+
+---
+
+## 4. push 여부 확인
+
+push 후 반드시 아래 중 하나로 확인한다.
+
+```bash
+git status
+```
+
+정상 예시:
+
+```text
+Your branch is up to date with 'origin/main'.
+nothing to commit, working tree clean
+```
+
+또는:
+
+```bash
+git log --oneline -1
+```
+
+마지막 커밋 해시를 보고한다.
+
+---
+
+## 5. 완료 보고 형식
+
+앞으로 모든 작업 완료 보고는 아래 형식으로만 한다.
+
+````md
+## 작업 완료 보고
+
+### 수정 목적
+-
+
+### 수정 파일
+-
+
+### 주요 수정 내용
+-
+
+### 검증 결과
+- npm run typecheck:
+- npm run build:
+- bash scripts/validate.sh:
+
+### GitHub 반영
+- commit hash:
+- push 여부: 완료 / 실패
+- branch: main
+
+### VPS 반영 필요 여부
+- 필요 / 불필요
+
+### VPS에서 실행할 명령
+```bash
+cd /var/www/playgangneung
+git pull origin main
+npm run build
+pm2 restart playgangneung
+pm2 status
+````
+
+### 확인 URL
+
+*
+
+````
+
+GitHub push가 실패했거나 차단되었으면, “완료”라고 말하지 말고 반드시 실패 사유를 보고한다.
+
+---
+
+## 6. 절대 금지 사항
+
+다음은 임의로 변경하지 않는다.
+
+- nginx 설정
+- DNS 설정
+- SSL / certbot 설정
+- PM2 cluster mode 변경
+- PM2 instances 변경
+- `ecosystem.config.cjs`의 fork / instances=1 원칙
+- 운영 DB 직접 수정
+- 기존 홈 피드 구조
+- TOP5 캐러셀 구조
+- `/content/:id` 강릉노트 구조
+- 광고접수 / Meta 연동 구조
+
+특히 PM2는 반드시 다음 원칙을 유지한다.
+
+```text
+exec_mode: fork
+instances: 1
+````
+
+---
+
+## 7. 환경변수 관련 작업 원칙
+
+운영환경 문제를 다룰 때는 Replit 개발환경 기준으로 판단하지 않는다.
+
+운영 사이트 `playgangneung.com` 문제는 Cafe24 VPS 기준으로 판단한다.
+
+운영환경에서는 다음 값이 들어가면 안 된다.
+
+* `pk_test_...`
+* `sk_test_...`
+* `localhost`
+* `127.0.0.1`
+* `replit.dev`
+* `replit.app`
+* `REPLACE_ME`
+
+운영 Clerk 공개키는 반드시 다음 형식이어야 한다.
+
+```env
+VITE_CLERK_PUBLISHABLE_KEY=pk_live_...
+```
+
+단, Secret Key는 절대 화면 캡처, 로그, GitHub, 프론트엔드 번들에 노출하지 않는다.
+
+---
+
+## 8. 중요한 기준
+
+Replit Preview 정상은 완료가 아니다.
+GitHub main push 완료도 운영 반영 완료는 아니다.
+
+PLAY강릉 실제 완료 기준은 다음이다.
+
+```text
+Replit 수정
+→ 검증 통과
+→ GitHub main push
+→ Cafe24 VPS git pull
+→ VPS build
+→ PM2 restart
+→ playgangneung.com 실제 확인
+```
+
+Replit 담당 작업의 완료 기준은 최소한 GitHub main push까지다.

@@ -105,6 +105,18 @@ artifacts/
 - **모든 날짜·시각 처리는 한국 시각(KST, UTC+9) 기준으로 진행한다.**
 - **배포 전 개발앱과 배포앱의 동일성을 반드시 한 번 더 확인하고 맞춘 후 배포한다.**
 
+## 배포 절차 (반드시 이 순서 준수)
+
+1. **Replit 수정** — 코드 변경
+2. **Replit 검증** — `pnpm run typecheck` + 빌드 확인
+3. **GitHub pull/rebase 먼저** — GitHub 최신 main을 Replit으로 가져온 후 충돌 해결
+4. **일반 push** — `git push --force` / `git push -f` **절대 금지**, 항상 일반 push
+5. **Cafe24 git pull** — `cd /var/www/playgangneung && git pull origin main`
+6. **운영앱 빌드** — `pnpm --filter @workspace/api-server --filter @workspace/playgangneung-dashboard run build`
+7. **PM2 재시작** — `pm2 restart playgangneung`
+
+> `git push --force` / `git push -f` 는 어떤 상황에서도 사용하지 않는다.
+
 ## Version History
 
 | 버전 | 커밋 | 날짜 | 주요 내용 |

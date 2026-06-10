@@ -105,6 +105,116 @@ artifacts/
 - **모든 날짜·시각 처리는 한국 시각(KST, UTC+9) 기준으로 진행한다.**
 - **배포 전 개발앱과 배포앱의 동일성을 반드시 한 번 더 확인하고 맞춘 후 배포한다.**
 
+## 작업 완료 기준 (Replit Agent 필수 준수)
+
+### 완료 정의
+
+"완료"란 코드 수정만을 뜻하지 않는다. 반드시 아래 단계까지 끝나야 완료다.
+
+1. 코드 수정
+2. Replit 환경에서 검증
+3. `pnpm run typecheck` 통과
+4. `pnpm run build` 통과
+5. 필요 시 `bash scripts/validate.sh` 실행
+6. 변경 파일 목록 확인
+7. Git commit 생성
+8. GitHub `main` 브랜치에 push
+9. push된 커밋 해시 보고
+
+**GitHub에 push하지 않은 작업은 완료로 보고하지 않는다.**
+
+### 운영 구조
+
+| 역할 | 위치 |
+|---|---|
+| 개발·수정 | Replit |
+| 공식 코드 기준 | GitHub main |
+| 실제 운영 서버 | Cafe24 VPS `/var/www/playgangneung` |
+| PM2 프로세스명 | `playgangneung` |
+| PM2 모드 | **fork (cluster 절대 금지)** |
+| PM2 instances | **1 (변경 금지)** |
+
+### 작업 후 필수 명령 순서
+
+```bash
+pnpm run typecheck
+pnpm run build          # 또는 pnpm --filter @workspace/playgangneung-dashboard run build
+bash scripts/validate.sh
+git status
+git push "https://${GITHUB_TOKEN}@github.com/sonwongil/playgangneung.git" main
+```
+
+### 완료 보고 형식 (모든 작업에 적용)
+
+```md
+## 작업 완료 보고
+
+### 수정 목적
+-
+
+### 수정 파일
+-
+
+### 주요 수정 내용
+-
+
+### 검증 결과
+- pnpm run typecheck:
+- pnpm run build:
+- bash scripts/validate.sh:
+
+### GitHub 반영
+- commit hash:
+- push 여부: 완료 / 실패
+- branch: main
+
+### VPS 반영 필요 여부
+- 필요 / 불필요
+
+### VPS에서 실행할 명령
+cd /var/www/playgangneung
+git pull origin main
+pnpm --filter @workspace/api-server --filter @workspace/playgangneung-dashboard run build
+pm2 restart playgangneung
+pm2 status
+
+### 확인 URL
+-
+```
+
+### 절대 금지 사항
+
+다음은 절대 임의로 변경하지 않는다.
+
+- nginx / DNS / SSL / certbot 설정
+- PM2 cluster mode 또는 instances 수 변경
+- `ecosystem.config.cjs`의 `exec_mode: fork`, `instances: 1`
+- 운영 DB 직접 수정
+- 홈 피드 구조 / TOP5 캐러셀 / `/content/:id` 강릉노트 구조
+- 광고접수 / Meta 연동 구조
+- `git push --force` / `git push -f` — **어떤 상황에서도 절대 금지**
+
+### 환경변수 운영 원칙
+
+운영 환경에 들어가면 안 되는 값:
+
+- `pk_test_...` / `sk_test_...`
+- `localhost` / `127.0.0.1`
+- `replit.dev` / `replit.app`
+- `REPLACE_ME`
+
+운영 Clerk 공개키 필수 형식: `VITE_CLERK_PUBLISHABLE_KEY=pk_live_...`
+Secret Key(`sk_live_...`)는 화면·로그·GitHub·JS 번들에 절대 노출 금지.
+
+### 실제 완료 기준 (전체 흐름)
+
+```
+Replit 수정 → 검증 통과 → GitHub main push
+→ Cafe24 VPS git pull → VPS build → PM2 restart → playgangneung.com 실제 확인
+```
+
+Replit 담당 작업의 최소 완료 기준은 **GitHub main push**까지다.
+
 ## 배포 절차 (반드시 이 순서 준수)
 
 1. **Replit 수정** — 코드 변경

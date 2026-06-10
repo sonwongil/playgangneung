@@ -55,4 +55,24 @@ router.post("/auth/change-password", requireAdmin, async (req, res) => {
   res.json({ ok: true });
 });
 
+// ── 임시 비상 비밀번호 재설정 (SESSION_SECRET 토큰 인증) ──────────────────────
+// 배포 DB와 개발 DB가 달라 생기는 비밀번호 불일치 해소용. 1회 사용 후 제거 예정.
+router.post("/auth/emergency-reset", async (req, res) => {
+  const { token, newPassword } = req.body as {
+    token?: string;
+    newPassword?: string;
+  };
+  const sessionSecret = process.env["SESSION_SECRET"];
+  if (!sessionSecret || !token || token !== sessionSecret) {
+    res.status(403).json({ error: "forbidden" });
+    return;
+  }
+  if (!newPassword || newPassword.length < 4) {
+    res.status(400).json({ error: "newPassword must be >= 4 chars" });
+    return;
+  }
+  await changePassword(newPassword);
+  res.json({ ok: true });
+});
+
 export default router;

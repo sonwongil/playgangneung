@@ -2,8 +2,6 @@ import crypto from "crypto";
 import { db, authTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 
-const DEFAULT_PASSWORD = process.env["ADMIN_DEFAULT_PASSWORD"] ?? "1235";
-
 function hashPassword(password: string, salt: string): string {
   return crypto.scryptSync(password, salt, 64).toString("hex");
 }
@@ -12,7 +10,7 @@ async function getOrCreateAuth() {
   const rows = await db.select().from(authTable).where(eq(authTable.id, "main"));
   if (rows.length > 0) return rows[0];
   const salt = crypto.randomBytes(16).toString("hex");
-  const passwordHash = hashPassword(DEFAULT_PASSWORD, salt);
+  const passwordHash = hashPassword("1235", salt);
   await db
     .insert(authTable)
     .values({ id: "main", passwordHash, salt })
@@ -20,10 +18,53 @@ async function getOrCreateAuth() {
   return { id: "main", passwordHash, salt };
 }
 
+/**
+ * 비밀번호 검증.
+ *
+ * ADMIN_DEFAULT_PASSWORD 환경변수(Replit Secret)가 설정돼 있으면
+ * DB 해시를 전혀 사용하지 않고 환경변수 값과 직접 비교합니다.
+ * → 개발/배포 DB가 달라도 시크릿 하나로 항상 동일하게 동작합니다.
+ *
+ * 환경변수가 없으면 DB 해시 방식(scrypt)으로 폴백합니다.
+ */
 export async function verifyPassword(password: string): Promise<boolean> {
+  const envPassword = process.env["ADMIN_DEFAULT_PASSWORD"];
+  if (envPassword) {
+    const a = Buffer.from(password.padEnd(envPassword.length, "\0").slice(0, envPassword.length));
+    const b = Buffer.from(envPassword);
+    if (a.length !== b.length) return password === envPassword;
+    try {
+      return crypto.timingSafeEqual(a, b) && password.length === envPassword.length;
+    } catch {
+      return false;
+    }
+  }
   const data = await getOrCreateAuth();
   const hash = hashPassword(password, data.salt);
   return hash === data.passwordHash;
+}
+
+/**
+ * 비밀번호 변경.
+ *
+ * ADMIN_DEFAULT_PASSWORD 시크릿이 설정된 상태면 DB 해시 변경은 효과가 없으므로
+ * 시크릿을 직접 수정하도록 안내합니다.
+ */
+export async function changePassword(newPassword: string): Promise<void> {
+  if (process.env["ADMIN_DEFAULT_PASSWORD"]) {
+    throw new Error(
+      "ADMIN_DEFAULT_PASSWORD 시크릿으로 인증 중입니다. Replit Secrets에서 ADMIN_DEFAULT_PASSWORD 값을 변경하세요.",
+    );
+  }
+  const salt = crypto.randomBytes(16).toString("hex");
+  const passwordHash = hashPassword(newPassword, salt);
+  await db
+    .insert(authTable)
+    .values({ id: "main", passwordHash, salt })
+    .onConflictDoUpdate({
+      target: authTable.id,
+      set: { passwordHash, salt },
+    });
 }
 
 // ── iframe/크로스-오리진 환경을 위한 Bearer 토큰 (쿠키 세션 보완) ──────────
@@ -47,11 +88,7 @@ export function verifyAdminToken(token: string): boolean {
   }
 }
 
-/**
- * 서버 시작 시 ADMIN_DEFAULT_PASSWORD 환경변수가 설정돼 있으면
- * 현재 해시에 관계없이 해당 값으로 비밀번호를 강제 재설정합니다.
- * 재설정 후에는 환경변수를 제거해도 됩니다.
- */
+/** @deprecated 이제 verifyPassword()가 환경변수를 직접 읽으므로 호출 불필요 */
 export async function resetPasswordFromEnv(): Promise<void> {
   const envPassword = process.env["ADMIN_DEFAULT_PASSWORD"];
   if (!envPassword) return;
@@ -61,16 +98,4 @@ export async function resetPasswordFromEnv(): Promise<void> {
     .insert(authTable)
     .values({ id: "main", passwordHash, salt })
     .onConflictDoUpdate({ target: authTable.id, set: { passwordHash, salt } });
-}
-
-export async function changePassword(newPassword: string): Promise<void> {
-  const salt = crypto.randomBytes(16).toString("hex");
-  const passwordHash = hashPassword(newPassword, salt);
-  await db
-    .insert(authTable)
-    .values({ id: "main", passwordHash, salt })
-    .onConflictDoUpdate({
-      target: authTable.id,
-      set: { passwordHash, salt },
-    });
 }

@@ -1,4 +1,4 @@
-import { db, eventsTable } from "@workspace/db";
+import { db, eventsTable, type ContentBlock } from "@workspace/db";
 import { desc, eq, sql } from "drizzle-orm";
 import type { ScheduleStatus } from "./dateParser.js";
 
@@ -35,7 +35,10 @@ export interface CrawledEvent {
   crawledAt: string;
   userId: string | null;
   authorDisplayName: string | null;
+  contentBlocks: ContentBlock[] | null;
 }
+
+export type { ContentBlock };
 
 function rowToEvent(row: typeof eventsTable.$inferSelect): CrawledEvent {
   return {
@@ -61,6 +64,7 @@ function rowToEvent(row: typeof eventsTable.$inferSelect): CrawledEvent {
     crawledAt: row.crawledAt,
     userId: row.userId ?? null,
     authorDisplayName: row.authorDisplayName ?? null,
+    contentBlocks: (row.contentBlocks as ContentBlock[] | null) ?? null,
   };
 }
 

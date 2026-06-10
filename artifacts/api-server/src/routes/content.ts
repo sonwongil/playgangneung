@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, eventsTable, adsTable } from "@workspace/db";
+import { db, eventsTable, adsTable, type ContentBlock } from "@workspace/db";
 import { eq, desc, and } from "drizzle-orm";
 import { readEvents, type SocialDraft } from "../lib/storage.js";
 import fs from "fs/promises";
@@ -61,6 +61,7 @@ interface ContentItem {
   extraImages: string[];
   hashtags: string[];
   socialDraft?: SocialDraft | null;
+  contentBlocks?: ContentBlock[] | null;
 }
 
 
@@ -89,6 +90,7 @@ function crawledEventToContentItem(ev: Awaited<ReturnType<typeof readEvents>>[nu
     hashtags: ev.hashtags ?? [],
     socialDraft: ev.socialDraft ?? null,
     location: ev.location || undefined,
+    contentBlocks: ev.contentBlocks ?? null,
   };
 }
 
@@ -115,6 +117,7 @@ async function findContent(id: string): Promise<ContentItem | null> {
         hashtags: (ev.hashtags as string[] | null) ?? [],
         socialDraft: (ev.socialDraft as SocialDraft | null) ?? null,
         location: ev.location || undefined,
+        contentBlocks: (ev.contentBlocks as ContentBlock[] | null) ?? null,
       };
     }
   } catch { /* fall through */ }
@@ -335,6 +338,16 @@ function renderHtml(
       ).join("")}</div>`
     : "";
 
+  // 추가 콘텐츠 블록
+  const contentBlocksHtml = (item.contentBlocks && item.contentBlocks.length > 0)
+    ? item.contentBlocks.map((block) => {
+        if (block.type === "text") return `<p class="block-text">${escHtml(block.content)}</p>`;
+        if (block.type === "image") return `<img src="${escHtml(proxyUrl(block.content))}" alt="추가 이미지" class="block-img" loading="lazy" onerror="this.style.display='none'">`;
+        if (block.type === "video") return renderVideoSection(block.content);
+        return "";
+      }).join("")
+    : "";
+
   // 해시태그
   const hashtagsHtml = item.hashtags.length > 0
     ? `<div class="hashtag-row" aria-label="해시태그">${item.hashtags.map(tag =>
@@ -382,9 +395,9 @@ img{max-width:100%;display:block}
 .header-back{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:50%;background:#f1f5f9;color:#475569;font-size:20px;flex-shrink:0;cursor:pointer;border:none}
 .header-share{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:50%;background:#f0fdf4;color:#15803d;font-size:16px;flex-shrink:0;cursor:pointer;border:1px solid #bbf7d0}
 /* ── 히어로 이미지 ── */
-.hero{width:100%;overflow:hidden;background:#000;line-height:0}
-.hero img{width:100%;height:280px;object-fit:cover;object-position:center top}
-.hero img.card-hero{object-fit:contain;background:#fff;height:auto;max-height:420px}
+.hero{width:100%;overflow:hidden;background:#fff;line-height:0}
+.hero img{width:100%;object-fit:contain;background:#fff}
+.hero img.card-hero{background:#fff}
 /* ── 텍스트 히어로 (이미지 없을 때) ── */
 .hero-text{display:flex;flex-direction:column;justify-content:flex-end;padding:32px 16px 20px;min-height:140px}
 .hero-text-subtitle{font-size:12px;color:rgba(255,255,255,.75);margin-top:5px}
@@ -427,13 +440,15 @@ img{max-width:100%;display:block}
 .brand-footer{text-align:center;padding:20px 16px 12px;font-size:11px;color:#94a3b8}
 /* ── PC ── */
 @media(min-width:640px){
-  .hero img{height:380px}
-  .hero img.card-hero{max-height:520px}
+  .hero img{max-height:600px}
   .main-title{font-size:24px}
   .content{padding:20px 24px 4px}
   .description{font-size:15px}
   .bottom-bar{max-width:680px;left:50%;transform:translateX(-50%);width:100%}
 }
+/* ── 콘텐츠 블록 ── */
+.block-text{font-size:14px;line-height:1.9;color:#334155;word-break:keep-all;white-space:pre-wrap;margin-bottom:16px}
+.block-img{width:100%;border-radius:12px;margin-bottom:16px;object-fit:contain;background:#f8fafc}
 /* ── 스크린리더 전용 ── */
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border-width:0}
 </style>
@@ -507,6 +522,9 @@ img{max-width:100%;display:block}
       ${extraImagesHtml}
       ${item.videoUrl ? renderVideoSection(item.videoUrl) : ""}
     </section>` : ""}
+
+    <!-- 추가 콘텐츠 블록 -->
+    ${contentBlocksHtml ? `<section aria-label="추가 콘텐츠" style="margin-bottom:20px">${contentBlocksHtml}</section>` : ""}
 
     <!-- 해시태그 -->
     ${hashtagsHtml}

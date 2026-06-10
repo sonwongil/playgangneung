@@ -1,5 +1,10 @@
 import { pgTable, text, jsonb, timestamp, index } from "drizzle-orm/pg-core";
 
+export interface ContentBlock {
+  type: "text" | "image" | "video";
+  content: string;
+}
+
 export const eventsTable = pgTable(
   "events",
   {
@@ -27,6 +32,7 @@ export const eventsTable = pgTable(
     imageExpiresAt: timestamp("image_expires_at"),
     userId: text("user_id"),
     authorDisplayName: text("author_display_name"),
+    contentBlocks: jsonb("content_blocks").$type<ContentBlock[]>(),
   },
   (t) => [index("events_status_idx").on(t.status)],
 );

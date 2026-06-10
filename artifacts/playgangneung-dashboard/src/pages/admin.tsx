@@ -89,6 +89,11 @@ interface SocialDraft {
   createdAt: string;
 }
 
+interface ContentBlock {
+  type: "text" | "image" | "video";
+  content: string;
+}
+
 interface Event {
   id: string;
   title: string;
@@ -107,6 +112,8 @@ interface Event {
   status: "draft" | "approved" | "rejected" | "published" | "submitted";
   socialDraft: SocialDraft | null;
   crawledAt: string;
+  contact?: string;
+  contentBlocks?: ContentBlock[] | null;
 }
 
 interface Ad {
@@ -445,6 +452,9 @@ export default function Admin() {
   const [mobilePreviewPath, setMobilePreviewPath] = useState("/");
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [editThumbnailUrl, setEditThumbnailUrl] = useState("");
+  const [editBlocks, setEditBlocks] = useState<ContentBlock[]>([]);
+  const [addBlockType, setAddBlockType] = useState<ContentBlock["type"]>("text");
+  const [addBlockContent, setAddBlockContent] = useState("");
   const [editingAd, setEditingAd] = useState<Ad | null>(null);
   const [selectedAd, setSelectedAd] = useState<Ad | null>(null);
   const [showManualDialog, setShowManualDialog] = useState(false);
@@ -1039,8 +1049,17 @@ export default function Admin() {
     onError: () => toast({ title: "승인 실패", variant: "destructive" }),
   });
 
+  useEffect(() => {
+    if (editingEvent) {
+      setEditThumbnailUrl(editingEvent.thumbnail ?? "");
+      setEditBlocks(editingEvent.contentBlocks ?? []);
+      setAddBlockContent("");
+      setAddBlockType("text");
+    }
+  }, [editingEvent]);
+
   const editEventMutation = useMutation({
-    mutationFn: async ({ id, patch }: { id: string; patch: Partial<Event> }) => {
+    mutationFn: async ({ id, patch }: { id: string; patch: Partial<Event> & { contentBlocks?: ContentBlock[] | null } }) => {
       const r = await fetch(`${BASE}/api/events/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify(patch) });
       if (!r.ok) throw new Error("수정 실패");
       return r.json();
@@ -6610,6 +6629,7 @@ export default function Admin() {
               category: fd.get("category") as string,
               startDate: fd.get("startDate") as string,
               endDate: fd.get("endDate") as string,
+              contentBlocks: editBlocks.length > 0 ? editBlocks : null,
             }});
           }}>
             <div className="space-y-2">
@@ -6637,6 +6657,63 @@ export default function Admin() {
               <div className="space-y-1"><Label>시작일</Label><Input name="startDate" type="date" defaultValue={editingEvent.startDate ?? editingEvent.date} /></div>
               <div className="space-y-1"><Label>종료일</Label><Input name="endDate" type="date" defaultValue={editingEvent.endDate ?? ""} /></div>
             </div>
+
+            {/* 콘텐츠 블록 */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1.5 font-semibold">
+                <PlusCircle className="w-4 h-4 text-blue-500" />
+                추가 콘텐츠 블록
+                <span className="text-[11px] font-normal text-muted-foreground">사진·영상 아래에 표시</span>
+              </Label>
+              {editBlocks.length > 0 && (
+                <div className="space-y-2">
+                  {editBlocks.map((block, i) => (
+                    <div key={i} className="flex items-start gap-2 bg-slate-50 border border-slate-200 rounded-lg p-2.5">
+                      <span className="text-[10px] font-bold uppercase text-slate-400 mt-0.5 w-10 shrink-0">
+                        {block.type === "text" ? "텍스트" : block.type === "image" ? "이미지" : "영상"}
+                      </span>
+                      <p className="text-xs text-slate-600 flex-1 line-clamp-2 break-all">{block.content}</p>
+                      <button type="button" onClick={() => setEditBlocks((b) => b.filter((_, j) => j !== i))} className="text-slate-400 hover:text-red-500 shrink-0 mt-0.5">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-2 items-start">
+                <select
+                  value={addBlockType}
+                  onChange={(e) => setAddBlockType(e.target.value as ContentBlock["type"])}
+                  className="border border-input rounded-md px-2 py-2 text-xs bg-background focus:outline-none shrink-0"
+                >
+                  <option value="text">텍스트</option>
+                  <option value="image">이미지 URL</option>
+                  <option value="video">영상 URL</option>
+                </select>
+                <textarea
+                  value={addBlockContent}
+                  onChange={(e) => setAddBlockContent(e.target.value)}
+                  placeholder={addBlockType === "text" ? "추가할 텍스트를 입력하세요..." : "https://..."}
+                  rows={addBlockType === "text" ? 3 : 1}
+                  className="flex-1 border border-input rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="shrink-0"
+                  onClick={() => {
+                    const content = addBlockContent.trim();
+                    if (!content) return;
+                    setEditBlocks((b) => [...b, { type: addBlockType, content }]);
+                    setAddBlockContent("");
+                  }}
+                >
+                  <PlusCircle className="w-3.5 h-3.5 mr-1" />추가
+                </Button>
+              </div>
+            </div>
+
             <DialogFooter className="pt-2">
               <Button type="button" variant="outline" onClick={() => setEditingEvent(null)}>취소</Button>
               <Button type="submit" disabled={editEventMutation.isPending}>{editEventMutation.isPending ? "저장 중..." : "저장"}</Button>

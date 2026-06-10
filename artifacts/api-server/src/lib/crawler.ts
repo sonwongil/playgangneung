@@ -214,6 +214,7 @@ function buildEvent(
     crawledAt: new Date().toISOString(),
     userId: null,
     authorDisplayName: null,
+    contentBlocks: null,
   };
 }
 

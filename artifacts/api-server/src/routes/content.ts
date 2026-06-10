@@ -492,29 +492,6 @@ img{max-width:100%;display:block}
 
   <div class="content">
 
-    <!-- 3. 핵심 정보 카드 -->
-    <section aria-labelledby="info-title">
-      <h2 id="info-title" class="sr-only">핵심 정보</h2>
-      <div class="info-card">
-        ${dateStr ? `<div class="info-row">
-          <span class="info-icon" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>
-          <span>${escHtml(dateStr)}</span>
-        </div>` : ""}
-        ${item.location ? `<div class="info-row">
-          <span class="info-icon" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg></span>
-          <div><span class="info-label">장소/주소</span><div style="margin-top:2px">${escHtml(item.location)}</div></div>
-        </div>` : ""}
-        <div class="info-row">
-          <span class="info-icon" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg></span>
-          <span class="source-pill">출처: ${escHtml(item.source)}</span>
-        </div>
-        ${hasLink ? `<div class="info-row">
-          <span class="info-icon" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg></span>
-          <a href="${escHtml(item.link)}" target="_blank" rel="noopener noreferrer" style="color:#2563eb;font-size:12px;word-break:break-all">${escHtml(new URL(item.link).hostname.replace(/^www\./, ""))}</a>
-        </div>` : ""}
-      </div>
-    </section>
-
     <!-- 동영상 -->
     ${item.videoUrl ? `<p class="video-label">▶ 동영상</p>${renderVideoSection(item.videoUrl)}<div class="divider"></div>` : ""}
 
@@ -538,6 +515,29 @@ img{max-width:100%;display:block}
     <a href="${escHtml(item.link)}" target="_blank" rel="noopener noreferrer" class="orig-btn">
       🔗 원본 페이지에서 자세히 보기
     </a>` : ""}
+
+    <!-- 핵심 정보 카드 -->
+    <section aria-labelledby="info-title" style="margin-top:16px">
+      <h2 id="info-title" class="sr-only">핵심 정보</h2>
+      <div class="info-card">
+        ${dateStr ? `<div class="info-row">
+          <span class="info-icon" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>
+          <span>${escHtml(dateStr)}</span>
+        </div>` : ""}
+        ${item.location ? `<div class="info-row">
+          <span class="info-icon" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg></span>
+          <div><span class="info-label">장소/주소</span><div style="margin-top:2px">${escHtml(item.location)}</div></div>
+        </div>` : ""}
+        <div class="info-row">
+          <span class="info-icon" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg></span>
+          <span class="source-pill">출처: ${escHtml(item.source)}</span>
+        </div>
+        ${hasLink ? `<div class="info-row">
+          <span class="info-icon" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg></span>
+          <a href="${escHtml(item.link)}" target="_blank" rel="noopener noreferrer" style="color:#2563eb;font-size:12px;word-break:break-all">${escHtml(new URL(item.link).hostname.replace(/^www\./, ""))}</a>
+        </div>` : ""}
+      </div>
+    </section>
 
   </div>
 

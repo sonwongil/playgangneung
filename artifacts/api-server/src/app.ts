@@ -3,11 +3,9 @@ import cors from "cors";
 import pinoHttp from "pino-http";
 import cookieSession from "cookie-session";
 import { clerkMiddleware } from "@clerk/express";
-import { publishableKeyFromHost } from "@clerk/shared/keys";
 import {
   CLERK_PROXY_PATH,
   clerkProxyMiddleware,
-  getClerkProxyHost,
 } from "./middlewares/clerkProxyMiddleware.js";
 import router from "./routes/index.js";
 import contentRouter from "./routes/content.js";
@@ -70,12 +68,10 @@ app.use(express.urlencoded({ extended: true, limit: "20mb" }));
 // VPS에서 Clerk 키 없이 배포 시 공개 API(/api/feed, /content/* 등)가 정상 응답하도록 패스스루
 if (process.env.CLERK_SECRET_KEY && process.env.CLERK_PUBLISHABLE_KEY) {
   app.use(
-    clerkMiddleware((req) => ({
-      publishableKey: publishableKeyFromHost(
-        getClerkProxyHost(req) ?? "",
-        process.env.CLERK_PUBLISHABLE_KEY,
-      ),
-    })),
+    clerkMiddleware({
+      publishableKey: process.env.CLERK_PUBLISHABLE_KEY as string,
+      secretKey: process.env.CLERK_SECRET_KEY as string,
+    }),
   );
 }
 

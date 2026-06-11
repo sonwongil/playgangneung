@@ -84,6 +84,52 @@ artifacts/
 - Vite `dedupe: ["react", "react-dom"]` 설정으로 중복 React 방지
 - 강원도청/강원신문/강원도민일보 등 강원도 전역 소스는 명시적으로 제외됨
 
+## Clerk 키 운영 기준 (VPS 배포)
+
+> Replit 자동 Clerk 키와 VPS 운영 Clerk 키를 혼동하지 않기 위한 공식 기준.
+
+### 키 종류 구분
+
+| 키 종류 | 인코딩 도메인 | 용도 | VPS 사용 가능 |
+|---|---|---|---|
+| **개발 키** `pk_test_...` | `.clerk.accounts.dev` | Replit 개발 환경 전용 | ❌ 절대 불가 |
+| **satellite 키** `pk_live_...` | `clerk.playgangneung.com` | Replit Publish + 커스텀 도메인 연결 시 자동 생성 | ❌ DNS CNAME 없으면 불가 |
+| **표준 키** `pk_live_...` | `.clerk.accounts.dev` | Replit Publish 기본 앱 키 | ✅ VPS 운영 사용 |
+
+### VPS 운영 원칙
+
+- **VPS `.env.production`에는 반드시 표준 키(`.clerk.accounts.dev` 기반)를 사용한다.**
+- Replit Publish 시 자동 생성되는 satellite 키(`clerk.playgangneung.com` 인코딩)는 VPS에 사용하지 않는다.
+- `clerk.playgangneung.com` DNS CNAME 방식은 현재 채택하지 않는다.
+
+### 표준 키 확인 방법
+
+```bash
+# 1. 브라우저에서 Replit 기본 도메인 접속 (커스텀 도메인 아님)
+#    https://play-gangneung-dashboard.replit.app/sign-in
+#    DevTools → Network → clerk 요청 URL → pk_live_... 값 복사
+
+# 2. VPS에서 키 종류 검증 (accounts.dev 이면 표준 키)
+python3 -c "
+import base64, sys
+key = 'pk_live_여기에입력'
+raw = key.split('_', 2)[2]
+raw += '=' * (-len(raw) % 4)
+print(base64.b64decode(raw).decode())
+"
+# → .clerk.accounts.dev 포함 시 ✅ 표준 키
+# → clerk.playgangneung.com 포함 시 ❌ satellite 키 — 사용 불가
+```
+
+### check-prod-env.sh 자동 감지
+
+`scripts/check-prod-env.sh`는 satellite 키가 들어오면 자동으로 감지하고 빌드를 차단한다.
+
+```
+❌ 이 키는 Replit Publish 시 자동 생성된 satellite 키입니다.
+   VPS 운영에는 표준 키(.clerk.accounts.dev 기반)를 사용해야 합니다.
+```
+
 ## Meta Ads API 연동
 
 아래 4개 환경변수 **모두 Replit Secrets에 이미 저장됨** — 절대 다시 묻지 말 것.

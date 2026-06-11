@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { Link, useLocation } from "wouter";
-
+import { useClerk, useUser } from "@clerk/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -451,9 +451,8 @@ export default function Home() {
   const menuRef = useRef<HTMLDivElement>(null);
   const hashtagBarRef = useRef<HTMLDivElement>(null);
   const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
-  const signOut = async () => {};
-  const isSignedIn = false;
-  const user = null as null;
+  const { signOut } = useClerk();
+  const { isSignedIn, user } = useUser();
   const [, setLocation] = useLocation();
 
   useEffect(() => {
@@ -713,7 +712,7 @@ export default function Home() {
           {!mobileSearchOpen && (
             <button
               className="sm:hidden flex-1 flex items-center justify-center gap-2 h-9 rounded-full bg-teal-600 hover:bg-teal-700 active:bg-teal-800 transition-colors"
-              onClick={() => { if (!isSignedIn) { setLocation("/sign-in"); return; } setTipDone(false); setTipError(""); setTipForm({ title: "", description: "", category: "강릉소식", startDate: "", endDate: "", location: "", link: "", displayName: "" }); setShowTipModal(true); }}
+              onClick={() => { if (!isSignedIn) { setLocation("/sign-in"); return; } setTipDone(false); setTipError(""); setTipForm({ title: "", description: "", category: "강릉소식", startDate: "", endDate: "", location: "", link: "", displayName: [user?.firstName, user?.lastName].filter(Boolean).join(" ") }); setShowTipModal(true); }}
             >
               <FileText className="w-4 h-4 text-white shrink-0" />
               <span className="text-sm font-extrabold text-white">소식 제보</span>
@@ -803,7 +802,7 @@ export default function Home() {
             {menuOpen && (
               <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden">
                 <button
-                  onClick={() => { setMenuOpen(false); if (!isSignedIn) { setLocation("/sign-in"); return; } setTipDone(false); setTipError(""); setTipForm({ title: "", description: "", category: "강릉소식", startDate: "", endDate: "", location: "", link: "", displayName: "" }); setShowTipModal(true); }}
+                  onClick={() => { setMenuOpen(false); if (!isSignedIn) { setLocation("/sign-in"); return; } setTipDone(false); setTipError(""); setTipForm({ title: "", description: "", category: "강릉소식", startDate: "", endDate: "", location: "", link: "", displayName: [user?.firstName, user?.lastName].filter(Boolean).join(" ") }); setShowTipModal(true); }}
                   className="w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold text-teal-700 hover:bg-teal-50 transition-colors border-b border-gray-100"
                 >
                   <FileText className="w-4 h-4 shrink-0 text-teal-600" />소식 제보하기
@@ -862,7 +861,7 @@ export default function Home() {
 
             {/* 소식 제보 버튼 */}
             <button
-              onClick={() => { if (!isSignedIn) { setLocation("/sign-in"); return; } setTipDone(false); setTipError(""); setTipForm({ title: "", description: "", category: "강릉소식", startDate: "", endDate: "", location: "", link: "", displayName: "" }); setShowTipModal(true); }}
+              onClick={() => { if (!isSignedIn) { setLocation("/sign-in"); return; } setTipDone(false); setTipError(""); setTipForm({ title: "", description: "", category: "강릉소식", startDate: "", endDate: "", location: "", link: "", displayName: [user?.firstName, user?.lastName].filter(Boolean).join(" ") }); setShowTipModal(true); }}
               className="hidden sm:flex shrink-0 items-center gap-1.5 px-3 h-7 rounded-full bg-teal-600 hover:bg-teal-700 active:bg-teal-800 transition-colors"
             >
               <FileText className="w-3.5 h-3.5 text-white shrink-0" />

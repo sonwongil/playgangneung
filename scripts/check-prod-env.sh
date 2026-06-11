@@ -9,12 +9,9 @@
 #   ENV_FILE 기본값: artifacts/playgangneung-dashboard/.env.production
 #
 # 검사 항목:
-#   [필수] VITE_CLERK_PUBLISHABLE_KEY — pk_live_... 형식
-#           pk_test_, pk_live_REPLACE_ME, 빈 값이면 즉시 실패
-#           ⚠️  satellite 키(clerk.playgangneung.com 인코딩)이면 경고 — VPS 운영 불가
-#               VPS에서는 반드시 .clerk.accounts.dev 기반 표준 키를 사용해야 함
-#               표준 키 획득: https://play-gangneung-dashboard.replit.app/sign-in
-#               접속 → DevTools → Network → clerk 요청 URL에서 pk_live_ 확인
+#   [필수] VITE_CLERK_PUBLISHABLE_KEY — pk_live_... 형식이면 통과
+#           실패 조건: 빈 값 / pk_test_ / pk_live_REPLACE_ME /
+#                      replit.app 또는 replit.dev 문자열 포함
 #   [조건] VITE_TOSS_CLIENT_KEY      — VITE_ENABLE_TOSS_PAYMENT=true 일 때
 #           test_ck_, live_ck_REPLACE_ME, 빈 값이면 즉시 실패
 #
@@ -63,39 +60,10 @@ elif [ "$CLERK_KEY" = "pk_live_REPLACE_ME" ]; then
 elif echo "$CLERK_KEY" | grep -q "^pk_test_"; then
   fail "VITE_CLERK_PUBLISHABLE_KEY가 개발 키(pk_test_...)입니다 — 운영 키(pk_live_...)를 사용하세요
        ⚠️  개발 키는 Replit 개발 환경 전용입니다. VPS 운영 빌드에서는 반드시 pk_live_ 키가 필요합니다."
+elif echo "$CLERK_KEY" | grep -qE "replit\.app|replit\.dev"; then
+  fail "VITE_CLERK_PUBLISHABLE_KEY에 replit.app/replit.dev 문자열 포함 — 운영 키를 사용하세요"
 elif echo "$CLERK_KEY" | grep -q "^pk_live_"; then
-  # satellite 키 감지: pk_live_ 이후 부분을 base64 디코딩해서 도메인 확인
-  # pk_live_XXXX → base64("https://clerk.playgangneung.com$$...") → VPS 사용 불가
-  CLERK_DECODED=""
-  if command -v python3 > /dev/null 2>&1; then
-    CLERK_RAW="${CLERK_KEY#pk_live_}"
-    # base64 패딩 보정 후 디코딩
-    CLERK_DECODED=$(python3 -c "
-import base64, sys
-raw = sys.argv[1]
-raw += '=' * (-len(raw) % 4)
-try:
-    print(base64.b64decode(raw).decode())
-except Exception:
-    pass
-" "$CLERK_RAW" 2>/dev/null || true)
-  fi
-
-  if echo "$CLERK_DECODED" | grep -q "clerk\.playgangneung\.com"; then
-    echo "  ⚠️  VITE_CLERK_PUBLISHABLE_KEY = ${CLERK_KEY:0:12}... (pk_live_ 형식이지만 satellite 키)"
-    echo ""
-    echo "  ❗ 이 키는 Replit Publish 시 자동 생성된 satellite 키입니다."
-    echo "     키 내부에 clerk.playgangneung.com 이 인코딩되어 있으며,"
-    echo "     clerk.playgangneung.com DNS CNAME이 없으면 VPS에서 Clerk JS 로드가 실패합니다."
-    echo ""
-    echo "  ✅ VPS 운영에는 표준 키(.clerk.accounts.dev 기반)를 사용해야 합니다."
-    echo "     표준 키 확인: https://play-gangneung-dashboard.replit.app/sign-in"
-    echo "     접속 → DevTools → Network → clerk 요청 URL에서 pk_live_ 값 복사"
-    echo "     디코딩 결과에 .clerk.accounts.dev 포함 여부로 표준 키 확인"
-    FAIL=$((FAIL+1))
-  else
-    pass "VITE_CLERK_PUBLISHABLE_KEY = ${CLERK_KEY:0:12}... (pk_live_✓, 표준 키)"
-  fi
+  pass "VITE_CLERK_PUBLISHABLE_KEY = ${CLERK_KEY:0:12}... (pk_live_✓)"
 else
   fail "VITE_CLERK_PUBLISHABLE_KEY 형식 오류: '${CLERK_KEY:0:20}...' — pk_live_로 시작해야 합니다"
 fi
@@ -134,16 +102,14 @@ else
   echo "  ❌ 환경변수 검증 실패 (통과: $PASS  실패: $FAIL)"
   echo ""
   echo "  해결 방법:"
-  echo "    1. Clerk 운영 Publishable Key 확인:"
-  echo "       - Replit 게시(Publish) 후 배포된 앱에서 확인"
-  echo "       - 또는 Replit Auth 패널에서 확인"
+  echo "    1. Clerk 독립 앱(clerk.com) → Production → API Keys → Publishable Key 확인"
   echo "    2. VPS 파일 수정:"
   echo "       vi /var/www/playgangneung/artifacts/playgangneung-dashboard/.env.production"
   echo "    3. 올바른 형식:"
   echo "       VITE_CLERK_PUBLISHABLE_KEY=pk_live_실제키..."
   echo "       VITE_CLERK_PROXY_URL="
   echo "    4. 수정 후 반드시 다시 빌드:"
-  echo "       ./scripts/vps-deploy.sh"
+  echo "       ./scripts/vps-deploy.sh --frontend-only"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo ""
   exit 1

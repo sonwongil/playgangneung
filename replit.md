@@ -91,7 +91,9 @@ artifacts/
 ### 운영 구조
 
 - **Clerk 앱**: clerk.com 독립 앱, Production primary domain = `playgangneung.com`
-- **로그인 상태**: 이메일 로그인 ✅ 운영 중 / Google OAuth ⏳ 별도 과제
+- **로그인 상태**: 이메일 로그인 ✅ 운영 중 / Google OAuth ✅ 운영 중
+- **DNS 상태**: Clerk DNS configuration ✅ Verified
+- **SSL 상태**: SSL certificates ✅ Issued
 - **개발 환경**: Replit Secrets에 `pk_test_...` / `sk_test_...` 설정
 - **운영 환경**: VPS `.env` 및 `.env.production`에 `pk_live_...` / `sk_live_...` 설정
 
@@ -99,6 +101,8 @@ artifacts/
 
 - `pk_live_` 형식이면 통과 — 내부 도메인 인코딩으로 차단하지 않는다.
 - `pk_test_` / 빈 값 / `pk_live_REPLACE_ME` / `replit.app` / `replit.dev` 포함 시 빌드 차단.
+- **Replit 관리형 Clerk는 절대 재사용하지 않는다.** playgangneung.com A 레코드가 VPS를 가리키므로 Replit 도메인 검증이 불가능하다.
+- **인증 코드는 더 이상 수정하지 않는다.** 현재 상태가 운영 기준이다.
 
 ### Clerk Production 키 확인 위치
 
@@ -255,5 +259,6 @@ Replit 담당 작업의 최소 완료 기준은 **GitHub main push**까지다.
 
 | 버전 | 커밋 | 날짜 | 주요 내용 |
 |---|---|---|---|
-| 독립 Clerk | `02c9115` | 2026-06-11 | 독립 Clerk 앱 전환 — playgangneung.com Primary domain, 이메일 로그인 성공, SSL 복구 완료. Google OAuth는 별도 과제. |
+| 독립 Clerk 완료 | `cb0da2f` | 2026-06-12 | 독립 Clerk 완전 운영 — 이메일 로그인 ✅, Google OAuth ✅, DNS Verified ✅, SSL Issued ✅. Replit 관리형 Clerk 의존 제거 완료. |
+| 독립 Clerk | `02c9115` | 2026-06-11 | 독립 Clerk 앱 전환 — playgangneung.com Primary domain, 이메일 로그인 성공, SSL 복구 완료. |
 | 회원가입 | `19f26f55` | 2026-05-23 | Clerk 회원가입/로그인 연동 — Google OAuth + 이메일 인증, 광고접수 회원전용, 헤더 로그인/회원가입 버튼, 햄버거 메뉴 정리 |

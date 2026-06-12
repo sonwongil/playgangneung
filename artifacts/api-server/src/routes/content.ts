@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db, eventsTable, adsTable, type ContentBlock } from "@workspace/db";
 import { eq, desc, and } from "drizzle-orm";
 import { readEvents, type SocialDraft } from "../lib/storage.js";
+import { requireAdmin } from "../middlewares/requireAdmin.js";
 import fs from "fs/promises";
 import path from "path";
 
@@ -291,8 +292,8 @@ function buildJsonLd(item: ContentItem, contentUrl: string, thumbnailOg: string)
 
 // ─── HTML 렌더러 ─────────────────────────────────────────────────────────────
 
-// ── 서버사이드: 세션 쿠키 인증 성공 시 렌더링되는 HTML (스크립트 없음) ──
-function renderAdminSnsPanel(item: ContentItem, contentUrl: string): string {
+// ── 관리자 패널 HTML (토글바 + 패널 div) ─ 어드민 인증 확인 후에만 사용 ──
+function renderAdminSnsHtml(item: ContentItem, contentUrl: string): string {
   const caption = item.socialDraft?.caption ?? "";
   const hashtags = (item.socialDraft?.hashtags ?? []).map((h) => h.startsWith("#") ? h : `#${h}`).join(" ");
   const captionEsc = escHtml(caption);
@@ -302,18 +303,14 @@ function renderAdminSnsPanel(item: ContentItem, contentUrl: string): string {
   const editUrl = escHtml(`/admin/events/${item.id}`);
 
   return `
-<!-- 관리자 SNS 공유 관리 토글 버튼 -->
 <div class="admin-toggle-bar">
   <button class="admin-toggle-btn" id="adminToggleBtn" onclick="adminTogglePanel()">🛠️ SNS 공유 관리</button>
 </div>
-
-<!-- 관리자 SNS 공유 패널 (기본 숨김) -->
 <div class="admin-sns" id="adminSnsPanel" style="display:none">
   <div class="admin-sns-header">
     <span>🛠️ SNS 공유</span>
     <a href="${editUrl}" class="admin-edit-btn">✏️ 강릉노트 편집</a>
   </div>
-
   <div class="admin-sns-section">
     <div class="admin-row-between">
       <span class="admin-label">① SNS 문구</span>
@@ -333,7 +330,6 @@ function renderAdminSnsPanel(item: ContentItem, contentUrl: string): string {
       <button class="admin-btn admin-btn-teal" onclick="adminGenCard()">🖼️ 카드이미지 생성</button>
     </div>
   </div>
-
   <div class="admin-sns-section">
     <span class="admin-label">② SNS 채널 열기</span>
     <div class="admin-row-gap" style="margin-top:8px">
@@ -344,182 +340,126 @@ function renderAdminSnsPanel(item: ContentItem, contentUrl: string): string {
     </div>
     <p class="admin-guide">① 전체 복사 → ② 채널 열기 → ③ 붙여넣기 & 게시</p>
   </div>
-
   <div id="adminToast" class="admin-toast" style="display:none"></div>
 </div>`;
 }
 
-// ── 항상 포함되는 관리자 JS: 함수 정의 + localStorage Bearer 토큰 fallback ──
-// 세션 쿠키 판별 성공 시 → #adminToggleBtn 이미 DOM에 있으므로 fallback 미실행
-// 세션 쿠키 없어도 → localStorage pg_admin_token으로 /api/auth/me Bearer 인증 시도
-function renderAdminPanelJs(item: ContentItem, contentUrl: string): string {
+// ── 관리자 JS 함수 정의 (script 태그 없음, 어드민 인증 후에만 실행) ──
+// 서버사이드 렌더링과 API 엔드포인트 /content/:id/admin-panel 양쪽에서 사용
+function buildAdminFunctionsJs(item: ContentItem, contentUrl: string): string {
   const caption = item.socialDraft?.caption ?? "";
   const hashtags = (item.socialDraft?.hashtags ?? []).map((h) => h.startsWith("#") ? h : `#${h}`).join(" ");
   const copyPayload = escJs([caption, hashtags, item.link ? `🔗 원문보기 👉 ${item.link}` : "", `📍 강릉 더보기 👉 ${contentUrl}`].filter(Boolean).join("\n\n"));
-  const itemIdJs  = escJs(item.id);
+  const itemIdJs     = escJs(item.id);
   const contentUrlJs = escJs(contentUrl);
   const itemLinkJs   = escJs(item.link || "");
-  const editUrlJs    = escJs(`/admin/events/${item.id}`);
 
-  return `<script>
-(function(){
-  var ITEM_ID     = '${itemIdJs}';
-  var CONTENT_URL = '${contentUrlJs}';
-  var ITEM_LINK   = '${itemLinkJs}';
-  var EDIT_URL    = '${editUrlJs}';
-  var COPY_PAYLOAD = '${copyPayload}';
+  return `(function(){
+  var _id  = '${itemIdJs}';
+  var _cu  = '${contentUrlJs}';
+  var _lnk = '${itemLinkJs}';
+  var _cp  = '${copyPayload}';
 
-  /* ── 공통 헬퍼 ── */
-  function showToast(msg) {
+  function _toast(msg) {
     var t = document.getElementById('adminToast');
     if (!t) return;
     t.textContent = msg; t.style.display = 'block';
     setTimeout(function(){ t.style.display = 'none'; }, 2500);
   }
-  function hEsc(s) {
-    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  }
-  function adminHeaders() {
+  function _hdrs() {
     var h = { 'Content-Type': 'application/json' };
-    var t = localStorage.getItem('pg_admin_token');
-    if (t) h['Authorization'] = 'Bearer ' + t;
+    var tok = localStorage.getItem('pg_admin_token');
+    if (tok) h['Authorization'] = 'Bearer ' + tok;
     return h;
   }
 
-  /* ── 패널 토글 ── */
   window.adminTogglePanel = function() {
-    var panel = document.getElementById('adminSnsPanel');
-    var btn   = document.getElementById('adminToggleBtn');
-    if (!panel || !btn) return;
-    var open = panel.style.display === 'none' || panel.style.display === '';
-    panel.style.display = open ? 'block' : 'none';
-    btn.textContent = open ? '✕ SNS 공유 관리 닫기' : '🛠️ SNS 공유 관리';
+    var p = document.getElementById('adminSnsPanel');
+    var b = document.getElementById('adminToggleBtn');
+    if (!p || !b) return;
+    var open = p.style.display === 'none' || p.style.display === '';
+    p.style.display = open ? 'block' : 'none';
+    b.textContent   = open ? '\u2715 SNS \uacf5\uc720 \uad00\ub9ac \ub2eb\uae30' : '\uD83D\uDEE0\uFE0F SNS \uacf5\uc720 \uad00\ub9ac';
   };
-
-  /* ── 복사 ── */
   window.adminCopyAll = function() {
     if (navigator.clipboard) {
-      navigator.clipboard.writeText(COPY_PAYLOAD).then(function(){
+      navigator.clipboard.writeText(_cp).then(function(){
         var b = document.getElementById('copyAllBtn');
-        if (b) { b.textContent = '✅ 복사됨!'; setTimeout(function(){ b.textContent = '📋 전체 복사'; }, 2500); }
-        showToast('캡션 복사 완료 — 인스타·페북에 붙여넣으세요.');
+        if (b) { b.textContent = '\u2705 \ubcf5\uc0ac\ub428!'; setTimeout(function(){ b.textContent = '\uD83D\uDCCB \uc804\uccb4 \ubcf5\uc0ac'; }, 2500); }
+        _toast('\uce90\uc158 \ubcf5\uc0ac \uc644\ub8cc \u2014 \uc778\uc2a4\ud0c0\u00b7\ud398\ubd81\uc5d0 \ubd99\uc5ec\ub123\uc73c\uc138\uc694.');
       });
-    } else { showToast('링크: ' + CONTENT_URL); }
+    } else { _toast('\ub9c1\ud06c: ' + _cu); }
   };
   window.adminCopyLink = function() {
     if (navigator.clipboard) {
-      navigator.clipboard.writeText(CONTENT_URL).then(function(){ showToast('PLAY강릉 링크 복사됨'); });
+      navigator.clipboard.writeText(_cu).then(function(){ _toast('PLAY\uac15\ub989 \ub9c1\ud06c \ubcf5\uc0ac\ub428'); });
     }
   };
-
-  /* ── AI 재생성 ── */
   window.adminGenerateDraft = async function() {
-    showToast('AI 문구 생성 중...');
+    _toast('AI \ubb38\uad6c \uc0dd\uc131 \uc911...');
     try {
-      var r = await fetch('/api/events/' + ITEM_ID + '/draft', { method: 'POST', credentials: 'include', headers: adminHeaders() });
-      if (!r.ok) { showToast('생성 실패'); return; }
-      showToast('문구 생성 완료! 새로고침합니다.');
+      var r = await fetch('/api/events/' + _id + '/draft', { method: 'POST', credentials: 'include', headers: _hdrs() });
+      if (!r.ok) { _toast('\uc0dd\uc131 \uc2e4\ud328'); return; }
+      _toast('\ubb38\uad6c \uc0dd\uc131 \uc644\ub8cc! \uc0c8\ub85c\uace0\uce68\ud569\ub2c8\ub2e4.');
       setTimeout(function(){ location.reload(); }, 1200);
-    } catch(e) { showToast('오류: ' + e.message); }
+    } catch(e) { _toast('\uc624\ub958: ' + e.message); }
   };
-
-  /* ── 카드이미지 생성 ── */
   window.adminGenCard = async function() {
-    showToast('카드이미지 생성 중...');
+    _toast('\uce74\ub4dc\uc774\ubbf8\uc9c0 \uc0dd\uc131 \uc911...');
     try {
-      var r = await fetch('/api/events/' + ITEM_ID + '/card', { method: 'POST', credentials: 'include', headers: adminHeaders() });
-      if (!r.ok) { showToast('생성 실패'); return; }
-      showToast('카드이미지 생성 완료! 새로고침합니다.');
+      var r = await fetch('/api/events/' + _id + '/card', { method: 'POST', credentials: 'include', headers: _hdrs() });
+      if (!r.ok) { _toast('\uc0dd\uc131 \uc2e4\ud328'); return; }
+      _toast('\uce74\ub4dc\uc774\ubbf8\uc9c0 \uc0dd\uc131 \uc644\ub8cc! \uc0c8\ub85c\uace0\uce68\ud569\ub2c8\ub2e4.');
       setTimeout(function(){ location.reload(); }, 1200);
-    } catch(e) { showToast('오류: ' + e.message); }
+    } catch(e) { _toast('\uc624\ub958: ' + e.message); }
   };
+})();`;
+}
 
-  /* ── 클라이언트 관리자 판별 fallback ──
-     서버가 세션 쿠키로 이미 렌더링했으면 #adminToggleBtn 이 DOM에 있으므로 즉시 종료 */
+// ── 서버사이드 세션 쿠키 인증 성공 시 렌더링 (HTML + JS, 어드민만 수신) ──
+function renderAdminSnsPanel(item: ContentItem, contentUrl: string): string {
+  return `${renderAdminSnsHtml(item, contentUrl)}
+<script>
+${buildAdminFunctionsJs(item, contentUrl)}
+</script>`;
+}
+
+// ── 보호 API 응답용: {html, js} — /content/:id/admin-panel 에서 반환 ──
+function renderAdminPanelPayload(item: ContentItem, contentUrl: string): { html: string; js: string } {
+  return {
+    html: renderAdminSnsHtml(item, contentUrl),
+    js: buildAdminFunctionsJs(item, contentUrl),
+  };
+}
+
+// ── 항상 포함되는 최소 클라이언트 스크립트 ──
+// 어드민 문자열 완전 없음. ITEM_ID + Bearer 체크 + 보호 API fetch + 주입만 수행.
+function renderAdminPanelJs(item: ContentItem): string {
+  const itemIdJs = escJs(item.id);
+  return `<script>
+(function(){
   if (document.getElementById('adminToggleBtn')) return;
-
-  (async function() {
-    try {
-      var token = localStorage.getItem('pg_admin_token');
-      if (!token) return;
-
-      /* Bearer 토큰으로 /api/auth/me 확인 */
-      var meRes = await fetch('/api/auth/me', {
-        credentials: 'include',
-        headers: { 'Authorization': 'Bearer ' + token }
-      });
-      if (!meRes.ok) return;
-      var me = await meRes.json();
-      if (!me || !me.isAdmin) return;
-
-      /* 이벤트 데이터 (socialDraft) 조회 */
-      var evRes = await fetch('/api/events/' + ITEM_ID, {
-        credentials: 'include',
-        headers: { 'Authorization': 'Bearer ' + token }
-      });
-      var cap = '', htags = '';
-      if (evRes.ok) {
-        var evData = await evRes.json();
-        var ev = evData && evData.event ? evData.event : null;
-        if (ev && ev.socialDraft) {
-          cap   = ev.socialDraft.caption || '';
-          var ha = ev.socialDraft.hashtags || [];
-          htags = ha.map(function(h){ return h.startsWith('#') ? h : '#'+h; }).join(' ');
-        }
-      }
-
-      /* COPY_PAYLOAD 갱신 */
-      var parts = [cap, htags];
-      if (ITEM_LINK) parts.push('🔗 원문보기 👉 ' + ITEM_LINK);
-      parts.push('📍 강릉 더보기 👉 ' + CONTENT_URL);
-      COPY_PAYLOAD = parts.filter(Boolean).join('\\n\\n');
-
-      /* 토글 버튼 주입 */
-      var bar  = document.createElement('div');
-      bar.className = 'admin-toggle-bar';
-      var tbtn = document.createElement('button');
-      tbtn.className = 'admin-toggle-btn'; tbtn.id = 'adminToggleBtn';
-      tbtn.textContent = '🛠️ SNS 공유 관리';
-      tbtn.onclick = window.adminTogglePanel;
-      bar.appendChild(tbtn);
-      document.body.appendChild(bar);
-
-      /* 패널 주입 */
-      var capHtml = cap
-        ? '<pre class="admin-caption" id="captionPre">' + hEsc(cap) + '</pre>' +
-          '<p class="admin-hashtags" id="hashtagsPre">' + hEsc(htags) + '</p>'
-        : '<p class="admin-no-draft">아직 SNS 문구가 없습니다. AI 재생성을 눌러주세요.</p>';
-      var linkLine = ITEM_LINK ? hEsc('🔗 원문보기 👉 ' + ITEM_LINK) + '\\n' : '';
-
-      var panel = document.createElement('div');
-      panel.className = 'admin-sns'; panel.id = 'adminSnsPanel';
-      panel.style.display = 'none';
-      panel.innerHTML =
-        '<div class="admin-sns-header"><span>🛠️ SNS 공유</span>' +
-          '<a href="' + hEsc(EDIT_URL) + '" class="admin-edit-btn">✏️ 강릉노트 편집</a></div>' +
-        '<div class="admin-sns-section">' +
-          '<div class="admin-row-between"><span class="admin-label">① SNS 문구</span>' +
-            '<button class="admin-btn-sm admin-btn-outline" onclick="adminGenerateDraft()">🤖 AI 재생성</button></div>' +
-          capHtml +
-          '<div class="admin-cta-box"><span class="admin-cta-label">📢 공통 링크 (복사 시 자동 첨부)</span>' +
-            '<pre class="admin-cta-text">' + linkLine + hEsc('📍 강릉 더보기 👉 ' + CONTENT_URL) + '</pre></div>' +
-          '<div class="admin-row-gap">' +
-            '<button class="admin-btn admin-btn-violet" id="copyAllBtn" onclick="adminCopyAll()">📋 전체 복사</button>' +
-            '<button class="admin-btn admin-btn-teal" onclick="adminGenCard()">🖼️ 카드이미지 생성</button></div>' +
-        '</div>' +
-        '<div class="admin-sns-section"><span class="admin-label">② SNS 채널 열기</span>' +
-          '<div class="admin-row-gap" style="margin-top:8px">' +
-            '<button class="admin-btn admin-btn-link-copy" onclick="adminCopyLink()">🔗 링크 복사</button>' +
-            '<a href="https://business.facebook.com/latest/composer?asset_id=1135888279600983&business_id=1004678568916594&ir_qe_exposed=1&nav_ref=internal_nav&ref=biz_web_content_manager_calendar_view&context_ref=CONTENT_CALENDAR" target="_blank" rel="noopener noreferrer" class="admin-btn admin-btn-meta">🏢 Meta</a>' +
-            '<a href="https://www.facebook.com/profile.php?id=61589314617028&locale=ko_KR" target="_blank" rel="noopener noreferrer" class="admin-btn admin-btn-fb">📘 FB</a>' +
-            '<a href="https://www.instagram.com/playgangneung/" target="_blank" rel="noopener noreferrer" class="admin-btn admin-btn-ig">📸 IG</a>' +
-          '</div><p class="admin-guide">① 전체 복사 → ② 채널 열기 → ③ 붙여넣기 & 게시</p>' +
-        '</div>' +
-        '<div id="adminToast" class="admin-toast" style="display:none"></div>';
-      document.body.appendChild(panel);
-
-    } catch(e) { /* 조용히 무시 */ }
-  })();
+  var _tok = localStorage.getItem('pg_admin_token');
+  if (!_tok) return;
+  var _pgid = '${itemIdJs}';
+  var _hdr  = { 'Authorization': 'Bearer ' + _tok };
+  fetch('/api/auth/me', { credentials: 'include', headers: _hdr })
+    .then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(d){
+      if (!d || !d.isAdmin) return null;
+      return fetch('/content/' + _pgid + '/admin-panel', { credentials: 'include', headers: _hdr });
+    })
+    .then(function(r){ return r && r.ok ? r.json() : null; })
+    .then(function(p){
+      if (!p) return;
+      var wrap = document.createElement('div');
+      wrap.innerHTML = p.html;
+      while (wrap.firstChild) document.body.appendChild(wrap.firstChild);
+      var sc = document.createElement('script');
+      sc.textContent = p.js;
+      document.head.appendChild(sc);
+    })
+    .catch(function(){});
 })();
 </script>`;
 }
@@ -811,13 +751,27 @@ img{max-width:100%;display:block}
 </div>
 
 ${isAdmin ? renderAdminSnsPanel(item, contentUrl) : ""}
-${renderAdminPanelJs(item, contentUrl)}
+${renderAdminPanelJs(item)}
 
 </body>
 </html>`;
 }
 
 // ─── 라우터 ──────────────────────────────────────────────────────────────────
+
+// 보호 엔드포인트: 어드민 인증(세션 쿠키 또는 Bearer 토큰) 확인 후
+// 관리자 패널 HTML + JS 반환. 일반 방문자는 401 응답.
+router.get("/:id/admin-panel", requireAdmin, async (req, res) => {
+  const id = req.params["id"] as string;
+  const contentUrl = `${SITE_URL}/content/${id}`;
+  const item = await findContent(id);
+  if (!item) {
+    res.status(404).json({ error: "not found" });
+    return;
+  }
+  res.setHeader("Cache-Control", "no-store");
+  res.json(renderAdminPanelPayload(item, contentUrl));
+});
 
 router.get("/:id", async (req, res) => {
   const { id } = req.params;

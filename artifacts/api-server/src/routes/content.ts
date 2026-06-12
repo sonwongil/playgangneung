@@ -291,6 +291,7 @@ function buildJsonLd(item: ContentItem, contentUrl: string, thumbnailOg: string)
 
 // ─── HTML 렌더러 ─────────────────────────────────────────────────────────────
 
+// ── 서버사이드: 세션 쿠키 인증 성공 시 렌더링되는 HTML (스크립트 없음) ──
 function renderAdminSnsPanel(item: ContentItem, contentUrl: string): string {
   const caption = item.socialDraft?.caption ?? "";
   const hashtags = (item.socialDraft?.hashtags ?? []).map((h) => h.startsWith("#") ? h : `#${h}`).join(" ");
@@ -298,7 +299,6 @@ function renderAdminSnsPanel(item: ContentItem, contentUrl: string): string {
   const hashtagsEsc = escHtml(hashtags);
   const contentUrlEsc = escHtml(contentUrl);
   const originalLinkLine = item.link ? escHtml(`🔗 원문보기 👉 ${item.link}\n`) : "";
-  const copyPayload = escJs([caption, hashtags, item.link ? `🔗 원문보기 👉 ${item.link}` : "", `📍 강릉 더보기 👉 ${contentUrl}`].filter(Boolean).join("\n\n"));
   const editUrl = escHtml(`/admin/events/${item.id}`);
 
   return `
@@ -346,68 +346,180 @@ function renderAdminSnsPanel(item: ContentItem, contentUrl: string): string {
   </div>
 
   <div id="adminToast" class="admin-toast" style="display:none"></div>
-</div>
+</div>`;
+}
 
-<script>
+// ── 항상 포함되는 관리자 JS: 함수 정의 + localStorage Bearer 토큰 fallback ──
+// 세션 쿠키 판별 성공 시 → #adminToggleBtn 이미 DOM에 있으므로 fallback 미실행
+// 세션 쿠키 없어도 → localStorage pg_admin_token으로 /api/auth/me Bearer 인증 시도
+function renderAdminPanelJs(item: ContentItem, contentUrl: string): string {
+  const caption = item.socialDraft?.caption ?? "";
+  const hashtags = (item.socialDraft?.hashtags ?? []).map((h) => h.startsWith("#") ? h : `#${h}`).join(" ");
+  const copyPayload = escJs([caption, hashtags, item.link ? `🔗 원문보기 👉 ${item.link}` : "", `📍 강릉 더보기 👉 ${contentUrl}`].filter(Boolean).join("\n\n"));
+  const itemIdJs  = escJs(item.id);
+  const contentUrlJs = escJs(contentUrl);
+  const itemLinkJs   = escJs(item.link || "");
+  const editUrlJs    = escJs(`/admin/events/${item.id}`);
+
+  return `<script>
 (function(){
-  var ITEM_ID = '${escJs(item.id)}';
-  var CONTENT_URL = '${escJs(contentUrl)}';
+  var ITEM_ID     = '${itemIdJs}';
+  var CONTENT_URL = '${contentUrlJs}';
+  var ITEM_LINK   = '${itemLinkJs}';
+  var EDIT_URL    = '${editUrlJs}';
   var COPY_PAYLOAD = '${copyPayload}';
 
+  /* ── 공통 헬퍼 ── */
+  function showToast(msg) {
+    var t = document.getElementById('adminToast');
+    if (!t) return;
+    t.textContent = msg; t.style.display = 'block';
+    setTimeout(function(){ t.style.display = 'none'; }, 2500);
+  }
+  function hEsc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  function adminHeaders() {
+    var h = { 'Content-Type': 'application/json' };
+    var t = localStorage.getItem('pg_admin_token');
+    if (t) h['Authorization'] = 'Bearer ' + t;
+    return h;
+  }
+
+  /* ── 패널 토글 ── */
   window.adminTogglePanel = function() {
     var panel = document.getElementById('adminSnsPanel');
-    var btn = document.getElementById('adminToggleBtn');
+    var btn   = document.getElementById('adminToggleBtn');
     if (!panel || !btn) return;
     var open = panel.style.display === 'none' || panel.style.display === '';
     panel.style.display = open ? 'block' : 'none';
     btn.textContent = open ? '✕ SNS 공유 관리 닫기' : '🛠️ SNS 공유 관리';
   };
 
-  function showToast(msg) {
-    var t = document.getElementById('adminToast');
-    if (!t) return;
-    t.textContent = msg;
-    t.style.display = 'block';
-    setTimeout(function(){ t.style.display = 'none'; }, 2500);
-  }
-
+  /* ── 복사 ── */
   window.adminCopyAll = function() {
     if (navigator.clipboard) {
       navigator.clipboard.writeText(COPY_PAYLOAD).then(function(){
-        var btn = document.getElementById('copyAllBtn');
-        if (btn) { btn.textContent = '✅ 복사됨!'; setTimeout(function(){ btn.textContent = '📋 전체 복사'; }, 2500); }
+        var b = document.getElementById('copyAllBtn');
+        if (b) { b.textContent = '✅ 복사됨!'; setTimeout(function(){ b.textContent = '📋 전체 복사'; }, 2500); }
         showToast('캡션 복사 완료 — 인스타·페북에 붙여넣으세요.');
       });
-    } else {
-      showToast('링크: ' + CONTENT_URL);
-    }
+    } else { showToast('링크: ' + CONTENT_URL); }
   };
-
   window.adminCopyLink = function() {
     if (navigator.clipboard) {
       navigator.clipboard.writeText(CONTENT_URL).then(function(){ showToast('PLAY강릉 링크 복사됨'); });
     }
   };
 
+  /* ── AI 재생성 ── */
   window.adminGenerateDraft = async function() {
     showToast('AI 문구 생성 중...');
     try {
-      var r = await fetch('/api/events/' + ITEM_ID + '/draft', { method: 'POST', credentials: 'include' });
+      var r = await fetch('/api/events/' + ITEM_ID + '/draft', { method: 'POST', credentials: 'include', headers: adminHeaders() });
       if (!r.ok) { showToast('생성 실패'); return; }
-      showToast('문구 생성 완료! 페이지를 새로고침합니다.');
+      showToast('문구 생성 완료! 새로고침합니다.');
       setTimeout(function(){ location.reload(); }, 1200);
     } catch(e) { showToast('오류: ' + e.message); }
   };
 
+  /* ── 카드이미지 생성 ── */
   window.adminGenCard = async function() {
     showToast('카드이미지 생성 중...');
     try {
-      var r = await fetch('/api/events/' + ITEM_ID + '/card', { method: 'POST', credentials: 'include' });
+      var r = await fetch('/api/events/' + ITEM_ID + '/card', { method: 'POST', credentials: 'include', headers: adminHeaders() });
       if (!r.ok) { showToast('생성 실패'); return; }
-      showToast('카드이미지 생성 완료! 페이지를 새로고침합니다.');
+      showToast('카드이미지 생성 완료! 새로고침합니다.');
       setTimeout(function(){ location.reload(); }, 1200);
     } catch(e) { showToast('오류: ' + e.message); }
   };
+
+  /* ── 클라이언트 관리자 판별 fallback ──
+     서버가 세션 쿠키로 이미 렌더링했으면 #adminToggleBtn 이 DOM에 있으므로 즉시 종료 */
+  if (document.getElementById('adminToggleBtn')) return;
+
+  (async function() {
+    try {
+      var token = localStorage.getItem('pg_admin_token');
+      if (!token) return;
+
+      /* Bearer 토큰으로 /api/auth/me 확인 */
+      var meRes = await fetch('/api/auth/me', {
+        credentials: 'include',
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      if (!meRes.ok) return;
+      var me = await meRes.json();
+      if (!me || !me.isAdmin) return;
+
+      /* 이벤트 데이터 (socialDraft) 조회 */
+      var evRes = await fetch('/api/events/' + ITEM_ID, {
+        credentials: 'include',
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      var cap = '', htags = '';
+      if (evRes.ok) {
+        var evData = await evRes.json();
+        var ev = evData && evData.event ? evData.event : null;
+        if (ev && ev.socialDraft) {
+          cap   = ev.socialDraft.caption || '';
+          var ha = ev.socialDraft.hashtags || [];
+          htags = ha.map(function(h){ return h.startsWith('#') ? h : '#'+h; }).join(' ');
+        }
+      }
+
+      /* COPY_PAYLOAD 갱신 */
+      var parts = [cap, htags];
+      if (ITEM_LINK) parts.push('🔗 원문보기 👉 ' + ITEM_LINK);
+      parts.push('📍 강릉 더보기 👉 ' + CONTENT_URL);
+      COPY_PAYLOAD = parts.filter(Boolean).join('\\n\\n');
+
+      /* 토글 버튼 주입 */
+      var bar  = document.createElement('div');
+      bar.className = 'admin-toggle-bar';
+      var tbtn = document.createElement('button');
+      tbtn.className = 'admin-toggle-btn'; tbtn.id = 'adminToggleBtn';
+      tbtn.textContent = '🛠️ SNS 공유 관리';
+      tbtn.onclick = window.adminTogglePanel;
+      bar.appendChild(tbtn);
+      document.body.appendChild(bar);
+
+      /* 패널 주입 */
+      var capHtml = cap
+        ? '<pre class="admin-caption" id="captionPre">' + hEsc(cap) + '</pre>' +
+          '<p class="admin-hashtags" id="hashtagsPre">' + hEsc(htags) + '</p>'
+        : '<p class="admin-no-draft">아직 SNS 문구가 없습니다. AI 재생성을 눌러주세요.</p>';
+      var linkLine = ITEM_LINK ? hEsc('🔗 원문보기 👉 ' + ITEM_LINK) + '\\n' : '';
+
+      var panel = document.createElement('div');
+      panel.className = 'admin-sns'; panel.id = 'adminSnsPanel';
+      panel.style.display = 'none';
+      panel.innerHTML =
+        '<div class="admin-sns-header"><span>🛠️ SNS 공유</span>' +
+          '<a href="' + hEsc(EDIT_URL) + '" class="admin-edit-btn">✏️ 강릉노트 편집</a></div>' +
+        '<div class="admin-sns-section">' +
+          '<div class="admin-row-between"><span class="admin-label">① SNS 문구</span>' +
+            '<button class="admin-btn-sm admin-btn-outline" onclick="adminGenerateDraft()">🤖 AI 재생성</button></div>' +
+          capHtml +
+          '<div class="admin-cta-box"><span class="admin-cta-label">📢 공통 링크 (복사 시 자동 첨부)</span>' +
+            '<pre class="admin-cta-text">' + linkLine + hEsc('📍 강릉 더보기 👉 ' + CONTENT_URL) + '</pre></div>' +
+          '<div class="admin-row-gap">' +
+            '<button class="admin-btn admin-btn-violet" id="copyAllBtn" onclick="adminCopyAll()">📋 전체 복사</button>' +
+            '<button class="admin-btn admin-btn-teal" onclick="adminGenCard()">🖼️ 카드이미지 생성</button></div>' +
+        '</div>' +
+        '<div class="admin-sns-section"><span class="admin-label">② SNS 채널 열기</span>' +
+          '<div class="admin-row-gap" style="margin-top:8px">' +
+            '<button class="admin-btn admin-btn-link-copy" onclick="adminCopyLink()">🔗 링크 복사</button>' +
+            '<a href="https://business.facebook.com/latest/composer?asset_id=1135888279600983&business_id=1004678568916594&ir_qe_exposed=1&nav_ref=internal_nav&ref=biz_web_content_manager_calendar_view&context_ref=CONTENT_CALENDAR" target="_blank" rel="noopener noreferrer" class="admin-btn admin-btn-meta">🏢 Meta</a>' +
+            '<a href="https://www.facebook.com/profile.php?id=61589314617028&locale=ko_KR" target="_blank" rel="noopener noreferrer" class="admin-btn admin-btn-fb">📘 FB</a>' +
+            '<a href="https://www.instagram.com/playgangneung/" target="_blank" rel="noopener noreferrer" class="admin-btn admin-btn-ig">📸 IG</a>' +
+          '</div><p class="admin-guide">① 전체 복사 → ② 채널 열기 → ③ 붙여넣기 & 게시</p>' +
+        '</div>' +
+        '<div id="adminToast" class="admin-toast" style="display:none"></div>';
+      document.body.appendChild(panel);
+
+    } catch(e) { /* 조용히 무시 */ }
+  })();
 })();
 </script>`;
 }
@@ -699,6 +811,7 @@ img{max-width:100%;display:block}
 </div>
 
 ${isAdmin ? renderAdminSnsPanel(item, contentUrl) : ""}
+${renderAdminPanelJs(item, contentUrl)}
 
 </body>
 </html>`;

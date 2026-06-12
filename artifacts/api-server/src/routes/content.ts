@@ -302,8 +302,13 @@ function renderAdminSnsPanel(item: ContentItem, contentUrl: string): string {
   const editUrl = escHtml(`/admin/events/${item.id}`);
 
   return `
-<!-- 관리자 SNS 공유 패널 -->
-<div class="admin-sns" id="adminSnsPanel">
+<!-- 관리자 SNS 공유 관리 토글 버튼 -->
+<div class="admin-toggle-bar">
+  <button class="admin-toggle-btn" id="adminToggleBtn" onclick="adminTogglePanel()">🛠️ SNS 공유 관리</button>
+</div>
+
+<!-- 관리자 SNS 공유 패널 (기본 숨김) -->
+<div class="admin-sns" id="adminSnsPanel" style="display:none">
   <div class="admin-sns-header">
     <span>🛠️ SNS 공유</span>
     <a href="${editUrl}" class="admin-edit-btn">✏️ 강릉노트 편집</a>
@@ -348,6 +353,15 @@ function renderAdminSnsPanel(item: ContentItem, contentUrl: string): string {
   var ITEM_ID = '${escJs(item.id)}';
   var CONTENT_URL = '${escJs(contentUrl)}';
   var COPY_PAYLOAD = '${copyPayload}';
+
+  window.adminTogglePanel = function() {
+    var panel = document.getElementById('adminSnsPanel');
+    var btn = document.getElementById('adminToggleBtn');
+    if (!panel || !btn) return;
+    var open = panel.style.display === 'none' || panel.style.display === '';
+    panel.style.display = open ? 'block' : 'none';
+    btn.textContent = open ? '✕ SNS 공유 관리 닫기' : '🛠️ SNS 공유 관리';
+  };
 
   function showToast(msg) {
     var t = document.getElementById('adminToast');
@@ -560,7 +574,10 @@ img{max-width:100%;display:block}
 /* ── 스크린리더 전용 ── */
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border-width:0}
 /* ── 관리자 SNS 패널 ── */
-.admin-sns{max-width:680px;margin:16px auto 100px;border:2px solid #7c3aed;border-radius:16px;background:#faf5ff;overflow:hidden}
+.admin-toggle-bar{max-width:680px;margin:12px auto 0;padding:0 16px;display:flex;justify-content:flex-end}
+.admin-toggle-btn{font-size:11px;font-weight:700;padding:5px 14px;background:#7c3aed;color:#fff;border:none;border-radius:20px;cursor:pointer;letter-spacing:.02em;opacity:.82;transition:opacity .15s}
+.admin-toggle-btn:hover{opacity:1}
+.admin-sns{max-width:680px;margin:8px auto 100px;border:2px solid #7c3aed;border-radius:16px;background:#faf5ff;overflow:hidden}
 .admin-sns-header{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:#7c3aed;color:#fff;font-size:13px;font-weight:700}
 .admin-edit-btn{font-size:12px;font-weight:600;color:#e9d5ff;text-decoration:none;background:rgba(255,255,255,.15);padding:4px 10px;border-radius:20px}
 .admin-edit-btn:hover{background:rgba(255,255,255,.25)}

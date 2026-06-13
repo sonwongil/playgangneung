@@ -24,6 +24,7 @@ const DataDeletion       = lazy(() => import("@/pages/data-deletion"));
 const Terms              = lazy(() => import("@/pages/terms"));
 const Viewer             = lazy(() => import("@/pages/viewer"));
 const NotFound           = lazy(() => import("@/pages/not-found"));
+const AdminV2Guard       = lazy(() => import("@/app/admin-v2/AdminV2Guard"));
 
 const queryClient = new QueryClient();
 
@@ -254,6 +255,7 @@ function Router() {
         <Route path="/data-deletion" component={DataDeletion} />
         <Route path="/terms" component={Terms} />
         <Route path="/viewer" component={Viewer} />
+        <Route path="/admin/v2/*?" component={AdminV2Guard} />
         <Route component={NotFound} />
       </Switch>
     </Suspense>

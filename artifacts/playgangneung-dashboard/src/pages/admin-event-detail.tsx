@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useRoute, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -75,33 +75,90 @@ function OriginalPreview({ url, base }: { url: string; base: string }) {
   );
 }
 
-// ── BlockNote 포맷 감지 ──
+// ── BlockNote 안전 정규화 ──
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function isBlockNoteBlocks(blocks: any[] | null | undefined): boolean {
-  if (!blocks || blocks.length === 0) return false;
-  const first = blocks[0] as Record<string, unknown>;
-  return !!first && typeof first.id === "string" && "props" in first && Array.isArray(first.children);
+function normalizeBlockNoteContent(blocks: unknown): any[] | undefined {
+  try {
+    if (!blocks || !Array.isArray(blocks) || blocks.length === 0) return undefined;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const valid = (blocks as any[]).every((b) =>
+      b && typeof b === "object" &&
+      typeof b.id === "string" &&
+      typeof b.type === "string" &&
+      "props" in b &&
+      Array.isArray(b.content) &&
+      Array.isArray(b.children)
+    );
+    if (!valid) return undefined;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return blocks as any[];
+  } catch {
+    return undefined;
+  }
 }
 
-// ── BlockNote 에디터 래퍼 (key={eventId} 로 마운트 1회 보장) ──
+// ── BlockNote ErrorBoundary ──
+interface BNErrorState { hasError: boolean }
+class BlockNoteErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  BNErrorState
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError(): BNErrorState {
+    return { hasError: true };
+  }
+  componentDidCatch(err: Error) {
+    console.error("[BlockNote] 에디터 오류:", err);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-4 text-sm text-gray-500 bg-gray-50 rounded-lg border border-gray-200">
+          에디터를 불러올 수 없습니다. 새로고침 후 다시 시도해 주세요.
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+// ── BlockNote 에디터 래퍼 ──
+// initialContent는 useRef로 동결 → useCreateBlockNote가 매 렌더마다 재초기화되지 않음
 function BlockNoteEditorWrapper({
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   initialContent,
-  onChange,
+  onDirty,
+  editorRef,
 }: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  initialContent: any[] | null;
-  onChange: (blocks: unknown[]) => void;
+  initialContent: any[] | undefined;
+  onDirty: () => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  editorRef: React.MutableRefObject<any>;
 }) {
+  // 최초 마운트 시 값만 사용 — prop이 변경되어도 재초기화하지 않음
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const frozenContent = useRef<any[] | undefined>(initialContent);
+
   const editor = useCreateBlockNote({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    initialContent: initialContent && initialContent.length > 0 ? (initialContent as any) : undefined,
+    initialContent: frozenContent.current as any,
   });
+
+  useEffect(() => {
+    editorRef.current = editor;
+    return () => { editorRef.current = null; };
+  }, [editor, editorRef]);
+
+  const handleChange = useCallback(() => { onDirty(); }, [onDirty]);
+
   return (
     <BlockNoteView
       editor={editor}
       theme="light"
-      onChange={() => onChange(editor.document as unknown[])}
+      onChange={handleChange}
     />
   );
 }
@@ -130,8 +187,13 @@ export default function AdminEventDetail() {
   const [isDirty, setIsDirty] = useState(false);
   const [isUploadingSlot, setIsUploadingSlot] = useState<number | null>(null);
   const [imageTab, setImageTab] = useState<"url" | "upload">("url");
+  // BlockNote: initialContent(한 번만 세팅) + key(재마운트용) + editorRef(저장 시 읽기)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [blockNoteContent, setBlockNoteContent] = useState<any[] | null>(null);
+  const [blockNoteInitial, setBlockNoteInitial] = useState<any[] | undefined>(undefined);
+  const [blockNoteKey, setBlockNoteKey] = useState(0);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const blockNoteEditorRef = useRef<any>(null);
+  const onBlockNoteDirty = useCallback(() => setIsDirty(true), []);
 
   const { data, isLoading } = useQuery<{ success: boolean; event: Event }>({
     queryKey: ["admin-event", eventId],
@@ -164,11 +226,7 @@ export default function AdminEventDetail() {
       setEditSource(event.source ?? "");
       setEditLocation(event.location ?? "");
       setEditEventHashtags((event.hashtags ?? []).join(", "));
-      setBlockNoteContent(
-        event.contentBlocks && Array.isArray(event.contentBlocks) && event.contentBlocks.length > 0
-          ? event.contentBlocks as unknown[]
-          : null
-      );
+      setBlockNoteInitial(normalizeBlockNoteContent(event.contentBlocks));
       setInited(true);
     }
   }, [event, inited]);
@@ -195,7 +253,10 @@ export default function AdminEventDetail() {
             .split(/[\s,]+/)
             .map((h) => h.replace(/^#/, "").trim())
             .filter(Boolean),
-          contentBlocks: blockNoteContent && blockNoteContent.length > 0 ? blockNoteContent : null,
+          contentBlocks: (() => {
+            const doc = blockNoteEditorRef.current?.document;
+            return doc && doc.length > 0 ? doc : null;
+          })(),
         }),
       });
       if (!r.ok) { const d = await r.json(); throw new Error(d.error ?? "저장 실패"); }
@@ -463,10 +524,14 @@ export default function AdminEventDetail() {
                   내용을 입력하면 /content 페이지에서 <b>간단 설명 대신</b> 표시됩니다. 제목·소제목·굵게·리스트·이미지·구분선 지원.
                 </p>
               </div>
-              {blockNoteContent && blockNoteContent.length > 0 && (
+              {blockNoteInitial !== undefined && (
                 <button
                   type="button"
-                  onClick={() => { setBlockNoteContent(null); setIsDirty(true); }}
+                  onClick={() => {
+                    setBlockNoteInitial(undefined);
+                    setBlockNoteKey((k) => k + 1);
+                    setIsDirty(true);
+                  }}
                   className="text-[11px] text-red-500 hover:text-red-700 transition-colors flex-shrink-0 ml-2"
                 >
                   초기화
@@ -474,13 +539,16 @@ export default function AdminEventDetail() {
               )}
             </div>
             {inited && (
-              <div className="rounded-lg border border-blue-200 bg-white" style={{ minHeight: 220 }}>
-                <BlockNoteEditorWrapper
-                  key={eventId}
-                  initialContent={isBlockNoteBlocks(blockNoteContent) ? blockNoteContent : null}
-                  onChange={(blocks) => { setBlockNoteContent(blocks as unknown[]); setIsDirty(true); }}
-                />
-              </div>
+              <BlockNoteErrorBoundary>
+                <div className="rounded-lg border border-blue-200 bg-white" style={{ minHeight: 220 }}>
+                  <BlockNoteEditorWrapper
+                    key={blockNoteKey}
+                    initialContent={blockNoteInitial}
+                    onDirty={onBlockNoteDirty}
+                    editorRef={blockNoteEditorRef}
+                  />
+                </div>
+              </BlockNoteErrorBoundary>
             )}
           </div>
 

@@ -132,6 +132,14 @@ clerk.com → 해당 앱 → Configure → API Keys → Production
 - **개발 및 수정 시 검증된 외부 라이브러리(GitHub 공인, 스타 수 높음)를 우선 도입한다. 직접 구현 코드로 대체하지 말 것.**
 - **모든 날짜·시각 처리는 한국 시각(KST, UTC+9) 기준으로 진행한다.**
 - **배포 전 개발앱과 배포앱의 동일성을 반드시 한 번 더 확인하고 맞춘 후 배포한다.**
+- **git commit / git push 차단 시 우회 금지**: Python·Node.js·lock 파일 삭제 등 어떤 우회도 하지 않는다. 차단되면 즉시 아래 정보를 보고하고 사용자 승인 후에만 조치한다.
+  1. `git --no-optional-locks status`
+  2. `git --no-optional-locks branch --show-current`
+  3. `git --no-optional-locks log --oneline -5`
+  4. `git --no-optional-locks remote -v`
+  5. `.git/index.lock` 존재 여부
+  6. 변경 파일 목록
+  7. 차단된 정확한 에러 메시지
 
 ## 작업 완료 기준 (Replit Agent 필수 준수)
 

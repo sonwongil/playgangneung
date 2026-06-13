@@ -1,4 +1,5 @@
 - [작업 원칙 및 재발 방지](work-principles.md) — 수정 전 확인·범위 최소화·사전 고지. 잘 되는 코드는 절대 건드리지 않는다.
+- [git 차단 시 보고 원칙](git-block-report.md) — commit/push 차단 시 우회 금지. 상태 7가지 보고 후 승인 대기.
 - [크로스-오리진 iframe 인증](iframe-auth.md) — 쿠키 차단 환경(Replit 캔버스 등) 대비 Bearer 토큰 + localStorage 방식 병행 필수.
 - [이미지 업로드 라우트 구조](image-upload-routes.md) — /api/upload-image (generic), /api/events/:id/upload-image, /api/ads/:id/upload-image 세 라우트가 반드시 존재해야 함. 원복 시 절대 삭제 금지.
 - [VPS Clerk 키 설정](vps-clerk-key.md) — VPS 배포 시 pk_live_ 키 필수. Replit 개발 키(pk_test_)는 VPS 운영 도메인에서 동작 안 함.

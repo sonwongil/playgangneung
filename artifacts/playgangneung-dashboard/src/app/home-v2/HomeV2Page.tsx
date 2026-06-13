@@ -1,10 +1,12 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import { Link } from "wouter";
+import { useClerk, useUser } from "@clerk/react";
 import { useQuery } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, X, Star, Pin, Megaphone, ChevronRight, CheckCircle2 } from "lucide-react";
+import { Search, X, Star, Pin, Megaphone, ChevronRight, CheckCircle2, LogIn, LogOut } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -338,6 +340,9 @@ function FeedCard({ item }: { item: FeedItem }) {
 // ─── 메인 컴포넌트 ─────────────────────────────────────────────────────────
 
 export default function HomeV2Page() {
+  const { signOut }   = useClerk();
+  const { isSignedIn } = useUser();
+
   const [search, setSearch]            = useState("");
   const [activeCategory, setCategory] = useState<CategoryOption>("전체");
   const [showAll, setShowAll]          = useState(false);
@@ -442,11 +447,11 @@ export default function HomeV2Page() {
 
       {/* ── 상단 헤더 ── */}
       <header className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
-        <div className="max-w-6xl mx-auto px-4 flex items-center gap-3" style={{ height: 56 }}>
+        <div className="max-w-6xl mx-auto px-4 flex items-center gap-2" style={{ height: 56 }}>
           <a href={`${BASE}/`} className="shrink-0" aria-label="PLAY강릉 홈">
             <img src={`${BASE}/logo2.png`} alt="PLAY강릉" style={{ height: 40, width: "auto" }} />
           </a>
-          <div className="flex-1 relative">
+          <div className="flex-1 min-w-0 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
             <Input
               type="text"
@@ -463,6 +468,43 @@ export default function HomeV2Page() {
               >
                 <X className="w-4 h-4" />
               </button>
+            )}
+          </div>
+
+          {/* ── 인증 버튼 영역 ── */}
+          <div className="shrink-0 flex items-center gap-1.5">
+            {isSignedIn ? (
+              <>
+                <Link
+                  href="/ad-submit"
+                  className="inline-flex items-center min-h-[36px] px-2.5 rounded-full bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold transition-colors whitespace-nowrap"
+                >
+                  광고접수
+                </Link>
+                <button
+                  onClick={() => signOut()}
+                  aria-label="로그아웃"
+                  className="inline-flex items-center justify-center min-h-[36px] w-9 rounded-full border border-gray-200 hover:bg-gray-50 transition-colors text-gray-500"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
+              </>
+            ) : (
+              <>
+                <Link
+                  href="/sign-in"
+                  className="inline-flex items-center justify-center min-h-[36px] w-9 rounded-full border border-gray-200 hover:bg-gray-50 transition-colors text-gray-500"
+                  aria-label="로그인"
+                >
+                  <LogIn className="w-4 h-4" />
+                </Link>
+                <Link
+                  href="/ad-submit"
+                  className="inline-flex items-center min-h-[36px] px-2.5 rounded-full bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold transition-colors whitespace-nowrap"
+                >
+                  광고접수
+                </Link>
+              </>
             )}
           </div>
         </div>
@@ -656,13 +698,25 @@ export default function HomeV2Page() {
           )}
         </section>
 
-        {/* ── 푸터 안내 ── */}
-        <footer className="mt-10 pt-6 border-t border-gray-200 text-center">
-          <p className="text-xs text-gray-300">© PLAY강릉 · 강릉의 소식을 가장 빠르게</p>
-          <p className="text-[10px] text-gray-200 mt-1">
-            이 화면은 새 홈 미리보기입니다. 기존 홈:{" "}
-            <a href={`${BASE}/`} className="underline hover:text-gray-400">/</a>
+        {/* ── 공식 사업자 푸터 ── */}
+        <footer className="mt-10 pt-6 border-t border-gray-100 text-center space-y-0.5">
+          <p className="text-xs font-semibold text-gray-500">PLAY강릉</p>
+          <p className="text-[11px] text-gray-400 leading-relaxed">
+            상호: 플레이강릉 | 대표: 손원길 | 사업자등록번호: 292-07-03357
           </p>
+          <p className="text-[11px] text-gray-400">
+            주소: 강원특별자치도 강릉시 사천면 진리해변길 37 103-1101
+          </p>
+          <p className="text-[11px] text-gray-400">
+            업태: 정보통신업 | 종목: 뉴스 제공업
+          </p>
+          <p className="text-[11px] text-gray-400 pt-0.5">
+            문의:{" "}
+            <a href="mailto:event62@gmail.com" className="hover:text-gray-600 underline transition-colors">
+              event62@gmail.com
+            </a>
+          </p>
+          <p className="text-[10px] text-gray-300 pt-1">© 2026 PLAY강릉</p>
         </footer>
       </main>
     </div>

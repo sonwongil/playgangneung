@@ -452,24 +452,29 @@ export default function AdminEventDetail() {
             />
           </div>
 
-          {/* ── 리치 에디터 (BlockNote) ── */}
-          <div className="border-t border-dashed border-gray-200 pt-4 space-y-2">
+          {/* ── 강릉노트 본문 에디터 (BlockNote) ── */}
+          <div className="border-2 border-blue-200 rounded-xl bg-blue-50/40 p-3 space-y-2">
             <div className="flex items-center justify-between">
-              <Label className="text-xs text-muted-foreground font-semibold">
-                📝 본문 에디터 <span className="font-normal text-blue-600">(입력 시 간단 설명 대신 표시됩니다)</span>
-              </Label>
+              <div>
+                <Label className="text-sm text-blue-800 font-bold">
+                  📝 강릉노트 본문 에디터
+                </Label>
+                <p className="text-[11px] text-blue-600 mt-0.5">
+                  내용을 입력하면 /content 페이지에서 <b>간단 설명 대신</b> 표시됩니다. 제목·소제목·굵게·리스트·이미지·구분선 지원.
+                </p>
+              </div>
               {blockNoteContent && blockNoteContent.length > 0 && (
                 <button
                   type="button"
                   onClick={() => { setBlockNoteContent(null); setIsDirty(true); }}
-                  className="text-[11px] text-red-500 hover:text-red-700 transition-colors"
+                  className="text-[11px] text-red-500 hover:text-red-700 transition-colors flex-shrink-0 ml-2"
                 >
-                  본문 초기화
+                  초기화
                 </button>
               )}
             </div>
             {inited && (
-              <div className="rounded-lg border border-border overflow-hidden bg-white">
+              <div className="rounded-lg border border-blue-200 bg-white" style={{ minHeight: 220 }}>
                 <BlockNoteEditorWrapper
                   key={eventId}
                   initialContent={isBlockNoteBlocks(blockNoteContent) ? blockNoteContent : null}

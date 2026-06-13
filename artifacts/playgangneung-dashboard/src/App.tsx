@@ -25,6 +25,7 @@ const Terms              = lazy(() => import("@/pages/terms"));
 const Viewer             = lazy(() => import("@/pages/viewer"));
 const NotFound           = lazy(() => import("@/pages/not-found"));
 const AdminV2Guard       = lazy(() => import("@/app/admin-v2/AdminV2Guard"));
+const HomeV2Page         = lazy(() => import("@/app/home-v2/HomeV2Page"));
 
 const queryClient = new QueryClient();
 
@@ -256,6 +257,7 @@ function Router() {
         <Route path="/terms" component={Terms} />
         <Route path="/viewer" component={Viewer} />
         <Route path="/admin/v2/*?" component={AdminV2Guard} />
+        <Route path="/home-v2" component={HomeV2Page} />
         <Route component={NotFound} />
       </Switch>
     </Suspense>

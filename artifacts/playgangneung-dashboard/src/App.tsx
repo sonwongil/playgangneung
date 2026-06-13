@@ -239,7 +239,9 @@ function Router() {
   return (
     <Suspense fallback={<PageLoader />}>
       <Switch>
-        <Route path="/" component={Home} />
+        <Route path="/" component={HomeV2Page} />
+        <Route path="/home-v2" component={HomeV2Page} />
+        <Route path="/home-legacy" component={Home} />
         <Route path="/admin/events/:id" component={AdminEventDetailGuard} />
         <Route path="/admin" component={AdminGuard} />
         <Route path="/login" component={Login} />
@@ -257,7 +259,6 @@ function Router() {
         <Route path="/terms" component={Terms} />
         <Route path="/viewer" component={Viewer} />
         <Route path="/admin/v2/*?" component={AdminV2Guard} />
-        <Route path="/home-v2" component={HomeV2Page} />
         <Route component={NotFound} />
       </Switch>
     </Suspense>

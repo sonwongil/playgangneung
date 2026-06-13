@@ -1,0 +1,147 @@
+Phase 1-F7 최종 점검 보고 확인했습니다.
+
+이번 작업은 승인합니다.
+
+`/home-v2`는 `/` 메인 홈 교체 후보로 승인 가능합니다.
+
+확인된 사항:
+
+1. `/home-v2` 직접 접속 정상
+2. 기존 `/` 홈 영향 없음
+3. 오늘의 강릉소식 정상 표시
+4. 소상공인 추천 섹션 정상 처리
+5. 강릉노트 피드 정상 표시
+6. 검색/카테고리 필터 정상
+7. `/content/:id` 이동 정상
+8. sessionStorage return_url 설정 정상
+9. 로그인 버튼 `/sign-in` 정상
+10. 광고접수 버튼 `/ad-submit` 정상
+11. 로그아웃 버튼 정상
+12. 공식 사업자 푸터 정상 표시
+13. 모바일/PC 레이아웃 정상
+14. 버튼 터치 영역 44px 보정 완료
+15. typecheck 통과
+16. build 통과
+17. GitHub push 없음
+18. 운영 서버 수정 없음
+
+좋습니다.
+
+이제 다음 단계로 **Phase 1-F8: 메인 홈 라우트 교체 준비**를 승인합니다.
+
+---
+
+# Phase 1-F8 승인 범위
+
+## `/home-v2`를 `/`로 교체하고 기존 홈은 `/home-legacy`로 보존
+
+이번 단계의 목표는 새 홈을 메인 `/` 경로로 연결하되, 기존 홈을 삭제하지 않고 `/home-legacy`로 보존하는 것입니다.
+
+이번 단계는 기존 `home.tsx` 삭제가 아닙니다.
+운영 서버 수정이 아닙니다.
+GitHub push가 아닙니다.
+DB/API/PWA 수정이 아닙니다.
+
+오직 **프론트 라우트 교체**만 진행합니다.
+
+---
+
+## 1. 허용 작업
+
+다음 작업만 허용합니다.
+
+1. `App.tsx` 라우트만 수정
+2. 기존 `/` 라우트의 component를 `Home`에서 `HomeV2Page`로 변경
+3. 기존 `Home`은 `/home-legacy` 라우트로 보존
+4. 기존 `/home-v2` 라우트는 유지하거나 제거 여부를 보고 후 결정
+5. 기존 `home.tsx` 파일 삭제 금지
+6. 기존 `Home` import 삭제 금지
+7. typecheck 실행
+8. build 실행
+
+---
+
+## 2. 권장 라우트 구조
+
+현재:
+
+```tsx
+<Route path="/" component={Home} />
+<Route path="/home-v2" component={HomeV2Page} />
+```
+
+변경 후 권장:
+
+```tsx
+<Route path="/" component={HomeV2Page} />
+<Route path="/home-v2" component={HomeV2Page} />
+<Route path="/home-legacy" component={Home} />
+```
+
+`/home-v2`는 당분간 유지해도 됩니다.
+이유는 교체 직후 비교와 확인이 쉽기 때문입니다.
+
+최종 안정화 후 `/home-v2`는 제거 가능합니다.
+
+---
+
+## 3. 아직 금지되는 작업
+
+이번 단계에서 아래 작업은 하지 마세요.
+
+1. 기존 `home.tsx` 삭제 금지
+2. 기존 `home.tsx` 수정 금지
+3. `HomeV2Page.tsx` 기능 추가 금지
+4. API 수정 금지
+5. DB 변경 금지
+6. 마이그레이션 실행 금지
+7. PWA 설정 변경 금지
+8. Service Worker 수정 금지
+9. 광고 신청 기능 수정 금지
+10. 결제 기능 수정 금지
+11. Meta API 수정 금지
+12. SNS 발행 기능 수정 금지
+13. GitHub push 금지
+14. PM2 restart/reload 금지
+15. 운영 서버 수정 금지
+
+---
+
+## 4. 교체 후 반드시 확인할 것
+
+라우트 변경 후 아래를 확인하세요.
+
+1. `/` 접속 시 새 HomeV2Page 표시
+2. `/home-v2` 접속 시 새 HomeV2Page 표시
+3. `/home-legacy` 접속 시 기존 Home 표시
+4. `/content/:id` 이동 정상
+5. `/sign-in` 이동 정상
+6. `/ad-submit` 이동 정상
+7. `/admin` 기존 관리자 정상
+8. `/admin/v2` 새 관리자 정상
+9. typecheck 통과
+10. build 통과
+
+---
+
+## 5. 완료 보고 형식
+
+완료 후 아래 형식으로 보고하세요.
+
+1. 수정한 파일 목록
+2. `App.tsx` 라우트 변경 내용
+3. `/` 접속 결과
+4. `/home-v2` 접속 결과
+5. `/home-legacy` 접속 결과
+6. `/content/:id` 이동 확인
+7. `/sign-in` 이동 확인
+8. `/ad-submit` 이동 확인
+9. 기존 `/admin` 영향 여부
+10. `/admin/v2` 영향 여부
+11. 기존 `home.tsx` 수정/삭제 여부
+12. API/DB/PWA 수정 여부
+13. typecheck 결과
+14. build 결과
+15. 금지 사항 위반 여부
+
+이번 단계는 **메인 홈 라우트 교체와 기존 홈 보존**까지만 승인합니다.

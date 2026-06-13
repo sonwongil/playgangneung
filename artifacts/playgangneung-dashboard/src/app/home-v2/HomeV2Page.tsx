@@ -447,18 +447,22 @@ export default function HomeV2Page() {
 
       {/* ── 상단 헤더 ── */}
       <header className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
-        <div className="max-w-6xl mx-auto px-4 flex items-center gap-2" style={{ height: 56 }}>
+
+        {/* ── PC 헤더: 한 줄 (sm 이상) ── */}
+        <div className="hidden sm:flex max-w-6xl mx-auto px-4 items-center gap-3" style={{ height: 56 }}>
+          {/* 로고: 왼쪽 고정 */}
           <a href={`${BASE}/`} className="shrink-0" aria-label="PLAY강릉 홈">
             <img src={`${BASE}/logo2.png`} alt="PLAY강릉" style={{ height: 40, width: "auto" }} />
           </a>
-          <div className="flex-1 min-w-0 relative">
+          {/* 검색창: flex-1, 최대 폭 제한으로 버튼에 밀리지 않음 */}
+          <div className="flex-1 max-w-xl relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
             <Input
               type="text"
               value={search}
               onChange={(e) => { setSearch(e.target.value); setShowAll(false); }}
               placeholder="행사, 맛집, 핫플, 지역소식..."
-              className="pl-9 pr-8 h-10 rounded-full bg-gray-100 border-0 text-sm text-gray-900 placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-orange-400"
+              className="w-full pl-9 pr-8 h-10 rounded-full bg-gray-100 border-0 text-sm text-gray-900 placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-orange-400"
             />
             {search && (
               <button
@@ -470,46 +474,68 @@ export default function HomeV2Page() {
               </button>
             )}
           </div>
-
-          {/* ── 인증 버튼 영역 ── */}
+          {/* 버튼: 오른쪽 고정, 내용 크기만큼만 차지 */}
           <div className="shrink-0 flex items-center gap-1.5">
             {isSignedIn ? (
               <>
-                <Link
-                  href="/ad-submit"
-                  className="inline-flex items-center min-h-[44px] px-3 rounded-full bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold transition-colors whitespace-nowrap"
-                >
-                  광고접수
-                </Link>
-                <button
-                  onClick={() => signOut()}
-                  aria-label="로그아웃"
-                  className="inline-flex items-center justify-center min-h-[44px] w-11 rounded-full border border-gray-200 hover:bg-gray-50 transition-colors text-gray-500"
-                >
-                  <LogOut className="w-4 h-4" />
-                </button>
+                <Link href="/ad-submit" className="inline-flex items-center min-h-[44px] px-3 rounded-full bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold transition-colors whitespace-nowrap">광고접수</Link>
+                <button onClick={() => signOut()} aria-label="로그아웃" className="inline-flex items-center justify-center min-h-[44px] w-11 rounded-full border border-gray-200 hover:bg-gray-50 transition-colors text-gray-500"><LogOut className="w-4 h-4" /></button>
               </>
             ) : (
               <>
-                <Link
-                  href="/sign-in"
-                  className="inline-flex items-center justify-center min-h-[44px] w-11 rounded-full border border-gray-200 hover:bg-gray-50 transition-colors text-gray-500"
-                  aria-label="로그인"
-                >
-                  <LogIn className="w-4 h-4" />
-                </Link>
-                <Link
-                  href="/ad-submit"
-                  className="inline-flex items-center min-h-[44px] px-3 rounded-full bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold transition-colors whitespace-nowrap"
-                >
-                  광고접수
-                </Link>
+                <Link href="/sign-in" aria-label="로그인" className="inline-flex items-center justify-center min-h-[44px] w-11 rounded-full border border-gray-200 hover:bg-gray-50 transition-colors text-gray-500"><LogIn className="w-4 h-4" /></Link>
+                <Link href="/ad-submit" className="inline-flex items-center min-h-[44px] px-3 rounded-full bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold transition-colors whitespace-nowrap">광고접수</Link>
               </>
             )}
           </div>
         </div>
 
-        {/* 카테고리 탭 바 */}
+        {/* ── 모바일 헤더: 2행 (sm 미만) ── */}
+        <div className="sm:hidden">
+          {/* 행1: 로고 + 버튼 */}
+          <div className="max-w-6xl mx-auto px-4 flex items-center justify-between" style={{ height: 52 }}>
+            <a href={`${BASE}/`} className="shrink-0" aria-label="PLAY강릉 홈">
+              <img src={`${BASE}/logo2.png`} alt="PLAY강릉" style={{ height: 34, width: "auto" }} />
+            </a>
+            <div className="shrink-0 flex items-center gap-1.5">
+              {isSignedIn ? (
+                <>
+                  <Link href="/ad-submit" className="inline-flex items-center min-h-[44px] px-3 rounded-full bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold transition-colors whitespace-nowrap">광고접수</Link>
+                  <button onClick={() => signOut()} aria-label="로그아웃" className="inline-flex items-center justify-center min-h-[44px] w-11 rounded-full border border-gray-200 hover:bg-gray-50 transition-colors text-gray-500"><LogOut className="w-4 h-4" /></button>
+                </>
+              ) : (
+                <>
+                  <Link href="/sign-in" aria-label="로그인" className="inline-flex items-center justify-center min-h-[44px] w-11 rounded-full border border-gray-200 hover:bg-gray-50 transition-colors text-gray-500"><LogIn className="w-4 h-4" /></Link>
+                  <Link href="/ad-submit" className="inline-flex items-center min-h-[44px] px-3 rounded-full bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold transition-colors whitespace-nowrap">광고접수</Link>
+                </>
+              )}
+            </div>
+          </div>
+          {/* 행2: 검색창 전체 폭 */}
+          <div className="max-w-6xl mx-auto px-4 pb-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              <Input
+                type="text"
+                value={search}
+                onChange={(e) => { setSearch(e.target.value); setShowAll(false); }}
+                placeholder="행사, 맛집, 핫플, 지역소식..."
+                className="w-full pl-9 pr-8 h-10 rounded-full bg-gray-100 border-0 text-sm text-gray-900 placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-orange-400"
+              />
+              {search && (
+                <button
+                  onClick={() => { setSearch(""); setShowAll(false); }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-200 transition-colors"
+                  aria-label="검색 초기화"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* 카테고리 탭 바 (공통) */}
         <div
           className="max-w-6xl mx-auto px-4 pb-2 pt-1 flex gap-1.5 overflow-x-auto"
           style={{ scrollbarWidth: "none", msOverflowStyle: "none" } as React.CSSProperties}

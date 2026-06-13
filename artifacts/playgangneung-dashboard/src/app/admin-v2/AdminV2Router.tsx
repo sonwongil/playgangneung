@@ -4,6 +4,7 @@ import { Switch, Route } from "wouter";
 const DashboardPage    = lazy(() => import("./pages/DashboardPage"));
 const InboxPage        = lazy(() => import("./pages/InboxPage"));
 const NoteListPage     = lazy(() => import("./pages/NoteListPage"));
+const NewNotePage      = lazy(() => import("./pages/NewNotePage"));
 const NoteEditPage     = lazy(() => import("./pages/NoteEditPage"));
 const TodayPage        = lazy(() => import("./pages/TodayPage"));
 const SnsPage          = lazy(() => import("./pages/SnsPage"));
@@ -29,6 +30,7 @@ export default function AdminV2Router() {
         <Route path="/admin/v2"               component={DashboardPage} />
         <Route path="/admin/v2/inbox"         component={InboxPage} />
         <Route path="/admin/v2/notes"         component={NoteListPage} />
+        <Route path="/admin/v2/notes/new"     component={NewNotePage} />
         <Route path="/admin/v2/notes/:id"     component={NoteEditPage} />
         <Route path="/admin/v2/today"         component={TodayPage} />
         <Route path="/admin/v2/sns"           component={SnsPage} />

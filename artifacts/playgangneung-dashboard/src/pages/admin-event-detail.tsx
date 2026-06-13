@@ -6,6 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ArrowLeft, ExternalLink, ImageOff, Trash2, ChevronDown, Send, Download, RefreshCw, Upload, Link } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useCreateBlockNote } from "@blocknote/react";
+import { BlockNoteView } from "@blocknote/mantine";
+import "@blocknote/mantine/style.css";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -39,6 +42,7 @@ interface Event {
   videoUrl?: string | null;
   socialDraft?: SocialDraft | null;
   hashtags?: string[] | null;
+  contentBlocks?: unknown[] | null;
   status: string;
   crawledAt: string;
 }
@@ -71,6 +75,37 @@ function OriginalPreview({ url, base }: { url: string; base: string }) {
   );
 }
 
+// ── BlockNote 포맷 감지 ──
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function isBlockNoteBlocks(blocks: any[] | null | undefined): boolean {
+  if (!blocks || blocks.length === 0) return false;
+  const first = blocks[0] as Record<string, unknown>;
+  return !!first && typeof first.id === "string" && "props" in first && Array.isArray(first.children);
+}
+
+// ── BlockNote 에디터 래퍼 (key={eventId} 로 마운트 1회 보장) ──
+function BlockNoteEditorWrapper({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  initialContent,
+  onChange,
+}: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  initialContent: any[] | null;
+  onChange: (blocks: unknown[]) => void;
+}) {
+  const editor = useCreateBlockNote({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    initialContent: initialContent && initialContent.length > 0 ? (initialContent as any) : undefined,
+  });
+  return (
+    <BlockNoteView
+      editor={editor}
+      theme="light"
+      onChange={() => onChange(editor.document as unknown[])}
+    />
+  );
+}
+
 export default function AdminEventDetail() {
   const [, params] = useRoute("/admin/events/:id");
   const [, navigate] = useLocation();
@@ -95,6 +130,8 @@ export default function AdminEventDetail() {
   const [isDirty, setIsDirty] = useState(false);
   const [isUploadingSlot, setIsUploadingSlot] = useState<number | null>(null);
   const [imageTab, setImageTab] = useState<"url" | "upload">("url");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [blockNoteContent, setBlockNoteContent] = useState<any[] | null>(null);
 
   const { data, isLoading } = useQuery<{ success: boolean; event: Event }>({
     queryKey: ["admin-event", eventId],
@@ -127,6 +164,11 @@ export default function AdminEventDetail() {
       setEditSource(event.source ?? "");
       setEditLocation(event.location ?? "");
       setEditEventHashtags((event.hashtags ?? []).join(", "));
+      setBlockNoteContent(
+        event.contentBlocks && Array.isArray(event.contentBlocks) && event.contentBlocks.length > 0
+          ? event.contentBlocks as unknown[]
+          : null
+      );
       setInited(true);
     }
   }, [event, inited]);
@@ -153,6 +195,7 @@ export default function AdminEventDetail() {
             .split(/[\s,]+/)
             .map((h) => h.replace(/^#/, "").trim())
             .filter(Boolean),
+          contentBlocks: blockNoteContent && blockNoteContent.length > 0 ? blockNoteContent : null,
         }),
       });
       if (!r.ok) { const d = await r.json(); throw new Error(d.error ?? "저장 실패"); }
@@ -399,14 +442,41 @@ export default function AdminEventDetail() {
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">상세 내용</Label>
+            <Label className="text-xs text-muted-foreground">간단 설명 (공유 미리보기 · 리치 에디터가 비어 있을 때 표시)</Label>
             <textarea
-              rows={6}
+              rows={4}
               value={editDescription}
               onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => { setEditDescription(e.target.value); setIsDirty(true); }}
               className="text-sm resize-none flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               placeholder="내용을 입력하세요."
             />
+          </div>
+
+          {/* ── 리치 에디터 (BlockNote) ── */}
+          <div className="border-t border-dashed border-gray-200 pt-4 space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs text-muted-foreground font-semibold">
+                📝 본문 에디터 <span className="font-normal text-blue-600">(입력 시 간단 설명 대신 표시됩니다)</span>
+              </Label>
+              {blockNoteContent && blockNoteContent.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => { setBlockNoteContent(null); setIsDirty(true); }}
+                  className="text-[11px] text-red-500 hover:text-red-700 transition-colors"
+                >
+                  본문 초기화
+                </button>
+              )}
+            </div>
+            {inited && (
+              <div className="rounded-lg border border-border overflow-hidden bg-white">
+                <BlockNoteEditorWrapper
+                  key={eventId}
+                  initialContent={isBlockNoteBlocks(blockNoteContent) ? blockNoteContent : null}
+                  onChange={(blocks) => { setBlockNoteContent(blocks as unknown[]); setIsDirty(true); }}
+                />
+              </div>
+            )}
           </div>
 
           {/* 대표 이미지 */}

@@ -290,6 +290,104 @@ function buildJsonLd(item: ContentItem, contentUrl: string, thumbnailOg: string)
   }
 }
 
+// ─── BlockNote SSR 렌더러 ─────────────────────────────────────────────────────
+
+function isBlockNoteFormat(blocks: unknown[] | null | undefined): boolean {
+  if (!blocks || blocks.length === 0) return false;
+  const first = blocks[0] as Record<string, unknown>;
+  return !!first && typeof first.id === "string" && "props" in first && Array.isArray(first.children);
+}
+
+function renderBNInline(content: unknown[]): string {
+  if (!Array.isArray(content)) return "";
+  return content.map((item) => {
+    const node = item as Record<string, unknown>;
+    if (node.type === "text") {
+      let text = escHtml(String(node.text ?? ""));
+      const s = (node.styles ?? {}) as Record<string, boolean>;
+      if (s.bold) text = `<strong>${text}</strong>`;
+      if (s.italic) text = `<em>${text}</em>`;
+      if (s.underline) text = `<u>${text}</u>`;
+      if (s.strikethrough) text = `<s>${text}</s>`;
+      if (s.code) text = `<code class="bn-code">${text}</code>`;
+      return text;
+    }
+    if (node.type === "link") {
+      const href = escHtml(String(node.href ?? ""));
+      return `<a href="${href}" target="_blank" rel="noopener noreferrer">${renderBNInline((node.content ?? []) as unknown[])}</a>`;
+    }
+    return "";
+  }).join("");
+}
+
+function renderBNBlock(block: Record<string, unknown>): string {
+  const type = String(block.type ?? "");
+  const props = (block.props ?? {}) as Record<string, unknown>;
+  const content = Array.isArray(block.content) ? block.content : [];
+  const children = Array.isArray(block.children) ? block.children : [];
+  const childrenHtml = children.map((c) => renderBNBlock(c as Record<string, unknown>)).join("");
+  const innerHtml = renderBNInline(content);
+
+  switch (type) {
+    case "paragraph":
+      return `<p class="bn-p">${innerHtml || "\u00a0"}</p>`;
+    case "heading": {
+      const lvl = Number(props.level) || 2;
+      const tag = lvl === 1 ? "h2" : lvl === 2 ? "h3" : "h4";
+      return `<${tag} class="bn-h bn-h${lvl}">${innerHtml}</${tag}>`;
+    }
+    case "bulletListItem":
+      return `<li class="bn-li">${innerHtml}${childrenHtml}</li>`;
+    case "numberedListItem":
+      return `<li class="bn-li">${innerHtml}${childrenHtml}</li>`;
+    case "checkListItem": {
+      const checked = props.checked ? "\u2705 " : "\u25a1 ";
+      return `<p class="bn-p">${checked}${innerHtml}</p>`;
+    }
+    case "image": {
+      const url = String(props.url ?? "");
+      const caption = String(props.caption ?? "");
+      if (!url) return "";
+      const imgHtml = `<img src="${escHtml(proxyUrl(url))}" alt="${escHtml(caption || "이미지")}" class="bn-img" loading="lazy" onerror="this.style.display='none'">`;
+      return caption
+        ? `<figure class="bn-figure">${imgHtml}<figcaption class="bn-caption">${escHtml(caption)}</figcaption></figure>`
+        : `<figure class="bn-figure">${imgHtml}</figure>`;
+    }
+    case "horizontalRule":
+    case "divider":
+      return `<hr class="bn-hr">`;
+    default:
+      return innerHtml ? `<p class="bn-p">${innerHtml}</p>` : "";
+  }
+}
+
+function renderBlockNoteContent(blocks: unknown[]): string {
+  const parts: string[] = [];
+  let i = 0;
+  while (i < blocks.length) {
+    const b = blocks[i] as Record<string, unknown>;
+    if (b.type === "bulletListItem") {
+      const items: string[] = [];
+      while (i < blocks.length && (blocks[i] as Record<string, unknown>).type === "bulletListItem") {
+        items.push(renderBNBlock(blocks[i] as Record<string, unknown>));
+        i++;
+      }
+      parts.push(`<ul class="bn-ul">${items.join("")}</ul>`);
+    } else if (b.type === "numberedListItem") {
+      const items: string[] = [];
+      while (i < blocks.length && (blocks[i] as Record<string, unknown>).type === "numberedListItem") {
+        items.push(renderBNBlock(blocks[i] as Record<string, unknown>));
+        i++;
+      }
+      parts.push(`<ol class="bn-ol">${items.join("")}</ol>`);
+    } else {
+      parts.push(renderBNBlock(b));
+      i++;
+    }
+  }
+  return parts.join("");
+}
+
 // ─── HTML 렌더러 ─────────────────────────────────────────────────────────────
 
 // ── 관리자 패널 HTML (토글바 + 패널 div) ─ 어드민 인증 확인 후에만 사용 ──
@@ -512,14 +610,17 @@ function renderHtml(
       ).join("")}</div>`
     : "";
 
-  // 추가 콘텐츠 블록
+  // 콘텐츠 블록 (BlockNote 우선, 레거시 fallback)
+  const hasBlockNote = isBlockNoteFormat(item.contentBlocks as unknown[] | null);
   const contentBlocksHtml = (item.contentBlocks && item.contentBlocks.length > 0)
-    ? item.contentBlocks.map((block) => {
-        if (block.type === "text") return `<p class="block-text">${escHtml(block.content)}</p>`;
-        if (block.type === "image") return `<img src="${escHtml(proxyUrl(block.content))}" alt="추가 이미지" class="block-img" loading="lazy" onerror="this.style.display='none'">`;
-        if (block.type === "video") return renderVideoSection(block.content);
-        return "";
-      }).join("")
+    ? hasBlockNote
+      ? renderBlockNoteContent(item.contentBlocks as unknown[])
+      : item.contentBlocks.map((block) => {
+          if (block.type === "text") return `<p class="block-text">${escHtml(block.content)}</p>`;
+          if (block.type === "image") return `<img src="${escHtml(proxyUrl(block.content))}" alt="추가 이미지" class="block-img" loading="lazy" onerror="this.style.display='none'">`;
+          if (block.type === "video") return renderVideoSection(block.content);
+          return "";
+        }).join("")
     : "";
 
   // 해시태그
@@ -620,9 +721,34 @@ img{max-width:100%;display:block}
   .description{font-size:15px}
   .bottom-bar{max-width:680px;left:50%;transform:translateX(-50%);width:100%}
 }
-/* ── 콘텐츠 블록 ── */
+/* ── 레거시 콘텐츠 블록 ── */
 .block-text{font-size:14px;line-height:1.9;color:#334155;word-break:keep-all;white-space:pre-wrap;margin-bottom:16px}
 .block-img{width:100%;border-radius:12px;margin-bottom:16px;object-fit:contain;background:#f8fafc}
+/* ── BlockNote SSR 본문 ── */
+.bn-body{font-size:14px;color:#334155;line-height:1.85}
+.bn-p{margin-bottom:12px;word-break:keep-all;white-space:pre-wrap}
+.bn-h{font-weight:800;color:#0f172a;margin:20px 0 8px;word-break:keep-all}
+.bn-h1{font-size:20px}.bn-h2{font-size:17px}.bn-h3{font-size:15px}
+.bn-ul,.bn-ol{padding-left:20px;margin-bottom:12px}
+.bn-ul{list-style:disc}.bn-ol{list-style:decimal}
+.bn-li{margin-bottom:5px;line-height:1.8;word-break:keep-all}
+.bn-figure{margin:12px 0}
+.bn-img{width:100%;border-radius:12px;object-fit:contain;background:#f8fafc}
+.bn-caption{font-size:12px;color:#64748b;text-align:center;margin-top:5px}
+.bn-hr{border:none;border-top:2px solid #e2e8f0;margin:20px 0}
+.bn-code{font-family:monospace;font-size:12px;background:#f1f5f9;padding:1px 5px;border-radius:4px}
+/* ── 구독박스 ── */
+.subscribe-box{max-width:680px;margin:0 auto 24px;padding:20px 16px;background:linear-gradient(135deg,#eff6ff,#f0fdf4);border:1px solid #bfdbfe;border-radius:16px}
+.subscribe-title{font-size:15px;font-weight:800;color:#1e40af;margin-bottom:5px}
+.subscribe-desc{font-size:12px;color:#475569;margin-bottom:12px;line-height:1.5}
+.subscribe-form{display:flex;gap:8px}
+.subscribe-input{flex:1;padding:9px 12px;border:1px solid #cbd5e1;border-radius:10px;font-size:13px;background:#fff;outline:none}
+.subscribe-input:focus{border-color:#2563eb;box-shadow:0 0 0 2px rgba(37,99,235,.15)}
+.subscribe-btn{padding:9px 16px;background:#2563eb;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap}
+.subscribe-btn:active{opacity:.8}
+.subscribe-note{font-size:12px;color:#15803d;margin-top:8px;font-weight:600}
+/* ── 하단 바 버튼 추가 ── */
+.btn-outline-link{background:#f8fafc;color:#1e293b;border:1px solid #e2e8f0;flex:0 0 auto}
 /* ── 스크린리더 전용 ── */
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border-width:0}
 /* ── 관리자 SNS 패널 ── */
@@ -715,10 +841,13 @@ img{max-width:100%;display:block}
       </div>
     </section>
 
-    <!-- H2 상세 내용 -->
+    <!-- H2 상세 내용 — BlockNote 콘텐츠 또는 description 표시 -->
     <section aria-labelledby="detail-title" style="margin-bottom:20px">
       <h2 id="detail-title" class="section-h2">상세 내용</h2>
-      <p class="description">${descDisplay}</p>
+      ${hasBlockNote && contentBlocksHtml
+        ? `<div class="bn-body">${contentBlocksHtml}</div>`
+        : `<p class="description">${descDisplay}</p>`
+      }
     </section>
 
     <!-- H2 사진과 영상 (있을 때만) -->
@@ -728,12 +857,23 @@ img{max-width:100%;display:block}
       ${item.videoUrl ? renderVideoSection(item.videoUrl) : ""}
     </section>` : ""}
 
-    <!-- 추가 콘텐츠 블록 -->
-    ${contentBlocksHtml ? `<section aria-label="추가 콘텐츠" style="margin-bottom:20px">${contentBlocksHtml}</section>` : ""}
+    <!-- 레거시 추가 콘텐츠 블록 (BlockNote 아닌 경우에만) -->
+    ${!hasBlockNote && contentBlocksHtml ? `<section aria-label="추가 콘텐츠" style="margin-bottom:20px">${contentBlocksHtml}</section>` : ""}
 
     <!-- 해시태그 -->
     ${hashtagsHtml}
 
+  </div>
+
+  <!-- 구독 박스 -->
+  <div class="subscribe-box">
+    <p class="subscribe-title">PLAY강릉 소식 받아보기</p>
+    <p class="subscribe-desc">강릉의 행사, 맛집, 전시, 동네 소식을 가장 먼저 받아보세요.</p>
+    <form class="subscribe-form" onsubmit="pgSubscribe(event,this)">
+      <input type="email" name="email" class="subscribe-input" placeholder="이메일 주소" required autocomplete="email">
+      <button type="submit" class="subscribe-btn">소식 받기</button>
+    </form>
+    <p class="subscribe-note" id="subscribe-msg" style="display:none"></p>
   </div>
 
   <!-- 브랜드 푸터 -->
@@ -743,13 +883,23 @@ img{max-width:100%;display:block}
   </div>
 </div>
 
-<!-- 고정 하단 버튼: 원본 보기 | 공유하기 | 홈 -->
+<!-- 고정 하단 버튼: 공유하기 | 원문 보기(있을 때) -->
 <div class="bottom-bar">
-  ${hasLink ? `<a href="${escHtml(item.link)}" target="_blank" rel="noopener noreferrer" class="btn btn-primary">🔗 원본 보기</a>` : ""}
   <button class="btn btn-share" onclick="${escHtml(shareScript)}">📤 공유하기</button>
-  <a href="/" class="btn btn-secondary">🏠 홈</a>
+  ${hasLink ? `<a href="${escHtml(item.link)}" target="_blank" rel="noopener noreferrer" class="btn btn-outline-link">🔗 원문 보기</a>` : ""}
 </div>
 
+<script>
+function pgSubscribe(e,form){
+  e.preventDefault();
+  var email=(form.email.value||'').trim();
+  if(!email)return;
+  var msg=document.getElementById('subscribe-msg');
+  form.email.value='';
+  if(msg){msg.textContent='구독 신청이 완료되었습니다. 감사합니다! 🎉';msg.style.display='block';}
+  setTimeout(function(){if(msg)msg.style.display='none';},5000);
+}
+</script>
 ${isAdmin ? renderAdminSnsPanel(item, contentUrl) : ""}
 ${renderAdminPanelJs(item)}
 

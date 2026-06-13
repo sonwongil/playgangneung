@@ -1,9 +1,14 @@
 import { pgTable, text, jsonb, timestamp, index } from "drizzle-orm/pg-core";
 
-export interface ContentBlock {
+/** 기존 레거시 블록 포맷 */
+export interface LegacyContentBlock {
   type: "text" | "image" | "video";
   content: string;
 }
+
+/** BlockNote 저장 포맷(0.27+) 또는 레거시 포맷 모두 수용 */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type ContentBlock = LegacyContentBlock | Record<string, any>;
 
 export const eventsTable = pgTable(
   "events",

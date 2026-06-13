@@ -458,7 +458,7 @@ export default function HomeV2Page() {
             {search && (
               <button
                 onClick={() => { setSearch(""); setShowAll(false); }}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-200 transition-colors"
                 aria-label="검색 초기화"
               >
                 <X className="w-4 h-4" />
@@ -470,13 +470,13 @@ export default function HomeV2Page() {
         {/* 카테고리 탭 바 */}
         <div
           className="max-w-6xl mx-auto px-4 pb-2 pt-1 flex gap-1.5 overflow-x-auto"
-          style={{ scrollbarWidth: "none" }}
+          style={{ scrollbarWidth: "none", msOverflowStyle: "none" } as React.CSSProperties}
         >
           {CATEGORY_OPTIONS.map((cat) => (
             <button
               key={cat}
               onClick={() => { setCategory(cat); setShowAll(false); }}
-              className={`shrink-0 min-h-[36px] px-4 rounded-full text-sm font-medium transition-colors ${
+              className={`shrink-0 min-h-[44px] px-4 rounded-full text-sm font-medium transition-colors ${
                 activeCategory === cat
                   ? "bg-orange-600 text-white"
                   : "bg-gray-100 text-gray-600 hover:bg-gray-200"

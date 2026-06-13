@@ -1,10 +1,10 @@
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, X, Star, Pin, Megaphone } from "lucide-react";
+import { Search, X, Star, Pin, Megaphone, ChevronRight, CheckCircle2 } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -341,8 +341,10 @@ export default function HomeV2Page() {
   const [search, setSearch]            = useState("");
   const [activeCategory, setCategory] = useState<CategoryOption>("전체");
   const [showAll, setShowAll]          = useState(false);
+  const [adClicked, setAdClicked]      = useState(false);
   const carouselRef                    = useRef<HTMLDivElement>(null);
   const dragRef                        = useRef({ active: false, startX: 0, scrollLeft: 0, moved: false });
+  const adTimerRef                     = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // bfcache 방지
   useEffect(() => {
@@ -426,6 +428,14 @@ export default function HomeV2Page() {
   }
 
   function resetFilter() { setSearch(""); setCategory("전체"); setShowAll(false); }
+
+  const handleAdInquiry = useCallback(() => {
+    setAdClicked(true);
+    if (adTimerRef.current) clearTimeout(adTimerRef.current);
+    adTimerRef.current = setTimeout(() => setAdClicked(false), 3500);
+  }, []);
+
+  useEffect(() => () => { if (adTimerRef.current) clearTimeout(adTimerRef.current); }, []);
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -541,6 +551,39 @@ export default function HomeV2Page() {
                 ))}
               </div>
             )}
+          </section>
+        )}
+
+        {/* ══ 광고문의 배너 ══ */}
+        {!isFiltered && (
+          <section className="mb-6">
+            <div className="rounded-2xl bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950 px-5 py-5">
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1">
+                강릉 소상공인을 위한
+              </p>
+              <h3 className="text-base font-extrabold text-white leading-snug mb-2">
+                온라인 홍보가 필요하신가요?
+              </h3>
+              <p className="text-xs text-slate-300 leading-relaxed mb-4">
+                PLAY강릉은 지역 소식, 강릉노트, 소상공인 추천 카드, SNS 광고를 연결해
+                작은 가게도 쉽게 온라인 홍보를 시작할 수 있도록 돕습니다.
+              </p>
+
+              {adClicked ? (
+                <div className="flex items-center gap-2 rounded-xl bg-white/10 px-4 py-3 text-sm text-white">
+                  <CheckCircle2 className="w-4 h-4 text-green-400 shrink-0" />
+                  <span>광고 문의 기능을 준비 중입니다. 곧 만나보실 수 있어요!</span>
+                </div>
+              ) : (
+                <button
+                  onClick={handleAdInquiry}
+                  className="inline-flex items-center gap-2 min-h-[44px] px-5 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 active:bg-orange-700 transition-colors text-white font-bold text-sm"
+                >
+                  광고 문의하기
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              )}
+            </div>
           </section>
         )}
 

@@ -328,6 +328,16 @@ export default function TodayPage() {
     saveMutation.mutate();
   };
 
+  // ── 저장된 데이터와 현재 슬롯 일치 여부 ──
+  const isSynced = useMemo(() => {
+    const savedItems = top5Data?.items ?? [];
+    const filledSlots = slots.filter(Boolean);
+    if (savedItems.length === 0 && filledSlots.length === 0) return true;
+    if (savedItems.length !== filledSlots.length) return false;
+    const sorted = [...savedItems].sort((a, b) => a.rank - b.rank);
+    return sorted.every((item, i) => item.eventId === filledSlots[i]?.id);
+  }, [top5Data, slots]);
+
   // ── 후보 목록 필터링 ──
   const candidates = useMemo(() => {
     const events = eventsData?.events ?? [];
@@ -424,7 +434,7 @@ export default function TodayPage() {
           </div>
         )}
 
-        {/* 저장 버튼 */}
+        {/* 저장 버튼 + 일치 여부 */}
         <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border bg-orange-50 border-orange-200 px-4 py-3">
           <Button
             className="bg-orange-600 hover:bg-orange-700 text-white gap-1.5"
@@ -456,10 +466,128 @@ export default function TodayPage() {
           >
             홈 반영
           </Button>
+          {/* 저장 상태 표시 */}
+          {filledCount > 0 && (
+            <span
+              className={`ml-2 inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full ${
+                isSynced
+                  ? "bg-green-100 text-green-700 border border-green-200"
+                  : "bg-amber-100 text-amber-700 border border-amber-200"
+              }`}
+            >
+              {isSynced ? (
+                <><CheckCircle2 className="h-3 w-3" /> 저장 상태: 현재 선택과 저장된 데이터가 일치합니다</>
+              ) : (
+                <>⚠ 저장 상태: 현재 선택이 저장된 데이터와 다릅니다. 저장이 필요합니다</>
+              )}
+            </span>
+          )}
           <span className="text-xs text-gray-400 ml-auto">
             저장 시 events 테이블 수정 없음 (status 변경 없음)
           </span>
         </div>
+      </section>
+
+      {/* ── 저장된 오늘의 강릉소식 미리보기 ── */}
+      <section className="mb-8">
+        <h2 className="text-sm font-semibold text-gray-700 mb-1">
+          🖥 저장된 오늘의 강릉소식 미리보기
+        </h2>
+        <p className="text-xs text-gray-400 mb-3">
+          기존 홈 화면 코드는 수정하지 않았습니다. 이 영역은 관리자용 미리보기입니다.
+        </p>
+
+        {top5Loading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-28 rounded-xl" />
+            ))}
+          </div>
+        ) : !top5Data?.items?.length ? (
+          <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-6 py-8 text-center text-sm text-gray-400">
+            {selectedDate}에 저장된 오늘의 강릉소식이 없습니다.
+            <br />
+            <span className="text-xs text-gray-300 mt-1 block">위 슬롯에서 선정 후 저장 버튼을 누르세요.</span>
+          </div>
+        ) : (
+          <>
+            <div className="mb-2 flex items-center gap-2">
+              <span className="text-xs text-gray-500 font-medium">
+                {top5Data.date} 기준 {top5Data.items.length}개 저장됨
+              </span>
+              {top5Data.isHistorical && (
+                <span className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">
+                  최근 이력 ({top5Data.top5Date})
+                </span>
+              )}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {[...top5Data.items]
+                .sort((a, b) => a.rank - b.rank)
+                .map((item) => (
+                  <div
+                    key={item.eventId}
+                    className="flex gap-3 rounded-xl border bg-white shadow-sm px-3 py-3 min-h-[80px]"
+                  >
+                    {/* 순번 */}
+                    <span className="text-lg font-bold text-orange-500 w-6 shrink-0 mt-0.5">
+                      {item.rank}
+                    </span>
+                    {/* 썸네일 */}
+                    {item.thumbnail ? (
+                      <img
+                        src={item.thumbnail}
+                        alt=""
+                        className="w-14 h-14 rounded-lg object-cover bg-gray-100 shrink-0"
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                      />
+                    ) : (
+                      <div className="w-14 h-14 rounded-lg bg-orange-50 flex items-center justify-center text-orange-200 text-xl shrink-0">
+                        📝
+                      </div>
+                    )}
+                    {/* 텍스트 */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 line-clamp-2 leading-snug">
+                        {item.title}
+                      </p>
+                      <div className="flex flex-wrap items-center gap-1 mt-1">
+                        <Badge variant="outline" className="text-xs font-normal h-5">
+                          {item.category}
+                        </Badge>
+                        <span className="text-xs text-gray-400">{item.source}</span>
+                      </div>
+                      <div className="flex gap-2 mt-1.5">
+                        {item.link && (
+                          <a
+                            href={item.link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-0.5 text-xs text-blue-500 hover:underline"
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                            원본
+                          </a>
+                        )}
+                        <a
+                          href={`${BASE}/content/${item.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-0.5 text-xs text-orange-500 hover:underline"
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          상세보기
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+            </div>
+            <p className="mt-2 text-xs text-gray-300 text-right">
+              홈에서는 이런 순서로 노출됩니다 (관리자 미리보기 전용)
+            </p>
+          </>
+        )}
       </section>
 
       {/* ── 후보 목록 ── */}

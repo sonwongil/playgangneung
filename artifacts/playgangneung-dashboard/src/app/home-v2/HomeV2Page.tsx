@@ -477,14 +477,14 @@ export default function HomeV2Page() {
               <>
                 <Link
                   href="/ad-submit"
-                  className="inline-flex items-center min-h-[36px] px-2.5 rounded-full bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold transition-colors whitespace-nowrap"
+                  className="inline-flex items-center min-h-[44px] px-3 rounded-full bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold transition-colors whitespace-nowrap"
                 >
                   광고접수
                 </Link>
                 <button
                   onClick={() => signOut()}
                   aria-label="로그아웃"
-                  className="inline-flex items-center justify-center min-h-[36px] w-9 rounded-full border border-gray-200 hover:bg-gray-50 transition-colors text-gray-500"
+                  className="inline-flex items-center justify-center min-h-[44px] w-11 rounded-full border border-gray-200 hover:bg-gray-50 transition-colors text-gray-500"
                 >
                   <LogOut className="w-4 h-4" />
                 </button>
@@ -493,14 +493,14 @@ export default function HomeV2Page() {
               <>
                 <Link
                   href="/sign-in"
-                  className="inline-flex items-center justify-center min-h-[36px] w-9 rounded-full border border-gray-200 hover:bg-gray-50 transition-colors text-gray-500"
+                  className="inline-flex items-center justify-center min-h-[44px] w-11 rounded-full border border-gray-200 hover:bg-gray-50 transition-colors text-gray-500"
                   aria-label="로그인"
                 >
                   <LogIn className="w-4 h-4" />
                 </Link>
                 <Link
                   href="/ad-submit"
-                  className="inline-flex items-center min-h-[36px] px-2.5 rounded-full bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold transition-colors whitespace-nowrap"
+                  className="inline-flex items-center min-h-[44px] px-3 rounded-full bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold transition-colors whitespace-nowrap"
                 >
                   광고접수
                 </Link>

@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 import AdminLayout from "../layout/AdminLayout";
 import {
   Table,
@@ -29,6 +30,8 @@ import {
   FileX,
   Info,
   CalendarDays,
+  Save,
+  CheckCircle2,
 } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -201,6 +204,9 @@ function SlotCard({
 // ─── 메인 컴포넌트 ─────────────────────────────────────────────────────────────
 
 export default function TodayPage() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
   // ── 날짜 (local state only) ──
   const [selectedDate, setSelectedDate] = useState(todayKST());
 
@@ -278,6 +284,50 @@ export default function TodayPage() {
 
   const clearSlots = () => setSlots(Array(MAX_SLOTS).fill(null));
 
+  // ── daily_top5 저장 (POST /api/top5/save-only — events 테이블 무수정) ──
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const filledSlots = slots
+        .map((s, i) => s ? { eventId: s.id, rank: i + 1 } : null)
+        .filter((s): s is { eventId: string; rank: number } => s !== null);
+
+      const res = await fetch(`${BASE}/api/top5/save-only`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date: selectedDate, items: filledSlots }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as { error?: string }).error ?? "저장 실패");
+      }
+      return res.json() as Promise<{ success: boolean; date: string; count: number }>;
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "저장 완료",
+        description: `${data.date} 오늘의 강릉소식 ${data.count}개가 저장되었습니다.`,
+      });
+      void queryClient.invalidateQueries({ queryKey: ["admin-v2-top5", selectedDate] });
+    },
+    onError: (err: Error) => {
+      toast({
+        title: "저장 실패",
+        description: err.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSave = () => {
+    const filled = slots.filter(Boolean).length;
+    if (filled === 0) {
+      toast({ title: "선정 항목 없음", description: "1개 이상 선택 후 저장하세요.", variant: "destructive" });
+      return;
+    }
+    saveMutation.mutate();
+  };
+
   // ── 후보 목록 필터링 ──
   const candidates = useMemo(() => {
     const events = eventsData?.events ?? [];
@@ -293,14 +343,14 @@ export default function TodayPage() {
   return (
     <AdminLayout title="오늘의 강릉소식">
       {/* 안내 배너 */}
-      <div className="flex items-start gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 mb-6">
-        <Info className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
+      <div className="flex items-start gap-3 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 mb-6">
+        <Info className="h-4 w-4 text-orange-500 mt-0.5 shrink-0" />
         <div>
-          <p className="text-sm font-medium text-blue-800">저장 없는 미리보기 단계</p>
-          <p className="text-xs text-blue-600 mt-0.5">
-            강릉노트 중 오늘 홈 상단에 노출할 5개 콘텐츠를 선정하는 화면입니다.
-            이 화면에서의 모든 선택/제거는 로컬 상태에만 반영되며, DB에 저장되지 않습니다.
-            저장 기능은 Phase 1-E2에서 구현됩니다.
+          <p className="text-sm font-medium text-orange-800">오늘의 강릉소식 선정 · 저장</p>
+          <p className="text-xs text-orange-700 mt-0.5">
+            오늘 홈 상단에 노출할 소식 1~5개를 선정하고 저장합니다.
+            저장 시 <strong>events 테이블은 수정되지 않습니다</strong> (status 변경 없음).
+            daily_top5 테이블에만 날짜별 슬롯이 기록됩니다.
           </p>
         </div>
       </div>
@@ -374,20 +424,27 @@ export default function TodayPage() {
           </div>
         )}
 
-        {/* 저장 버튼 — disabled */}
-        <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border bg-gray-50 px-4 py-3">
+        {/* 저장 버튼 */}
+        <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border bg-orange-50 border-orange-200 px-4 py-3">
           <Button
-            className="bg-orange-600 hover:bg-orange-600 opacity-40 cursor-not-allowed"
-            disabled
-            title="Phase 1-E2에서 구현 예정"
+            className="bg-orange-600 hover:bg-orange-700 text-white gap-1.5"
+            onClick={handleSave}
+            disabled={saveMutation.isPending || filledCount === 0}
+            title={filledCount === 0 ? "1개 이상 선택 후 저장하세요" : `${filledCount}개 슬롯을 daily_top5에 저장 (events 테이블 무수정)`}
           >
-            오늘의 강릉소식 저장 — 다음 단계
+            {saveMutation.isPending ? (
+              <>저장 중...</>
+            ) : saveMutation.isSuccess ? (
+              <><CheckCircle2 className="h-4 w-4" /> 저장 완료</>
+            ) : (
+              <><Save className="h-4 w-4" /> 오늘의 강릉소식 저장</>
+            )}
           </Button>
           <Button
             className="opacity-40 cursor-not-allowed"
             variant="outline"
             disabled
-            title="Phase 1-E2 이후 구현"
+            title="추후 구현 예정"
           >
             SNS 발행
           </Button>
@@ -395,12 +452,12 @@ export default function TodayPage() {
             className="opacity-40 cursor-not-allowed"
             variant="outline"
             disabled
-            title="Phase 1-E2 이후 구현"
+            title="추후 구현 예정"
           >
             홈 반영
           </Button>
           <span className="text-xs text-gray-400 ml-auto">
-            * 저장 기능은 Phase 1-E2에서 구현 예정입니다.
+            저장 시 events 테이블 수정 없음 (status 변경 없음)
           </span>
         </div>
       </section>

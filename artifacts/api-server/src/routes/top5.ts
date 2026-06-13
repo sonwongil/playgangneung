@@ -138,6 +138,37 @@ router.get("/top5/history", requireAdmin, async (req, res) => {
   }
 });
 
+// /admin/v2 전용 — events 테이블 무수정, status 변경 없음
+router.post("/top5/save-only", requireAdmin, async (req, res) => {
+  try {
+    const { date: dateParam, items } = req.body as {
+      date?: string;
+      items: { eventId: string; rank: number }[];
+    };
+
+    if (!Array.isArray(items)) return res.status(400).json({ error: "items 배열 필수" });
+    if (items.length === 0) return res.status(400).json({ error: "1개 이상 선택 필요" });
+    if (items.length > 5) return res.status(400).json({ error: "최대 5개까지 설정 가능합니다" });
+
+    const targetDate = dateParam ?? todayKST();
+    const slotItems = items
+      .slice(0, 5)
+      .map((it, i) => ({ eventId: it.eventId, rank: it.rank ?? i + 1 }));
+
+    await db
+      .insert(dailyTop5Table)
+      .values({ date: targetDate, items: slotItems })
+      .onConflictDoUpdate({ target: dailyTop5Table.date, set: { items: slotItems } });
+
+    // events 테이블 수정 없음 — status 변경 없음
+
+    return res.json({ success: true, date: targetDate, count: slotItems.length });
+  } catch (err) {
+    req.log.error({ err }, "TOP 5 저장 실패 (save-only)");
+    return res.status(500).json({ error: "TOP 5 저장 실패" });
+  }
+});
+
 router.post("/top5", requireAdmin, async (req, res) => {
   try {
     const { date: dateParam, items } = req.body as {

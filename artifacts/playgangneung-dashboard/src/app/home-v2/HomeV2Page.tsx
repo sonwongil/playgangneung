@@ -454,8 +454,9 @@ export default function HomeV2Page() {
           <a href={`${BASE}/`} className="shrink-0" aria-label="PLAY강릉 홈">
             <img src={`${BASE}/logo2.png`} alt="PLAY강릉" style={{ height: 40, width: "auto" }} />
           </a>
-          {/* 검색창: flex-1, 최대 폭 제한으로 버튼에 밀리지 않음 */}
-          <div className="flex-1 max-w-xl relative">
+          {/* 검색창: flex-1 래퍼 안에서 mx-auto 중앙 배치 */}
+          <div className="flex-1 flex items-center">
+          <div className="w-full max-w-xl mx-auto relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
             <Input
               type="text"
@@ -473,6 +474,7 @@ export default function HomeV2Page() {
                 <X className="w-4 h-4" />
               </button>
             )}
+          </div>
           </div>
           {/* 버튼: 오른쪽 고정, 내용 크기만큼만 차지 */}
           <div className="shrink-0 flex items-center gap-1.5">
@@ -599,8 +601,8 @@ export default function HomeV2Page() {
           </section>
         )}
 
-        {/* ══ 2. 소상공인 추천 ══ */}
-        {!isFiltered && (
+        {/* ══ 2. 소상공인 추천 ══ 데이터 없으면 제목 포함 전체 숨김 */}
+        {!isFiltered && (adsLoading || premiumAds.length > 0) && (
           <section className="mb-6">
             <h2 className="flex items-center gap-1.5 mb-3">
               <span className="text-base leading-none">🏪</span>
@@ -612,7 +614,7 @@ export default function HomeV2Page() {
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {Array.from({ length: 3 }).map((_, i) => <BusinessCardSkeleton key={i} />)}
               </div>
-            ) : premiumAds.length === 0 ? null : (
+            ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {premiumAds.map((ad) => (
                   <BusinessCard key={ad.id} ad={ad} />

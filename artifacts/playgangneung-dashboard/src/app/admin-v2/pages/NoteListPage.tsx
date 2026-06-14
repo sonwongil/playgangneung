@@ -1,7 +1,8 @@
 import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import AdminLayout from "../layout/AdminLayout";
+import { useToast } from "@/hooks/use-toast";
 import {
   Table,
   TableBody,
@@ -95,8 +96,36 @@ function TableSkeleton() {
 
 // ─── 작업 버튼 ────────────────────────────────────────────────────────────────
 
-function ActionButtons({ eventId }: { eventId: string }) {
+function ActionButtons({ eventId, eventStatus }: { eventId: string; eventStatus: string }) {
   const [, navigate] = useLocation();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const { mutate: approveNote, isPending: isApproving } = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`${BASE}/api/events/${encodeURIComponent(eventId)}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ status: "approved" }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as { error?: string }).error ?? "상태 변경 실패");
+      }
+      return res.json() as Promise<{ success: boolean }>;
+    },
+    onSuccess: () => {
+      toast({ title: "공개 준비 완료", description: "상태가 승인됨으로 변경되었습니다." });
+      void queryClient.invalidateQueries({ queryKey: ["admin-v2-notes-list"] });
+      void queryClient.invalidateQueries({ queryKey: ["admin-v2-inbox"] });
+    },
+    onError: (err: Error) => {
+      toast({ title: "상태 변경 실패", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const canApprove = eventStatus === "draft";
 
   return (
     <div className="flex flex-wrap gap-1 min-w-[220px]">
@@ -136,15 +165,18 @@ function ActionButtons({ eventId }: { eventId: string }) {
         SNS 발행
       </Button>
 
-      {/* 공개 전환 — disabled */}
+      {/* 공개 준비 — draft일 때만 활성화 */}
       <Button
         size="sm"
         variant="outline"
-        className="text-xs h-7 opacity-40 cursor-not-allowed text-green-600 border-green-200 hover:border-green-200"
-        disabled
-        title="다음 단계에서 구현 예정"
+        className={`text-xs h-7 text-green-700 border-green-300 hover:bg-green-50 ${
+          !canApprove || isApproving ? "opacity-40 cursor-not-allowed" : ""
+        }`}
+        disabled={!canApprove || isApproving}
+        onClick={() => approveNote()}
+        title={canApprove ? "draft → approved 전환" : `현재 상태: ${eventStatus}`}
       >
-        공개 전환
+        {isApproving ? "처리 중..." : "공개 준비"}
       </Button>
     </div>
   );
@@ -390,7 +422,7 @@ export default function NoteListPage() {
 
                       {/* 작업 버튼 */}
                       <TableCell className="py-3">
-                        <ActionButtons eventId={event.id} />
+                        <ActionButtons eventId={event.id} eventStatus={event.status} />
                       </TableCell>
                     </TableRow>
                   );
@@ -403,7 +435,7 @@ export default function NoteListPage() {
 
       {/* 안내 */}
       <p className="mt-4 text-xs text-gray-300 text-right">
-        * 오늘의 강릉소식 선정 / SNS 발행 / 공개 전환 버튼은 다음 단계에서 활성화됩니다.
+        * 공개 준비(draft→approved)는 활성화됨. 오늘의 강릉소식 선정 / SNS 발행은 다음 단계에서 활성화됩니다.
       </p>
     </AdminLayout>
   );

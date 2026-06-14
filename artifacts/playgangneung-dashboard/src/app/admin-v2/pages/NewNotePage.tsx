@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { ExternalLink, ArrowLeft, Save, Info, CheckCircle2 } from "lucide-react";
+import { ExternalLink, ArrowLeft, Save, Info, CheckCircle2, Sparkles } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -203,6 +203,27 @@ export default function NewNotePage() {
     setBodyText(blockText);
     setSaved(false);
   }, [event?.id]); // event.id 기준으로 1회만 초기화
+
+  // ── SNS 초안 생성 mutation ──
+  const { mutate: generateDraft, isPending: isGenerating } = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`${BASE}/api/events/${encodeURIComponent(sourceId)}/draft`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as { error?: string }).error ?? "초안 생성 실패");
+      }
+      return res.json() as Promise<{ success: boolean }>;
+    },
+    onSuccess: () => {
+      toast({ title: "SNS 초안이 생성되었습니다.", description: "SNS 발행 페이지에서 확인하세요." });
+    },
+    onError: (err: Error) => {
+      toast({ title: "초안 생성 실패", description: err.message, variant: "destructive" });
+    },
+  });
 
   // ── 저장 mutation ──
   const { mutate: saveNote, isPending: isSaving } = useMutation({
@@ -430,6 +451,18 @@ export default function NewNotePage() {
               <Save className="h-4 w-4 mr-1.5" />
               {isSaving ? "저장 중..." : "초안 저장하기"}
             </Button>
+
+            {sourceId && (
+              <Button
+                variant="outline"
+                className="text-purple-700 border-purple-300 hover:bg-purple-50"
+                onClick={() => generateDraft()}
+                disabled={isGenerating || isSaving}
+              >
+                <Sparkles className="h-4 w-4 mr-1.5" />
+                {isGenerating ? "생성 중..." : "SNS 초안 생성"}
+              </Button>
+            )}
 
             <Button
               variant="outline"

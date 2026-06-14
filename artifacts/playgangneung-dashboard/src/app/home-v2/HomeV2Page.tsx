@@ -606,7 +606,7 @@ export default function HomeV2Page() {
           <section className="mb-6">
             <h2 className="flex items-center gap-1.5 mb-3">
               <span className="text-base leading-none">🏪</span>
-              <span className="text-sm font-extrabold text-gray-900">소상공인 추천</span>
+              <span className="text-sm font-extrabold text-gray-900">강릉시 소상공인추천</span>
               <span className="text-[10px] text-gray-400 font-normal ml-1">강릉 지역 업체</span>
             </h2>
 
@@ -692,11 +692,14 @@ export default function HomeV2Page() {
               {Array.from({ length: 6 }).map((_, i) => <FeedCardSkeleton key={i} />)}
             </div>
           ) : filteredFeed.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 text-gray-400">
+            <div className="flex flex-col items-center justify-center py-16 text-gray-400">
               <Search className="w-10 h-10 mb-3 opacity-20" />
               <p className="text-sm font-medium text-gray-500">
-                {isFiltered ? "검색 결과가 없습니다." : "아직 등록된 콘텐츠가 없습니다."}
+                {isFiltered ? "검색 결과가 없습니다." : "강릉의 새로운 소식을 준비하고 있습니다."}
               </p>
+              {!isFiltered && (
+                <p className="text-xs text-gray-400 mt-1">곧 더 많은 강릉노트가 업데이트됩니다.</p>
+              )}
               {isFiltered && (
                 <Button variant="outline" size="sm" className="mt-4 text-xs min-h-[44px]" onClick={resetFilter}>
                   전체 보기

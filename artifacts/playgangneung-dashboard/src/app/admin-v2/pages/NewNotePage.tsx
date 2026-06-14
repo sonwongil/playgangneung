@@ -460,7 +460,7 @@ export default function NewNotePage() {
                 disabled={isGenerating || isSaving}
               >
                 <Sparkles className="h-4 w-4 mr-1.5" />
-                {isGenerating ? "생성 중..." : "SNS 초안 생성"}
+                {isGenerating ? "생성 중..." : "SNS 초안 미리 생성"}
               </Button>
             )}
 

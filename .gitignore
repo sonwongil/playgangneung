@@ -69,3 +69,11 @@ artifacts/api-server/public/uploads/*
 !artifacts/api-server/data/.gitkeep
 !artifacts/api-server/public/cards/.gitkeep
 !artifacts/api-server/public/uploads/.gitkeep
+
+# Replit / work-session generated assets
+attached_assets/Pasted-*.txt
+attached_assets/screenshots/
+attached_assets/image_*.png
+attached_assets/KakaoTalk_*.jpg
+attached_assets/Screenshot_*.jpg
+attached_assets/targeted_element_*.png
